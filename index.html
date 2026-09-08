@@ -348,7 +348,7 @@
                 </p>
             </div>
 
-            <div class="modulo">
+           <div class="modulo" onclick="abrirListaChequeo()">
                 <h3>✅ Lista de chequeo</h3>
                 <p>
                     Evaluar Control de Accesos, Seguridad Perimetral,
@@ -656,7 +656,425 @@
     }
 
 
-    actualizarContadores();
+    actualizarContadores();// ===============================
+// LISTA DE CHEQUEO DE SEGURIDAD
+// ===============================
+
+const datosChecklist = {
+    "Control de Accesos": [
+        "Amplitud adecuada de los accesos",
+        "Ubicación adecuada del acceso principal",
+        "Portón vehicular en buenas condiciones",
+        "Acceso peatonal en buenas condiciones",
+        "Señalización de acceso visible",
+        "Sistema de CCTV en el acceso",
+        "Sistema de control de acceso",
+        "Iluminación adecuada en el acceso",
+        "Portería en buenas condiciones",
+        "Control de ingreso y salida de visitantes"
+    ],
+
+    "Seguridad Perimetral": [
+        "Cerramiento perimetral en buenas condiciones",
+        "Barrera física adecuada",
+        "Anclaje y estabilidad del cerramiento",
+        "Concertina, púas u otro sistema de protección",
+        "Iluminación del perímetro",
+        "Cámaras CCTV cubren el perímetro",
+        "Sistema electrónico de detección",
+        "Sistema de alarma perimetral",
+        "Rondas de vigilancia del perímetro",
+        "Visibilidad hacia el exterior",
+        "Condiciones de seguridad del entorno",
+        "Relación con autoridades del sector"
+    ],
+
+    "Sistemas Electrónicos de Seguridad": [
+        "Sistema CCTV operativo",
+        "Cobertura adecuada de cámaras",
+        "Calidad de imagen adecuada",
+        "Grabación y almacenamiento de video",
+        "Monitoreo de cámaras",
+        "Sistema de alarma operativo",
+        "Sensores de detección operativos",
+        "Sistema de control de acceso operativo",
+        "Iluminación de seguridad adecuada",
+        "Mantenimiento de los sistemas electrónicos"
+    ],
+
+    "Gestión de Autocuidado": [
+        "Puertas en buenas condiciones",
+        "Ventanas en buenas condiciones",
+        "Sistemas de cierre adecuados",
+        "Cerramiento de la parcelación adecuado",
+        "Rejas o elementos de protección",
+        "Sistema CCTV para autocuidado",
+        "Sistema de alarma",
+        "Condiciones seguras de parqueaderos",
+        "Elementos sensibles debidamente protegidos",
+        "Medidas de prevención conocidas por los residentes"
+    ],
+
+    "Planeación Estratégica": [
+        "Existe un plan de seguridad",
+        "Pólizas de seguro todo riesgo vigentes",
+        "Base de datos de residentes y usuarios",
+        "Identificación del cuadrante de Policía",
+        "Participación en frentes de seguridad",
+        "Red de apoyo de seguridad",
+        "Protocolos de seguridad establecidos",
+        "Protocolos de atención de incidentes",
+        "Comunicación con organismos de seguridad",
+        "Seguimiento a incidentes de seguridad"
+    ],
+
+    "SG-SST / Medio ambiente / Otros": [
+        "Política de seguridad y salud en el trabajo",
+        "Plan de emergencias",
+        "Sistema de alarma contra incendios",
+        "Equipos de extinción disponibles",
+        "Equipos para atención de emergencias",
+        "Señalización de seguridad",
+        "Plan o medidas para manejo de emergencias",
+        "Cuartos técnicos en condiciones adecuadas",
+        "Estructuras comunes en buenas condiciones",
+        "Almacenamiento seguro de productos químicos",
+        "Tanques y áreas técnicas en condiciones adecuadas"
+    ]
+};
+
+
+function abrirListaChequeo() {
+
+    let ventana = document.getElementById("ventanaChecklist");
+
+    if (!ventana) {
+
+        ventana = document.createElement("div");
+        ventana.id = "ventanaChecklist";
+
+        ventana.style.position = "fixed";
+        ventana.style.top = "0";
+        ventana.style.left = "0";
+        ventana.style.width = "100%";
+        ventana.style.height = "100%";
+        ventana.style.background = "rgba(0,0,0,0.65)";
+        ventana.style.zIndex = "9999";
+        ventana.style.overflowY = "auto";
+        ventana.style.padding = "30px";
+        ventana.style.boxSizing = "border-box";
+
+        ventana.innerHTML = `
+            <div style="
+                max-width:1100px;
+                margin:auto;
+                background:white;
+                border-radius:12px;
+                padding:30px;
+                box-shadow:0 10px 40px rgba(0,0,0,0.3);
+            ">
+
+                <div style="
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:center;
+                    margin-bottom:20px;
+                    border-bottom:2px solid #eee;
+                    padding-bottom:15px;
+                ">
+
+                    <div>
+                        <h2 style="margin:0;color:#123b5d;">
+                            Lista de chequeo de seguridad
+                        </h2>
+
+                        <p style="margin:6px 0 0;color:#666;">
+                            Evaluación de condiciones de seguridad integral
+                        </p>
+                    </div>
+
+                    <button
+                        onclick="cerrarListaChequeo()"
+                        style="
+                            background:#d9534f;
+                            color:white;
+                            border:none;
+                            border-radius:6px;
+                            padding:10px 16px;
+                            cursor:pointer;
+                            font-size:16px;
+                        ">
+                        ✕ Cerrar
+                    </button>
+
+                </div>
+
+                <div id="contenidoChecklist"></div>
+
+                <div style="
+                    margin-top:25px;
+                    padding:20px;
+                    background:#f4f6f8;
+                    border-radius:10px;
+                    text-align:center;
+                ">
+
+                    <h3 style="margin-top:0;color:#123b5d;">
+                        Resultado consolidado
+                    </h3>
+
+                    <div id="resultadoChecklist"
+                         style="
+                            font-size:28px;
+                            font-weight:bold;
+                            color:#123b5d;
+                         ">
+                        0%
+                    </div>
+
+                    <p style="color:#666;">
+                        BUENO = 2 &nbsp; | &nbsp;
+                        REGULAR = 1 &nbsp; | &nbsp;
+                        MALO = 0
+                    </p>
+
+                    <button
+                        onclick="guardarChecklist()"
+                        style="
+                            background:#198754;
+                            color:white;
+                            border:none;
+                            border-radius:6px;
+                            padding:12px 25px;
+                            cursor:pointer;
+                            font-size:16px;
+                            font-weight:bold;
+                        ">
+                        💾 Guardar lista de chequeo
+                    </button>
+
+                </div>
+
+            </div>
+        `;
+
+        document.body.appendChild(ventana);
+    }
+
+    generarChecklist();
+
+    ventana.style.display = "block";
+}
+
+
+function generarChecklist() {
+
+    const contenedor = document.getElementById("contenidoChecklist");
+
+    let html = "";
+
+    Object.keys(datosChecklist).forEach((categoria, indice) => {
+
+        html += `
+            <div style="
+                margin-bottom:25px;
+                border:1px solid #ddd;
+                border-radius:10px;
+                overflow:hidden;
+            ">
+
+                <div style="
+                    background:#123b5d;
+                    color:white;
+                    padding:14px 18px;
+                    font-size:18px;
+                    font-weight:bold;
+                ">
+                    ${indice + 1}. ${categoria}
+                </div>
+
+                <div style="padding:10px;">
+        `;
+
+        datosChecklist[categoria].forEach((item, i) => {
+
+            const id = "check_" + indice + "_" + i;
+
+            html += `
+                <div style="
+                    display:grid;
+                    grid-template-columns:1fr 110px 110px 110px;
+                    gap:8px;
+                    align-items:center;
+                    padding:12px 8px;
+                    border-bottom:1px solid #eee;
+                ">
+
+                    <div>
+                        ${item}
+                    </div>
+
+                    <label style="text-align:center;">
+                        <input
+                            type="radio"
+                            name="${id}"
+                            value="2"
+                            onchange="calcularChecklist()">
+                        <br>
+                        <small>BUENO</small>
+                    </label>
+
+                    <label style="text-align:center;">
+                        <input
+                            type="radio"
+                            name="${id}"
+                            value="1"
+                            onchange="calcularChecklist()">
+                        <br>
+                        <small>REGULAR</small>
+                    </label>
+
+                    <label style="text-align:center;">
+                        <input
+                            type="radio"
+                            name="${id}"
+                            value="0"
+                            onchange="calcularChecklist()">
+                        <br>
+                        <small>MALO</small>
+                    </label>
+
+                </div>
+            `;
+
+        });
+
+        html += `
+                </div>
+
+                <div id="resultadoCategoria_${indice}"
+                     style="
+                        padding:12px;
+                        background:#f7f7f7;
+                        text-align:right;
+                        font-weight:bold;
+                     ">
+                    Resultado: 0%
+                </div>
+
+            </div>
+        `;
+    });
+
+    contenedor.innerHTML = html;
+
+    calcularChecklist();
+}
+
+
+function calcularChecklist() {
+
+    let totalPuntos = 0;
+    let totalMaximo = 0;
+
+    Object.keys(datosChecklist).forEach((categoria, indice) => {
+
+        let puntos = 0;
+        let respondidos = 0;
+
+        datosChecklist[categoria].forEach((item, i) => {
+
+            const id = "check_" + indice + "_" + i;
+            const seleccionado = document.querySelector(
+                'input[name="' + id + '"]:checked'
+            );
+
+            if (seleccionado) {
+                puntos += Number(seleccionado.value);
+                respondidos++;
+            }
+
+        });
+
+        const maximo = datosChecklist[categoria].length * 2;
+
+        totalPuntos += puntos;
+        totalMaximo += maximo;
+
+        let porcentaje = 0;
+
+        if (respondidos > 0) {
+            porcentaje = Math.round(
+                (puntos / (datosChecklist[categoria].length * 2)) * 100
+            );
+        }
+
+        const resultado = document.getElementById(
+            "resultadoCategoria_" + indice
+        );
+
+        if (resultado) {
+            resultado.textContent =
+                "Resultado: " + porcentaje + "%";
+        }
+
+    });
+
+    let porcentajeGeneral = 0;
+
+    if (totalMaximo > 0) {
+        porcentajeGeneral = Math.round(
+            (totalPuntos / totalMaximo) * 100
+        );
+    }
+
+    const resultadoGeneral =
+        document.getElementById("resultadoChecklist");
+
+    if (resultadoGeneral) {
+        resultadoGeneral.textContent =
+            porcentajeGeneral + "%";
+    }
+}
+
+
+function guardarChecklist() {
+
+    const resultado =
+        document.getElementById("resultadoChecklist").textContent;
+
+    const registros =
+        JSON.parse(localStorage.getItem("checklists")) || [];
+
+    const inspecciones =
+        JSON.parse(localStorage.getItem("inspecciones")) || [];
+
+    registros.push({
+        fecha: new Date().toISOString(),
+        resultado: resultado,
+        inspeccion: inspecciones.length
+    });
+
+    localStorage.setItem(
+        "checklists",
+        JSON.stringify(registros)
+    );
+
+    alert(
+        "Lista de chequeo guardada correctamente."
+    );
+}
+
+
+function cerrarListaChequeo() {
+
+    const ventana =
+        document.getElementById("ventanaChecklist");
+
+    if (ventana) {
+        ventana.style.display = "none";
+    }
+}
 
 </script>
 
