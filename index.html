@@ -355,8 +355,7 @@
                     Sistemas Electrónicos, Autocuidado y demás áreas.
                 </p>
             </div>
-
-            <div class="modulo">
+<div class="modulo" onclick="abrirHallazgos()">
                 <h3>⚠️ Hallazgos</h3>
                 <p>
                     Registrar hallazgos, observaciones, evidencias
@@ -1073,10 +1072,138 @@ function cerrarListaChequeo() {
 
     if (ventana) {
         ventana.style.display = "none";
+   function abrirHallazgos() {
+    const ventana = document.getElementById("ventanaHallazgos");
+
+    if (ventana) {
+        ventana.style.display = "flex";
     }
 }
 
+function cerrarHallazgos() {
+    const ventana = document.getElementById("ventanaHallazgos");
+
+    if (ventana) {
+        ventana.style.display = "none";
+    }
+}
+
+function guardarHallazgo() {
+
+    const area = document.getElementById("hallazgoArea").value;
+    const elemento = document.getElementById("hallazgoElemento").value;
+    const descripcion = document.getElementById("hallazgoDescripcion").value;
+    const nivel = document.getElementById("hallazgoNivel").value;
+    const recomendacion = document.getElementById("hallazgoRecomendacion").value;
+
+    if (!area || !elemento || !descripcion || !nivel || !recomendacion) {
+        alert("Por favor complete todos los campos del hallazgo.");
+        return;
+    }
+
+    const hallazgos = JSON.parse(
+        localStorage.getItem("hallazgos")
+    ) || [];
+
+    hallazgos.push({
+        fecha: new Date().toISOString(),
+        area: area,
+        elemento: elemento,
+        descripcion: descripcion,
+        nivel: nivel,
+        recomendacion: recomendacion
+    });
+
+    localStorage.setItem(
+        "hallazgos",
+        JSON.stringify(hallazgos)
+    );
+
+    alert("Hallazgo guardado correctamente.");
+
+    document.getElementById("hallazgoArea").value = "";
+    document.getElementById("hallazgoElemento").value = "";
+    document.getElementById("hallazgoDescripcion").value = "";
+    document.getElementById("hallazgoNivel").value = "";
+    document.getElementById("hallazgoRecomendacion").value = "";
+
+    cerrarHallazgos();
+} 
+
 </script>
 
+ <!-- VENTANA DE HALLAZGOS -->
+<div id="ventanaHallazgos" class="modal" style="display:none;">
+
+    <div class="modal-contenido">
+
+        <div class="modal-encabezado">
+            <h2>⚠️ Registro de Hallazgos</h2>
+            <button onclick="cerrarHallazgos()">✖</button>
+        </div>
+
+        <p class="modal-subtitulo">
+            Registro de hallazgos, observaciones, evidencias y recomendaciones.
+        </p>
+
+        <label>Área o categoría</label>
+        <select id="hallazgoArea">
+            <option value="">Seleccione un área</option>
+            <option>Control de Accesos</option>
+            <option>Seguridad Perimetral</option>
+            <option>Sistemas Electrónicos de Seguridad</option>
+            <option>Gestión de Autocuidado</option>
+            <option>Planeación Estratégica</option>
+            <option>SG-SST / Medio ambiente / Otros</option>
+        </select>
+
+        <label>Elemento inspeccionado</label>
+        <input
+            type="text"
+            id="hallazgoElemento"
+            placeholder="Ejemplo: Portón vehicular">
+
+        <label>Descripción del hallazgo</label>
+        <textarea
+            id="hallazgoDescripcion"
+            rows="4"
+            placeholder="Describa detalladamente la condición encontrada"></textarea>
+
+        <label>Nivel de riesgo</label>
+        <select id="hallazgoNivel">
+            <option value="">Seleccione el nivel</option>
+            <option value="Bajo">Bajo</option>
+            <option value="Medio">Medio</option>
+            <option value="Alto">Alto</option>
+            <option value="Crítico">Crítico</option>
+        </select>
+
+        <label>Recomendación / acción preventiva</label>
+        <textarea
+            id="hallazgoRecomendacion"
+            rows="4"
+            placeholder="Indique la medida preventiva recomendada"></textarea>
+
+        <label>Evidencia fotográfica</label>
+        <input
+            type="file"
+            id="hallazgoFotos"
+            accept="image/*"
+            multiple>
+
+        <div id="vistaFotosHallazgo"></div>
+
+        <div class="botones-modal">
+            <button onclick="guardarHallazgo()" class="boton-guardar">
+                💾 Guardar hallazgo
+            </button>
+
+            <button onclick="cerrarHallazgos()" class="boton-cancelar">
+                Cancelar
+            </button>
+        </div>
+
+    </div>
+</div>   
 </body>
 </html>
