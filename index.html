@@ -282,7 +282,88 @@
                 grid-template-columns: 1fr;
             }
         }
-    </style>
+#ventanaHallazgos {
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 20px;
+    box-sizing: border-box;
+}
+
+#ventanaHallazgos .modal-contenido {
+    width: 100%;
+    max-width: 850px;
+    margin: 0 auto;
+    padding: 30px;
+    box-sizing: border-box;
+}
+
+#ventanaHallazgos .modal-encabezado {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+#ventanaHallazgos .modal-encabezado h2 {
+    margin: 0;
+    color: #123b5d;
+}
+
+#ventanaHallazgos .modal-encabezado button {
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #6b7280;
+}
+
+#ventanaHallazgos .modal-subtitulo {
+    color: #6b7280;
+    margin-bottom: 25px;
+}
+
+#ventanaHallazgos label {
+    display: block;
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 6px;
+    color: #374151;
+}
+
+#ventanaHallazgos input,
+#ventanaHallazgos select,
+#ventanaHallazgos textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 11px;
+    margin-bottom: 18px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+}
+
+#ventanaHallazgos textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+#ventanaHallazgos .botones-modal {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+#ventanaHallazgos .boton-cancelar {
+    background: #e5e7eb;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+}
+</style>
 </head>
 
 <body>
