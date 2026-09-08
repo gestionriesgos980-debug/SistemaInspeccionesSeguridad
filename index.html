@@ -444,28 +444,21 @@
                 </p>
             </div>
 
-            <div class="modulo">
-                <h3>📊 Matriz de riesgos</h3>
-                <p>
-                    Evaluar probabilidad, impacto, nivel de riesgo
-                    y medidas de tratamiento.
-                </p>
-            </div>
-
-            <div class="modulo">
-                <h3>📄 Generar informe</h3>
-                <p>
-                    Crear el informe final para entregar al cliente
-                    con la información de la inspección.
-                </p>
-            </div>
-
-        </div>
-
-    </div>
-
+          <div class="modulo" onclick="abrirMatrizRiesgos()">
+    <h3>📊 Matriz de riesgos</h3>
+    <p>
+        Evaluar probabilidad, impacto, nivel de riesgo
+        y medidas de tratamiento.
+    </p>
 </div>
 
+<div class="modulo" onclick="generarInforme()">
+    <h3>📄 Generar informe</h3>
+    <p>
+        Crear el informe final para entregar al cliente
+        con la información de la inspección.
+    </p>
+</div>
 
 <!-- VENTANA NUEVA INSPECCIÓN -->
 
@@ -1372,6 +1365,308 @@ async function guardarHallazgo() {
         </div>
 
     </div>
-</div>   
+</div> <!-- VENTANA MATRIZ DE RIESGOS -->
+<div id="ventanaMatrizRiesgos"
+     class="modal"
+     style="display:none;">
+
+    <div class="modal-contenido">
+
+        <div class="modal-encabezado">
+            <h2>📊 Matriz de riesgos</h2>
+
+            <button onclick="cerrarMatrizRiesgos()">
+                ✕
+            </button>
+        </div>
+
+        <p class="modal-subtitulo">
+            Evaluación de riesgos identificados durante la inspección.
+        </p>
+
+        <div id="listaRiesgos"></div>
+
+        <div class="botones-modal">
+
+            <button onclick="guardarMatrizRiesgos()"
+                    class="boton-guardar">
+                💾 Guardar matriz
+            </button>
+
+            <button onclick="cerrarMatrizRiesgos()"
+                    class="boton-cancelar">
+                Cancelar
+            </button>
+
+        </div>
+
+    </div>
+</div>
+
+<script>
+
+function abrirMatrizRiesgos() {
+
+    const ventana =
+        document.getElementById("ventanaMatrizRiesgos");
+
+    if (ventana) {
+        ventana.style.display = "flex";
+        cargarMatrizRiesgos();
+    }
+}
+
+
+function cerrarMatrizRiesgos() {
+
+    const ventana =
+        document.getElementById("ventanaMatrizRiesgos");
+
+    if (ventana) {
+        ventana.style.display = "none";
+    }
+}
+
+
+function cargarMatrizRiesgos() {
+
+    const contenedor =
+        document.getElementById("listaRiesgos");
+
+    const hallazgos =
+        JSON.parse(localStorage.getItem("hallazgos")) || [];
+
+    if (!hallazgos.length) {
+
+        contenedor.innerHTML = `
+            <div class="mensaje">
+                No hay hallazgos registrados para evaluar.
+            </div>
+        `;
+
+        return;
+    }
+
+    let html = "";
+
+    hallazgos.forEach((hallazgo, indice) => {
+
+        html += `
+            <div style="
+                background:#f8fafc;
+                border:1px solid #dbe3ea;
+                border-radius:10px;
+                padding:18px;
+                margin-bottom:15px;
+            ">
+
+                <h3>Riesgo ${indice + 1}</h3>
+
+                <p>
+                    <strong>Área:</strong>
+                    ${hallazgo.area || "No registrada"}
+                </p>
+
+                <p>
+                    <strong>Elemento:</strong>
+                    ${hallazgo.elemento || "No registrado"}
+                </p>
+
+                <p>
+                    <strong>Hallazgo:</strong>
+                    ${hallazgo.descripcion || "No registrado"}
+                </p>
+
+                <div class="formulario">
+
+                    <div class="campo">
+
+                        <label>Probabilidad</label>
+
+                        <select id="probabilidad_${indice}">
+
+                            <option value="1">1 - Rara</option>
+                            <option value="2">2 - Improbable</option>
+                            <option value="3" selected>3 - Posible</option>
+                            <option value="4">4 - Probable</option>
+                            <option value="5">5 - Casi segura</option>
+
+                        </select>
+
+                    </div>
+
+                    <div class="campo">
+
+                        <label>Impacto</label>
+
+                        <select id="impacto_${indice}">
+
+                            <option value="1">1 - Insignificante</option>
+                            <option value="2">2 - Menor</option>
+                            <option value="3" selected>3 - Moderado</option>
+                            <option value="4">4 - Mayor</option>
+                            <option value="5">5 - Catastrófico</option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+                <p style="margin-top:15px;">
+                    <strong>Nivel calculado:</strong>
+                    <span id="nivelRiesgo_${indice}">
+                        9 - Medio
+                    </span>
+                </p>
+
+                <div class="campo completo">
+
+                    <label>Medida de tratamiento</label>
+
+                    <textarea
+                        id="tratamiento_${indice}"
+                        rows="3"
+                        placeholder="Indique la medida de tratamiento del riesgo">
+                    </textarea>
+
+                </div>
+
+            </div>
+        `;
+    });
+
+    contenedor.innerHTML = html;
+
+    hallazgos.forEach((hallazgo, indice) => {
+
+        calcularNivelRiesgo(indice);
+
+        document
+            .getElementById(`probabilidad_${indice}`)
+            .addEventListener(
+                "change",
+                () => calcularNivelRiesgo(indice)
+            );
+
+        document
+            .getElementById(`impacto_${indice}`)
+            .addEventListener(
+                "change",
+                () => calcularNivelRiesgo(indice)
+            );
+
+    });
+}
+
+
+function calcularNivelRiesgo(indice) {
+
+    const probabilidad =
+        Number(
+            document.getElementById(
+                `probabilidad_${indice}`
+            ).value
+        );
+
+    const impacto =
+        Number(
+            document.getElementById(
+                `impacto_${indice}`
+            ).value
+        );
+
+    const resultado =
+        probabilidad * impacto;
+
+    let nivel = "Bajo";
+
+    if (resultado >= 15) {
+        nivel = "Crítico";
+    } else if (resultado >= 10) {
+        nivel = "Alto";
+    } else if (resultado >= 5) {
+        nivel = "Medio";
+    }
+
+    document.getElementById(
+        `nivelRiesgo_${indice}`
+    ).textContent =
+        resultado + " - " + nivel;
+}
+
+
+function guardarMatrizRiesgos() {
+
+    const hallazgos =
+        JSON.parse(localStorage.getItem("hallazgos")) || [];
+
+    const matriz = [];
+
+    hallazgos.forEach((hallazgo, indice) => {
+
+        const probabilidad =
+            Number(
+                document.getElementById(
+                    `probabilidad_${indice}`
+                ).value
+            );
+
+        const impacto =
+            Number(
+                document.getElementById(
+                    `impacto_${indice}`
+                ).value
+            );
+
+        const puntuacion =
+            probabilidad * impacto;
+
+        let nivel = "Bajo";
+
+        if (puntuacion >= 15) {
+            nivel = "Crítico";
+        } else if (puntuacion >= 10) {
+            nivel = "Alto";
+        } else if (puntuacion >= 5) {
+            nivel = "Medio";
+        }
+
+        matriz.push({
+
+            hallazgo: hallazgo.descripcion || "",
+
+            area: hallazgo.area || "",
+
+            elemento: hallazgo.elemento || "",
+
+            probabilidad: probabilidad,
+
+            impacto: impacto,
+
+            puntuacion: puntuacion,
+
+            nivel: nivel,
+
+            tratamiento:
+                document.getElementById(
+                    `tratamiento_${indice}`
+                ).value
+
+        });
+
+    });
+
+    localStorage.setItem(
+        "matrizRiesgos",
+        JSON.stringify(matriz)
+    );
+
+    alert(
+        "Matriz de riesgos guardada correctamente."
+    );
+}
+
+</script>   
 </body>
 </html>
