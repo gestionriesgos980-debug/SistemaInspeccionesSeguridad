@@ -1170,36 +1170,121 @@ function cerrarHallazgos() {
     }
 }
 
-function guardarHallazgo() {
+async function guardarHallazgo() {
 
     const area = document.getElementById("hallazgoArea").value;
     const elemento = document.getElementById("hallazgoElemento").value;
     const descripcion = document.getElementById("hallazgoDescripcion").value;
     const nivel = document.getElementById("hallazgoNivel").value;
     const recomendacion = document.getElementById("hallazgoRecomendacion").value;
+    const archivos = document.getElementById("hallazgoFotos").files;
 
     if (!area || !elemento || !descripcion || !nivel || !recomendacion) {
         alert("Por favor complete todos los campos del hallazgo.");
         return;
     }
 
+    /* Convertir y comprimir fotografías */
+    const fotos = await Promise.all(
+        Array.from(archivos).map(archivo => {
+
+            return new Promise((resolve, reject) => {
+
+                const lector = new FileReader();
+
+                lector.onload = function(evento) {
+
+                    const imagen = new Image();
+
+                    imagen.onload = function() {
+
+                        const maximo = 1200;
+
+                        let ancho = imagen.width;
+                        let alto = imagen.height;
+
+                        if (ancho > maximo || alto > maximo) {
+
+                            if (ancho > alto) {
+                                alto = Math.round(alto * maximo / ancho);
+                                ancho = maximo;
+                            } else {
+                                ancho = Math.round(ancho * maximo / alto);
+                                alto = maximo;
+                            }
+                        }
+
+                        const canvas = document.createElement("canvas");
+
+                        canvas.width = ancho;
+                        canvas.height = alto;
+
+                        const contexto = canvas.getContext("2d");
+
+                        contexto.drawImage(
+                            imagen,
+                            0,
+                            0,
+                            ancho,
+                            alto
+                        );
+
+                        const fotoComprimida = canvas.toDataURL(
+                            "image/jpeg",
+                            0.75
+                        );
+
+                        resolve(fotoComprimida);
+                    };
+
+                    imagen.onerror = reject;
+                    imagen.src = evento.target.result;
+                };
+
+                lector.onerror = reject;
+
+                lector.readAsDataURL(archivo);
+            });
+        })
+    );
+
     const hallazgos = JSON.parse(
         localStorage.getItem("hallazgos")
     ) || [];
 
     hallazgos.push({
+
         fecha: new Date().toISOString(),
+
         area: area,
+
         elemento: elemento,
+
         descripcion: descripcion,
+
         nivel: nivel,
-        recomendacion: recomendacion
+
+        recomendacion: recomendacion,
+
+        fotos: fotos
     });
 
-    localStorage.setItem(
-        "hallazgos",
-        JSON.stringify(hallazgos)
-    );
+    try {
+
+        localStorage.setItem(
+            "hallazgos",
+            JSON.stringify(hallazgos)
+        );
+
+    } catch (error) {
+
+        alert(
+            "No fue posible guardar las fotografías. " +
+            "Intente seleccionar menos fotografías o imágenes más pequeñas."
+        );
+
+        return;
+    }
 
     alert("Hallazgo guardado correctamente.");
 
@@ -1208,9 +1293,10 @@ function guardarHallazgo() {
     document.getElementById("hallazgoDescripcion").value = "";
     document.getElementById("hallazgoNivel").value = "";
     document.getElementById("hallazgoRecomendacion").value = "";
+    document.getElementById("hallazgoFotos").value = "";
 
     cerrarHallazgos();
-} 
+}
 
 </script>
 
