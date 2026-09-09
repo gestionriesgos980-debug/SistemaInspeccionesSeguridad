@@ -1054,6 +1054,7 @@ function calcularChecklist() {
 
     let totalPuntos = 0;
     let totalMaximo = 0;
+    const resultadosPorCategoria = {};
 
     Object.keys(datosChecklist).forEach((categoria, indice) => {
 
@@ -1095,17 +1096,15 @@ function calcularChecklist() {
             resultado.textContent =
                 "Resultado: " + porcentaje + "%";
         }
-
+resultadosPorCategoria[categoria] = porcentaje;
     });
+let porcentajeGeneral = 0;
 
-    let porcentajeGeneral = 0;
-
-    if (totalMaximo > 0) {
-        porcentajeGeneral = Math.round(
-            (totalPuntos / totalMaximo) * 100
-        );
-    }
-
+if (totalMaximo > 0) {
+    porcentajeGeneral = Math.round(
+        (totalPuntos / totalMaximo) * 100
+    );
+}
     const resultadoGeneral =
         document.getElementById("resultadoChecklist");
 
@@ -1113,8 +1112,11 @@ function calcularChecklist() {
         resultadoGeneral.textContent =
             porcentajeGeneral + "%";
     }
+    localStorage.setItem(
+    "resultadosChecklistCategorias",
+    JSON.stringify(resultadosPorCategoria)
+);
 }
-
 
 function guardarChecklist() {
 
