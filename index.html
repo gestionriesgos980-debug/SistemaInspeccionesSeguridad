@@ -2061,18 +2061,155 @@ function generarInforme() {
 
             <div class="hoja">
 
-                <div class="encabezado">
+              <div class="encabezado">
 
-                    <h1>
-                        INFORME DE INSPECCIÓN DE SEGURIDAD
-                    </h1>
+    <table style="
+        width:100%;
+        border-collapse:collapse;
+        margin-bottom:18px;
+        font-size:12px;
+    ">
 
-                    <p>
-                        Sistema de Inspecciones de Seguridad
-                    </p>
+        <tr>
 
-                </div>
+            <td style="
+                width:20%;
+                border:1px solid #555;
+                padding:10px;
+                font-weight:bold;
+                text-align:center;
+            ">
+                COTRASER C.T.A.
+            </td>
 
+            <td style="
+                width:55%;
+                border:1px solid #555;
+                padding:10px;
+                text-align:center;
+                font-weight:bold;
+                font-size:16px;
+                color:#123b5d;
+            ">
+                INFORME PREVENTIVO DE<br>
+                SEGURIDAD INTEGRAL
+            </td>
+
+            <td style="
+                width:25%;
+                border:1px solid #555;
+                padding:8px;
+                text-align:center;
+            ">
+
+                <strong>PSOF004</strong><br>
+
+                Versión No. 003<br>
+
+                Fecha:
+                ${escapar(inspeccion.fecha)}
+
+            </td>
+
+        </tr>
+
+        <tr>
+
+            <td colspan="3" style="
+                border:1px solid #555;
+                padding:5px;
+                text-align:center;
+                font-weight:bold;
+                color:#c00000;
+            ">
+                - CONFIDENCIAL -
+            </td>
+
+        </tr>
+
+        <tr>
+
+            <td colspan="3" style="
+                border:1px solid #555;
+                padding:8px;
+                text-align:center;
+                font-weight:bold;
+            ">
+                ${escapar(inspeccion.cliente)}
+            </td>
+
+        </tr>
+
+    </table>
+
+
+    <table style="
+        width:100%;
+        border-collapse:collapse;
+        font-size:12px;
+        margin-bottom:20px;
+    ">
+
+        <tr>
+
+            <td style="
+                border:1px solid #777;
+                padding:7px;
+                background:#f1f1f1;
+                font-weight:bold;
+                width:18%;
+            ">
+                ELABORADO POR
+            </td>
+
+            <td style="
+                border:1px solid #777;
+                padding:7px;
+                width:32%;
+            ">
+                ${escapar(inspeccion.inspector)}
+            </td>
+
+            <td style="
+                border:1px solid #777;
+                padding:7px;
+                background:#f1f1f1;
+                font-weight:bold;
+                width:18%;
+            ">
+                DIRECTOR
+            </td>
+
+            <td style="
+                border:1px solid #777;
+                padding:7px;
+                width:32%;
+            ">
+                ${escapar(inspeccion.director)}
+            </td>
+
+        </tr>
+
+    </table>
+
+
+    <h1 style="
+        margin:10px 0 0 0;
+        font-size:24px;
+        color:#123b5d;
+    ">
+        INFORME DE INSPECCIÓN DE SEGURIDAD
+    </h1>
+
+    <p style="
+        margin:6px 0 0 0;
+        color:#666;
+        font-size:13px;
+    ">
+        ${escapar(inspeccion.tipo)}
+    </p>
+
+</div>
 
                 <h2>
                     1. Información general de la inspección
