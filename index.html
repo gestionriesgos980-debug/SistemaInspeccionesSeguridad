@@ -1676,7 +1676,616 @@ function guardarMatrizRiesgos() {
     );
 }
 function generarInforme() {
-    alert("Generar informe está funcionando.");
+
+    const inspecciones =
+        JSON.parse(localStorage.getItem("inspecciones")) || [];
+
+    const checklists =
+        JSON.parse(localStorage.getItem("checklists")) || [];
+
+    const hallazgos =
+        JSON.parse(localStorage.getItem("hallazgos")) || [];
+
+    const matriz =
+        JSON.parse(localStorage.getItem("matrizRiesgos")) || [];
+
+    if (!inspecciones.length) {
+        alert("No hay una inspección registrada.");
+        return;
+    }
+
+    const inspeccion =
+        inspecciones[inspecciones.length - 1];
+
+    const checklist =
+        checklists.length
+            ? checklists[checklists.length - 1]
+            : null;
+
+    const ventana =
+        window.open("", "_blank");
+
+    if (!ventana) {
+
+        alert(
+            "El navegador bloqueó la ventana del informe. " +
+            "Permita las ventanas emergentes para este sitio."
+        );
+
+        return;
+    }
+
+    function escapar(valor) {
+
+        return String(valor ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    /* =========================
+       HALLAZGOS
+    ========================= */
+
+    let filasHallazgos = "";
+
+    hallazgos.forEach((hallazgo, indice) => {
+
+        let fotosHTML = "";
+
+        if (
+            Array.isArray(hallazgo.fotos) &&
+            hallazgo.fotos.length
+        ) {
+
+            fotosHTML = `
+                <div class="fotos">
+                    ${hallazgo.fotos.map(foto => `
+                        <img src="${foto}" alt="Evidencia fotográfica">
+                    `).join("")}
+                </div>
+            `;
+        }
+
+        filasHallazgos += `
+            <tr>
+                <td>${indice + 1}</td>
+                <td>${escapar(hallazgo.area)}</td>
+                <td>${escapar(hallazgo.elemento)}</td>
+                <td>
+                    ${escapar(hallazgo.descripcion)}
+                    ${fotosHTML}
+                </td>
+                <td>${escapar(hallazgo.nivel)}</td>
+                <td>${escapar(hallazgo.recomendacion)}</td>
+            </tr>
+        `;
+    });
+
+    if (!filasHallazgos) {
+
+        filasHallazgos = `
+            <tr>
+                <td colspan="6">
+                    No se registraron hallazgos.
+                </td>
+            </tr>
+        `;
+    }
+
+
+    /* =========================
+       MATRIZ DE RIESGOS
+    ========================= */
+
+    let filasMatriz = "";
+
+    matriz.forEach((riesgo, indice) => {
+
+        filasMatriz += `
+            <tr>
+                <td>${indice + 1}</td>
+                <td>${escapar(riesgo.area)}</td>
+                <td>${escapar(riesgo.elemento)}</td>
+                <td>${escapar(riesgo.probabilidad)}</td>
+                <td>${escapar(riesgo.impacto)}</td>
+                <td>${escapar(riesgo.puntuacion)}</td>
+                <td>
+                    <strong>
+                        ${escapar(riesgo.nivel)}
+                    </strong>
+                </td>
+                <td>${escapar(riesgo.tratamiento)}</td>
+            </tr>
+        `;
+    });
+
+    if (!filasMatriz) {
+
+        filasMatriz = `
+            <tr>
+                <td colspan="8">
+                    No se registró matriz de riesgos.
+                </td>
+            </tr>
+        `;
+    }
+
+
+    /* =========================
+       DOCUMENTO
+    ========================= */
+
+    ventana.document.write(`
+
+        <!DOCTYPE html>
+
+        <html lang="es">
+
+        <head>
+
+            <meta charset="UTF-8">
+
+            <title>
+                Informe de Inspección de Seguridad
+            </title>
+
+            <style>
+
+                body {
+
+                    font-family:
+                        Arial,
+                        Helvetica,
+                        sans-serif;
+
+                    color:#222;
+
+                    margin:0;
+
+                    background:white;
+                }
+
+                .hoja {
+
+                    max-width:1100px;
+
+                    margin:auto;
+
+                    padding:45px;
+                }
+
+                .encabezado {
+
+                    border-bottom:4px solid #123b5d;
+
+                    padding-bottom:20px;
+
+                    margin-bottom:25px;
+
+                    text-align:center;
+                }
+
+                .encabezado h1 {
+
+                    margin:0;
+
+                    color:#123b5d;
+
+                    font-size:28px;
+                }
+
+                .encabezado p {
+
+                    margin-top:8px;
+
+                    color:#666;
+
+                    font-size:14px;
+                }
+
+                h2 {
+
+                    color:#123b5d;
+
+                    border-bottom:2px solid #123b5d;
+
+                    padding-bottom:6px;
+
+                    margin-top:32px;
+                }
+
+                table {
+
+                    width:100%;
+
+                    border-collapse:collapse;
+
+                    margin-top:15px;
+
+                    font-size:12px;
+                }
+
+                th {
+
+                    background:#123b5d;
+
+                    color:white;
+
+                    padding:9px;
+
+                    border:1px solid #aaa;
+
+                    text-align:left;
+                }
+
+                td {
+
+                    padding:8px;
+
+                    border:1px solid #aaa;
+
+                    vertical-align:top;
+                }
+
+                .datos td:first-child {
+
+                    width:190px;
+
+                    background:#f1f4f7;
+
+                    font-weight:bold;
+                }
+
+                .resultado {
+
+                    text-align:center;
+
+                    font-size:32px;
+
+                    font-weight:bold;
+
+                    padding:25px;
+
+                    margin:15px 0;
+
+                    background:#f1f4f7;
+
+                    border-radius:8px;
+
+                    color:#123b5d;
+                }
+
+                .fotos {
+
+                    display:flex;
+
+                    flex-wrap:wrap;
+
+                    gap:8px;
+
+                    margin-top:10px;
+                }
+
+                .fotos img {
+
+                    width:160px;
+
+                    height:120px;
+
+                    object-fit:cover;
+
+                    border:1px solid #bbb;
+
+                    border-radius:5px;
+                }
+
+                .botones {
+
+                    text-align:center;
+
+                    margin:35px 0;
+                }
+
+                .botones button {
+
+                    padding:12px 22px;
+
+                    border:none;
+
+                    border-radius:6px;
+
+                    background:#123b5d;
+
+                    color:white;
+
+                    font-size:15px;
+
+                    cursor:pointer;
+                }
+
+                .firmas {
+
+                    display:flex;
+
+                    justify-content:space-between;
+
+                    margin-top:90px;
+
+                    gap:60px;
+                }
+
+                .firma {
+
+                    width:45%;
+
+                    text-align:center;
+
+                    border-top:1px solid #333;
+
+                    padding-top:8px;
+                }
+
+                .pie {
+
+                    margin-top:40px;
+
+                    text-align:center;
+
+                    color:#777;
+
+                    font-size:11px;
+                }
+
+                @media print {
+
+                    .botones {
+
+                        display:none;
+                    }
+
+                    .hoja {
+
+                        padding:20px;
+                    }
+
+                }
+
+            </style>
+
+        </head>
+
+        <body>
+
+            <div class="hoja">
+
+                <div class="encabezado">
+
+                    <h1>
+                        INFORME DE INSPECCIÓN DE SEGURIDAD
+                    </h1>
+
+                    <p>
+                        Sistema de Inspecciones de Seguridad
+                    </p>
+
+                </div>
+
+
+                <h2>
+                    1. Información general de la inspección
+                </h2>
+
+                <table class="datos">
+
+                    <tr>
+                        <td>Cliente</td>
+                        <td>${escapar(inspeccion.cliente)}</td>
+                    </tr>
+
+                    <tr>
+                        <td>NIT</td>
+                        <td>${escapar(inspeccion.nit)}</td>
+                    </tr>
+
+                    <tr>
+                        <td>Dirección</td>
+                        <td>${escapar(inspeccion.direccion)}</td>
+                    </tr>
+
+                    <tr>
+                        <td>Ciudad</td>
+                        <td>${escapar(inspeccion.ciudad)}</td>
+                    </tr>
+
+                    <tr>
+                        <td>Contacto</td>
+                        <td>${escapar(inspeccion.contacto)}</td>
+                    </tr>
+
+                    <tr>
+                        <td>Teléfono</td>
+                        <td>${escapar(inspeccion.telefono)}</td>
+                    </tr>
+
+                    <tr>
+                        <td>Correo</td>
+                        <td>${escapar(inspeccion.correo)}</td>
+                    </tr>
+
+                    <tr>
+                        <td>Fecha</td>
+                        <td>${escapar(inspeccion.fecha)}</td>
+                    </tr>
+
+                    <tr>
+                        <td>Inspector</td>
+                        <td>${escapar(inspeccion.inspector)}</td>
+                    </tr>
+
+                    <tr>
+                        <td>Director</td>
+                        <td>${escapar(inspeccion.director)}</td>
+                    </tr>
+
+                    <tr>
+                        <td>Tipo de inspección</td>
+                        <td>${escapar(inspeccion.tipo)}</td>
+                    </tr>
+
+                    <tr>
+                        <td>Objetivo</td>
+                        <td>${escapar(inspeccion.objetivo)}</td>
+                    </tr>
+
+                    <tr>
+                        <td>Descripción del entorno</td>
+                        <td>${escapar(inspeccion.entorno)}</td>
+                    </tr>
+
+                </table>
+
+
+                <h2>
+                    2. Resultado de la lista de chequeo
+                </h2>
+
+                <div class="resultado">
+
+                    ${
+                        checklist
+                            ? escapar(checklist.resultado)
+                            : "Sin resultado"
+                    }
+
+                </div>
+
+
+                <h2>
+                    3. Hallazgos identificados
+                </h2>
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+
+                            <th>#</th>
+                            <th>Área</th>
+                            <th>Elemento</th>
+                            <th>Descripción / evidencia</th>
+                            <th>Nivel</th>
+                            <th>Recomendación</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        ${filasHallazgos}
+
+                    </tbody>
+
+                </table>
+
+
+                <h2>
+                    4. Matriz de riesgos
+                </h2>
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+
+                            <th>#</th>
+                            <th>Área</th>
+                            <th>Elemento</th>
+                            <th>Probabilidad</th>
+                            <th>Impacto</th>
+                            <th>Puntuación</th>
+                            <th>Nivel</th>
+                            <th>Tratamiento</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        ${filasMatriz}
+
+                    </tbody>
+
+                </table>
+
+
+                <div class="firmas">
+
+                    <div class="firma">
+                        Inspector de seguridad
+                    </div>
+
+                    <div class="firma">
+                        Responsable del cliente
+                    </div>
+
+                </div>
+
+
+                <div class="botones">
+
+                    <button onclick="window.print()">
+                        🖨️ Imprimir / Guardar como PDF
+                    </button>
+
+                </div>
+
+
+                <div class="pie">
+
+                    Informe generado por el Sistema de
+                    Inspecciones de Seguridad
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    `);
+
+    ventana.document.close();
+
+
+    /* Registrar informe generado */
+
+    const informes =
+        Number(
+            localStorage.getItem("informesGenerados") || 0
+        ) + 1;
+
+    localStorage.setItem(
+        "informesGenerados",
+        String(informes)
+    );
+
+    const contador =
+        document.getElementById("totalInformes");
+
+    if (contador) {
+
+        contador.textContent =
+            informes;
+    }
+
 }
 </script>   
 </body>
