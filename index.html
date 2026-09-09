@@ -1453,7 +1453,9 @@ function cargarMatrizRiesgos() {
         document.getElementById("listaRiesgos");
 
     const hallazgos =
-        JSON.parse(localStorage.getItem("hallazgos")) || [];
+        JSON.parse(
+            localStorage.getItem("hallazgos")
+        ) || [];
 
     if (!hallazgos.length) {
 
@@ -1468,7 +1470,7 @@ function cargarMatrizRiesgos() {
 
     let html = "";
 
-    
+    hallazgos.forEach((hallazgo, indice) => {
 
         html += `
             <div style="
@@ -1504,15 +1506,30 @@ function cargarMatrizRiesgos() {
 
                         <select id="probabilidad_${indice}">
 
-                            <option value="1">1 - Rara</option>
-                            <option value="2">2 - Improbable</option>
-                            <option value="3" selected>3 - Posible</option>
-                            <option value="4">4 - Probable</option>
-                            <option value="5">5 - Casi segura</option>
+                            <option value="1">
+                                1 - Rara
+                            </option>
+
+                            <option value="2">
+                                2 - Improbable
+                            </option>
+
+                            <option value="3" selected>
+                                3 - Posible
+                            </option>
+
+                            <option value="4">
+                                4 - Probable
+                            </option>
+
+                            <option value="5">
+                                5 - Casi segura
+                            </option>
 
                         </select>
 
                     </div>
+
 
                     <div class="campo">
 
@@ -1520,11 +1537,25 @@ function cargarMatrizRiesgos() {
 
                         <select id="impacto_${indice}">
 
-                            <option value="1">1 - Insignificante</option>
-                            <option value="2">2 - Menor</option>
-                            <option value="3" selected>3 - Moderado</option>
-                            <option value="4">4 - Mayor</option>
-                            <option value="5">5 - Catastrófico</option>
+                            <option value="1">
+                                1 - Insignificante
+                            </option>
+
+                            <option value="2">
+                                2 - Menor
+                            </option>
+
+                            <option value="3" selected>
+                                3 - Moderado
+                            </option>
+
+                            <option value="4">
+                                4 - Mayor
+                            </option>
+
+                            <option value="5">
+                                5 - Catastrófico
+                            </option>
 
                         </select>
 
@@ -1532,16 +1563,23 @@ function cargarMatrizRiesgos() {
 
                 </div>
 
+
                 <p style="margin-top:15px;">
+
                     <strong>Nivel calculado:</strong>
+
                     <span id="nivelRiesgo_${indice}">
                         9 - Medio
                     </span>
+
                 </p>
+
 
                 <div class="campo completo">
 
-                    <label>Medida de tratamiento</label>
+                    <label>
+                        Medida de tratamiento
+                    </label>
 
                     <textarea
                         id="tratamiento_${indice}"
@@ -1553,13 +1591,17 @@ function cargarMatrizRiesgos() {
 
             </div>
         `;
+
     });
+
 
     contenedor.innerHTML = html;
 
-    
+
+    hallazgos.forEach((hallazgo, indice) => {
 
         calcularNivelRiesgo(indice);
+
 
         document
             .getElementById(`probabilidad_${indice}`)
@@ -1567,6 +1609,7 @@ function cargarMatrizRiesgos() {
                 "change",
                 () => calcularNivelRiesgo(indice)
             );
+
 
         document
             .getElementById(`impacto_${indice}`)
@@ -1576,6 +1619,7 @@ function cargarMatrizRiesgos() {
             );
 
     });
+
 }
 
 
