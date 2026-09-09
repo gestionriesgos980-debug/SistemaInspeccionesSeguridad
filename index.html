@@ -1273,15 +1273,17 @@ async function guardarHallazgo() {
 
 } catch (error) {
 
-        alert(
-            "No fue posible guardar las fotografías. " +
-            "Intente seleccionar menos fotografías o imágenes más pequeñas."
-        );
+    alert(
+        "No fue posible guardar las fotografías. " +
+        "Intente seleccionar menos fotografías o imágenes más pequeñas."
+    );
 
-        return;
-    }
+    return;
+}
 
-    alert("Hallazgo guardado correctamente.");
+actualizarContadores();
+
+alert("Hallazgo guardado correctamente.");
 
     document.getElementById("hallazgoArea").value = "";
     document.getElementById("hallazgoElemento").value = "";
