@@ -709,24 +709,29 @@
 
         });
 
+function actualizarContadores() {
 
-    function actualizarContadores() {
+    const inspecciones =
+        JSON.parse(localStorage.getItem("inspecciones")) || [];
 
-        const inspecciones =
-            JSON.parse(localStorage.getItem("inspecciones")) || [];
+    document.getElementById("totalInspecciones").textContent =
+        inspecciones.length;
 
-        document.getElementById("totalInspecciones").textContent =
-            inspecciones.length;
+    const clientes = new Set(
+        inspecciones
+            .map(i => i.cliente)
+            .filter(c => c)
+    );
 
-        const clientes = new Set(
-            inspecciones
-                .map(i => i.cliente)
-                .filter(c => c)
-        );
+    document.getElementById("totalClientes").textContent =
+        clientes.size;
 
-        document.getElementById("totalClientes").textContent =
-            clientes.size;
-    }
+    const hallazgos =
+        JSON.parse(localStorage.getItem("hallazgos")) || [];
+
+    document.getElementById("totalHallazgos").textContent =
+        hallazgos.length;
+}
 
 
     actualizarContadores();// ===============================
