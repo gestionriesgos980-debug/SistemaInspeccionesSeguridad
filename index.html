@@ -2277,10 +2277,110 @@ function generarInforme() {
                 </table>
 
 
-                <h2>
-                    2. Resultado de la lista de chequeo
-                </h2>
+               <h2>
+    2. Objetivo y metodología
+</h2>
 
+<div style="
+    margin-top:15px;
+    padding:18px;
+    border:1px solid #999;
+    background:#fafafa;
+">
+
+    <h3 style="
+        margin:0 0 10px 0;
+        color:#123b5d;
+    ">
+        Objetivo General
+    </h3>
+
+    <p style="
+        margin:0 0 18px 0;
+        text-align:justify;
+        line-height:1.5;
+    ">
+        ${escapar(
+            inspeccion.objetivo ||
+            "Realizar un diagnóstico integral de las condiciones de seguridad de la copropiedad."
+        )}
+    </p>
+
+    <h3 style="
+        margin:0 0 10px 0;
+        color:#123b5d;
+    ">
+        Objetivos Específicos
+    </h3>
+
+    <ol style="
+        margin:0 0 18px 20px;
+        padding:0;
+        text-align:justify;
+        line-height:1.5;
+    ">
+
+        <li>
+            Identificar los aspectos positivos y los puntos críticos
+            para la seguridad de la copropiedad mediante la aplicación
+            de la lista de verificación.
+        </li>
+
+        <li>
+            Evaluar las condiciones de los accesos y cerramientos,
+            identificando posibles vulnerabilidades frente a ingresos
+            no autorizados.
+        </li>
+
+        <li>
+            Revisar las condiciones de los sistemas tecnológicos de
+            seguridad, incluyendo CCTV, alarmas e iluminación.
+        </li>
+
+        <li>
+            Identificar condiciones que puedan favorecer la materialización
+            de riesgos y establecer medidas preventivas y de mitigación.
+        </li>
+
+        <li>
+            Formular recomendaciones orientadas al fortalecimiento
+            de las condiciones de seguridad de la copropiedad.
+        </li>
+
+    </ol>
+
+    <h3 style="
+        margin:0 0 10px 0;
+        color:#123b5d;
+    ">
+        Metodología
+    </h3>
+
+    <p style="
+        margin:0;
+        text-align:justify;
+        line-height:1.5;
+    ">
+        Para la realización del presente estudio de seguridad se empleó
+        una visita a la copropiedad, con toma de fotografías, entrevistas
+        y aplicación de lista de chequeo.
+    </p>
+
+    <p style="
+        margin:12px 0 0 0;
+        text-align:justify;
+        line-height:1.5;
+    ">
+        Los parámetros de observación comprenden Control de Accesos,
+        Seguridad Perimetral, Sistemas Electrónicos de Seguridad,
+        Gestión de Autocuidado, Planeación Estratégica y SG-SST,
+        Medio Ambiente y otros aspectos.
+    </p>
+
+</div>
+<h2>
+    3. Resultado de la lista de chequeo
+</h2>
                 <div class="resultado">
 
                     ${
@@ -2292,9 +2392,9 @@ function generarInforme() {
                 </div>
 
 
-                <h2>
-                    3. Hallazgos identificados
-                </h2>
+              <h2>
+    4. Hallazgos identificados
+</h2>
 
                 <table>
 
