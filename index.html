@@ -2510,7 +2510,53 @@ Object.keys(resultadosCategorias).forEach(categoria => {
                     }
 
                 </div>
+<div style="
+    margin-top:15px;
+    padding:18px;
+    border:1px solid #999;
+    background:#fafafa;
+">
 
+    <h3 style="
+        margin:0 0 12px 0;
+        color:#123b5d;
+    ">
+        Perfil de criticidad
+    </h3>
+
+    <p style="
+        margin:0;
+        text-align:justify;
+        line-height:1.5;
+    ">
+        ${
+            (() => {
+
+                const valor = checklist
+                    ? parseInt(
+                        String(checklist.resultado)
+                            .replace("%", "")
+                    ) || 0
+                    : 0;
+
+                if (valor >= 76) {
+                    return "<strong>BUENO</strong> – Las condiciones evaluadas presentan un comportamiento favorable y requieren mantener las medidas existentes.";
+                }
+
+                if (valor >= 51) {
+                    return "<strong>SUFICIENTE</strong> – Las condiciones evaluadas son aceptables, pero existen oportunidades de mejora que deben ser atendidas.";
+                }
+
+                if (valor >= 26) {
+                    return "<strong>REGULAR</strong> – Se identifican condiciones que requieren acciones de mejora y medidas de mitigación.";
+                }
+
+                return "<strong>DÉBIL</strong> – Se identifican condiciones deficientes que requieren atención prioritaria.";
+            })()
+        }
+    </p>
+
+</div>
 
               <h2>
     4. Hallazgos identificados
