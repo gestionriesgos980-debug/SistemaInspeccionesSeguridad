@@ -1594,34 +1594,27 @@ function cargarMatrizRiesgos() {
 
     });
 
+contenedor.innerHTML = html;
 
-    contenedor.innerHTML = html;
+hallazgos.forEach((hallazgo, indice) => {
 
+    calcularNivelRiesgo(indice);
 
-    hallazgos.forEach((hallazgo, indice) => {
+    document
+        .getElementById(`probabilidad_${indice}`)
+        .addEventListener(
+            "change",
+            () => calcularNivelRiesgo(indice)
+        );
 
-        calcularNivelRiesgo(indice);
+    document
+        .getElementById(`impacto_${indice}`)
+        .addEventListener(
+            "change",
+            () => calcularNivelRiesgo(indice)
+        );
 
-
-        document
-            .getElementById(`probabilidad_${indice}`)
-            .addEventListener(
-                "change",
-                () => calcularNivelRiesgo(indice)
-            );
-
-
-        document
-            .getElementById(`impacto_${indice}`)
-            .addEventListener(
-                "change",
-                () => calcularNivelRiesgo(indice)
-            );
-
-    });
-
-}
-
+});
 
 function calcularNivelRiesgo(indice) {
 
