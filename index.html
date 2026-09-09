@@ -598,7 +598,132 @@
 
             </div>
 
+<!-- HISTÓRICO DE INCIDENTES -->
+<div class="section">
 
+    <h3>3. Histórico de incidentes (último año)</h3>
+
+    <div style="
+        margin-bottom:15px;
+        padding:12px;
+        background:#f5f7fa;
+        border:1px solid #ccc;
+        border-radius:6px;
+    ">
+        <label style="display:flex;align-items:center;gap:8px;">
+            <input
+                type="checkbox"
+                id="sinIncidentes"
+            >
+            <strong>No se reportaron incidentes durante el último año</strong>
+        </label>
+    </div>
+
+    <div style="overflow-x:auto;">
+
+        <table
+            id="tablaIncidentes"
+            style="
+                width:100%;
+                border-collapse:collapse;
+                margin-bottom:12px;
+            "
+        >
+
+            <thead>
+                <tr style="background:#123b5d;color:white;">
+
+                    <th style="
+                        padding:8px;
+                        border:1px solid #999;
+                    ">
+                        Riesgos materializados
+                    </th>
+
+                    <th style="
+                        padding:8px;
+                        border:1px solid #999;
+                    ">
+                        Incidente
+                    </th>
+
+                    <th style="
+                        padding:8px;
+                        border:1px solid #999;
+                    ">
+                        Consecuencias
+                    </th>
+
+                    <th style="
+                        padding:8px;
+                        border:1px solid #999;
+                        width:80px;
+                    ">
+                        Acción
+                    </th>
+
+                </tr>
+            </thead>
+
+            <tbody id="cuerpoIncidentes">
+
+                <tr>
+
+                    <td style="padding:6px;border:1px solid #999;">
+                        <input
+                            type="text"
+                            class="riesgo-incidente"
+                            placeholder="Ej. Hurto, intrusión, accidente..."
+                        >
+                    </td>
+
+                    <td style="padding:6px;border:1px solid #999;">
+                        <input
+                            type="text"
+                            class="detalle-incidente"
+                            placeholder="Describa el incidente"
+                        >
+                    </td>
+
+                    <td style="padding:6px;border:1px solid #999;">
+                        <textarea
+                            class="consecuencia-incidente"
+                            rows="2"
+                            placeholder="Describa las consecuencias"
+                        ></textarea>
+                    </td>
+
+                    <td style="
+                        padding:6px;
+                        border:1px solid #999;
+                        text-align:center;
+                    ">
+                        <button
+                            type="button"
+                            class="boton-secundario"
+                            onclick="eliminarIncidente(this)"
+                        >
+                            Eliminar
+                        </button>
+                    </td>
+
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+    <button
+        type="button"
+        class="boton-principal"
+        onclick="agregarIncidente()"
+    >
+        + Agregar incidente
+    </button>
+
+</div>
             <div class="botones">
 
                 <button type="button"
@@ -628,7 +753,61 @@
 <script>
 
     const modal = document.getElementById("modalInspeccion");
+function agregarIncidente() {
+    const cuerpo = document.getElementById("cuerpoIncidentes");
 
+    const fila = document.createElement("tr");
+
+    fila.innerHTML = `
+        <td style="padding:6px;border:1px solid #999;">
+            <input
+                type="text"
+                class="riesgo-incidente"
+                placeholder="Ej. Hurto, intrusión, accidente..."
+            >
+        </td>
+
+        <td style="padding:6px;border:1px solid #999;">
+            <input
+                type="text"
+                class="detalle-incidente"
+                placeholder="Describa el incidente"
+            >
+        </td>
+
+        <td style="padding:6px;border:1px solid #999;">
+            <textarea
+                class="consecuencia-incidente"
+                rows="2"
+                placeholder="Describa las consecuencias"
+            ></textarea>
+        </td>
+
+        <td style="
+            padding:6px;
+            border:1px solid #999;
+            text-align:center;
+        ">
+            <button
+                type="button"
+                class="boton-secundario"
+                onclick="eliminarIncidente(this)"
+            >
+                Eliminar
+            </button>
+        </td>
+    `;
+
+    cuerpo.appendChild(fila);
+}
+
+function eliminarIncidente(boton) {
+    const fila = boton.closest("tr");
+
+    if (fila) {
+        fila.remove();
+    }
+}
     function abrirNuevaInspeccion() {
         modal.style.display = "block";
 
