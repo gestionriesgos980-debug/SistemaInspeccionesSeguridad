@@ -726,11 +726,19 @@ function actualizarContadores() {
     document.getElementById("totalClientes").textContent =
         clientes.size;
 
-    const hallazgos =
-        JSON.parse(localStorage.getItem("hallazgos")) || [];
+   const hallazgos =
+    JSON.parse(localStorage.getItem("hallazgos")) || [];
 
-    document.getElementById("totalHallazgos").textContent =
-        hallazgos.length;
+document.getElementById("totalHallazgos").textContent =
+    hallazgos.length;
+
+const informes =
+    Number(
+        localStorage.getItem("informesGenerados") || 0
+    );
+
+document.getElementById("totalInformes").textContent =
+    informes;
 }
 
 
