@@ -877,7 +877,12 @@ inspeccion.sinIncidentes =
             let inspecciones =
                 JSON.parse(localStorage.getItem("inspecciones")) || [];
 
-            inspecciones.push(inspeccion);
+            if (indiceInspeccionEditando !== null) {
+    inspecciones[indiceInspeccionEditando] = inspeccion;
+    indiceInspeccionEditando = null;
+} else {
+    inspecciones.push(inspeccion);
+}
 
             localStorage.setItem(
                 "inspecciones",
