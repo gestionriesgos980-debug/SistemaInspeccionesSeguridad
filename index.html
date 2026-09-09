@@ -1690,7 +1690,10 @@ function generarInforme() {
 
     const matriz =
         JSON.parse(localStorage.getItem("matrizRiesgos")) || [];
-
+const resultadosCategorias =
+    JSON.parse(
+        localStorage.getItem("resultadosChecklistCategorias")
+    ) || {};
     if (!inspecciones.length) {
         alert("No hay una inspección registrada.");
         return;
@@ -1750,7 +1753,39 @@ function generarInforme() {
                 </div>
             `;
         }
+const resultadosCategorias =
+    JSON.parse(
+        localStorage.getItem("resultadosChecklistCategorias")
+    ) || {};
 
+let filasCategorias = "";
+
+Object.keys(resultadosCategorias).forEach(categoria => {
+
+    filasCategorias += `
+        <tr>
+            <td>${escapar(categoria)}</td>
+            <td style="text-align:center; font-weight:bold;">
+                ${resultadosCategorias[categoria]}%
+            </td>
+        </tr>
+    `;
+
+});
+
+if (!filasCategorias) {
+
+    filasCategorias = `
+        <tr>
+            <td colspan="2">
+                No hay resultados por categoría registrados.
+            </td>
+        </tr>
+    `;
+
+}
+
+let filasHallazgos = "";
         filasHallazgos += `
             <tr>
                 <td>${indice + 1}</td>
@@ -2383,6 +2418,62 @@ function generarInforme() {
 <h2>
     3. Resultado de la lista de chequeo
 </h2>
+<div style="
+    margin-top:15px;
+    margin-bottom:20px;
+">
+
+    <h3 style="
+        margin-bottom:10px;
+        color:#123b5d;
+    ">
+        Consolidado de resultados por categoría
+    </h3>
+
+    <table style="
+        width:100%;
+        border-collapse:collapse;
+        font-size:12px;
+    ">
+
+        <thead>
+
+            <tr>
+
+                <th style="
+                    background:#123b5d;
+                    color:white;
+                    padding:9px;
+                    border:1px solid #aaa;
+                    text-align:left;
+                ">
+                    Área de evaluación
+                </th>
+
+                <th style="
+                    width:150px;
+                    background:#123b5d;
+                    color:white;
+                    padding:9px;
+                    border:1px solid #aaa;
+                    text-align:center;
+                ">
+                    Resultado
+                </th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            ${filasCategorias}
+
+        </tbody>
+
+    </table>
+
+</div>
                 <div class="resultado">
 
                     ${
