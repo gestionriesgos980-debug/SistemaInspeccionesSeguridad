@@ -809,6 +809,8 @@ function eliminarIncidente(boton) {
     }
 }
     function abrirNuevaInspeccion() {
+        document.getElementById("formInspeccion").removeAttribute("data-editando");
+indiceInspeccionEditando = null;
         modal.style.display = "block";
 
         const fecha = document.getElementById("fecha");
@@ -876,11 +878,19 @@ inspeccion.sinIncidentes =
     document.getElementById("sinIncidentes")?.checked || false;
             let inspecciones =
                 JSON.parse(localStorage.getItem("inspecciones")) || [];
+const formulario = document.getElementById("formInspeccion");
+const indiceEdicion = formulario.dataset.editando;
 
-            if (indiceInspeccionEditando !== null) {
-    inspecciones[indiceInspeccionEditando] = inspeccion;
+if (indiceEdicion !== undefined && indiceEdicion !== "") {
+
+    inspecciones[Number(indiceEdicion)] = inspeccion;
+
+    delete formulario.dataset.editando;
+
     indiceInspeccionEditando = null;
+
 } else {
+
     inspecciones.push(inspeccion);
 }
 
@@ -1473,6 +1483,7 @@ function editarInspeccion(indice) {
     }
 
     indiceInspeccionEditando = indice;
+    document.getElementById("formInspeccion").dataset.editando = indice;
 
     const modal =
         document.getElementById("modalInspeccion");
