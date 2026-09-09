@@ -1729,7 +1729,25 @@ const resultadosCategorias =
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
     }
+const resultadosCategorias =
+    JSON.parse(
+        localStorage.getItem("resultadosChecklistCategorias")
+    ) || {};
 
+let filasCategorias = "";
+
+Object.keys(resultadosCategorias).forEach(categoria => {
+
+    filasCategorias += `
+        <tr>
+            <td>${escapar(categoria)}</td>
+            <td style="text-align:center; font-weight:bold;">
+                ${resultadosCategorias[categoria]}%
+            </td>
+        </tr>
+    `;
+
+});
     /* =========================
        HALLAZGOS
     ========================= */
@@ -1753,39 +1771,7 @@ const resultadosCategorias =
                 </div>
             `;
         }
-const resultadosCategorias =
-    JSON.parse(
-        localStorage.getItem("resultadosChecklistCategorias")
-    ) || {};
 
-let filasCategorias = "";
-
-Object.keys(resultadosCategorias).forEach(categoria => {
-
-    filasCategorias += `
-        <tr>
-            <td>${escapar(categoria)}</td>
-            <td style="text-align:center; font-weight:bold;">
-                ${resultadosCategorias[categoria]}%
-            </td>
-        </tr>
-    `;
-
-});
-
-if (!filasCategorias) {
-
-    filasCategorias = `
-        <tr>
-            <td colspan="2">
-                No hay resultados por categoría registrados.
-            </td>
-        </tr>
-    `;
-
-}
-
-let filasHallazgos = "";
         filasHallazgos += `
             <tr>
                 <td>${indice + 1}</td>
