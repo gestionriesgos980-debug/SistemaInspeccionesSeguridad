@@ -858,7 +858,9 @@ function eliminarIncidente(boton) {
                 latitud: document.getElementById("latitud").value,
                 longitud: document.getElementById("longitud").value,
                 entorno: document.getElementById("entorno").value,
-                historicoIncidentes: Array.from(
+               
+            };
+inspeccion.historicoIncidentes = Array.from(
     document.querySelectorAll("#cuerpoIncidentes tr")
 ).map(fila => ({
     riesgo: fila.querySelector(".riesgo-incidente")?.value || "",
@@ -868,13 +870,10 @@ function eliminarIncidente(boton) {
     item.riesgo ||
     item.incidente ||
     item.consecuencias
-),
+);
 
-sinIncidentes:
-    document.getElementById("sinIncidentes")?.checked || false,
-            };
-
-
+inspeccion.sinIncidentes =
+    document.getElementById("sinIncidentes")?.checked || false;
             let inspecciones =
                 JSON.parse(localStorage.getItem("inspecciones")) || [];
 
