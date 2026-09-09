@@ -2509,8 +2509,7 @@ Object.keys(resultadosCategorias).forEach(categoria => {
                             : "Sin resultado"
                     }
 
-                </div>
-<div style="
+              <div style="
     margin-top:15px;
     padding:18px;
     border:1px solid #999;
@@ -2524,37 +2523,205 @@ Object.keys(resultadosCategorias).forEach(categoria => {
         Perfil de criticidad
     </h3>
 
-    <p style="
-        margin:0;
-        text-align:justify;
-        line-height:1.5;
-    ">
-        ${
-            (() => {
+    ${
+        (() => {
 
-                const valor = checklist
-                    ? parseInt(
-                        String(checklist.resultado)
-                            .replace("%", "")
-                    ) || 0
-                    : 0;
+            const valor = Number(checklist.resultado || 0);
 
-                if (valor >= 76) {
-                    return "<strong>BUENO</strong> – Las condiciones evaluadas presentan un comportamiento favorable y requieren mantener las medidas existentes.";
+            let perfilActual = "";
+            let rangoActual = "";
+            let colorActual = "";
+
+            if (valor >= 76) {
+                perfilActual = "BUENO";
+                rangoActual = "76% a 100%";
+                colorActual = "#d9ead3";
+            } else if (valor >= 51) {
+                perfilActual = "SUFICIENTE";
+                rangoActual = "51% a 75,9%";
+                colorActual = "#fff2cc";
+            } else if (valor >= 26) {
+                perfilActual = "REGULAR";
+                rangoActual = "26% a 50,9%";
+                colorActual = "#fce5cd";
+            } else {
+                perfilActual = "DEBIL";
+                rangoActual = "0% a 25,9%";
+                colorActual = "#f4cccc";
+            }
+
+            const perfiles = [
+                {
+                    numero: "1",
+                    nombre: "BUENO",
+                    rango: "76% a 100%",
+                    condicion: "Conforme",
+                    descripcion: "Se recomienda monitoreo y seguimiento general a cada aspecto, con el fin de darle continuidad a las fortalezas identificadas. Las amenazas son reconocidas, pero el riesgo está controlado."
+                },
+                {
+                    numero: "2",
+                    nombre: "SUFICIENTE",
+                    rango: "51% a 75,9%",
+                    condicion: "Con observaciones menores",
+                    descripcion: "Plan de seguimiento encaminado a esas observaciones menores detectadas. Se conocen las amenazas y se tiene controlado el riesgo."
+                },
+                {
+                    numero: "3",
+                    nombre: "REGULAR",
+                    rango: "26% a 50,9%",
+                    condicion: "Requiere seguimiento",
+                    descripcion: "Es necesario el diseño de estrategias tendientes a la corrección de aquellos aspectos calificados por mejorar, garantizar un plan de seguimiento para el cumplimiento de las actividades planteadas."
+                },
+                {
+                    numero: "4",
+                    nombre: "DEBIL",
+                    rango: "0% a 25,9%",
+                    condicion: "Con observaciones mayores",
+                    descripcion: "El panorama de seguridad se percibe como crítico, por lo tanto, es necesario intervenir los aspectos de manera inmediata, con el ánimo de disminuir la probabilidad de materialización de las amenazas."
                 }
+            ];
 
-                if (valor >= 51) {
-                    return "<strong>SUFICIENTE</strong> – Las condiciones evaluadas son aceptables, pero existen oportunidades de mejora que deben ser atendidas.";
-                }
+            const resultadosCategorias =
+                JSON.parse(
+                    localStorage.getItem("resultadosChecklistCategorias") || "{}"
+                );
 
-                if (valor >= 26) {
-                    return "<strong>REGULAR</strong> – Se identifican condiciones que requieren acciones de mejora y medidas de mitigación.";
-                }
+            const filasCategorias =
+                Object.entries(resultadosCategorias)
+                    .map(([categoria, resultado]) => `
+                        <tr>
+                            <td style="padding:8px;border:1px solid #999;">
+                                ${categoria}
+                            </td>
+                            <td style="padding:8px;border:1px solid #999;text-align:center;">
+                                ${resultado}%
+                            </td>
+                            <td style="padding:8px;border:1px solid #999;text-align:center;">
+                                100%
+                            </td>
+                        </tr>
+                    `)
+                    .join("");
 
-                return "<strong>DÉBIL</strong> – Se identifican condiciones deficientes que requieren atención prioritaria.";
-            })()
-        }
-    </p>
+            return `
+                <div style="
+                    margin-bottom:15px;
+                    padding:10px;
+                    border:1px solid #999;
+                    background:${colorActual};
+                    font-size:15px;
+                ">
+                    <strong>Perfil actual: ${perfilActual}</strong>
+                    &nbsp; | &nbsp;
+                    Resultado general: <strong>${valor}%</strong>
+                </div>
+
+                <table style="
+                    width:100%;
+                    border-collapse:collapse;
+                    font-size:12px;
+                    margin-bottom:20px;
+                ">
+                    <thead>
+                        <tr style="background:#d9e2f3;">
+                            <th style="padding:8px;border:1px solid #999;">
+                                Perfil
+                            </th>
+                            <th style="padding:8px;border:1px solid #999;">
+                                Rango de calificación
+                            </th>
+                            <th style="padding:8px;border:1px solid #999;">
+                                Criterio
+                            </th>
+                            <th style="padding:8px;border:1px solid #999;">
+                                Oportunidades de mejora
+                            </th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        ${perfiles.map(perfil => `
+                            <tr style="
+                                background:
+                                    ${perfil.nombre === perfilActual
+                                        ? colorActual
+                                        : "#ffffff"};
+                            ">
+                                <td style="
+                                    padding:8px;
+                                    border:1px solid #999;
+                                    text-align:center;
+                                    font-weight:bold;
+                                ">
+                                    ${perfil.numero}. ${perfil.nombre}
+                                    ${
+                                        perfil.nombre === perfilActual
+                                            ? " ← ACTUAL"
+                                            : ""
+                                    }
+                                </td>
+
+                                <td style="
+                                    padding:8px;
+                                    border:1px solid #999;
+                                    text-align:center;
+                                ">
+                                    ${perfil.rango}
+                                </td>
+
+                                <td style="
+                                    padding:8px;
+                                    border:1px solid #999;
+                                    text-align:center;
+                                ">
+                                    ${perfil.condicion}
+                                </td>
+
+                                <td style="
+                                    padding:8px;
+                                    border:1px solid #999;
+                                    text-align:justify;
+                                ">
+                                    ${perfil.descripcion}
+                                </td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+
+                <h4 style="
+                    margin:10px 0;
+                    color:#123b5d;
+                ">
+                    Esquemas / áreas evaluadas
+                </h4>
+
+                <table style="
+                    width:100%;
+                    border-collapse:collapse;
+                    font-size:12px;
+                ">
+                    <thead>
+                        <tr style="background:#d9e2f3;">
+                            <th style="padding:8px;border:1px solid #999;">
+                                Esquema / Área evaluada
+                            </th>
+                            <th style="padding:8px;border:1px solid #999;text-align:center;">
+                                Resultado
+                            </th>
+                            <th style="padding:8px;border:1px solid #999;text-align:center;">
+                                Nivel óptimo
+                            </th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        ${filasCategorias}
+                    </tbody>
+                </table>
+            `;
+        })()
+    }
 
 </div>
 
