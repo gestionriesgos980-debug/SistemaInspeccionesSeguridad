@@ -2526,7 +2526,9 @@ Object.keys(resultadosCategorias).forEach(categoria => {
     ${
         (() => {
 
-            const valor = Number(checklist.resultado || 0);
+            const valor = parseInt(
+    String(checklist.resultado || "0").replace("%", "")
+) || 0;
 
             let perfilActual = "";
             let rangoActual = "";
