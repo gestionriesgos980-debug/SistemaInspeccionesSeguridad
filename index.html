@@ -1460,7 +1460,7 @@ function cargarMatrizRiesgos() {
 
     let html = "";
 
-    hallazgos.forEach((hallazgo, indice) => {
+    
 
         html += `
             <div style="
@@ -1549,7 +1549,7 @@ function cargarMatrizRiesgos() {
 
     contenedor.innerHTML = html;
 
-    hallazgos.forEach((hallazgo, indice) => {
+    
 
         calcularNivelRiesgo(indice);
 
@@ -1729,10 +1729,6 @@ const resultadosCategorias =
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
     }
-const resultadosCategorias =
-    JSON.parse(
-        localStorage.getItem("resultadosChecklistCategorias")
-    ) || {};
 
 let filasCategorias = "";
 
