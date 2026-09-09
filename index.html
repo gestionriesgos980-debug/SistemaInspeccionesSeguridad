@@ -1128,7 +1128,12 @@ function abrirClientes() {
                                     ">
                                         Tipo de inspección
                                     </th>
-
+<th style="
+    padding:8px;
+    border:1px solid #999;
+">
+    Acciones
+</th>
                                 </tr>
 
                             </thead>
@@ -1159,7 +1164,19 @@ function abrirClientes() {
                                         ">
                                             ${inspeccion.tipo || ""}
                                         </td>
-
+<td style="
+    padding:8px;
+    border:1px solid #999;
+    text-align:center;
+">
+    <button
+        type="button"
+        class="boton-principal"
+        onclick="editarInspeccion(${inspecciones.indexOf(inspeccion)})"
+    >
+        Editar
+    </button>
+</td>
                                     </tr>
 
                                 `).join("")}
@@ -1326,6 +1343,13 @@ function abrirClientes() {
                                     ">
                                         Tipo de inspección
                                     </th>
+                                    
+<th style="
+    padding:8px;
+    border:1px solid #999;
+">
+    Tipo de inspección
+</th>
 
                                 </tr>
 
@@ -1417,7 +1441,129 @@ function abrirClientes() {
     document.body.appendChild(ventana);
 }
 
+let indiceInspeccionEditando = null;
 
+function editarInspeccion(indice) {
+
+    const inspecciones =
+        JSON.parse(localStorage.getItem("inspecciones")) || [];
+
+    const inspeccion = inspecciones[indice];
+
+    if (!inspeccion) {
+        alert("No se encontró la inspección seleccionada.");
+        return;
+    }
+
+    indiceInspeccionEditando = indice;
+
+    const modal =
+        document.getElementById("modalInspeccion");
+
+    if (!modal) {
+        alert("No se encontró el formulario de inspección.");
+        return;
+    }
+
+    document.getElementById("cliente").value =
+        inspeccion.cliente || "";
+
+    document.getElementById("nit").value =
+        inspeccion.nit || "";
+
+    document.getElementById("direccion").value =
+        inspeccion.direccion || "";
+
+    document.getElementById("ciudad").value =
+        inspeccion.ciudad || "";
+
+    document.getElementById("contacto").value =
+        inspeccion.contacto || "";
+
+    document.getElementById("telefono").value =
+        inspeccion.telefono || "";
+
+    document.getElementById("correo").value =
+        inspeccion.correo || "";
+
+    document.getElementById("fecha").value =
+        inspeccion.fecha || "";
+
+    document.getElementById("inspector").value =
+        inspeccion.inspector || "";
+
+    document.getElementById("director").value =
+        inspeccion.director || "";
+
+    document.getElementById("tipo").value =
+        inspeccion.tipo || "";
+
+    document.getElementById("objetivo").value =
+        inspeccion.objetivo || "";
+
+    document.getElementById("latitud").value =
+        inspeccion.latitud || "";
+
+    document.getElementById("longitud").value =
+        inspeccion.longitud || "";
+
+    document.getElementById("entorno").value =
+        inspeccion.entorno || "";
+
+    const cuerpo =
+        document.getElementById("cuerpoIncidentes");
+
+    cuerpo.innerHTML = "";
+
+    if (
+        inspeccion.sinIncidentes ||
+        !inspeccion.historicoIncidentes ||
+        inspeccion.historicoIncidentes.length === 0
+    ) {
+
+        agregarIncidente();
+
+        const checkbox =
+            document.getElementById("sinIncidentes");
+
+        if (checkbox) {
+            checkbox.checked =
+                inspeccion.sinIncidentes || false;
+        }
+
+    } else {
+
+        inspeccion.historicoIncidentes.forEach(incidente => {
+
+            agregarIncidente();
+
+            const filas =
+                cuerpo.querySelectorAll("tr");
+
+            const fila =
+                filas[filas.length - 1];
+
+            fila.querySelector(".riesgo-incidente").value =
+                incidente.riesgo || "";
+
+            fila.querySelector(".detalle-incidente").value =
+                incidente.incidente || "";
+
+            fila.querySelector(".consecuencia-incidente").value =
+                incidente.consecuencias || "";
+
+        });
+
+        const checkbox =
+            document.getElementById("sinIncidentes");
+
+        if (checkbox) {
+            checkbox.checked = false;
+        }
+    }
+
+    modal.style.display = "block";
+}
 function cerrarClientes() {
 
     const ventana =
