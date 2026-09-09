@@ -858,6 +858,20 @@ function eliminarIncidente(boton) {
                 latitud: document.getElementById("latitud").value,
                 longitud: document.getElementById("longitud").value,
                 entorno: document.getElementById("entorno").value
+                historicoIncidentes: Array.from(
+    document.querySelectorAll("#cuerpoIncidentes tr")
+).map(fila => ({
+    riesgo: fila.querySelector(".riesgo-incidente")?.value || "",
+    incidente: fila.querySelector(".detalle-incidente")?.value || "",
+    consecuencias: fila.querySelector(".consecuencia-incidente")?.value || ""
+})).filter(item =>
+    item.riesgo ||
+    item.incidente ||
+    item.consecuencias
+),
+
+sinIncidentes:
+    document.getElementById("sinIncidentes")?.checked || false,
             };
 
 
