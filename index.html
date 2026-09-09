@@ -1184,6 +1184,13 @@ function abrirClientes() {
     border:1px solid #999;
     text-align:center;
 ">
+<button
+    type="button"
+    class="boton-secundario"
+    onclick="verInspeccion(${inspecciones.indexOf(inspeccion)})"
+>
+    Ver
+</button>
     <button
         type="button"
         class="boton-principal"
@@ -1467,7 +1474,311 @@ function abrirClientes() {
 
     document.body.appendChild(ventana);
 }
+function verInspeccion(indice) {
 
+    const inspecciones =
+        JSON.parse(localStorage.getItem("inspecciones")) || [];
+
+    const inspeccion = inspecciones[indice];
+
+    if (!inspeccion) {
+        alert("No se encontró la inspección seleccionada.");
+        return;
+    }
+
+    cerrarClientes();
+
+    let ventana = document.getElementById("ventanaVerInspeccion");
+
+    if (ventana) {
+        ventana.remove();
+    }
+
+    ventana = document.createElement("div");
+    ventana.id = "ventanaVerInspeccion";
+
+    ventana.style.position = "fixed";
+    ventana.style.top = "0";
+    ventana.style.left = "0";
+    ventana.style.width = "100%";
+    ventana.style.height = "100%";
+    ventana.style.background = "rgba(0,0,0,0.55)";
+    ventana.style.zIndex = "3000";
+    ventana.style.overflowY = "auto";
+
+    const incidentes = inspeccion.historicoIncidentes || [];
+
+    let tablaIncidentes = "";
+
+    if (
+        inspeccion.sinIncidentes ||
+        incidentes.length === 0
+    ) {
+
+        tablaIncidentes = `
+            <tr>
+                <td style="
+                    padding:8px;
+                    border:1px solid #999;
+                ">
+                    NO REPORTADOS
+                </td>
+
+                <td style="
+                    padding:8px;
+                    border:1px solid #999;
+                ">
+                    NO REPORTADOS
+                </td>
+
+                <td style="
+                    padding:8px;
+                    border:1px solid #999;
+                ">
+                    N/A
+                </td>
+            </tr>
+        `;
+
+    } else {
+
+        tablaIncidentes = incidentes.map(incidente => `
+            <tr>
+
+                <td style="
+                    padding:8px;
+                    border:1px solid #999;
+                ">
+                    ${incidente.riesgo || ""}
+                </td>
+
+                <td style="
+                    padding:8px;
+                    border:1px solid #999;
+                ">
+                    ${incidente.incidente || ""}
+                </td>
+
+                <td style="
+                    padding:8px;
+                    border:1px solid #999;
+                ">
+                    ${incidente.consecuencias || ""}
+                </td>
+
+            </tr>
+        `).join("");
+    }
+
+    ventana.innerHTML = `
+
+        <div style="
+            width:90%;
+            max-width:1000px;
+            margin:40px auto;
+            background:white;
+            padding:25px;
+            border-radius:10px;
+            box-shadow:0 4px 20px rgba(0,0,0,0.25);
+        ">
+
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                margin-bottom:20px;
+            ">
+
+                <h2 style="
+                    margin:0;
+                    color:#123b5d;
+                ">
+                    Consulta de inspección
+                </h2>
+
+                <button
+                    type="button"
+                    class="boton-secundario"
+                    onclick="document.getElementById('ventanaVerInspeccion').remove()"
+                >
+                    Cerrar
+                </button>
+
+            </div>
+
+            <h3 style="color:#123b5d;">
+                Información del cliente
+            </h3>
+
+            <table style="
+                width:100%;
+                border-collapse:collapse;
+                margin-bottom:20px;
+            ">
+
+                <tr>
+                    <td style="padding:8px;border:1px solid #999;">
+                        <strong>Cliente</strong>
+                    </td>
+                    <td style="padding:8px;border:1px solid #999;">
+                        ${inspeccion.cliente || ""}
+                    </td>
+
+                    <td style="padding:8px;border:1px solid #999;">
+                        <strong>NIT</strong>
+                    </td>
+                    <td style="padding:8px;border:1px solid #999;">
+                        ${inspeccion.nit || ""}
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding:8px;border:1px solid #999;">
+                        <strong>Dirección</strong>
+                    </td>
+                    <td style="padding:8px;border:1px solid #999;">
+                        ${inspeccion.direccion || ""}
+                    </td>
+
+                    <td style="padding:8px;border:1px solid #999;">
+                        <strong>Ciudad</strong>
+                    </td>
+                    <td style="padding:8px;border:1px solid #999;">
+                        ${inspeccion.ciudad || ""}
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding:8px;border:1px solid #999;">
+                        <strong>Contacto</strong>
+                    </td>
+                    <td style="padding:8px;border:1px solid #999;">
+                        ${inspeccion.contacto || ""}
+                    </td>
+
+                    <td style="padding:8px;border:1px solid #999;">
+                        <strong>Teléfono</strong>
+                    </td>
+                    <td style="padding:8px;border:1px solid #999;">
+                        ${inspeccion.telefono || ""}
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding:8px;border:1px solid #999;">
+                        <strong>Correo</strong>
+                    </td>
+                    <td colspan="3" style="padding:8px;border:1px solid #999;">
+                        ${inspeccion.correo || ""}
+                    </td>
+                </tr>
+
+            </table>
+
+            <h3 style="color:#123b5d;">
+                Información de la inspección
+            </h3>
+
+            <table style="
+                width:100%;
+                border-collapse:collapse;
+                margin-bottom:20px;
+            ">
+
+                <tr>
+                    <td style="padding:8px;border:1px solid #999;">
+                        <strong>Fecha</strong>
+                    </td>
+                    <td style="padding:8px;border:1px solid #999;">
+                        ${inspeccion.fecha || ""}
+                    </td>
+
+                    <td style="padding:8px;border:1px solid #999;">
+                        <strong>Inspector</strong>
+                    </td>
+                    <td style="padding:8px;border:1px solid #999;">
+                        ${inspeccion.inspector || ""}
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding:8px;border:1px solid #999;">
+                        <strong>Director</strong>
+                    </td>
+                    <td style="padding:8px;border:1px solid #999;">
+                        ${inspeccion.director || ""}
+                    </td>
+
+                    <td style="padding:8px;border:1px solid #999;">
+                        <strong>Tipo de inspección</strong>
+                    </td>
+                    <td style="padding:8px;border:1px solid #999;">
+                        ${inspeccion.tipo || ""}
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding:8px;border:1px solid #999;">
+                        <strong>Objetivo</strong>
+                    </td>
+                    <td colspan="3" style="padding:8px;border:1px solid #999;">
+                        ${inspeccion.objetivo || ""}
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding:8px;border:1px solid #999;">
+                        <strong>Entorno</strong>
+                    </td>
+                    <td colspan="3" style="padding:8px;border:1px solid #999;">
+                        ${inspeccion.entorno || ""}
+                    </td>
+                </tr>
+
+            </table>
+
+            <h3 style="color:#123b5d;">
+                Histórico de incidentes
+            </h3>
+
+            <table style="
+                width:100%;
+                border-collapse:collapse;
+                margin-bottom:20px;
+            ">
+
+                <thead>
+                    <tr style="
+                        background:#123b5d;
+                        color:white;
+                    ">
+
+                        <th style="padding:8px;border:1px solid #999;">
+                            Riesgos materializados
+                        </th>
+
+                        <th style="padding:8px;border:1px solid #999;">
+                            Incidente
+                        </th>
+
+                        <th style="padding:8px;border:1px solid #999;">
+                            Consecuencias
+                        </th>
+
+                    </tr>
+                </thead>
+
+                <tbody>
+                    ${tablaIncidentes}
+                </tbody>
+
+            </table>
+
+        </div>
+    `;
+
+    document.body.appendChild(ventana);
+}
 let indiceInspeccionEditando = null;
 
 function editarInspeccion(indice) {
