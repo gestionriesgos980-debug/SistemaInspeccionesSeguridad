@@ -1861,21 +1861,22 @@ function abrirListaChequeo(indice) {
 
 function generarChecklist() {
 
-    const contenedor = document.getElementById("contenidoChecklist");
+    const contenedor =
+        document.getElementById("contenidoChecklist");
 
     let html = "";
 
     Object.keys(datosChecklist).forEach((categoria, indice) => {
 
         html += `
-           
+            <div style="
                 margin-bottom:25px;
                 border:1px solid #ddd;
                 border-radius:10px;
                 overflow:hidden;
             ">
 
-               
+                <div style="
                     background:#123b5d;
                     color:white;
                     padding:14px 18px;
@@ -1885,15 +1886,16 @@ function generarChecklist() {
                     ${indice + 1}. ${categoria}
                 </div>
 
-               padding:10px;">
+                <div style="padding:10px;">
         `;
 
         datosChecklist[categoria].forEach((item, i) => {
 
-            const id = "check_" + indice + "_" + i;
+            const id =
+                "check_" + indice + "_" + i;
 
             html += `
-               
+                <div style="
                     display:grid;
                     grid-template-columns:1fr 110px 110px 110px;
                     gap:8px;
@@ -1944,13 +1946,15 @@ function generarChecklist() {
         html += `
                 </div>
 
-                <div id="resultadoCategoria_${indice}"
-                     style="
+                <div
+                    id="resultadoCategoria_${indice}"
+                    style="
                         padding:12px;
                         background:#f7f7f7;
                         text-align:right;
                         font-weight:bold;
-                     ">
+                    "
+                >
                     Resultado: 0%
                 </div>
 
@@ -1962,7 +1966,6 @@ function generarChecklist() {
 
     calcularChecklist();
 }
-
 
 function calcularChecklist() {
 
