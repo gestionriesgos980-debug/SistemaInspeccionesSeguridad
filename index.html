@@ -2693,11 +2693,7 @@ const indiceSeleccionado =
     indiceGuardado !== null
         ? Number(indiceGuardado)
         : inspecciones.length - 1;
-const hallazgos =
-    todosLosHallazgos.filter(
-        hallazgo =>
-            hallazgo.inspeccion === indiceSeleccionado
-    );
+   
 if (
     !Number.isInteger(indiceSeleccionado) ||
     indiceSeleccionado < 0 ||
@@ -2706,6 +2702,19 @@ if (
     alert("No se pudo identificar la inspección seleccionada.");
     return;
 }
+
+const hallazgos =
+    todosLosHallazgos.filter(
+        hallazgo =>
+            hallazgo.inspeccion === indiceSeleccionado
+    );
+
+const matriz =
+    todasLasMatrices.filter(
+        registro =>
+            Number(registro.inspeccion) ===
+            indiceSeleccionado
+    );
 
 const inspeccion =
     inspecciones[indiceSeleccionado];
