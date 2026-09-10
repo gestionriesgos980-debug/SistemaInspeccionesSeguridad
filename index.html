@@ -3582,10 +3582,34 @@ Object.keys(resultadosCategorias).forEach(categoria => {
                 }
             ];
 
-            const resultadosCategorias =
-                JSON.parse(
-                    localStorage.getItem("resultadosChecklistCategorias") || "{}"
-                );
+                       {
+                    numero: "3",
+                    nombre: "REGULAR",
+                    rango: "26% a 50,9%",
+                    condicion: "Requiere seguimiento",
+                    descripcion: "Es necesario el diseño de estrategias tendientes a la corrección de aquellos aspectos calificados por mejorar, garantizar un plan de seguimiento para el cumplimiento de las actividades planteadas."
+                },
+                {
+                    numero: "4",
+                    nombre: "DEBIL",
+                    rango: "0% a 25,9%",
+                    condicion: "Con observaciones mayores",
+                    descripcion: "El panorama de seguridad se percibe como crítico, por lo tanto, es necesario intervenir los aspectos de manera inmediata, con el ánimo de disminuir la probabilidad de materialización de las amenazas."
+                }
+            ];
+
+           
+            return `
+                <div style="
+                    margin-bottom:15px;
+                    padding:10px;
+                    border:1px solid #999;
+                    background:${colorActual};
+                    font-size:15px;
+                ">
+                    <strong>Perfil actual: ${perfilActual}</strong>
+                    &nbsp; | &nbsp;
+                    Resultado general: <strong>${valor}%</strong>
 
             const filasCategorias =
                 Object.entries(resultadosCategorias)
@@ -3717,7 +3741,7 @@ Object.keys(resultadosCategorias).forEach(categoria => {
                     </thead>
 
                     <tbody>
-                        ${filasCategorias}
+                        ${filasCategoriasPerfil}
                     </tbody>
                 </table>
             `;
