@@ -2621,8 +2621,13 @@ const hallazgos =
         } else if (puntuacion >= 5) {
             nivel = "Medio";
         }
-
+const indiceInspeccion =
+    localStorage.getItem("indiceInspeccionSeleccionadaInforme");
         matriz.push({
+
+            inspeccion: indiceInspeccion !== null
+    ? Number(indiceInspeccion)
+    : null,
 
             hallazgo: hallazgo.descripcion || "",
 
@@ -2669,8 +2674,8 @@ function generarInforme() {
     const todosLosHallazgos =
     JSON.parse(localStorage.getItem("hallazgos")) || [];
 
-    const matriz =
-        JSON.parse(localStorage.getItem("matrizRiesgos")) || [];
+    const todasLasMatrices =
+    JSON.parse(localStorage.getItem("matrizRiesgos")) || [];
 
     const resultadosCategorias =
         JSON.parse(
@@ -2709,7 +2714,7 @@ const checklist =
     checklists.find(
         registro =>
             Number(registro.inspeccion) ===
-            indiceSeleccionado + 1
+            indiceSeleccionado
     ) || null;
 
     const ventana =
