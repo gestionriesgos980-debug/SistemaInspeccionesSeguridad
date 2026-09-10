@@ -1277,7 +1277,11 @@ function abrirClientes() {
         JSON.parse(localStorage.getItem("inspecciones")) || [];
 
     const inspeccion = inspecciones[indice];
-      alert("Índice recibido: " + indice);  
+     alert(
+    "Índice: " + indice +
+    "\nTotal inspecciones: " + inspecciones.length +
+    "\nCliente: " + (inspeccion ? inspeccion.cliente : "SIN INSPECCIÓN")
+);  
 
     if (!inspeccion) {
         alert("No se encontró la inspección seleccionada.");
