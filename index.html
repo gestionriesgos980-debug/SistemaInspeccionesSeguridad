@@ -1994,6 +1994,7 @@ function calcularChecklist() {
 
     let totalPuntos = 0;
     let totalMaximo = 0;
+
     const resultadosPorCategoria = {};
 
     Object.keys(datosChecklist).forEach((categoria, indice) => {
@@ -2003,19 +2004,26 @@ function calcularChecklist() {
 
         datosChecklist[categoria].forEach((item, i) => {
 
-            const id = "check_" + indice + "_" + i;
-            const seleccionado = document.querySelector(
-                'input[name="' + id + '"]:checked'
-            );
+            const id =
+                "check_" + indice + "_" + i;
+
+            const seleccionado =
+                document.querySelector(
+                    'input[name="' + id + '"]:checked'
+                );
 
             if (seleccionado) {
-                puntos += Number(seleccionado.value);
+
+                puntos += Number(
+                    seleccionado.value
+                );
+
                 respondidos++;
             }
-
         });
 
-        const maximo = datosChecklist[categoria].length * 2;
+        const maximo =
+            datosChecklist[categoria].length * 2;
 
         totalPuntos += puntos;
         totalMaximo += maximo;
@@ -2023,28 +2031,83 @@ function calcularChecklist() {
         let porcentaje = 0;
 
         if (respondidos > 0) {
+
             porcentaje = Math.round(
-                (puntos / (datosChecklist[categoria].length * 2)) * 100
+                (puntos /
+                    (datosChecklist[categoria].length * 2)
+                ) * 100
             );
         }
 
-        const resultado = document.getElementById(
-            "resultadoCategoria_" + indice
-        );
+        const resultado =
+            document.getElementById(
+                "resultadoCategoria_" + indice
+            );
 
         if (resultado) {
-            resultado.textContent =
-                "Resultado: " + porcentaje + "%";
-        }
-resultadosPorCategoria[categoria] = porcentaje;
-    });
-let porcentajeGeneral = 0;
 
-if (totalMaximo > 0) {
-    porcentajeGeneral = Math.round(
-        (totalPuntos / totalMaximo) * 100
-    );
+            resultado.textContent =
+                "Resultado: " +
+                porcentaje +
+                "%";
+        }
+
+        resultadosPorCategoria[categoria] =
+            porcentaje;
+    });
+
+    let porcentajeGeneral = 0;
+
+    if (totalMaximo > 0) {
+
+        porcentajeGeneral =
+            Math.round(
+                (totalPuntos / totalMaximo) * 100
+            );
+    }
+
+    const resultadoGeneral =
+        document.getElementById(
+            "resultadoChecklist"
+        );
+
+    if (resultadoGeneral) {
+
+        resultadoGeneral.textContent =
+            porcentajeGeneral + "%";
+    }
+
+    const indiceInspeccion =
+        localStorage.getItem(
+            "indiceInspeccionSeleccionadaInforme"
+        );
+
+    const resultadosPorInspeccion =
+        JSON.parse(
+            localStorage.getItem(
+                "resultadosChecklistCategorias"
+            )
+        ) || {};
+
+    const indiceActual =
+        indiceInspeccion !== null
+            ? Number(indiceInspeccion)
+            : null;
+
+    if (indiceActual !== null) {
+
+        resultadosPorInspeccion[indiceActual] =
+            resultadosPorCategoria;
+
+        localStorage.setItem(
+            "resultadosChecklistCategorias",
+            JSON.stringify(
+                resultadosPorInspeccion
+            )
+        );
+    }
 }
+    
     const resultadoGeneral =
         document.getElementById("resultadoChecklist");
 
