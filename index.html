@@ -3450,7 +3450,7 @@ Object.keys(resultadosCategorias).forEach(categoria => {
         (() => {
 
             const valor = parseInt(
-    String(checklist.resultado || "0").replace("%", "")
+    String(checklist?.resultado || "0").replace("%", "")
 ) || 0;
 
             let perfilActual = "";
