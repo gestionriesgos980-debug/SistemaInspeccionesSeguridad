@@ -1084,9 +1084,14 @@ function abrirClientes() {
         clientes.forEach((cliente, indice) => {
 
             const inspeccionesCliente =
-                inspecciones.filter(
-                    inspeccion => inspeccion.cliente === cliente
-                );
+    inspecciones
+        .map((inspeccion, indiceOriginal) => ({
+            inspeccion,
+            indiceOriginal
+        }))
+        .filter(
+            item => item.inspeccion.cliente === cliente
+        );
 
             contenido += `
                 <div style="
@@ -1156,66 +1161,73 @@ function abrirClientes() {
 
                             </thead>
 
-                            <tbody>
+                                                       <tbody>
 
-                                ${inspeccionesCliente.map(inspeccion => `
+                                ${inspeccionesCliente.map(item => {
 
-                                    <tr>
+                                    const inspeccion = item.inspeccion;
+                                    const indiceOriginal = item.indiceOriginal;
 
-                                        <td style="
-                                            padding:8px;
-                                            border:1px solid #999;
-                                        ">
-                                            ${inspeccion.fecha || ""}
-                                        </td>
+                                    return `
+                                        <tr>
 
-                                        <td style="
-                                            padding:8px;
-                                            border:1px solid #999;
-                                        ">
-                                            ${inspeccion.inspector || ""}
-                                        </td>
+                                            <td style="
+                                                padding:8px;
+                                                border:1px solid #999;
+                                            ">
+                                                ${inspeccion.fecha || ""}
+                                            </td>
 
-                                        <td style="
-                                            padding:8px;
-                                            border:1px solid #999;
-                                        ">
-                                            ${inspeccion.tipo || ""}
-                                        </td>
-<td style="
-    padding:8px;
-    border:1px solid #999;
-    text-align:center;
-">
+                                            <td style="
+                                                padding:8px;
+                                                border:1px solid #999;
+                                            ">
+                                                ${inspeccion.inspector || ""}
+                                            </td>
 
-    <button
-        type="button"
-        class="boton-principal"
-        onclick="verInspeccion(${inspecciones.indexOf(inspeccion)})"
-    >
-        Ver
-    </button>
+                                            <td style="
+                                                padding:8px;
+                                                border:1px solid #999;
+                                            ">
+                                                ${inspeccion.tipo || ""}
+                                            </td>
 
-    <button
-        type="button"
-        class="boton-principal"
-        onclick="editarInspeccion(${inspecciones.indexOf(inspeccion)})"
-    >
-        Editar
-    </button>
+                                            <td style="
+                                                padding:8px;
+                                                border:1px solid #999;
+                                                text-align:center;
+                                            ">
 
-    <button
-        type="button"
-        class="boton-principal"
-        onclick="generarInformeInspeccion(${inspecciones.indexOf(inspeccion)})"
-    >
-        Informe
-    </button>
+                                                <button
+                                                    type="button"
+                                                    class="boton-principal"
+                                                    onclick="verInspeccion(${indiceOriginal})"
+                                                >
+                                                    Ver
+                                                </button>
 
-</td>
-                                    </tr>
+                                                <button
+                                                    type="button"
+                                                    class="boton-principal"
+                                                    onclick="editarInspeccion(${indiceOriginal})"
+                                                >
+                                                    Editar
+                                                </button>
 
-                                `).join("")}
+                                                <button
+                                                    type="button"
+                                                    class="boton-principal"
+                                                    onclick="generarInformeInspeccion(${indiceOriginal})"
+                                                >
+                                                    Informe
+                                                </button>
+
+                                            </td>
+
+                                        </tr>
+                                    `;
+
+                                }).join("")}
 
                             </tbody>
 
@@ -1395,7 +1407,7 @@ function verInspeccion(indice) {
                 </td>
 
             </tr>
-        `).join("");
+        `}).join("");
     }
 
     ventana.innerHTML = `
