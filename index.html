@@ -1075,12 +1075,22 @@ function abrirClientes() {
     if (clientes.length === 0) {
 
         contenido = `
-            <p style="
-                padding:20px;
-                text-align:center;
+            <div style="
+                width:90%;
+                max-width:700px;
+                margin:40px auto;
+                background:white;
+                border-radius:10px;
+                padding:25px;
+                box-shadow:0 4px 20px rgba(0,0,0,0.25);
             ">
-                No hay clientes registrados.
-            </p>
+                <p style="
+                    padding:20px;
+                    text-align:center;
+                ">
+                    No hay clientes registrados.
+                </p>
+            </div>
         `;
 
     } else {
@@ -1099,12 +1109,15 @@ function abrirClientes() {
                     );
 
             contenido += `
-               
+                <div style="
+                    width:90%;
+                    max-width:1100px;
+                    margin:0 auto 15px auto;
                     border:1px solid #ccc;
                     border-radius:8px;
                     padding:15px;
-                    margin-bottom:15px;
                     background:#fff;
+                    box-sizing:border-box;
                 ">
 
                     <h3 style="
@@ -1121,7 +1134,7 @@ function abrirClientes() {
                         ${inspeccionesCliente.length}
                     </p>
 
-                   
+                    <div style="
                         overflow-x:auto;
                     ">
 
@@ -1243,6 +1256,58 @@ function abrirClientes() {
             `;
         });
     }
+
+    ventana.innerHTML = `
+        <div style="
+            min-height:100%;
+            padding:30px 0;
+            box-sizing:border-box;
+        ">
+
+            <div style="
+                width:90%;
+                max-width:1100px;
+                margin:0 auto 20px auto;
+                background:white;
+                border-radius:10px;
+                padding:20px;
+                box-shadow:0 4px 20px rgba(0,0,0,0.25);
+                box-sizing:border-box;
+            ">
+
+                <div style="
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:center;
+                    gap:15px;
+                ">
+
+                    <h2 style="
+                        margin:0;
+                        color:#123b5d;
+                    ">
+                        Clientes registrados
+                    </h2>
+
+                    <button
+                        type="button"
+                        class="boton-secundario"
+                        onclick="cerrarClientes()"
+                    >
+                        Cerrar
+                    </button>
+
+                </div>
+
+            </div>
+
+            ${contenido}
+
+        </div>
+    `;
+
+    document.body.appendChild(ventana);
+}
 
     ventana.innerHTML = `
 
