@@ -2021,12 +2021,31 @@ if (totalMaximo > 0) {
         resultadoGeneral.textContent =
             porcentajeGeneral + "%";
     }
-    localStorage.setItem(
-    "resultadosChecklistCategorias",
-    JSON.stringify(resultadosPorCategoria)
-);
-}
+    const indiceInspeccion =
+    localStorage.getItem("indiceInspeccionSeleccionadaInforme");
 
+const resultadosPorInspeccion =
+    JSON.parse(
+        localStorage.getItem("resultadosChecklistCategorias")
+    ) || {};
+
+const indiceActual =
+    indiceInspeccion !== null
+        ? Number(indiceInspeccion)
+        : null;
+
+if (indiceActual !== null) {
+
+    resultadosPorInspeccion[indiceActual] =
+        resultadosPorCategoria;
+
+    localStorage.setItem(
+        "resultadosChecklistCategorias",
+        JSON.stringify(resultadosPorInspeccion)
+    );
+
+}
+}
 function guardarChecklist() {
 
     const resultado =
