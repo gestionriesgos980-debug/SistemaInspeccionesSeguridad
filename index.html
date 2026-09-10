@@ -1050,7 +1050,8 @@ function abrirClientes() {
         )
     ];
 
-    let ventana = document.getElementById("ventanaClientes");
+    let ventana =
+        document.getElementById("ventanaClientes");
 
     if (ventana) {
         ventana.style.display = "block";
@@ -1074,24 +1075,28 @@ function abrirClientes() {
     if (clientes.length === 0) {
 
         contenido = `
-            <p style="padding:20px;text-align:center;">
+            <p style="
+                padding:20px;
+                text-align:center;
+            ">
                 No hay clientes registrados.
             </p>
         `;
 
     } else {
 
-        clientes.forEach((cliente, indice) => {
+        clientes.forEach((cliente, indiceCliente) => {
 
             const inspeccionesCliente =
-    inspecciones
-        .map((inspeccion, indiceOriginal) => ({
-            inspeccion,
-            indiceOriginal
-        }))
-        .filter(
-            item => item.inspeccion.cliente === cliente
-        );
+                inspecciones
+                    .map((inspeccion, indiceOriginal) => ({
+                        inspeccion: inspeccion,
+                        indiceOriginal: indiceOriginal
+                    }))
+                    .filter(
+                        item =>
+                            item.inspeccion.cliente === cliente
+                    );
 
             contenido += `
                 <div style="
@@ -1106,15 +1111,19 @@ function abrirClientes() {
                         color:#123b5d;
                         margin-top:0;
                     ">
-                        ${indice + 1}. ${cliente}
+                        ${indiceCliente + 1}. ${cliente}
                     </h3>
 
                     <p>
-                        <strong>Inspecciones realizadas:</strong>
+                        <strong>
+                            Inspecciones realizadas:
+                        </strong>
                         ${inspeccionesCliente.length}
                     </p>
 
-                    <div style="overflow-x:auto;">
+                    <div style="
+                        overflow-x:auto;
+                    ">
 
                         <table style="
                             width:100%;
@@ -1149,80 +1158,82 @@ function abrirClientes() {
                                     ">
                                         Tipo de inspección
                                     </th>
-                                    
-<th style="
-    padding:8px;
-    border:1px solid #999;
-">
-    Acciones
-</th>
+
+                                    <th style="
+                                        padding:8px;
+                                        border:1px solid #999;
+                                    ">
+                                        Acciones
+                                    </th>
 
                                 </tr>
 
                             </thead>
 
-                                                      <tbody>
+                            <tbody>
 
-    ${inspeccionesCliente.map(item => `
-        <tr>
+                                ${inspeccionesCliente.map(item => `
 
-            <td style="
-                padding:8px;
-                border:1px solid #999;
-            ">
-                ${item.inspeccion.fecha || ""}
-            </td>
+                                    <tr>
 
-            <td style="
-                padding:8px;
-                border:1px solid #999;
-            ">
-                ${item.inspeccion.inspector || ""}
-            </td>
+                                        <td style="
+                                            padding:8px;
+                                            border:1px solid #999;
+                                        ">
+                                            ${item.inspeccion.fecha || ""}
+                                        </td>
 
-            <td style="
-                padding:8px;
-                border:1px solid #999;
-            ">
-                ${item.inspeccion.tipo || ""}
-            </td>
+                                        <td style="
+                                            padding:8px;
+                                            border:1px solid #999;
+                                        ">
+                                            ${item.inspeccion.inspector || ""}
+                                        </td>
 
-            <td style="
-                padding:8px;
-                border:1px solid #999;
-                text-align:center;
-            ">
+                                        <td style="
+                                            padding:8px;
+                                            border:1px solid #999;
+                                        ">
+                                            ${item.inspeccion.tipo || ""}
+                                        </td>
 
-                <button
-                    type="button"
-                    class="boton-principal"
-                    onclick="verInspeccion(${item.indiceOriginal})"
-                >
-                    Ver
-                </button>
+                                        <td style="
+                                            padding:8px;
+                                            border:1px solid #999;
+                                            text-align:center;
+                                        ">
 
-                <button
-                    type="button"
-                    class="boton-principal"
-                    onclick="editarInspeccion(${item.indiceOriginal})"
-                >
-                    Editar
-                </button>
+                                            <button
+                                                type="button"
+                                                class="boton-principal"
+                                                onclick="verInspeccion(${item.indiceOriginal})"
+                                            >
+                                                Ver
+                                            </button>
 
-                <button
-                    type="button"
-                    class="boton-principal"
-                    onclick="generarInformeInspeccion(${item.indiceOriginal})"
-                >
-                    Informe
-                </button>
+                                            <button
+                                                type="button"
+                                                class="boton-principal"
+                                                onclick="editarInspeccion(${item.indiceOriginal})"
+                                            >
+                                                Editar
+                                            </button>
 
-            </td>
+                                            <button
+                                                type="button"
+                                                class="boton-principal"
+                                                onclick="generarInformeInspeccion(${item.indiceOriginal})"
+                                            >
+                                                Informe
+                                            </button>
 
-        </tr>
-    `).join("")}
+                                        </td>
 
-</tbody>
+                                    </tr>
+
+                                `).join("")}
+
+                            </tbody>
 
                         </table>
 
