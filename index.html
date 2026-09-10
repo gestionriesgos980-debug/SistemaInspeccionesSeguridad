@@ -2650,13 +2650,32 @@ function generarInforme() {
         alert("No hay una inspección registrada.");
         return;
     }
+const indiceGuardado =
+    localStorage.getItem("indiceInspeccionSeleccionadaInforme");
+
+const indiceSeleccionado =
+    indiceGuardado !== null
+        ? Number(indiceGuardado)
+        : inspecciones.length - 1;
+
+if (
+    !Number.isInteger(indiceSeleccionado) ||
+    indiceSeleccionado < 0 ||
+    indiceSeleccionado >= inspecciones.length
+) {
+    alert("No se pudo identificar la inspección seleccionada.");
+    return;
+}
+
 const inspeccion =
-    inspecciones[inspecciones.length - 1];
+    inspecciones[indiceSeleccionado];
 
 const checklist =
-    checklists.length
-        ? checklists[checklists.length - 1]
-        : null;
+    checklists.find(
+        registro =>
+            Number(registro.inspeccion) ===
+            indiceSeleccionado + 1
+    ) || null;
 
     const ventana =
         window.open("", "_blank");
