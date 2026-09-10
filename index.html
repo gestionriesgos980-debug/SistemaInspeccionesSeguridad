@@ -1271,6 +1271,27 @@ function abrirClientes() {
 
     document.body.appendChild(ventana);
 }
+    function generarInformeInspeccion(indice) {
+
+    const inspecciones =
+        JSON.parse(localStorage.getItem("inspecciones")) || [];
+
+    const inspeccion = inspecciones[indice];
+
+    if (!inspeccion) {
+        alert("No se encontró la inspección seleccionada.");
+        return;
+    }
+
+    localStorage.setItem(
+        "inspeccionSeleccionadaInforme",
+        JSON.stringify(inspeccion)
+    );
+
+    cerrarClientes();
+
+    generarInforme();
+}
 function verInspeccion(indice) {
 
     const inspecciones =
