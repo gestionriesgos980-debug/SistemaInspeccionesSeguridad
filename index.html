@@ -2172,7 +2172,9 @@ const indiceInspeccion =
     hallazgos.push({
 
         fecha: new Date().toISOString(),
-
+inspeccion: indiceInspeccion !== null
+    ? Number(indiceInspeccion)
+    : null,
         area: area,
 
         elemento: elemento,
