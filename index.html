@@ -933,11 +933,11 @@ function actualizarContadores() {
     document.getElementById("totalClientes").textContent =
         clientes.size;
 
-   const hallazgos =
+  const todosLosHallazgos =
     JSON.parse(localStorage.getItem("hallazgos")) || [];
 
 document.getElementById("totalHallazgos").textContent =
-    hallazgos.length;
+    todosLosHallazgos.length;
 
 const informes =
     Number(
@@ -2643,8 +2643,8 @@ function generarInforme() {
     const checklists =
         JSON.parse(localStorage.getItem("checklists")) || [];
 
-    const hallazgos =
-        JSON.parse(localStorage.getItem("hallazgos")) || [];
+    const todosLosHallazgos =
+    JSON.parse(localStorage.getItem("hallazgos")) || [];
 
     const matriz =
         JSON.parse(localStorage.getItem("matrizRiesgos")) || [];
@@ -2665,7 +2665,11 @@ const indiceSeleccionado =
     indiceGuardado !== null
         ? Number(indiceGuardado)
         : inspecciones.length - 1;
-
+const hallazgos =
+    todosLosHallazgos.filter(
+        hallazgo =>
+            hallazgo.inspeccion === indiceSeleccionado
+    );
 if (
     !Number.isInteger(indiceSeleccionado) ||
     indiceSeleccionado < 0 ||
