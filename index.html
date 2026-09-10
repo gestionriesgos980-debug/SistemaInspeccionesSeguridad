@@ -1343,68 +1343,51 @@ function verInspeccion(indice) {
 
     const incidentes = inspeccion.historicoIncidentes || [];
 
-    let tablaIncidentes = "";
+  let tablaIncidentes = "";
 
-    if (
-        inspeccion.sinIncidentes ||
-        incidentes.length === 0
-    ) {
+if (
+    inspeccion.sinIncidentes ||
+    incidentes.length === 0
+) {
 
-        tablaIncidentes = `
+    tablaIncidentes += `
+        <tr>
+            <td style="padding:8px;border:1px solid #999;">
+                NO REPORTADOS
+            </td>
+
+            <td style="padding:8px;border:1px solid #999;">
+                NO REPORTADOS
+            </td>
+
+            <td style="padding:8px;border:1px solid #999;">
+                N/A
+            </td>
+        </tr>
+    `;
+
+} else {
+
+    incidentes.forEach(incidente => {
+
+        tablaIncidentes += `
             <tr>
-                <td style="
-                    padding:8px;
-                    border:1px solid #999;
-                ">
-                    NO REPORTADOS
+                <td style="padding:8px;border:1px solid #999;">
+                    ${incidente.riesgo || ""}
                 </td>
 
-                <td style="
-                    padding:8px;
-                    border:1px solid #999;
-                ">
-                    NO REPORTADOS
+                <td style="padding:8px;border:1px solid #999;">
+                    ${incidente.incidente || ""}
                 </td>
 
-                <td style="
-                    padding:8px;
-                    border:1px solid #999;
-                ">
-                    N/A
+                <td style="padding:8px;border:1px solid #999;">
+                    ${incidente.consecuencias || ""}
                 </td>
             </tr>
         `;
 
-    } else {
-
-        tablaIncidentes = incidentes.map(incidente => `
-            <tr>
-
-                <td style="
-                    padding:8px;
-                    border:1px solid #999;
-                ">
-                    ${incidente.riesgo || ""}
-                </td>
-
-                <td style="
-                    padding:8px;
-                    border:1px solid #999;
-                ">
-                    ${incidente.incidente || ""}
-                </td>
-
-                <td style="
-                    padding:8px;
-                    border:1px solid #999;
-                ">
-                    ${incidente.consecuencias || ""}
-                </td>
-
-            </tr>
-        `}).join("");
-    }
-
+    });
+}
     ventana.innerHTML = `
 
         <div style="
