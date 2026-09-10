@@ -3635,9 +3635,9 @@ Object.keys(resultadosCategorias).forEach(categoria => {
                 }
             ];
 
-            const filasCategoriasPerfil =
-                Object.entries(resultadosCategorias)
-                    .map(([categoria, resultado]) => `
+           const filasCategoriasPerfil =
+    Object.entries(resultadosCategorias || {})
+        .map(([categoria, resultado]) => `
                         <tr>
                             <td style="
                                 padding:8px;
