@@ -2721,10 +2721,6 @@ if (
     alert("No se pudo identificar la inspección seleccionada.");
     return;
 }
-const resultadosGuardados =
-    JSON.parse(
-        localStorage.getItem("resultadosChecklistCategorias")
-    ) || {};
 
 const resultadosCategorias =
     resultadosGuardados[indiceSeleccionado] || {};
