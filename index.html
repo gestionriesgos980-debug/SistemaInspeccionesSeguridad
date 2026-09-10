@@ -2696,10 +2696,10 @@ function generarInforme() {
     const todasLasMatrices =
     JSON.parse(localStorage.getItem("matrizRiesgos")) || [];
 
-    const resultadosCategorias =
-        JSON.parse(
-            localStorage.getItem("resultadosChecklistCategorias")
-        ) || {};
+    const resultadosGuardados =
+    JSON.parse(
+        localStorage.getItem("resultadosChecklistCategorias")
+    ) || {};
 
     if (!inspecciones.length) {
         alert("No hay una inspección registrada.");
