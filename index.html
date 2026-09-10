@@ -1282,11 +1282,13 @@ function abrirClientes() {
         alert("No se encontró la inspección seleccionada.");
         return;
     }
-
-    localStorage.setItem(
-        "inspeccionSeleccionadaInforme",
-        JSON.stringify(inspeccion)
-    );
+localStorage.setItem(
+    "indiceInspeccionSeleccionadaInforme",
+    String(indice)
+);
+        alert(
+    "Inspección seleccionada: " + indice
+);
 
     cerrarClientes();
 
