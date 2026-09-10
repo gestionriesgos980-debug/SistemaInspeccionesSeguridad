@@ -2625,6 +2625,8 @@ function guardarMatrizRiesgos() {
 }
 function generarInforme() {
 
+    alert("ENTRÓ A GENERAR INFORME");
+
     const inspecciones =
         JSON.parse(localStorage.getItem("inspecciones")) || [];
 
@@ -2636,15 +2638,16 @@ function generarInforme() {
 
     const matriz =
         JSON.parse(localStorage.getItem("matrizRiesgos")) || [];
-const resultadosCategorias =
-    JSON.parse(
-        localStorage.getItem("resultadosChecklistCategorias")
-    ) || {};
+
+    const resultadosCategorias =
+        JSON.parse(
+            localStorage.getItem("resultadosChecklistCategorias")
+        ) || {};
+
     if (!inspecciones.length) {
         alert("No hay una inspección registrada.");
         return;
     }
-
 const inspeccion =
     inspecciones[inspecciones.length - 1];
 
