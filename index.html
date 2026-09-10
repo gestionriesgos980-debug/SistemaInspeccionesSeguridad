@@ -429,7 +429,7 @@
                 </p>
             </div>
 
-           <div class="modulo" onclick="abrirListaChequeo()">
+           <div class="modulo" onclick="abrirListaChequeo(Number(localStorage.getItem('indiceInspeccionSeleccionadaInforme')))">
                 <h3>✅ Lista de chequeo</h3>
                 <p>
                     Evaluar Control de Accesos, Seguridad Perimetral,
@@ -1731,7 +1731,11 @@ function cerrarClientes() {
         ventana.remove();
     }
 }
-function abrirListaChequeo() {
+function abrirListaChequeo(indice) {
+    localStorage.setItem(
+    "indiceInspeccionSeleccionadaInforme",
+    String(indice)
+);
 
     let ventana = document.getElementById("ventanaChecklist");
 
