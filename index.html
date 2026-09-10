@@ -2035,17 +2035,24 @@ function guardarChecklist() {
     const registros =
         JSON.parse(localStorage.getItem("checklists")) || [];
 
-    const inspecciones =
-        JSON.parse(localStorage.getItem("inspecciones")) || [];
+ const inspecciones =
+    JSON.parse(localStorage.getItem("inspecciones")) || [];
 
-    registros.push({
-        fecha: new Date().toISOString(),
-        resultado: resultado,
-        inspeccion: inspecciones.length
-    });
+const indiceInspeccion =
+    localStorage.getItem("indiceInspeccionSeleccionadaInforme");
 
-    localStorage.setItem(
-        "checklists",
+registros.push({
+    fecha: new Date().toISOString(),
+
+    inspeccion: indiceInspeccion !== null
+        ? Number(indiceInspeccion)
+        : inspecciones.length - 1,
+
+    resultado: resultado
+});
+
+localStorage.setItem(
+    "checklists",
         JSON.stringify(registros)
     );
 
@@ -2160,7 +2167,8 @@ async function guardarHallazgo() {
     const hallazgos = JSON.parse(
         localStorage.getItem("hallazgos")
     ) || [];
-
+const indiceInspeccion =
+    localStorage.getItem("indiceInspeccionSeleccionadaInforme");
     hallazgos.push({
 
         fecha: new Date().toISOString(),
