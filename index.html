@@ -3566,6 +3566,15 @@ Object.keys(resultadosCategorias).forEach(categoria => {
     </table>
 
 </div>
+              <tbody>
+
+            ${filasCategorias}
+
+        </tbody>
+
+    </table>
+
+</div>
               <div class="resultado">
 
     <div style="
@@ -3645,9 +3654,9 @@ Object.keys(resultadosCategorias).forEach(categoria => {
                 }
             ];
 
-           const filasCategoriasPerfil =
-    Object.entries(resultadosCategorias || {})
-        .map(([categoria, resultado]) => `
+            const filasCategoriasPerfil =
+                Object.entries(resultadosCategorias)
+                    .map(([categoria, resultado]) => `
                         <tr>
                             <td style="
                                 padding:8px;
@@ -3857,6 +3866,24 @@ Object.keys(resultadosCategorias).forEach(categoria => {
     }
 
 </div>
+              <h2>
+    4. Hallazgos identificados
+</h2>
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+
+                            <th>#</th>
+                            <th>Área</th>
+                            <th>Elemento</th>
+                            <th>Descripción / evidencia</th>
+                            <th>Nivel</th>
+                            <th>Recomendación</th>
+
+                        </tr>
               <h2>
     4. Hallazgos identificados
 </h2>
