@@ -1163,19 +1163,13 @@ function abrirClientes() {
 
                                                        <tbody>
 
-                                ${inspeccionesCliente.map(item => {
+    ${inspeccionesCliente.map(item => {
 
-                                    const inspeccion = item.inspeccion;
-                                    const indiceOriginal = item.indiceOriginal;
-                                    console.log(
-    "CLIENTE:",
-    inspeccion.cliente,
-    "ÍNDICE ORIGINAL:",
-    indiceOriginal
-);
+        const inspeccion = item.inspeccion;
+        const indiceOriginal = item.indiceOriginal;
 
-                                    return `
-                                        <tr>
+        return `
+            <tr>
 
                                             <td style="
                                                 padding:8px;
