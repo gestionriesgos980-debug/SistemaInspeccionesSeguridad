@@ -2572,8 +2572,24 @@ function calcularNivelRiesgo(indice) {
 
 function guardarMatrizRiesgos() {
 
-    const hallazgos =
-        JSON.parse(localStorage.getItem("hallazgos")) || [];
+   const todosLosHallazgos =
+    JSON.parse(localStorage.getItem("hallazgos")) || [];
+
+const indiceGuardado =
+    localStorage.getItem("indiceInspeccionSeleccionadaInforme");
+
+const indiceSeleccionado =
+    indiceGuardado !== null
+        ? Number(indiceGuardado)
+        : null;
+
+const hallazgos =
+    indiceSeleccionado !== null
+        ? todosLosHallazgos.filter(
+            hallazgo =>
+                hallazgo.inspeccion === indiceSeleccionado
+        )
+        : todosLosHallazgos;
 
     const matriz = [];
 
