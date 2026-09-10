@@ -1099,7 +1099,7 @@ function abrirClientes() {
                     );
 
             contenido += `
-                <div style="
+               
                     border:1px solid #ccc;
                     border-radius:8px;
                     padding:15px;
@@ -1121,7 +1121,7 @@ function abrirClientes() {
                         ${inspeccionesCliente.length}
                     </p>
 
-                    <div style="
+                   
                         overflow-x:auto;
                     ">
 
@@ -1246,7 +1246,7 @@ function abrirClientes() {
 
     ventana.innerHTML = `
 
-        <div style="
+       
             width:90%;
             max-width:1000px;
             margin:40px auto;
@@ -1256,7 +1256,7 @@ function abrirClientes() {
             box-shadow:0 4px 20px rgba(0,0,0,0.25);
         ">
 
-            <div style="
+           
                 display:flex;
                 justify-content:space-between;
                 align-items:center;
@@ -1390,7 +1390,7 @@ if (
 }
     ventana.innerHTML = `
 
-        <div style="
+       
             width:90%;
             max-width:1000px;
             margin:40px auto;
@@ -1400,7 +1400,7 @@ if (
             box-shadow:0 4px 20px rgba(0,0,0,0.25);
         ">
 
-            <div style="
+           
                 display:flex;
                 justify-content:space-between;
                 align-items:center;
@@ -1752,7 +1752,7 @@ function abrirListaChequeo() {
         ventana.style.boxSizing = "border-box";
 
         ventana.innerHTML = `
-            <div style="
+           
                 max-width:1100px;
                 margin:auto;
                 background:white;
@@ -1761,7 +1761,7 @@ function abrirListaChequeo() {
                 box-shadow:0 10px 40px rgba(0,0,0,0.3);
             ">
 
-                <div style="
+               
                     display:flex;
                     justify-content:space-between;
                     align-items:center;
@@ -1798,7 +1798,7 @@ function abrirListaChequeo() {
 
                 <div id="contenidoChecklist"></div>
 
-                <div style="
+               
                     margin-top:25px;
                     padding:20px;
                     background:#f4f6f8;
@@ -1863,14 +1863,14 @@ function generarChecklist() {
     Object.keys(datosChecklist).forEach((categoria, indice) => {
 
         html += `
-            <div style="
+           
                 margin-bottom:25px;
                 border:1px solid #ddd;
                 border-radius:10px;
                 overflow:hidden;
             ">
 
-                <div style="
+               
                     background:#123b5d;
                     color:white;
                     padding:14px 18px;
@@ -1880,7 +1880,7 @@ function generarChecklist() {
                     ${indice + 1}. ${categoria}
                 </div>
 
-                <div style="padding:10px;">
+               padding:10px;">
         `;
 
         datosChecklist[categoria].forEach((item, i) => {
@@ -1888,7 +1888,7 @@ function generarChecklist() {
             const id = "check_" + indice + "_" + i;
 
             html += `
-                <div style="
+               
                     display:grid;
                     grid-template-columns:1fr 110px 110px 110px;
                     gap:8px;
@@ -2410,7 +2410,7 @@ function cargarMatrizRiesgos() {
     hallazgos.forEach((hallazgo, indice) => {
 
         html += `
-            <div style="
+           
                 background:#f8fafc;
                 border:1px solid #dbe3ea;
                 border-radius:10px;
@@ -3504,7 +3504,7 @@ Object.keys(resultadosCategorias).forEach(categoria => {
                             : "Sin resultado"
                     }
 
-              <div style="
+             
     margin-top:15px;
     padding:18px;
     border:1px solid #999;
@@ -3547,205 +3547,220 @@ Object.keys(resultadosCategorias).forEach(categoria => {
                 colorActual = "#f4cccc";
             }
 
-            const perfiles = [
-                {
-                    numero: "1",
-                    nombre: "BUENO",
-                    rango: "76% a 100%",
-                    condicion: "Conforme",
-                    descripcion: "Se recomienda monitoreo y seguimiento general a cada aspecto, con el fin de darle continuidad a las fortalezas identificadas. Las amenazas son reconocidas, pero el riesgo está controlado."
-                },
-                {
-                    numero: "2",
-                    nombre: "SUFICIENTE",
-                    rango: "51% a 75,9%",
-                    condicion: "Con observaciones menores",
-                    descripcion: "Plan de seguimiento encaminado a esas observaciones menores detectadas. Se conocen las amenazas y se tiene controlado el riesgo."
-                },
-                {
-                    numero: "3",
-                    nombre: "REGULAR",
-                    rango: "26% a 50,9%",
-                    condicion: "Requiere seguimiento",
-                    descripcion: "Es necesario el diseño de estrategias tendientes a la corrección de aquellos aspectos calificados por mejorar, garantizar un plan de seguimiento para el cumplimiento de las actividades planteadas."
-                },
-                {
-                    numero: "4",
-                    nombre: "DEBIL",
-                    rango: "0% a 25,9%",
-                    condicion: "Con observaciones mayores",
-                    descripcion: "El panorama de seguridad se percibe como crítico, por lo tanto, es necesario intervenir los aspectos de manera inmediata, con el ánimo de disminuir la probabilidad de materialización de las amenazas."
-                }
-            ];
+          const perfiles = [
+    {
+        numero: "1",
+        nombre: "BUENO",
+        rango: "76% a 100%",
+        condicion: "Conforme",
+        descripcion: "Se recomienda monitoreo y seguimiento general a cada aspecto, con el fin de darle continuidad a las fortalezas identificadas. Las amenazas son reconocidas, pero el riesgo está controlado."
+    },
+    {
+        numero: "2",
+        nombre: "SUFICIENTE",
+        rango: "51% a 75,9%",
+        condicion: "Con observaciones menores",
+        descripcion: "Plan de seguimiento encaminado a esas observaciones menores detectadas. Se conocen las amenazas y se tiene controlado el riesgo."
+    },
+    {
+        numero: "3",
+        nombre: "REGULAR",
+        rango: "26% a 50,9%",
+        condicion: "Requiere seguimiento",
+        descripcion: "Es necesario el diseño de estrategias tendientes a la corrección de aquellos aspectos calificados por mejorar, garantizar un plan de seguimiento para el cumplimiento de las actividades planteadas."
+    },
+    {
+        numero: "4",
+        nombre: "DEBIL",
+        rango: "0% a 25,9%",
+        condicion: "Con observaciones mayores",
+        descripcion: "El panorama de seguridad se percibe como crítico, por lo tanto, es necesario intervenir los aspectos de manera inmediata, con el ánimo de disminuir la probabilidad de materialización de las amenazas."
+    }
+];
 
-                       {
-                    numero: "3",
-                    nombre: "REGULAR",
-                    rango: "26% a 50,9%",
-                    condicion: "Requiere seguimiento",
-                    descripcion: "Es necesario el diseño de estrategias tendientes a la corrección de aquellos aspectos calificados por mejorar, garantizar un plan de seguimiento para el cumplimiento de las actividades planteadas."
-                },
-                {
-                    numero: "4",
-                    nombre: "DEBIL",
-                    rango: "0% a 25,9%",
-                    condicion: "Con observaciones mayores",
-                    descripcion: "El panorama de seguridad se percibe como crítico, por lo tanto, es necesario intervenir los aspectos de manera inmediata, con el ánimo de disminuir la probabilidad de materialización de las amenazas."
-                }
-            ];
-
-           
-            return `
-                <div style="
-                    margin-bottom:15px;
-                    padding:10px;
+const filasCategoriasPerfil =
+    Object.entries(resultadosCategorias)
+        .map(([categoria, resultado]) => `
+            <tr>
+                <td style="
+                    padding:8px;
                     border:1px solid #999;
-                    background:${colorActual};
-                    font-size:15px;
                 ">
-                    <strong>Perfil actual: ${perfilActual}</strong>
-                    &nbsp; | &nbsp;
-                    Resultado general: <strong>${valor}%</strong>
+                    ${categoria}
+                </td>
 
-            const filasCategorias =
-                Object.entries(resultadosCategorias)
-                    .map(([categoria, resultado]) => `
-                        <tr>
-                            <td style="padding:8px;border:1px solid #999;">
-                                ${categoria}
-                            </td>
-                            <td style="padding:8px;border:1px solid #999;text-align:center;">
-                                ${resultado}%
-                            </td>
-                            <td style="padding:8px;border:1px solid #999;text-align:center;">
-                                100%
-                            </td>
-                        </tr>
-                    `)
-                    .join("");
-
-            return `
-                <div style="
-                    margin-bottom:15px;
-                    padding:10px;
+                <td style="
+                    padding:8px;
                     border:1px solid #999;
-                    background:${colorActual};
-                    font-size:15px;
+                    text-align:center;
                 ">
-                    <strong>Perfil actual: ${perfilActual}</strong>
-                    &nbsp; | &nbsp;
-                    Resultado general: <strong>${valor}%</strong>
-                </div>
+                    ${resultado}%
+                </td>
 
-                <table style="
-                    width:100%;
-                    border-collapse:collapse;
-                    font-size:12px;
-                    margin-bottom:20px;
+                <td style="
+                    padding:8px;
+                    border:1px solid #999;
+                    text-align:center;
                 ">
-                    <thead>
-                        <tr style="background:#d9e2f3;">
-                            <th style="padding:8px;border:1px solid #999;">
-                                Perfil
-                            </th>
-                            <th style="padding:8px;border:1px solid #999;">
-                                Rango de calificación
-                            </th>
-                            <th style="padding:8px;border:1px solid #999;">
-                                Criterio
-                            </th>
-                            <th style="padding:8px;border:1px solid #999;">
-                                Oportunidades de mejora
-                            </th>
-                        </tr>
-                    </thead>
+                    100%
+                </td>
+            </tr>
+        `)
+        .join("");
 
-                    <tbody>
-                        ${perfiles.map(perfil => `
-                            <tr style="
-                                background:
-                                    ${perfil.nombre === perfilActual
-                                        ? colorActual
-                                        : "#ffffff"};
-                            ">
-                                <td style="
-                                    padding:8px;
-                                    border:1px solid #999;
-                                    text-align:center;
-                                    font-weight:bold;
-                                ">
-                                    ${perfil.numero}. ${perfil.nombre}
-                                    ${
-                                        perfil.nombre === perfilActual
-                                            ? " ← ACTUAL"
-                                            : ""
-                                    }
-                                </td>
+return `
+    <div style="
+        margin-bottom:15px;
+        padding:10px;
+        border:1px solid #999;
+        background:${colorActual};
+        font-size:15px;
+    ">
+        <strong>Perfil actual: ${perfilActual}</strong>
+        &nbsp; | &nbsp;
+        Resultado general: <strong>${valor}%</strong>
+    </div>
 
-                                <td style="
-                                    padding:8px;
-                                    border:1px solid #999;
-                                    text-align:center;
-                                ">
-                                    ${perfil.rango}
-                                </td>
-
-                                <td style="
-                                    padding:8px;
-                                    border:1px solid #999;
-                                    text-align:center;
-                                ">
-                                    ${perfil.condicion}
-                                </td>
-
-                                <td style="
-                                    padding:8px;
-                                    border:1px solid #999;
-                                    text-align:justify;
-                                ">
-                                    ${perfil.descripcion}
-                                </td>
-                            </tr>
-                        `).join("")}
-                    </tbody>
-                </table>
-
-                <h4 style="
-                    margin:10px 0;
-                    color:#123b5d;
+    <table style="
+        width:100%;
+        border-collapse:collapse;
+        font-size:12px;
+        margin-bottom:20px;
+    ">
+        <thead>
+            <tr style="
+                background:#d9e2f3;
+            ">
+                <th style="
+                    padding:8px;
+                    border:1px solid #999;
                 ">
-                    Esquemas / áreas evaluadas
-                </h4>
+                    Perfil
+                </th>
 
-                <table style="
-                    width:100%;
-                    border-collapse:collapse;
-                    font-size:12px;
+                <th style="
+                    padding:8px;
+                    border:1px solid #999;
                 ">
-                    <thead>
-                        <tr style="background:#d9e2f3;">
-                            <th style="padding:8px;border:1px solid #999;">
-                                Esquema / Área evaluada
-                            </th>
-                            <th style="padding:8px;border:1px solid #999;text-align:center;">
-                                Resultado
-                            </th>
-                            <th style="padding:8px;border:1px solid #999;text-align:center;">
-                                Nivel óptimo
-                            </th>
-                        </tr>
-                    </thead>
+                    Rango de calificación
+                </th>
 
-                    <tbody>
-                        ${filasCategoriasPerfil}
-                    </tbody>
-                </table>
-            `;
+                <th style="
+                    padding:8px;
+                    border:1px solid #999;
+                ">
+                    Criterio
+                </th>
+
+                <th style="
+                    padding:8px;
+                    border:1px solid #999;
+                ">
+                    Oportunidades de mejora
+                </th>
+            </tr>
+        </thead>
+
+        <tbody>
+            ${perfiles.map(perfil => `
+                <tr style="
+                    background:${
+                        perfil.nombre === perfilActual
+                            ? colorActual
+                            : "#ffffff"
+                    };
+                ">
+                    <td style="
+                        padding:8px;
+                        border:1px solid #999;
+                        text-align:center;
+                        font-weight:bold;
+                    ">
+                        ${perfil.numero}. ${perfil.nombre}
+                        ${
+                            perfil.nombre === perfilActual
+                                ? " ← ACTUAL"
+                                : ""
+                        }
+                    </td>
+
+                    <td style="
+                        padding:8px;
+                        border:1px solid #999;
+                        text-align:center;
+                    ">
+                        ${perfil.rango}
+                    </td>
+
+                    <td style="
+                        padding:8px;
+                        border:1px solid #999;
+                        text-align:center;
+                    ">
+                        ${perfil.condicion}
+                    </td>
+
+                    <td style="
+                        padding:8px;
+                        border:1px solid #999;
+                        text-align:justify;
+                    ">
+                        ${perfil.descripcion}
+                    </td>
+                </tr>
+            `).join("")}
+        </tbody>
+    </table>
+
+    <h4 style="
+        margin:10px 0;
+        color:#123b5d;
+    ">
+        Esquemas / áreas evaluadas
+    </h4>
+
+    <table style="
+        width:100%;
+        border-collapse:collapse;
+        font-size:12px;
+    ">
+        <thead>
+            <tr style="
+                background:#d9e2f3;
+            ">
+                <th style="
+                    padding:8px;
+                    border:1px solid #999;
+                ">
+                    Esquema / Área evaluada
+                </th>
+
+                <th style="
+                    padding:8px;
+                    border:1px solid #999;
+                    text-align:center;
+                ">
+                    Resultado
+                </th>
+
+                <th style="
+                    padding:8px;
+                    border:1px solid #999;
+                    text-align:center;
+                ">
+                    Nivel óptimo
+                </th>
+            </tr>
+        </thead>
+
+        <tbody>
+        ${filasCategoriasPerfil}
+    </tbody>
+</table>
+`;
         })()
     }
-
 </div>
-
               <h2>
     4. Hallazgos identificados
 </h2>
