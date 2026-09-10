@@ -436,13 +436,13 @@
                     Sistemas Electrónicos, Autocuidado y demás áreas.
                 </p>
             </div>
-<div class="modulo" onclick="abrirHallazgos()">
-                <h3>⚠️ Hallazgos</h3>
-                <p>
-                    Registrar hallazgos, observaciones, evidencias
-                    fotográficas y recomendaciones.
-                </p>
-            </div>
+<div class="modulo" onclick="abrirHallazgos(Number(localStorage.getItem('indiceInspeccionSeleccionadaInforme')))">
+    <h3>⚠️ Hallazgos</h3>
+    <p>
+        Registrar hallazgos, observaciones, evidencias
+        fotográficas y recomendaciones.
+    </p>
+</div>
 
           <div class="modulo" onclick="abrirMatrizRiesgos()">
     <h3>📊 Matriz de riesgos</h3>
@@ -2071,8 +2071,15 @@ function cerrarListaChequeo() {
         ventana.style.display = "none";
     }
 }
-function abrirHallazgos() {
-    const ventana = document.getElementById("ventanaHallazgos");
+function abrirHallazgos(indice) {
+
+    localStorage.setItem(
+        "indiceInspeccionSeleccionadaInforme",
+        String(indice)
+    );
+
+    const ventana =
+        document.getElementById("ventanaHallazgos");
 
     if (ventana) {
         ventana.style.display = "flex";
