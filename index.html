@@ -3164,7 +3164,40 @@ Object.keys(datosChecklist).forEach((categoria, indice) => {
 
     const resultadoCategoria =
         resultadosCategorias[categoria] ?? 0;
+        filasChecklistDetallado += `
+            <tr>
+                <td colspan="5"
+                    style="
+                        background:#1f4e78;
+                        color:white;
+                        font-weight:bold;
+                        text-align:left;
+                        padding:7px;
+                    ">
+                    ${escapar(categoria)}
+                </td>
 
+                <td
+                    style="
+                        background:#1f4e78;
+                        color:white;
+                        font-weight:bold;
+                        text-align:center;
+                    ">
+                    ${resultadoCategoria}%
+                </td>
+
+                <td
+                    style="
+                        background:#1f4e78;
+                        color:white;
+                        font-weight:bold;
+                        text-align:center;
+                    ">
+                    100%
+                </td>
+            </tr>
+        `;
     datosChecklist[categoria].forEach(item => {
 
         const valor =
