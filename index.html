@@ -2998,16 +2998,33 @@ const matriz =
 const inspeccion =
     inspecciones[indiceSeleccionado];
 
-const checklist =
-    checklists.find(
+const checklist = (() => {
+
+    // Buscar el último checklist guardado para esta inspección
+    const coincidencias = checklists.filter(
         registro =>
-            Number(registro.inspeccion) === indiceSeleccionado
-    ) ||
-    checklists.find(
+            Number(registro.inspeccion) ===
+            indiceSeleccionado
+    );
+
+    if (coincidencias.length > 0) {
+        return coincidencias[coincidencias.length - 1];
+    }
+
+    // Compatibilidad con checklists antiguos
+    const registrosAntiguos = checklists.filter(
         registro =>
-            Number(registro.inspeccion) === indiceSeleccionado + 1
-    ) ||
-    null;
+            Number(registro.inspeccion) ===
+            indiceSeleccionado + 1
+    );
+
+    if (registrosAntiguos.length > 0) {
+        return registrosAntiguos[registrosAntiguos.length - 1];
+    }
+
+    return null;
+
+})();
 
     const ventana =
         window.open("", "_blank");
