@@ -3099,7 +3099,24 @@ const checklist = (() => {
             </tr>
         `;
     }
+    /* =========================
+       RESULTADOS POR CATEGORÍA
+    ========================= */
 
+    let filasCategorias = "";
+
+    Object.keys(resultadosCategorias).forEach(categoria => {
+
+        filasCategorias += `
+            <tr>
+                <td>${escapar(categoria)}</td>
+                <td style="text-align:center; font-weight:bold;">
+                    ${resultadosCategorias[categoria]}%
+                </td>
+            </tr>
+        `;
+
+    });
 
     /* =========================
        MATRIZ DE RIESGOS
