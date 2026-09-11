@@ -2177,14 +2177,17 @@ function calcularChecklist() {
                     'input[name="' + id + '"]:checked'
                 );
 
-            if (seleccionado) {
+           if (seleccionado) {
 
-                puntos += Number(
-                    seleccionado.value
-                );
+    if (seleccionado.value !== "NA") {
 
-                respondidos++;
-            }
+        puntos += Number(
+            seleccionado.value
+        );
+
+        respondidos++;
+    }
+}
         });
 
         const maximo =
