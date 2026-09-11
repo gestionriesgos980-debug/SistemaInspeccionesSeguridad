@@ -3049,20 +3049,7 @@ const checklist = (() => {
             .replace(/'/g, "&#039;");
     }
 
-let filasCategorias = "";
 
-Object.keys(resultadosCategorias).forEach(categoria => {
-
-    filasCategorias += `
-        <tr>
-            <td>${escapar(categoria)}</td>
-            <td style="text-align:center; font-weight:bold;">
-                ${resultadosCategorias[categoria]}%
-            </td>
-        </tr>
-    `;
-
-});
     /* =========================
        HALLAZGOS
     ========================= */
@@ -3767,15 +3754,6 @@ Object.keys(resultadosCategorias).forEach(categoria => {
         </thead>
 
         <tbody>
-
-            ${filasCategorias}
-
-        </tbody>
-
-    </table>
-
-</div>
-              <tbody>
 
             ${filasCategorias}
 
