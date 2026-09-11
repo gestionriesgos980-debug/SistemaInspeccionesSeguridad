@@ -2303,6 +2303,7 @@ if (checklist) {
 }
     
 function guardarChecklist() {
+
     const resultado =
         document.getElementById("resultadoChecklist").textContent;
 
@@ -2312,10 +2313,36 @@ function guardarChecklist() {
     const inspecciones =
         JSON.parse(localStorage.getItem("inspecciones")) || [];
 
+    const respuestas = {};
+
+    Object.keys(datosChecklist).forEach((categoria, indice) => {
+
+        respuestas[categoria] = {};
+
+        datosChecklist[categoria].forEach((item, i) => {
+
+            const id =
+                "check_" + indice + "_" + i;
+
+            const seleccionado =
+                document.querySelector(
+                    'input[name="' + id + '"]:checked'
+                );
+
+            if (seleccionado) {
+                respuestas[categoria][item] =
+                    seleccionado.value;
+            }
+
+        });
+
+    });
+
     registros.push({
         fecha: new Date().toISOString(),
         inspeccion: inspecciones.length - 1,
-        resultado: resultado
+        resultado: resultado,
+        respuestas: respuestas
     });
 
     localStorage.setItem(
