@@ -2977,14 +2977,7 @@ const indiceInspeccion =
         });
 
     });
-alert(
-    matriz.map(
-        (riesgo, indice) =>
-            "Riesgo " + (indice + 1) +
-            "\nTratamiento: " +
-            riesgo.tratamiento
-    ).join("\n\n")
-);
+
     localStorage.setItem(
         "matrizRiesgos",
         JSON.stringify(matriz)
