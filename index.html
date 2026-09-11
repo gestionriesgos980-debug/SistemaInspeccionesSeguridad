@@ -3305,11 +3305,54 @@ Object.keys(datosChecklist).forEach((categoria, indice) => {
        PERFIL DE CRITICIDAD
     ========================= */
 
-    const porcentajeGeneral =
-        parseInt(
-            String(checklist?.resultado || "0").replace("%", ""),
-            10
-        ) || 0;
+    const porcentajeGeneral = (() => {
+
+    let totalPuntos = 0;
+    let totalMaximo = 0;
+
+    Object.keys(datosChecklist).forEach((categoria) => {
+
+        const respuestasCategoria =
+            respuestasChecklist[categoria] || {};
+
+        datosChecklist[categoria].forEach((item) => {
+
+            const valor =
+                String(respuestasCategoria[item] ?? "")
+                    .trim()
+                    .toUpperCase();
+
+            /* NO APLICA NO SUMA NI RESTA */
+            if (
+                valor === "" ||
+                valor === "NA" ||
+                valor === "NO APLICA"
+            ) {
+                return;
+            }
+
+            if (
+                valor === "2" ||
+                valor === "1" ||
+                valor === "0"
+            ) {
+                totalPuntos += Number(valor);
+                totalMaximo += 2;
+            }
+
+        });
+
+    });
+
+    if (totalMaximo === 0) {
+        return 0;
+    }
+
+    return Math.round(
+        (totalPuntos / totalMaximo) * 100
+    );
+
+})();
 
     let perfilCriticidad = "";
     let descripcionCriticidad = "";
