@@ -3300,6 +3300,57 @@ Object.keys(datosChecklist).forEach((categoria, indice) => {
     });
 
 });
+
+    /* =========================
+       PERFIL DE CRITICIDAD
+    ========================= */
+
+    const porcentajeGeneral =
+        parseInt(
+            String(checklist?.resultado || "0").replace("%", ""),
+            10
+        ) || 0;
+
+    let perfilCriticidad = "";
+    let descripcionCriticidad = "";
+
+    if (porcentajeGeneral >= 76) {
+
+        perfilCriticidad = "BUENO";
+
+        descripcionCriticidad =
+            "Se recomienda monitoreo y seguimiento general a cada aspecto, " +
+            "con el fin de darle continuidad a las fortalezas identificadas. " +
+            "Las amenazas son reconocidas, pero el riesgo está controlado.";
+
+    } else if (porcentajeGeneral >= 51) {
+
+        perfilCriticidad = "SUFICIENTE";
+
+        descripcionCriticidad =
+            "Plan de seguimiento encaminado a esas observaciones menores " +
+            "detectadas. Se conocen las amenazas y se tiene controlado el riesgo.";
+
+    } else if (porcentajeGeneral >= 26) {
+
+        perfilCriticidad = "REGULAR";
+
+        descripcionCriticidad =
+            "Es necesario el diseño de estrategias tendientes a la corrección " +
+            "de aquellos aspectos calificados por mejorar, garantizar un plan " +
+            "de seguimiento para el cumplimiento de las actividades planteadas.";
+
+    } else {
+
+        perfilCriticidad = "DÉBIL";
+
+        descripcionCriticidad =
+            "El panorama de seguridad se percibe como crítico, por lo tanto, " +
+            "es necesario intervenir los aspectos de manera inmediata, con el " +
+            "ánimo de disminuir la probabilidad de materialización de las amenazas.";
+
+    }
+    
     /* =========================
        MATRIZ DE RIESGOS
     ========================= */
@@ -4123,7 +4174,234 @@ ${filasCategorias}
     </div>
 
 </div>
-                         
+      <div style="
+    margin-top:20px;
+    margin-bottom:20px;
+">
+
+    <h3 style="
+        margin-bottom:10px;
+        color:#123b5d;
+    ">
+        CONSOLIDADO - PERFIL DE CRITICIDAD
+    </h3>
+
+    <table style="
+        width:100%;
+        border-collapse:collapse;
+        font-size:10px;
+    ">
+
+        <thead>
+            <tr>
+                <th style="
+                    background:#123b5d;
+                    color:white;
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    PERFIL
+                </th>
+
+                <th style="
+                    background:#123b5d;
+                    color:white;
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    RANGO
+                </th>
+
+                <th style="
+                    background:#123b5d;
+                    color:white;
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    CLASIFICACIÓN
+                </th>
+
+                <th style="
+                    background:#123b5d;
+                    color:white;
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    DESCRIPCIÓN
+                </th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            <tr>
+                <td style="
+                    background:${perfilCriticidad === "BUENO" ? "#70ad47" : "#eeeeee"};
+                    color:${perfilCriticidad === "BUENO" ? "#ffffff" : "#000000"};
+                    text-align:center;
+                    font-weight:bold;
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    BUENO
+                </td>
+
+                <td style="
+                    text-align:center;
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    76% - 100%
+                </td>
+
+                <td style="
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    Conforme
+                </td>
+
+                <td style="
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    Se recomienda monitoreo y seguimiento general a cada aspecto,
+                    con el fin de darle continuidad a las fortalezas identificadas.
+                    Las amenazas son reconocidas, pero el riesgo está controlado.
+                </td>
+            </tr>
+
+            <tr>
+                <td style="
+                    background:${perfilCriticidad === "SUFICIENTE" ? "#ffc000" : "#eeeeee"};
+                    color:#000000;
+                    text-align:center;
+                    font-weight:bold;
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    SUFICIENTE
+                </td>
+
+                <td style="
+                    text-align:center;
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    51% - 75,9%
+                </td>
+
+                <td style="
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    Con observaciones menores
+                </td>
+
+                <td style="
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    Plan de seguimiento encaminado a esas observaciones menores
+                    detectadas. Se conocen las amenazas y se tiene controlado el riesgo.
+                </td>
+            </tr>
+
+            <tr>
+                <td style="
+                    background:${perfilCriticidad === "REGULAR" ? "#f4b183" : "#eeeeee"};
+                    color:#000000;
+                    text-align:center;
+                    font-weight:bold;
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    REGULAR
+                </td>
+
+                <td style="
+                    text-align:center;
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    26% - 50,9%
+                </td>
+
+                <td style="
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    Requiere seguimiento
+                </td>
+
+                <td style="
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    Es necesario el diseño de estrategias tendientes a la corrección
+                    de aquellos aspectos calificados por mejorar, garantizar un plan
+                    de seguimiento para el cumplimiento de las actividades planteadas.
+                </td>
+            </tr>
+
+            <tr>
+                <td style="
+                    background:${perfilCriticidad === "DÉBIL" ? "#c00000" : "#eeeeee"};
+                    color:${perfilCriticidad === "DÉBIL" ? "#ffffff" : "#000000"};
+                    text-align:center;
+                    font-weight:bold;
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    DÉBIL
+                </td>
+
+                <td style="
+                    text-align:center;
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    0% - 25,9%
+                </td>
+
+                <td style="
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    Con observaciones mayores
+                </td>
+
+                <td style="
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    El panorama de seguridad se percibe como crítico, por lo tanto,
+                    es necesario intervenir los aspectos de manera inmediata, con el
+                    ánimo de disminuir la probabilidad de materialización de las amenazas.
+                </td>
+            </tr>
+
+        </tbody>
+
+    </table>
+
+    <div style="
+        margin-top:8px;
+        padding:8px;
+        border:1px solid #aaa;
+        background:#fafafa;
+        font-size:11px;
+    ">
+        <strong>Perfil obtenido:</strong>
+        ${escapar(perfilCriticidad)}
+        &nbsp;&nbsp;
+        <strong>Resultado:</strong>
+        ${porcentajeGeneral}%
+        <br><br>
+        ${escapar(descripcionCriticidad)}
+    </div>
+
+</div>                   
               <h2>
     4. Hallazgos identificados
 </h2>
