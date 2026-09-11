@@ -2695,7 +2695,14 @@ const hallazgos =
                 indiceSeleccionado
         )
         : todosLosHallazgos;
-
+alert(
+    "Inspección seleccionada: " +
+    indiceSeleccionado +
+    "\nTotal de hallazgos: " +
+    todosLosHallazgos.length +
+    "\nHallazgos de esta inspección: " +
+    hallazgos.length
+);
     if (!hallazgos.length) {
 
         contenedor.innerHTML = `
