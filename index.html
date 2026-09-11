@@ -1983,58 +1983,55 @@ function abrirListaChequeo(indice) {
 
                 </div>
 
-                <div id="contenidoChecklist"></div>
+               <div id="contenidoChecklist"></div>
 
-               
-                    margin-top:25px;
-                    padding:20px;
-                    background:#f4f6f8;
-                    border-radius:10px;
-                    text-align:center;
-                ">
+<div style="
+    margin-top:25px;
+    padding:20px;
+    background:#f4f6f8;
+    border-radius:10px;
+    text-align:center;
+">
 
-                    <h3 style="margin-top:0;color:#123b5d;">
-                        Resultado consolidado
-                    </h3>
+    <h3 style="
+        margin-top:0;
+        color:#123b5d;
+    ">
+        Resultado consolidado
+    </h3>
 
-                    <div id="resultadoChecklist"
-                         style="
-                            font-size:28px;
-                            font-weight:bold;
-                            color:#123b5d;
-                         ">
-                        0%
-                    </div>
+    <div id="resultadoChecklist"
+         style="
+            font-size:28px;
+            font-weight:bold;
+            color:#123b5d;
+         ">
+        0%
+    </div>
 
-                    <p style="color:#666;">
-                        BUENO = 2 &nbsp; | &nbsp;
-                        REGULAR = 1 &nbsp; | &nbsp;
-                        MALO = 0
-                    </p>
+    <p style="color:#666;">
+        BUENO = 2 &nbsp; | &nbsp;
+        REGULAR = 1 &nbsp; | &nbsp;
+        MALO = 0
+    </p>
 
-                    <button
-                        onclick="guardarChecklist()"
-                        style="
-                            background:#198754;
-                            color:white;
-                            border:none;
-                            border-radius:6px;
-                            padding:12px 25px;
-                            cursor:pointer;
-                            font-size:16px;
-                            font-weight:bold;
-                        ">
-                        💾 Guardar lista de chequeo
-                    </button>
+    <button
+        onclick="guardarChecklist()"
+        style="
+            background:#198754;
+            color:white;
+            border:none;
+            border-radius:6px;
+            padding:12px 25px;
+            cursor:pointer;
+            font-size:16px;
+            font-weight:bold;
+        ">
+        💾 Guardar lista de chequeo
+    </button>
 
-                </div>
-
-            </div>
-        `;
-
-        document.body.appendChild(ventana);
-    }
-
+</div>
+                        
     generarChecklist();
 
     ventana.style.display = "block";
