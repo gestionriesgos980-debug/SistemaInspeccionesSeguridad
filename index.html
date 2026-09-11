@@ -2656,8 +2656,6 @@ function abrirMatrizRiesgos() {
         cargarMatrizRiesgos();
     }
 }
-
-
 function cerrarMatrizRiesgos() {
 
     const ventana =
@@ -2668,6 +2666,11 @@ function cerrarMatrizRiesgos() {
     }
 }
 
+
+function cargarMatrizRiesgos() {
+
+    const contenedor =
+        document.getElementById("listaRiesgos");
 
 const todosLosHallazgos =
     JSON.parse(
