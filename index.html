@@ -1751,6 +1751,159 @@ modal.style.display = "block";
 
     modal.style.display = "block";
 }
+  function eliminarInspeccion(indice) {
+
+    const inspecciones =
+        JSON.parse(localStorage.getItem("inspecciones")) || [];
+
+    if (!inspecciones[indice]) {
+        alert("No se encontró la inspección seleccionada.");
+        return;
+    }
+
+    const inspeccion = inspecciones[indice];
+
+    const confirmar = confirm(
+        "¿Está seguro de eliminar esta inspección?\n\n" +
+        "Cliente: " +
+        (inspeccion.cliente || "Sin cliente") +
+        "\nFecha: " +
+        (inspeccion.fecha || "Sin fecha") +
+        "\n\n" +
+        "También se eliminarán los datos asociados."
+    );
+
+    if (!confirmar) {
+        return;
+    }
+
+    inspecciones.splice(indice, 1);
+
+    localStorage.setItem(
+        "inspecciones",
+        JSON.stringify(inspecciones)
+    );
+
+    const hallazgos =
+        JSON.parse(localStorage.getItem("hallazgos")) || [];
+
+    const hallazgosFiltrados =
+        hallazgos
+            .filter(
+                hallazgo =>
+                    Number(hallazgo.inspeccion) !== indice
+            )
+            .map(hallazgo => {
+
+                if (
+                    Number(hallazgo.inspeccion) > indice
+                ) {
+                    hallazgo.inspeccion =
+                        Number(hallazgo.inspeccion) - 1;
+                }
+
+                return hallazgo;
+            });
+
+    localStorage.setItem(
+        "hallazgos",
+        JSON.stringify(hallazgosFiltrados)
+    );
+
+    const matriz =
+        JSON.parse(localStorage.getItem("matrizRiesgos")) || [];
+
+    const matrizFiltrada =
+        matriz
+            .filter(
+                registro =>
+                    Number(registro.inspeccion) !== indice
+            )
+            .map(registro => {
+
+                if (
+                    Number(registro.inspeccion) > indice
+                ) {
+                    registro.inspeccion =
+                        Number(registro.inspeccion) - 1;
+                }
+
+                return registro;
+            });
+
+    localStorage.setItem(
+        "matrizRiesgos",
+        JSON.stringify(matrizFiltrada)
+    );
+
+    const checklists =
+        JSON.parse(localStorage.getItem("checklists")) || [];
+
+    const checklistsFiltrados =
+        checklists
+            .filter(
+                registro =>
+                    Number(registro.inspeccion) !== indice
+            )
+            .map(registro => {
+
+                if (
+                    Number(registro.inspeccion) > indice
+                ) {
+                    registro.inspeccion =
+                        Number(registro.inspeccion) - 1;
+                }
+
+                return registro;
+            });
+
+    localStorage.setItem(
+        "checklists",
+        JSON.stringify(checklistsFiltrados)
+    );
+
+    const resultadosCategorias =
+        JSON.parse(
+            localStorage.getItem(
+                "resultadosChecklistCategorias"
+            )
+        ) || {};
+
+    const nuevosResultados = {};
+
+    Object.keys(resultadosCategorias).forEach(clave => {
+
+        const numero = Number(clave);
+
+        if (numero === indice) {
+            return;
+        }
+
+        const nuevaClave =
+            numero > indice
+                ? numero - 1
+                : numero;
+
+        nuevosResultados[nuevaClave] =
+            resultadosCategorias[clave];
+    });
+
+    localStorage.setItem(
+        "resultadosChecklistCategorias",
+        JSON.stringify(nuevosResultados)
+    );
+
+    localStorage.removeItem(
+        "indiceInspeccionSeleccionadaInforme"
+    );
+
+    alert(
+        "La inspección fue eliminada correctamente."
+    );
+
+    cerrarClientes();
+    abrirClientes();
+}  
 function cerrarClientes() {
 
     const ventana =
