@@ -3305,53 +3305,38 @@ Object.keys(datosChecklist).forEach((categoria, indice) => {
        PERFIL DE CRITICIDAD
     ========================= */
 
-    const porcentajeGeneral = (() => {
+const porcentajeGeneral = (() => {
 
     let totalPuntos = 0;
     let totalMaximo = 0;
 
     Object.keys(datosChecklist).forEach((categoria) => {
 
-        const respuestasCategoria =
-            respuestasChecklist[categoria] || {};
+        const porcentaje =
+            Number(resultadosCategorias[categoria]);
 
-        datosChecklist[categoria].forEach((item) => {
+        if (isNaN(porcentaje)) {
+            return;
+        }
 
-            const valor =
-                String(respuestasCategoria[item] ?? "")
-                    .trim()
-                    .toUpperCase();
+        const cantidadItems =
+            datosChecklist[categoria].length;
 
-            if (
-                valor === "" ||
-                valor === "NA" ||
-                valor === "NO APLICA"
-            ) {
-                return;
-            }
+        totalPuntos +=
+            porcentaje * cantidadItems;
 
-            if (valor === "2") {
-                totalPuntos += 2;
-                totalMaximo += 2;
-            } else if (valor === "1") {
-                totalPuntos += 1;
-                totalMaximo += 2;
-            } else if (valor === "0") {
-                totalPuntos += 0;
-                totalMaximo += 2;
-            }
-
-        });
+        totalMaximo +=
+            cantidadItems;
 
     });
 
-    if (totalMaximo > 0) {
-        return Math.round(
-            (totalPuntos / totalMaximo) * 100
-        );
+    if (totalMaximo === 0) {
+        return 0;
     }
 
-    return 0;
+    return Math.round(
+        totalPuntos / totalMaximo
+    );
 
 })();
 
