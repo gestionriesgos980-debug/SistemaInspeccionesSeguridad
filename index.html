@@ -3053,9 +3053,15 @@ const checklist = (() => {
 
 })();
 const respuestasChecklist =
-    checklist?.respuestas || {};
-    const ventana =
-        window.open("", "_blank");
+    checklist && checklist.respuestas
+        ? checklist.respuestas
+        : {};
+
+console.log("CHECKLIST SELECCIONADO:", checklist);
+console.log("RESPUESTAS GUARDADAS:", respuestasChecklist);
+
+const ventana =
+    window.open("", "_blank");
 
     if (!ventana) {
 
