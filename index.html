@@ -935,7 +935,7 @@ function actualizarContadores() {
 
   const todosLosHallazgos =
     JSON.parse(localStorage.getItem("hallazgos")) || [];
-
+    
 document.getElementById("totalHallazgos").textContent =
     todosLosHallazgos.length;
 
@@ -2688,6 +2688,14 @@ const todosLosHallazgos =
     JSON.parse(
         localStorage.getItem("hallazgos")
     ) || [];
+    alert(
+    todosLosHallazgos.map(
+        (hallazgo, indice) =>
+            "Hallazgo " + (indice + 1) +
+            " → inspección " +
+            hallazgo.inspeccion
+    ).join("\n")
+);
 
 const indiceGuardado =
     localStorage.getItem(
