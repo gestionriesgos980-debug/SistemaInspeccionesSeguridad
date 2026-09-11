@@ -2032,6 +2032,14 @@ function abrirListaChequeo(indice) {
 
 </div>
                         
+    </div>
+
+</div>
+        `;
+
+        document.body.appendChild(ventana);
+    }
+
     generarChecklist();
 
     ventana.style.display = "block";
@@ -2322,8 +2330,15 @@ localStorage.setItem(
     );
 
     alert(
-        "Lista de chequeo guardada correctamente."
-    );
+    "Lista de chequeo guardada correctamente."
+);
+
+const ventanaChecklist =
+    document.getElementById("ventanaChecklist");
+
+if (ventanaChecklist) {
+    ventanaChecklist.scrollTop = 0;
+}
 }
 
 
