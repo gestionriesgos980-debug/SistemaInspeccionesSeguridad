@@ -2669,15 +2669,29 @@ function cerrarMatrizRiesgos() {
 }
 
 
-function cargarMatrizRiesgos() {
+const todosLosHallazgos =
+    JSON.parse(
+        localStorage.getItem("hallazgos")
+    ) || [];
 
-    const contenedor =
-        document.getElementById("listaRiesgos");
+const indiceGuardado =
+    localStorage.getItem(
+        "indiceInspeccionSeleccionadaInforme"
+    );
 
-    const hallazgos =
-        JSON.parse(
-            localStorage.getItem("hallazgos")
-        ) || [];
+const indiceSeleccionado =
+    indiceGuardado !== null
+        ? Number(indiceGuardado)
+        : null;
+
+const hallazgos =
+    indiceSeleccionado !== null
+        ? todosLosHallazgos.filter(
+            hallazgo =>
+                Number(hallazgo.inspeccion) ===
+                indiceSeleccionado
+        )
+        : todosLosHallazgos;
 
     if (!hallazgos.length) {
 
