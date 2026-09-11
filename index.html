@@ -2688,13 +2688,14 @@ const todosLosHallazgos =
     JSON.parse(
         localStorage.getItem("hallazgos")
     ) || [];
-    alert(
+   alert(
     todosLosHallazgos.map(
         (hallazgo, indice) =>
             "Hallazgo " + (indice + 1) +
-            " → inspección " +
-            hallazgo.inspeccion
-    ).join("\n")
+            " → inspección " + hallazgo.inspeccion +
+            "\nÁrea: " + (hallazgo.area || "") +
+            "\nElemento: " + (hallazgo.elemento || "")
+    ).join("\n\n")
 );
 
 const indiceGuardado =
