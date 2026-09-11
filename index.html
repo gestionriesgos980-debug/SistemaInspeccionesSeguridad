@@ -2208,32 +2208,30 @@ function calcularChecklist() {
         }).length
     ) * 2;
 
-        totalPuntos += puntos;
-        totalMaximo += maximo;
+totalPuntos += puntos;
+totalMaximo += maximo;
 
-        let porcentaje = 0;
+let porcentaje = 0;
 
-        if (respondidos > 0) {
+if (maximo > 0) {
 
-            porcentaje = Math.round(
-                (puntos /
-                    (datosChecklist[categoria].length * 2)
-                ) * 100
-            );
-        }
+    porcentaje = Math.round(
+        (puntos / maximo) * 100
+    );
+}
 
-        const resultado =
-            document.getElementById(
-                "resultadoCategoria_" + indice
-            );
+const resultado =
+    document.getElementById(
+        "resultadoCategoria_" + indice
+    );
 
-        if (resultado) {
+if (resultado) {
 
-            resultado.textContent =
-                "Resultado: " +
-                porcentaje +
-                "%";
-        }
+    resultado.textContent =
+        "Resultado: " +
+        porcentaje +
+        "%";
+}
 
         resultadosPorCategoria[categoria] =
             porcentaje;
