@@ -4484,36 +4484,50 @@ ${filasCategorias}
                 </table>
 
 
-                <h2>
+               <h2>
     4. Matriz de riesgos
 </h2>
 
-                <table>
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Área</th>
+            <th>Elemento</th>
+            <th>Probabilidad</th>
+            <th>Impacto</th>
+            <th>Puntuación</th>
+            <th>Nivel</th>
+            <th>Tratamiento</th>
+        </tr>
+    </thead>
 
-                    <thead>
+    <tbody>
+        ${filasMatriz}
+    </tbody>
+</table>
 
-                        <tr>
 
-                            <th>#</th>
-                            <th>Área</th>
-                            <th>Elemento</th>
-                            <th>Probabilidad</th>
-                            <th>Impacto</th>
-                            <th>Puntuación</th>
-                            <th>Nivel</th>
-                            <th>Tratamiento</th>
+<h2>
+    5. Hallazgos identificados
+</h2>
 
-                        </tr>
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Área</th>
+            <th>Elemento</th>
+            <th>Descripción / evidencia</th>
+            <th>Nivel</th>
+            <th>Recomendación</th>
+        </tr>
+    </thead>
 
-                    </thead>
-
-                    <tbody>
-
-                        ${filasMatriz}
-
-                    </tbody>
-
-                </table>
+    <tbody>
+        ${filasHallazgos}
+    </tbody>
+</table>
 
 
                 <div class="firmas">
