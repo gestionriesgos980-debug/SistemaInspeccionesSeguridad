@@ -2303,37 +2303,30 @@ if (checklist) {
 }
     
 function guardarChecklist() {
-
     const resultado =
         document.getElementById("resultadoChecklist").textContent;
 
     const registros =
         JSON.parse(localStorage.getItem("checklists")) || [];
 
- const inspecciones =
-    JSON.parse(localStorage.getItem("inspecciones")) || [];
+    const inspecciones =
+        JSON.parse(localStorage.getItem("inspecciones")) || [];
 
-const indiceInspeccion =
-    localStorage.getItem("indiceInspeccionSeleccionadaInforme");
+    registros.push({
+        fecha: new Date().toISOString(),
+        inspeccion: inspecciones.length - 1,
+        resultado: resultado
+    });
 
-registros.push({
-    fecha: new Date().toISOString(),
-
-    inspeccion: indiceInspeccion !== null
-        ? Number(indiceInspeccion)
-        : inspecciones.length - 1,
-
-    resultado: resultado
-});
-
-localStorage.setItem(
-    "checklists",
+    localStorage.setItem(
+        "checklists",
         JSON.stringify(registros)
     );
 
     alert(
-    "Lista de chequeo guardada correctamente."
-);
+        "Lista de chequeo guardada correctamente."
+    );
+}
 
 const ventanaChecklist =
     document.getElementById("ventanaChecklist");
@@ -2341,8 +2334,6 @@ const ventanaChecklist =
 if (ventanaChecklist) {
     ventanaChecklist.scrollTop = 0;
 }
-}
-
 
 function cerrarListaChequeo() {
 
@@ -3010,9 +3001,13 @@ const inspeccion =
 const checklist =
     checklists.find(
         registro =>
-            Number(registro.inspeccion) ===
-            indiceSeleccionado
-    ) || null;
+            Number(registro.inspeccion) === indiceSeleccionado
+    ) ||
+    checklists.find(
+        registro =>
+            Number(registro.inspeccion) === indiceSeleccionado + 1
+    ) ||
+    null;
 
     const ventana =
         window.open("", "_blank");
