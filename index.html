@@ -3174,12 +3174,13 @@ Object.keys(datosChecklist).forEach((categoria, indice) => {
             String(valor ?? "").trim().toUpperCase();
 
         /* NO APLICA NO SE MUESTRA */
-        if (
-            valorNormalizado === "NA" ||
-            valorNormalizado === "NO APLICA"
-        ) {
-            return;
-        }
+      if (
+    valorNormalizado === "" ||
+    valorNormalizado === "NA" ||
+    valorNormalizado === "NO APLICA"
+) {
+    return;
+}
 
         let estado = "SIN RESPUESTA";
         let puntuacion = "-";
