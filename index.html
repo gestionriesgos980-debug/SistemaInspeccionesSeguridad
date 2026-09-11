@@ -2653,6 +2653,14 @@ function abrirMatrizRiesgos() {
 
     if (ventana) {
         ventana.style.display = "flex";
+
+        alert(
+            "Índice antes de abrir matriz: " +
+            localStorage.getItem(
+                "indiceInspeccionSeleccionadaInforme"
+            )
+        );
+
         cargarMatrizRiesgos();
     }
 }
