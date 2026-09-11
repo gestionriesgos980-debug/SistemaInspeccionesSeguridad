@@ -2476,6 +2476,10 @@ async function guardarHallazgo() {
     ) || [];
 const indiceInspeccion =
     localStorage.getItem("indiceInspeccionSeleccionadaInforme");
+    alert(
+    "Inspección asignada al hallazgo: " +
+    indiceInspeccion
+);
     hallazgos.push({
 
         fecha: new Date().toISOString(),
