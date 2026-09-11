@@ -3011,8 +3011,8 @@ const resultadosCategorias =
 );
 const hallazgos =
     todosLosHallazgos.filter(
-        hallazgo =>
-            hallazgo.inspeccion === indiceSeleccionado
+       hallazgo =>
+    Number(hallazgo.inspeccion) === indiceSeleccionado
     );
 
 const matriz =
