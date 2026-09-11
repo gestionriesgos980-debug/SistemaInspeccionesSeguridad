@@ -3322,7 +3322,6 @@ Object.keys(datosChecklist).forEach((categoria, indice) => {
                     .trim()
                     .toUpperCase();
 
-            /* NO APLICA NO SUMA NI RESTA */
             if (
                 valor === "" ||
                 valor === "NA" ||
@@ -3331,12 +3330,18 @@ Object.keys(datosChecklist).forEach((categoria, indice) => {
                 return;
             }
 
-            if (
-                valor === "2" ||
-                valor === "1" ||
-                valor === "0"
-            ) {
-                totalPuntos += Number(valor);
+            if (valor === "2") {
+                totalPuntos += 2;
+                totalMaximo += 2;
+            }
+
+            if (valor === "1") {
+                totalPuntos += 1;
+                totalMaximo += 2;
+            }
+
+            if (valor === "0") {
+                totalPuntos += 0;
                 totalMaximo += 2;
             }
 
@@ -4199,6 +4204,24 @@ ${filasCategorias}
 
 </div>
 <div class="resultado">
+
+    <div style="
+        margin-bottom:15px;
+        padding:10px;
+        border:1px solid #999;
+        background:#fafafa;
+        font-size:15px;
+    ">
+
+        Resultado de la lista de chequeo:
+
+        <strong>
+            ${porcentajeGeneral}%
+        </strong>
+
+    </div>
+
+</div>
     <div style="
         margin-bottom:15px;
         padding:10px;
