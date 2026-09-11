@@ -2268,7 +2268,9 @@ if (resultado) {
         resultadoGeneral.textContent =
             porcentajeGeneral + "%";
     }
-
+if (checklist) {
+    checklist.resultado = porcentajeGeneral + "%";
+}
     const indiceInspeccion =
         localStorage.getItem(
             "indiceInspeccionSeleccionadaInforme"
