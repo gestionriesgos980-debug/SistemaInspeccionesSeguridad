@@ -2658,13 +2658,6 @@ function abrirMatrizRiesgos() {
     if (ventana) {
         ventana.style.display = "flex";
 
-        alert(
-            "Índice antes de abrir matriz: " +
-            localStorage.getItem(
-                "indiceInspeccionSeleccionadaInforme"
-            )
-        );
-
         cargarMatrizRiesgos();
     }
 }
@@ -2688,16 +2681,7 @@ const todosLosHallazgos =
     JSON.parse(
         localStorage.getItem("hallazgos")
     ) || [];
- alert(
-    todosLosHallazgos.map(
-        (hallazgo, indice) =>
-            "Hallazgo " + (indice + 1) +
-            "\nÁrea: " + (hallazgo.area || "") +
-            "\nElemento: " + (hallazgo.elemento || "") +
-            "\nDescripción: " + (hallazgo.descripcion || "") +
-            "\nInspección: " + hallazgo.inspeccion
-    ).join("\n\n")
-);
+
 const indiceGuardado =
     localStorage.getItem(
         "indiceInspeccionSeleccionadaInforme"
@@ -2716,14 +2700,7 @@ const hallazgos =
                 indiceSeleccionado
         )
         : todosLosHallazgos;
-alert(
-    "Inspección seleccionada: " +
-    indiceSeleccionado +
-    "\nTotal de hallazgos: " +
-    todosLosHallazgos.length +
-    "\nHallazgos de esta inspección: " +
-    hallazgos.length
-);
+
     if (!hallazgos.length) {
 
         contenedor.innerHTML = `
