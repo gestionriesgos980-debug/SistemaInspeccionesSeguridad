@@ -2689,18 +2689,15 @@ const todosLosHallazgos =
         localStorage.getItem("hallazgos")
     ) || [];
  alert(
-    todosLosHallazgos
-        .filter(hallazgo => hallazgo.inspeccion === undefined)
-        .map(
-            (hallazgo, indice) =>
-                "Hallazgo antiguo " + (indice + 1) +
-                "\nÁrea: " + (hallazgo.area || "") +
-                "\nElemento: " + (hallazgo.elemento || "") +
-                "\nDescripción: " + (hallazgo.descripcion || "")
-        )
-        .join("\n\n")
+    todosLosHallazgos.map(
+        (hallazgo, indice) =>
+            "Hallazgo " + (indice + 1) +
+            "\nÁrea: " + (hallazgo.area || "") +
+            "\nElemento: " + (hallazgo.elemento || "") +
+            "\nDescripción: " + (hallazgo.descripcion || "") +
+            "\nInspección: " + hallazgo.inspeccion
+    ).join("\n\n")
 );
-
 const indiceGuardado =
     localStorage.getItem(
         "indiceInspeccionSeleccionadaInforme"
