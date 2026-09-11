@@ -2191,7 +2191,22 @@ function calcularChecklist() {
         });
 
         const maximo =
-            datosChecklist[categoria].length * 2;
+    (datosChecklist[categoria].length - 
+        datosChecklist[categoria].filter((item, i) => {
+
+            const id =
+                "check_" + indice + "_" + i;
+
+            const seleccionado =
+                document.querySelector(
+                    'input[name="' + id + '"]:checked'
+                );
+
+            return seleccionado &&
+                seleccionado.value === "NA";
+
+        }).length
+    ) * 2;
 
         totalPuntos += puntos;
         totalMaximo += maximo;
