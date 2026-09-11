@@ -3151,108 +3151,121 @@ const ventana =
         `;
 
     });
-    /* =========================
-       EVALUACIÓN DETALLADA DEL CHECKLIST
-    ========================= */
+   /* =========================
+   EVALUACIÓN DETALLADA DEL CHECKLIST
+========================= */
 
-    let filasChecklistDetallado = "";
+let filasChecklistDetallado = "";
 
-    Object.keys(datosChecklist).forEach((categoria, indice) => {
+Object.keys(datosChecklist).forEach((categoria, indice) => {
 
-        const respuestasCategoria =
-            respuestasChecklist[categoria] || {};
+    const respuestasCategoria =
+        respuestasChecklist[categoria] || {};
 
-        const resultadoCategoria =
-            resultadosCategorias[categoria] ?? 0;
+    const resultadoCategoria =
+        resultadosCategorias[categoria] ?? 0;
+
+    datosChecklist[categoria].forEach(item => {
+
+        const valor =
+            respuestasCategoria[item];
+
+        const valorNormalizado =
+            String(valor ?? "").trim().toUpperCase();
+
+        /* NO APLICA NO SE MUESTRA */
+        if (
+            valorNormalizado === "NA" ||
+            valorNormalizado === "NO APLICA"
+        ) {
+            return;
+        }
+
+        let estado = "SIN RESPUESTA";
+        let puntuacion = "-";
+        let colorEstado = "#eeeeee";
+        let colorTexto = "#000000";
+
+        if (valorNormalizado === "2") {
+
+            estado = "BUENO";
+            puntuacion = "2";
+            colorEstado = "#70ad47";
+            colorTexto = "#ffffff";
+
+        } else if (valorNormalizado === "1") {
+
+            estado = "REGULAR";
+            puntuacion = "1";
+            colorEstado = "#ffc000";
+            colorTexto = "#000000";
+
+        } else if (valorNormalizado === "0") {
+
+            estado = "MALO";
+            puntuacion = "0";
+            colorEstado = "#c00000";
+            colorTexto = "#ffffff";
+        }
 
         filasChecklistDetallado += `
             <tr>
-                <td colspan="5"
-                    style="
-                        background:#1f4e78;
-                        color:white;
-                        font-weight:bold;
-                        text-align:left;
-                    ">
-                    ${escapar(categoria)}
+
+                <td>
+                    ${escapar(item)}
                 </td>
-                <td
-                    style="
-                        background:#1f4e78;
-                        color:white;
-                        font-weight:bold;
-                        text-align:center;
-                    ">
+
+                <td style="
+                    text-align:center;
+                    font-weight:bold;
+                    background:${colorEstado};
+                    color:${colorTexto};
+                ">
+                    ${escapar(estado)}
+                </td>
+
+                <td style="
+                    text-align:center;
+                    font-weight:bold;
+                    background:${colorEstado};
+                    color:${colorTexto};
+                ">
+                    ${escapar(puntuacion)}
+                </td>
+
+                <td style="
+                    text-align:center;
+                    font-weight:bold;
+                ">
+                    BUENO
+                </td>
+
+                <td style="
+                    text-align:center;
+                    font-weight:bold;
+                ">
+                    2
+                </td>
+
+                <td style="
+                    text-align:center;
+                    font-weight:bold;
+                ">
                     ${resultadoCategoria}%
                 </td>
-                <td
-                    style="
-                        background:#1f4e78;
-                        color:white;
-                        font-weight:bold;
-                        text-align:center;
-                    ">
+
+                <td style="
+                    text-align:center;
+                    font-weight:bold;
+                ">
                     100%
                 </td>
+
             </tr>
         `;
-
-        datosChecklist[categoria].forEach(item => {
-
-            const valor =
-                respuestasCategoria[item];
-
-            let estado = "SIN RESPUESTA";
-            let puntuacion = "-";
-
-            if (valor === "2") {
-                estado = "BUENO";
-                puntuacion = "2";
-            } else if (valor === "1") {
-                estado = "REGULAR";
-                puntuacion = "1";
-            } else if (valor === "0") {
-                estado = "MALO";
-                puntuacion = "0";
-            } else if (valor === "NA") {
-                estado = "NO APLICA";
-                puntuacion = "N/A";
-            }
-
-            filasChecklistDetallado += `
-                <tr>
-                    <td>
-                        ${escapar(item)}
-                    </td>
-
-                    <td style="text-align:center;">
-                        ${escapar(estado)}
-                    </td>
-
-                    <td style="text-align:center;">
-                        ${escapar(puntuacion)}
-                    </td>
-
-                    <td style="text-align:center;">
-                        BUENO
-                    </td>
-
-                    <td style="text-align:center;">
-                        2
-                    </td>
-
-                    <td style="text-align:center;">
-                        ${resultadoCategoria}%
-                    </td>
-
-                    <td style="text-align:center;">
-                        100%
-                    </td>
-                </tr>
-            `;
-        });
-
     });
+
+});
     /* =========================
        MATRIZ DE RIESGOS
     ========================= */
