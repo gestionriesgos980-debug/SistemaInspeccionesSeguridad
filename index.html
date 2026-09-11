@@ -1215,14 +1215,20 @@ function abrirClientes() {
                                             border:1px solid #999;
                                             text-align:center;
                                         ">
-
-                                            <button
-                                                type="button"
-                                                class="boton-principal"
-                                                onclick="verInspeccion(${item.indiceOriginal})"
-                                            >
-                                                Ver
-                                            </button>
+<button
+    type="button"
+    onclick="eliminarInspeccion(${item.indiceOriginal})"
+    style="
+        background:#b91c1c;
+        color:white;
+        border:none;
+        padding:8px 12px;
+        border-radius:5px;
+        cursor:pointer;
+    "
+>
+    Eliminar
+</button>
 
                                             <button
                                                 type="button"
