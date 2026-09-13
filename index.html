@@ -2677,188 +2677,295 @@ function cargarMatrizRiesgos() {
     const contenedor =
         document.getElementById("listaRiesgos");
 
-const todosLosHallazgos =
-    JSON.parse(
-        localStorage.getItem("hallazgos")
-    ) || [];
+    if (!contenedor) {
+        return;
+    }
 
-const indiceGuardado =
-    localStorage.getItem(
-        "indiceInspeccionSeleccionadaInforme"
-    );
+    const indiceGuardado =
+        localStorage.getItem(
+            "indiceInspeccionSeleccionadaInforme"
+        );
 
-const indiceSeleccionado =
-    indiceGuardado !== null
-        ? Number(indiceGuardado)
-        : null;
+    const indiceSeleccionado =
+        indiceGuardado !== null
+            ? Number(indiceGuardado)
+            : null;
 
-const hallazgos =
-    indiceSeleccionado !== null
-        ? todosLosHallazgos.filter(
-            hallazgo =>
-                Number(hallazgo.inspeccion) ===
-                indiceSeleccionado
-        )
-        : todosLosHallazgos;
-
-    if (!hallazgos.length) {
+    if (indiceSeleccionado === null) {
 
         contenedor.innerHTML = `
-            <div class="mensaje">
-                No hay hallazgos registrados para evaluar.
+            <div class="mensaje" style="
+                padding:20px;
+                background:#f8fafc;
+                border:1px solid #dbe3ea;
+                border-radius:10px;
+                text-align:center;
+            ">
+                No hay una inspección seleccionada.
             </div>
         `;
 
         return;
     }
 
-    let html = "";
+    contenedor.innerHTML = `
+        <div style="
+            margin-bottom:20px;
+            padding:15px;
+            background:#eef4f8;
+            border:1px solid #cbd8e1;
+            border-radius:10px;
+        ">
 
-    hallazgos.forEach((hallazgo, indice) => {
-
-       html += `
-            <div style="
-                background:#f8fafc;
-                border:1px solid #dbe3ea;
-                border-radius:10px;
-                padding:18px;
-                margin-bottom:15px;
+            <h3 style="
+                margin:0 0 8px 0;
+                color:#123b5d;
             ">
+                Matriz de riesgos
+            </h3>
 
-                <h3>Riesgo ${indice + 1}</h3>
+            <p style="
+                margin:0;
+                color:#555;
+            ">
+                Los riesgos se registran de forma independiente de los hallazgos.
+            </p>
 
-                <p>
-                    <strong>Área:</strong>
-                    ${hallazgo.area || "No registrada"}
-                </p>
+        </div>
 
-                <p>
-                    <strong>Elemento:</strong>
-                    ${hallazgo.elemento || "No registrado"}
-                </p>
+        <div id="contenedorRiesgos"></div>
 
-                <p>
-                    <strong>Hallazgo:</strong>
-                    ${hallazgo.descripcion || "No registrado"}
-                </p>
+        <div style="
+            margin-top:20px;
+            text-align:center;
+        ">
 
-                <div class="formulario">
+            <button
+                type="button"
+                onclick="agregarRiesgoMatriz()"
+                style="
+                    background:#123b5d;
+                    color:white;
+                    border:none;
+                    border-radius:6px;
+                    padding:12px 22px;
+                    cursor:pointer;
+                    font-size:15px;
+                    font-weight:bold;
+                "
+            >
+                ➕ Agregar riesgo
+            </button>
 
-                    <div class="campo">
+        </div>
+    `;
 
-                        <label>Probabilidad</label>
-
-                        <select id="probabilidad_${indice}">
-
-                            <option value="1">
-                                1 - Rara
-                            </option>
-
-                            <option value="2">
-                                2 - Improbable
-                            </option>
-
-                            <option value="3" selected>
-                                3 - Posible
-                            </option>
-
-                            <option value="4">
-                                4 - Probable
-                            </option>
-
-                            <option value="5">
-                                5 - Casi segura
-                            </option>
-
-                        </select>
-
-                    </div>
+    agregarRiesgoMatriz();
+}
 
 
-                    <div class="campo">
+function agregarRiesgoMatriz() {
 
-                        <label>Impacto</label>
+    const contenedor =
+        document.getElementById("contenedorRiesgos");
 
-                        <select id="impacto_${indice}">
+    if (!contenedor) {
+        return;
+    }
 
-                            <option value="1">
-                                1 - Insignificante
-                            </option>
+    const indice =
+        contenedor.children.length;
 
-                            <option value="2">
-                                2 - Menor
-                            </option>
+    const bloque =
+        document.createElement("div");
 
-                            <option value="3" selected>
-                                3 - Moderado
-                            </option>
+    bloque.style.background = "#f8fafc";
+    bloque.style.border = "1px solid #dbe3ea";
+    bloque.style.borderRadius = "10px";
+    bloque.style.padding = "18px";
+    bloque.style.marginBottom = "15px";
 
-                            <option value="4">
-                                4 - Mayor
-                            </option>
+    bloque.innerHTML = `
 
-                            <option value="5">
-                                5 - Catastrófico
-                            </option>
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            margin-bottom:15px;
+        ">
 
-                        </select>
+            <h3 style="
+                margin:0;
+                color:#123b5d;
+            ">
+                Riesgo ${indice + 1}
+            </h3>
 
-                    </div>
+            <button
+                type="button"
+                onclick="this.closest('div[style]').remove()"
+                style="
+                    background:#b91c1c;
+                    color:white;
+                    border:none;
+                    border-radius:5px;
+                    padding:6px 10px;
+                    cursor:pointer;
+                "
+            >
+                Eliminar
+            </button>
 
-                </div>
+        </div>
 
+        <div class="formulario">
 
-                <p style="margin-top:15px;">
+            <div class="campo">
 
-                    <strong>Nivel calculado:</strong>
+                <label>Área</label>
 
-                    <span id="nivelRiesgo_${indice}">
-                        9 - Medio
-                    </span>
-
-                </p>
-
-
-                <div class="campo completo">
-
-                    <label>
-                        Medida de tratamiento
-                    </label>
-
-                    <textarea
-                        id="tratamiento_${indice}"
-                        rows="3"
-                        placeholder="Indique la medida de tratamiento del riesgo">
-                    </textarea>
-
-                </div>
+                <input
+                    type="text"
+                    id="areaRiesgo_${indice}"
+                    placeholder="Área o proceso"
+                >
 
             </div>
-        `;
 
-    });
+            <div class="campo">
 
-contenedor.innerHTML = html;
+                <label>Peligro / amenaza</label>
 
-hallazgos.forEach((hallazgo, indice) => {
+                <input
+                    type="text"
+                    id="peligroRiesgo_${indice}"
+                    placeholder="Peligro o amenaza identificada"
+                >
+
+            </div>
+
+            <div class="campo completo">
+
+                <label>Riesgo</label>
+
+                <textarea
+                    id="riesgoDescripcion_${indice}"
+                    rows="3"
+                    placeholder="Describa el riesgo"
+                ></textarea>
+
+            </div>
+
+            <div class="campo">
+
+                <label>Probabilidad</label>
+
+                <select id="probabilidad_${indice}">
+
+                    <option value="1">
+                        1 - Rara
+                    </option>
+
+                    <option value="2">
+                        2 - Improbable
+                    </option>
+
+                    <option value="3" selected>
+                        3 - Posible
+                    </option>
+
+                    <option value="4">
+                        4 - Probable
+                    </option>
+
+                    <option value="5">
+                        5 - Casi segura
+                    </option>
+
+                </select>
+
+            </div>
+
+            <div class="campo">
+
+                <label>Impacto</label>
+
+                <select id="impacto_${indice}">
+
+                    <option value="1">
+                        1 - Insignificante
+                    </option>
+
+                    <option value="2">
+                        2 - Menor
+                    </option>
+
+                    <option value="3" selected>
+                        3 - Moderado
+                    </option>
+
+                    <option value="4">
+                        4 - Mayor
+                    </option>
+
+                    <option value="5">
+                        5 - Catastrófico
+                    </option>
+
+                </select>
+
+            </div>
+
+        </div>
+
+        <p style="
+            margin-top:15px;
+        ">
+
+            <strong>Nivel calculado:</strong>
+
+            <span id="nivelRiesgo_${indice}">
+                9 - Medio
+            </span>
+
+        </p>
+
+        <div class="campo completo">
+
+            <label>
+                Medida de tratamiento
+            </label>
+
+            <textarea
+                id="tratamiento_${indice}"
+                rows="3"
+                placeholder="Indique la medida de tratamiento del riesgo"
+            ></textarea>
+
+        </div>
+    `;
+
+    contenedor.appendChild(bloque);
 
     calcularNivelRiesgo(indice);
 
     document
-        .getElementById(`probabilidad_${indice}`)
+        .getElementById(
+            `probabilidad_${indice}`
+        )
         .addEventListener(
             "change",
             () => calcularNivelRiesgo(indice)
         );
 
     document
-        .getElementById(`impacto_${indice}`)
+        .getElementById(
+            `impacto_${indice}`
+        )
         .addEventListener(
             "change",
             () => calcularNivelRiesgo(indice)
         );
-
-});
 }
 function calcularNivelRiesgo(indice) {
 
@@ -2898,41 +3005,78 @@ function calcularNivelRiesgo(indice) {
 
 function guardarMatrizRiesgos() {
 
-   const todosLosHallazgos =
-    JSON.parse(localStorage.getItem("hallazgos")) || [];
+    const indiceGuardado =
+        localStorage.getItem(
+            "indiceInspeccionSeleccionadaInforme"
+        );
 
-const indiceGuardado =
-    localStorage.getItem("indiceInspeccionSeleccionadaInforme");
+    const indiceSeleccionado =
+        indiceGuardado !== null
+            ? Number(indiceGuardado)
+            : null;
 
-const indiceSeleccionado =
-    indiceGuardado !== null
-        ? Number(indiceGuardado)
-        : null;
+    if (indiceSeleccionado === null) {
+        alert(
+            "No se encontró la inspección seleccionada."
+        );
+        return;
+    }
 
-const hallazgos =
-    indiceSeleccionado !== null
-        ? todosLosHallazgos.filter(
-            hallazgo =>
-                hallazgo.inspeccion === indiceSeleccionado
-        )
-        : todosLosHallazgos;
+    const contenedor =
+        document.getElementById("contenedorRiesgos");
 
-    const matriz = [];
+    if (!contenedor) {
+        alert(
+            "No se encontró el formulario de riesgos."
+        );
+        return;
+    }
 
-    hallazgos.forEach((hallazgo, indice) => {
+    const riesgosActuales =
+        JSON.parse(
+            localStorage.getItem("matrizRiesgos")
+        ) || [];
+
+    const riesgosDeOtrasInspecciones =
+        riesgosActuales.filter(
+            registro =>
+                Number(registro.inspeccion) !==
+                indiceSeleccionado
+        );
+
+    const nuevosRiesgos = [];
+
+    Array.from(
+        contenedor.children
+    ).forEach((bloque, indice) => {
+
+        const area =
+            bloque.querySelector(
+                `[id^="areaRiesgo_"]`
+            )?.value || "";
+
+        const peligro =
+            bloque.querySelector(
+                `[id^="peligroRiesgo_"]`
+            )?.value || "";
+
+        const riesgo =
+            bloque.querySelector(
+                `[id^="riesgoDescripcion_"]`
+            )?.value || "";
 
         const probabilidad =
             Number(
-                document.getElementById(
-                    `probabilidad_${indice}`
-                ).value
+                bloque.querySelector(
+                    `[id^="probabilidad_"]`
+                )?.value || 0
             );
 
         const impacto =
             Number(
-                document.getElementById(
-                    `impacto_${indice}`
-                ).value
+                bloque.querySelector(
+                    `[id^="impacto_"]`
+                )?.value || 0
             );
 
         const puntuacion =
@@ -2947,40 +3091,55 @@ const hallazgos =
         } else if (puntuacion >= 5) {
             nivel = "Medio";
         }
-const indiceInspeccion =
-    localStorage.getItem("indiceInspeccionSeleccionadaInforme");
-        matriz.push({
 
-            inspeccion: indiceInspeccion !== null
-    ? Number(indiceInspeccion)
-    : null,
+        const tratamiento =
+            bloque.querySelector(
+                `[id^="tratamiento_"]`
+            )?.value || "";
 
-            hallazgo: hallazgo.descripcion || "",
+        nuevosRiesgos.push({
 
-            area: hallazgo.area || "",
+            inspeccion:
+                indiceSeleccionado,
 
-            elemento: hallazgo.elemento || "",
+            area:
+                area,
 
-            probabilidad: probabilidad,
+            peligro:
+                peligro,
 
-            impacto: impacto,
+            riesgo:
+                riesgo,
 
-            puntuacion: puntuacion,
+            probabilidad:
+                probabilidad,
 
-            nivel: nivel,
+            impacto:
+                impacto,
+
+            puntuacion:
+                puntuacion,
+
+            nivel:
+                nivel,
 
             tratamiento:
-                document.getElementById(
-                    `tratamiento_${indice}`
-                ).value
-
+                tratamiento
         });
 
     });
 
+    const matrizFinal =
+        [
+            ...riesgosDeOtrasInspecciones,
+            ...nuevosRiesgos
+        ];
+
     localStorage.setItem(
         "matrizRiesgos",
-        JSON.stringify(matriz)
+        JSON.stringify(
+            matrizFinal
+        )
     );
 
     alert(
