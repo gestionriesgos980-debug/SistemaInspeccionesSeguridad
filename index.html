@@ -2708,6 +2708,18 @@ function cargarMatrizRiesgos() {
         return;
     }
 
+    const matrizGuardada =
+        JSON.parse(
+            localStorage.getItem("matrizRiesgos")
+        ) || [];
+
+    const riesgosInspeccion =
+        matrizGuardada.filter(
+            registro =>
+                Number(registro.inspeccion) ===
+                indiceSeleccionado
+        );
+
     contenedor.innerHTML = `
         <div style="
             margin-bottom:20px;
@@ -2760,10 +2772,100 @@ function cargarMatrizRiesgos() {
         </div>
     `;
 
-    agregarRiesgoMatriz();
+    if (riesgosInspeccion.length === 0) {
+
+        agregarRiesgoMatriz();
+
+        return;
+    }
+
+    riesgosInspeccion.forEach(
+        (riesgoGuardado, indice) => {
+
+            agregarRiesgoMatriz();
+
+            const contenedorRiesgos =
+                document.getElementById(
+                    "contenedorRiesgos"
+                );
+
+            const bloque =
+                contenedorRiesgos.children[
+                    indice
+                ];
+
+            if (!bloque) {
+                return;
+            }
+
+            const area =
+                bloque.querySelector(
+                    `[id^="areaRiesgo_"]`
+                );
+
+            const peligro =
+                bloque.querySelector(
+                    `[id^="peligroRiesgo_"]`
+                );
+
+            const riesgo =
+                bloque.querySelector(
+                    `[id^="riesgoDescripcion_"]`
+                );
+
+            const probabilidad =
+                bloque.querySelector(
+                    `[id^="probabilidad_"]`
+                );
+
+            const impacto =
+                bloque.querySelector(
+                    `[id^="impacto_"]`
+                );
+
+            const tratamiento =
+                bloque.querySelector(
+                    `[id^="tratamiento_"]`
+                );
+
+            if (area) {
+                area.value =
+                    riesgoGuardado.area || "";
+            }
+
+            if (peligro) {
+                peligro.value =
+                    riesgoGuardado.peligro || "";
+            }
+
+            if (riesgo) {
+                riesgo.value =
+                    riesgoGuardado.riesgo || "";
+            }
+
+            if (probabilidad) {
+                probabilidad.value =
+                    String(
+                        riesgoGuardado.probabilidad || 3
+                    );
+            }
+
+            if (impacto) {
+                impacto.value =
+                    String(
+                        riesgoGuardado.impacto || 3
+                    );
+            }
+
+            if (tratamiento) {
+                tratamiento.value =
+                    riesgoGuardado.tratamiento || "";
+            }
+
+            calcularNivelRiesgo(indice);
+        }
+    );
 }
-
-
 function agregarRiesgoMatriz() {
 
     const contenedor =
