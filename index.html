@@ -3674,7 +3674,7 @@ const porcentajeGeneral = (() => {
             <tr>
                 <td>${indice + 1}</td>
                 <td>${escapar(riesgo.area)}</td>
-                <td>${escapar(riesgo.elemento)}</td>
+               <td>${escapar(riesgo.peligro)}</td>
                 <td>${escapar(riesgo.probabilidad)}</td>
                 <td>${escapar(riesgo.impacto)}</td>
                 <td>${escapar(riesgo.puntuacion)}</td>
@@ -4738,6 +4738,99 @@ ${filasCategorias}
         ${filasMatriz}
     </tbody>
 </table>
+
+<h2>
+    Mapa de calor de riesgos
+</h2>
+
+<div style="
+    margin-top:20px;
+    margin-bottom:30px;
+    text-align:center;
+">
+
+    <table style="
+        width:520px;
+        margin:0 auto;
+        border-collapse:collapse;
+        font-size:12px;
+    ">
+
+        <tr>
+            <th colspan="6"
+                style="
+                    background:#123b5d;
+                    color:white;
+                    text-align:center;
+                    padding:10px;
+                ">
+                MAPA DE CALOR DE RIESGOS
+            </th>
+        </tr>
+
+        <tr>
+            <th style="
+                width:90px;
+                background:#f1f4f7;
+            ">
+                Probabilidad
+            </th>
+
+            <th>1</th>
+            <th>2</th>
+            <th>3</th>
+            <th>4</th>
+            <th>5</th>
+        </tr>
+
+        <tr>
+            <th style="background:#f1f4f7;">5</th>
+            <td>5</td>
+            <td>10</td>
+            <td>15</td>
+            <td>20</td>
+            <td>25</td>
+        </tr>
+
+        <tr>
+            <th style="background:#f1f4f7;">4</th>
+            <td>4</td>
+            <td>8</td>
+            <td>12</td>
+            <td>16</td>
+            <td>20</td>
+        </tr>
+
+        <tr>
+            <th style="background:#f1f4f7;">3</th>
+            <td>3</td>
+            <td>6</td>
+            <td>9</td>
+            <td>12</td>
+            <td>15</td>
+        </tr>
+
+        <tr>
+            <th style="background:#f1f4f7;">2</th>
+            <td>2</td>
+            <td>4</td>
+            <td>6</td>
+            <td>8</td>
+            <td>10</td>
+        </tr>
+
+        <tr>
+            <th style="background:#f1f4f7;">1</th>
+            <td>1</td>
+            <td>2</td>
+            <td>3</td>
+            <td>4</td>
+            <td>5</td>
+        </tr>
+
+    </table>
+
+</div>
 
 
 <h2>
