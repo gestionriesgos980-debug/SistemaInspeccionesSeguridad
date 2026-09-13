@@ -1099,8 +1099,67 @@ const datosChecklist = {
 
 function abrirClientes() {
 
-    const inspecciones =
-        JSON.parse(localStorage.getItem("inspecciones")) || [];
+   const inspecciones =
+    JSON.parse(
+        localStorage.getItem("inspecciones")
+    ) || [];
+        let ultimoNumeroInspeccion =
+        Number(
+            localStorage.getItem("ultimoNumeroInspeccion") || 0
+        );
+
+    // Detectar el número más alto que ya existe
+    inspecciones.forEach(inspeccion => {
+
+        if (inspeccion.idControl) {
+
+            const coincidencia =
+                String(inspeccion.idControl).match(
+                    /^INS-\d{4}-(\d+)$/
+                );
+
+            if (coincidencia) {
+
+                const numero =
+                    Number(coincidencia[1]);
+
+                if (numero > ultimoNumeroInspeccion) {
+                    ultimoNumeroInspeccion = numero;
+                }
+            }
+        }
+    });
+
+    // Asignar ID únicamente a inspecciones antiguas sin ID
+    inspecciones.forEach(inspeccion => {
+
+        if (!inspeccion.idControl) {
+
+            ultimoNumeroInspeccion++;
+
+            const anio =
+                String(inspeccion.fecha || "")
+                    .substring(0, 4) ||
+                new Date().getFullYear();
+
+            inspeccion.idControl =
+                "INS-" +
+                anio +
+                "-" +
+                String(ultimoNumeroInspeccion)
+                    .padStart(4, "0");
+        }
+    });
+
+    localStorage.setItem(
+        "ultimoNumeroInspeccion",
+        String(ultimoNumeroInspeccion)
+    );
+
+    localStorage.setItem(
+        "inspecciones",
+        JSON.stringify(inspecciones)
+    );
 
     const clientes = [
         ...new Set(
