@@ -1210,6 +1210,12 @@ function abrirClientes() {
                                     background:#123b5d;
                                     color:white;
                                 ">
+<th style="
+    padding:8px;
+    border:1px solid #999;
+">
+    ID de inspección
+</th>
 
                                     <th style="
                                         padding:8px;
@@ -1253,6 +1259,14 @@ function abrirClientes() {
                                             padding:8px;
                                             border:1px solid #999;
                                         ">
+<td style="
+    padding:8px;
+    border:1px solid #999;
+    font-weight:bold;
+">
+    ${item.inspeccion.idControl || "—"}
+</td>
+                                        
                                             ${item.inspeccion.fecha || ""}
                                         </td>
 
