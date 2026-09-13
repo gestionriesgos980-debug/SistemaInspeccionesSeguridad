@@ -840,8 +840,70 @@ indiceInspeccionEditando = null;
         .addEventListener("submit", function(event) {
 
             event.preventDefault();
+            /* =========================
+               ID ÚNICO DE INSPECCIÓN
+            ========================= */
 
+            const fechaInspeccion =
+                document.getElementById("fecha").value;
+
+            const anioInspeccion =
+                fechaInspeccion
+                    ? fechaInspeccion.substring(0, 4)
+                    : new Date().getFullYear();
+
+            let ultimoNumeroInspeccion =
+                Number(
+                    localStorage.getItem(
+                        "ultimoNumeroInspeccion"
+                    ) || 0
+                );
+
+            const formulario =
+                document.getElementById("formInspeccion");
+
+            const indiceEdicion =
+                formulario.dataset.editando;
+
+            let idControl;
+
+            if (
+                indiceEdicion !== undefined &&
+                indiceEdicion !== ""
+            ) {
+
+                const inspeccionesExistentes =
+                    JSON.parse(
+                        localStorage.getItem("inspecciones")
+                    ) || [];
+
+                const inspeccionAnterior =
+                    inspeccionesExistentes[
+                        Number(indiceEdicion)
+                    ];
+
+                idControl =
+                    inspeccionAnterior?.idControl || null;
+
+            } else {
+
+                ultimoNumeroInspeccion++;
+
+                localStorage.setItem(
+                    "ultimoNumeroInspeccion",
+                    String(ultimoNumeroInspeccion)
+                );
+
+                idControl =
+                    "INS-" +
+                    anioInspeccion +
+                    "-" +
+                    String(ultimoNumeroInspeccion)
+                        .padStart(4, "0");
+            }
             const inspeccion = {
+
+                                idControl: idControl,
 
                 cliente: document.getElementById("cliente").value,
                 nit: document.getElementById("nit").value,
