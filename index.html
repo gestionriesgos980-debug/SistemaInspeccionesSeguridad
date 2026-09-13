@@ -3725,145 +3725,120 @@ Object.keys(datosChecklist).forEach((categoria, indice) => {
     const respuestasCategoria =
         respuestasChecklist[categoria] || {};
 
-    const resultadoCategoria =
-        resultadosCategorias[categoria] ?? 0;
-        filasChecklistDetallado += `
-            <tr>
-                <td colspan="5"
-                    style="
-                        background:#1f4e78;
-                        color:white;
-                        font-weight:bold;
-                        text-align:left;
-                        padding:7px;
-                    ">
-                    ${escapar(categoria)}
-                </td>
+const resultadoCategoria =
+    resultadosCategorias[categoria] ?? 0;
 
-                <td
-                    style="
-                        background:#1f4e78;
-                        color:white;
-                        font-weight:bold;
-                        text-align:center;
-                    ">
-                    ${resultadoCategoria}%
-                </td>
+filasChecklistDetallado += `
+    <tr>
+        <td colspan="5"
+            style="
+                background:#1f4e78;
+                color:white;
+                font-weight:bold;
+                text-align:left;
+                padding:7px;
+            ">
+            ${escapar(categoria)}
+        </td>
 
-                <td
-                    style="
-                        background:#1f4e78;
-                        color:white;
-                        font-weight:bold;
-                        text-align:center;
-                    ">
-                    100%
-                </td>
-            </tr>
-        `;
-    datosChecklist[categoria].forEach(item => {
+        <td
+            style="
+                background:#1f4e78;
+                color:white;
+                font-weight:bold;
+                text-align:center;
+            ">
+            ${resultadoCategoria}%
+        </td>
 
-        const valor =
-            respuestasCategoria[item];
+        <td
+            style="
+                background:#1f4e78;
+                color:white;
+                font-weight:bold;
+                text-align:center;
+            ">
+            100%
+        </td>
+    </tr>
+`;
 
-        const valorNormalizado =
-            String(valor ?? "").trim().toUpperCase();
+datosChecklist[categoria].forEach(item => {
 
-        /* NO APLICA NO SE MUESTRA */
-      if (
-    valorNormalizado === "" ||
-    valorNormalizado === "NA" ||
-    valorNormalizado === "NO APLICA"
-) {
-    return;
-}
+    const valor =
+        respuestasCategoria[item];
 
-        let estado = "SIN RESPUESTA";
-        let puntuacion = "-";
-        let colorEstado = "#eeeeee";
-        let colorTexto = "#000000";
+    const valorNormalizado =
+        String(valor ?? "").trim().toUpperCase();
 
-        if (valorNormalizado === "2") {
+    if (
+        valorNormalizado === "" ||
+        valorNormalizado === "NA" ||
+        valorNormalizado === "NO APLICA"
+    ) {
+        return;
+    }
 
-            estado = "BUENO";
-            puntuacion = "2";
-            colorEstado = "#70ad47";
-            colorTexto = "#ffffff";
+    let estado = "SIN RESPUESTA";
+    let puntuacion = "-";
+    let colorEstado = "#eeeeee";
+    let colorTexto = "#000000";
 
-        } else if (valorNormalizado === "1") {
+    if (valorNormalizado === "2") {
 
-            estado = "REGULAR";
-            puntuacion = "1";
-            colorEstado = "#ffc000";
-            colorTexto = "#000000";
+        estado = "BUENO";
+        puntuacion = "2";
+        colorEstado = "#70ad47";
+        colorTexto = "#ffffff";
 
-        } else if (valorNormalizado === "0") {
+    } else if (valorNormalizado === "1") {
 
-            estado = "MALO";
-            puntuacion = "0";
-            colorEstado = "#c00000";
-            colorTexto = "#ffffff";
-        }
+        estado = "REGULAR";
+        puntuacion = "1";
+        colorEstado = "#ffc000";
+        colorTexto = "#000000";
 
-        filasChecklistDetallado += `
-            <tr>
+    } else if (valorNormalizado === "0") {
 
-                <td>
-                    ${escapar(item)}
-                </td>
+        estado = "MALO";
+        puntuacion = "0";
+        colorEstado = "#c00000";
+        colorTexto = "#ffffff";
+    }
 
-                <td style="
-                    text-align:center;
-                    font-weight:bold;
-                    background:${colorEstado};
-                    color:${colorTexto};
-                ">
-                    ${escapar(estado)}
-                </td>
+    filasChecklistDetallado += `
+        <tr>
 
-                <td style="
-                    text-align:center;
-                    font-weight:bold;
-                    background:${colorEstado};
-                    color:${colorTexto};
-                ">
-                    ${escapar(puntuacion)}
-                </td>
+            <td>
+                ${escapar(item)}
+            </td>
 
-                <td style="
-                    text-align:center;
-                    font-weight:bold;
-                ">
-                    BUENO
-                </td>
+            <td style="
+                text-align:center;
+                font-weight:bold;
+                background:${colorEstado};
+                color:${colorTexto};
+            ">
+                ${escapar(estado)}
+            </td>
 
-                <td style="
-                    text-align:center;
-                    font-weight:bold;
-                ">
-                    2
-                </td>
+            <td style="
+                text-align:center;
+                font-weight:bold;
+            ">
+                ${resultadoCategoria}%
+            </td>
 
-                <td style="
-                    text-align:center;
-                    font-weight:bold;
-                ">
-                    ${resultadoCategoria}%
-                </td>
+            <td style="
+                text-align:center;
+                font-weight:bold;
+            ">
+                100%
+            </td>
 
-                <td style="
-                    text-align:center;
-                    font-weight:bold;
-                ">
-                    100%
-                </td>
-
-            </tr>
-        `;
-    });
-
+        </tr>
+    `;
 });
-
     /* =========================
        PERFIL DE CRITICIDAD
     ========================= */
@@ -4624,125 +4599,56 @@ ${filasCategorias}
 
         <thead>
 
-            <tr>
+    <tr>
 
-                <th style="
-                    background:#123b5d;
-                    color:white;
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    ITEMS EVALUADOS
-                </th>
+        <th style="
+            background:#123b5d;
+            color:white;
+            padding:7px;
+            border:1px solid #aaa;
+        ">
+            ITEMS EVALUADOS
+        </th>
 
-                <th colspan="2" style="
-                    background:#123b5d;
-                    color:white;
-                    padding:7px;
-                    border:1px solid #aaa;
-                    text-align:center;
-                ">
-                    HALLAZGOS
-                </th>
+        <th style="
+            background:#123b5d;
+            color:white;
+            padding:7px;
+            border:1px solid #aaa;
+            text-align:center;
+        ">
+            ESTADO
+        </th>
 
-                <th colspan="2" style="
-                    background:#123b5d;
-                    color:white;
-                    padding:7px;
-                    border:1px solid #aaa;
-                    text-align:center;
-                ">
-                    ESPERADO
-                </th>
+        <th style="
+            background:#123b5d;
+            color:white;
+            padding:7px;
+            border:1px solid #aaa;
+            text-align:center;
+        ">
+            % OBTENIDO
+        </th>
 
-                <th style="
-                    background:#123b5d;
-                    color:white;
-                    padding:7px;
-                    border:1px solid #aaa;
-                    text-align:center;
-                ">
-                    %
-                </th>
+        <th style="
+            background:#123b5d;
+            color:white;
+            padding:7px;
+            border:1px solid #aaa;
+            text-align:center;
+        ">
+            % ESPERADO
+        </th>
 
-                <th style="
-                    background:#123b5d;
-                    color:white;
-                    padding:7px;
-                    border:1px solid #aaa;
-                    text-align:center;
-                ">
-                    %
-                </th>
+    </tr>
 
-            </tr>
+</thead>
 
-            <tr>
+<tbody>
 
-                <th style="
-                    background:#d9eaf7;
-                    padding:6px;
-                    border:1px solid #aaa;
-                ">
-                </th>
+    ${filasChecklistDetallado}
 
-                <th style="
-                    background:#d9eaf7;
-                    padding:6px;
-                    border:1px solid #aaa;
-                ">
-                    ESTADO
-                </th>
-
-                <th style="
-                    background:#d9eaf7;
-                    padding:6px;
-                    border:1px solid #aaa;
-                ">
-                    VALOR
-                </th>
-
-                <th style="
-                    background:#d9eaf7;
-                    padding:6px;
-                    border:1px solid #aaa;
-                ">
-                    ESTADO
-                </th>
-
-                <th style="
-                    background:#d9eaf7;
-                    padding:6px;
-                    border:1px solid #aaa;
-                ">
-                    VALOR
-                </th>
-
-                <th style="
-                    background:#d9eaf7;
-                    padding:6px;
-                    border:1px solid #aaa;
-                ">
-                    OBTENIDO
-                </th>
-
-                <th style="
-                    background:#d9eaf7;
-                    padding:6px;
-                    border:1px solid #aaa;
-                ">
-                    ESPERADO
-                </th>
-
-            </tr>
-
-        </thead>
-
-        <tbody>
-
-            ${filasChecklistDetallado}
-
-        </tbody>
+</tbody>
 
     </table>
 
