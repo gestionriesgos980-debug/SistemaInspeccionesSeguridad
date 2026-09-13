@@ -2475,12 +2475,41 @@ function guardarChecklist() {
 
     });
 
-    registros.push({
-        fecha: new Date().toISOString(),
-        inspeccion: inspecciones.length - 1,
-        resultado: resultado,
-        respuestas: respuestas
-    });
+   const indiceGuardado =
+    localStorage.getItem(
+        "indiceInspeccionSeleccionadaInforme"
+    );
+
+const indiceSeleccionado =
+    indiceGuardado !== null
+        ? Number(indiceGuardado)
+        : inspecciones.length - 1;
+
+const registroChecklist = {
+    fecha: new Date().toISOString(),
+    inspeccion: indiceSeleccionado,
+    resultado: resultado,
+    respuestas: respuestas
+};
+
+const indiceExistente =
+    registros.findIndex(
+        registro =>
+            Number(registro.inspeccion) ===
+            indiceSeleccionado
+    );
+
+if (indiceExistente !== -1) {
+
+    registros[indiceExistente] =
+        registroChecklist;
+
+} else {
+
+    registros.push(
+        registroChecklist
+    );
+}
 
     localStorage.setItem(
         "checklists",
