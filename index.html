@@ -1255,44 +1255,40 @@ function abrirClientes() {
 
                                     <tr>
 
-                                        <td style="
-                                            padding:8px;
-                                            border:1px solid #999;
-                                        ">
-<td style="
-    padding:8px;
-    border:1px solid #999;
-    font-weight:bold;
-">
-    ${item.inspeccion.idControl || "—"}
-</td>
+    <td style="
+        padding:8px;
+        border:1px solid #999;
+        font-weight:bold;
+    ">
+        ${item.inspeccion.idControl || "—"}
+    </td>
 
-<td style="
-    padding:8px;
-    border:1px solid #999;
-">
-    ${item.inspeccion.fecha || "—"}
-</td>
+    <td style="
+        padding:8px;
+        border:1px solid #999;
+    ">
+        ${item.inspeccion.fecha || "—"}
+    </td>
 
-                                        <td style="
-                                            padding:8px;
-                                            border:1px solid #999;
-                                        ">
-                                            ${item.inspeccion.inspector || ""}
-                                        </td>
+    <td style="
+        padding:8px;
+        border:1px solid #999;
+    ">
+        ${item.inspeccion.inspector || ""}
+    </td>
 
-                                        <td style="
-                                            padding:8px;
-                                            border:1px solid #999;
-                                        ">
-                                            ${item.inspeccion.tipo || ""}
-                                        </td>
+    <td style="
+        padding:8px;
+        border:1px solid #999;
+    ">
+        ${item.inspeccion.tipo || ""}
+    </td>
 
-                                        <td style="
-                                            padding:8px;
-                                            border:1px solid #999;
-                                            text-align:center;
-                                        ">
+    <td style="
+        padding:8px;
+        border:1px solid #999;
+        text-align:center;
+    ">
 <button
     type="button"
     onclick="eliminarInspeccion(${item.indiceOriginal})"
