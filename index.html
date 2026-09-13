@@ -3338,7 +3338,126 @@ const respuestasChecklist =
     checklist && checklist.respuestas
         ? checklist.respuestas
         : {};
+    /* =========================
+       MAPA DE CALOR DE RIESGOS
+    ========================= */
 
+    function colorNivelMapa(puntuacion) {
+
+        if (puntuacion >= 15) {
+            return "#d32f2f"; // Crítico
+        }
+
+        if (puntuacion >= 10) {
+            return "#f57c00"; // Alto
+        }
+
+        if (puntuacion >= 5) {
+            return "#fbc02d"; // Medio
+        }
+
+        return "#66bb6a"; // Bajo
+    }
+
+
+    function riesgosEnCelda(probabilidad, impacto) {
+
+        const encontrados = matriz.filter(
+            riesgo =>
+                Number(riesgo.probabilidad) === probabilidad &&
+                Number(riesgo.impacto) === impacto
+        );
+
+        if (!encontrados.length) {
+            return "";
+        }
+
+        return encontrados.map((riesgo, indice) => {
+
+            const numero =
+                matriz.indexOf(riesgo) + 1;
+
+            return `
+                <span style="
+                    display:inline-block;
+                    background:white;
+                    color:#123b5d;
+                    border:2px solid #123b5d;
+                    border-radius:50%;
+                    width:24px;
+                    height:24px;
+                    line-height:20px;
+                    text-align:center;
+                    font-weight:bold;
+                    margin:2px;
+                ">
+                    ${numero}
+                </span>
+            `;
+
+        }).join("");
+    }
+
+
+    let filasMapaCalor = "";
+
+    for (let probabilidad = 5;
+         probabilidad >= 1;
+         probabilidad--) {
+
+        filasMapaCalor += `
+            <tr>
+
+                <th style="
+                    background:#f1f4f7;
+                    color:#123b5d;
+                    text-align:center;
+                    padding:10px;
+                ">
+                    ${probabilidad}
+                </th>
+        `;
+
+        for (let impacto = 1;
+             impacto <= 5;
+             impacto++) {
+
+            const puntuacion =
+                probabilidad * impacto;
+
+            filasMapaCalor += `
+                <td style="
+                    background:${colorNivelMapa(puntuacion)};
+                    color:#123b5d;
+                    text-align:center;
+                    vertical-align:middle;
+                    height:55px;
+                    font-weight:bold;
+                    position:relative;
+                ">
+
+                    <div style="
+                        font-size:11px;
+                        margin-bottom:3px;
+                    ">
+                        ${puntuacion}
+                    </div>
+
+                    <div>
+                        ${riesgosEnCelda(
+                            probabilidad,
+                            impacto
+                        )}
+                    </div>
+
+                </td>
+            `;
+        }
+
+        filasMapaCalor += `
+            </tr>
+        `;
+    }
 console.log("CHECKLIST SELECCIONADO:", checklist);
 console.log("RESPUESTAS GUARDADAS:", respuestasChecklist);
 
@@ -4769,9 +4888,12 @@ ${filasCategorias}
         </tr>
 
         <tr>
+
             <th style="
                 width:90px;
                 background:#f1f4f7;
+                color:#123b5d;
+                text-align:center;
             ">
                 Probabilidad
             </th>
@@ -4781,54 +4903,55 @@ ${filasCategorias}
             <th>3</th>
             <th>4</th>
             <th>5</th>
+
         </tr>
 
-        <tr>
-            <th style="background:#f1f4f7;">5</th>
-            <td>5</td>
-            <td>10</td>
-            <td>15</td>
-            <td>20</td>
-            <td>25</td>
-        </tr>
-
-        <tr>
-            <th style="background:#f1f4f7;">4</th>
-            <td>4</td>
-            <td>8</td>
-            <td>12</td>
-            <td>16</td>
-            <td>20</td>
-        </tr>
-
-        <tr>
-            <th style="background:#f1f4f7;">3</th>
-            <td>3</td>
-            <td>6</td>
-            <td>9</td>
-            <td>12</td>
-            <td>15</td>
-        </tr>
-
-        <tr>
-            <th style="background:#f1f4f7;">2</th>
-            <td>2</td>
-            <td>4</td>
-            <td>6</td>
-            <td>8</td>
-            <td>10</td>
-        </tr>
-
-        <tr>
-            <th style="background:#f1f4f7;">1</th>
-            <td>1</td>
-            <td>2</td>
-            <td>3</td>
-            <td>4</td>
-            <td>5</td>
-        </tr>
+        ${filasMapaCalor}
 
     </table>
+
+    <div style="
+        margin-top:12px;
+        font-size:11px;
+        color:#555;
+    ">
+        <strong>Los números dentro del mapa corresponden al número de riesgo de la matriz.</strong>
+    </div>
+
+    <div style="
+        margin-top:12px;
+        font-size:11px;
+    ">
+
+        <span style="
+            display:inline-block;
+            margin:3px 8px;
+        ">
+            🟢 Bajo
+        </span>
+
+        <span style="
+            display:inline-block;
+            margin:3px 8px;
+        ">
+            🟡 Medio
+        </span>
+
+        <span style="
+            display:inline-block;
+            margin:3px 8px;
+        ">
+            🟠 Alto
+        </span>
+
+        <span style="
+            display:inline-block;
+            margin:3px 8px;
+        ">
+            🔴 Crítico
+        </span>
+
+    </div>
 
 </div>
 
