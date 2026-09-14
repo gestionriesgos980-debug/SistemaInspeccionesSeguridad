@@ -1004,10 +1004,10 @@ const convertirImagen =
         lector.readAsDataURL(archivo);
     });
 
-const imagenGoogleMaps =
+const imagenGoogleMapsNueva =
     await convertirImagen(archivoGoogleMaps);
 
-const imagenGoogleEarth =
+const imagenGoogleEarthNueva =
     await convertirImagen(archivoGoogleEarth);
 
 
@@ -1035,8 +1035,8 @@ const imagenGoogleEarth =
                 longitud: document.getElementById("longitud").value,
                 entorno: document.getElementById("entorno").value,
 
-                imagenGoogleMaps: imagenGoogleMaps,
-                imagenGoogleEarth: imagenGoogleEarth
+                imagenGoogleMaps: imagenGoogleMapsNueva,
+imagenGoogleEarth: imagenGoogleEarthNueva
 
                
             };
