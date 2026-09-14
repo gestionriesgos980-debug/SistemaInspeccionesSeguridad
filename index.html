@@ -2294,7 +2294,92 @@ function generarChecklist() {
         `;
     });
 
-    contenedor.innerHTML = html;
+        contenedor.innerHTML = html;
+
+    // Cargar respuestas guardadas de esta inspección
+    const indiceGuardado =
+        localStorage.getItem(
+            "indiceInspeccionSeleccionadaInforme"
+        );
+
+    const indiceSeleccionado =
+        indiceGuardado !== null
+            ? Number(indiceGuardado)
+            : null;
+
+    const checklists =
+        JSON.parse(
+            localStorage.getItem("checklists")
+        ) || [];
+
+    const checklistGuardado =
+        indiceSeleccionado !== null
+            ? checklists.find(
+                registro =>
+                    Number(registro.inspeccion) ===
+                    indiceSeleccionado
+            )
+            : null;
+
+    if (
+        checklistGuardado &&
+        checklistGuardado.respuestas
+    ) {
+
+        Object.keys(checklistGuardado.respuestas)
+            .forEach(categoria => {
+
+                const respuestasCategoria =
+                    checklistGuardado.respuestas[categoria] || {};
+
+                const indiceCategoria =
+                    Object.keys(datosChecklist)
+                        .indexOf(categoria);
+
+                if (indiceCategoria === -1) {
+                    return;
+                }
+
+                datosChecklist[categoria].forEach(
+                    (item, i) => {
+
+                        const valor =
+                            respuestasCategoria[item];
+
+                        if (
+                            valor === undefined ||
+                            valor === null ||
+                            valor === ""
+                        ) {
+                            return;
+                        }
+
+                        const id =
+                            "check_" +
+                            indiceCategoria +
+                            "_" +
+                            i;
+
+                        const radio =
+                            document.querySelector(
+                                'input[name="' +
+                                id +
+                                '"][value="' +
+                                valor +
+                                '"]'
+                            );
+
+                        if (radio) {
+                            radio.checked = true;
+                        }
+
+                    }
+                );
+
+            });
+
+        calcularChecklist();
+    }
 
 }
 function calcularChecklist() {
