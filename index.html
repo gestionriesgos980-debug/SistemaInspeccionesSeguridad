@@ -1128,7 +1128,15 @@ function agregarServicioSeguridad(tipo) {
                 placeholder="Ej. Lunes a viernes"
             >
         </td>
-        
+
+        <td style="padding:6px;border:1px solid #999;">
+            <select class="modalidad-seguridad">
+                <option value="">Seleccione</option>
+                <option value="Con arma">Con arma</option>
+                <option value="Sin arma">Sin arma</option>
+            </select>
+        </td>
+
         <td style="
             padding:6px;
             border:1px solid #999;
@@ -1146,8 +1154,6 @@ function agregarServicioSeguridad(tipo) {
 
     cuerpo.appendChild(fila);
 }
-
-
     
     function abrirNuevaInspeccion() {
         document.getElementById("formInspeccion").removeAttribute("data-editando");
