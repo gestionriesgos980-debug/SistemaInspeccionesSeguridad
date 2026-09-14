@@ -2817,24 +2817,50 @@ const indiceInspeccion =
     "Inspección asignada al hallazgo: " +
     indiceInspeccion
 );
-    hallazgos.push({
+    const hallazgoActualizado = {
 
-        fecha: new Date().toISOString(),
-inspeccion: indiceInspeccion !== null
-    ? Number(indiceInspeccion)
-    : null,
-        area: area,
+    fecha:
+        indiceHallazgoEditando !== null &&
+        hallazgos[indiceHallazgoEditando]?.fecha
+            ? hallazgos[indiceHallazgoEditando].fecha
+            : new Date().toISOString(),
 
-        elemento: elemento,
+    inspeccion: indiceInspeccion !== null
+        ? Number(indiceInspeccion)
+        : null,
 
-        descripcion: descripcion,
+    area: area,
 
-        nivel: nivel,
+    elemento: elemento,
 
-        recomendacion: recomendacion,
+    descripcion: descripcion,
 
-        fotos: fotos
-    });
+    nivel: nivel,
+
+    recomendacion: recomendacion,
+
+    fotos:
+        indiceHallazgoEditando !== null &&
+        fotos.length === 0 &&
+        Array.isArray(
+            hallazgos[indiceHallazgoEditando]?.fotos
+        )
+            ? hallazgos[indiceHallazgoEditando].fotos
+            : fotos
+};
+
+if (
+    indiceHallazgoEditando !== null &&
+    hallazgos[indiceHallazgoEditando]
+) {
+
+    hallazgos[indiceHallazgoEditando] =
+        hallazgoActualizado;
+
+} else {
+
+    hallazgos.push(hallazgoActualizado);
+}
 
     try {
 
