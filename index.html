@@ -2402,17 +2402,15 @@ if (resultado) {
 
     if (resultadoGeneral) {
 
-        resultadoGeneral.textContent =
-            porcentajeGeneral + "%";
-    }
-if (checklist) {
-    checklist.resultado = porcentajeGeneral + "%";
+    resultadoGeneral.textContent =
+        porcentajeGeneral + "%";
 }
-    const indiceInspeccion =
-        localStorage.getItem(
-            "indiceInspeccionSeleccionadaInforme"
-        );
 
+const indiceInspeccion =
+    localStorage.getItem(
+        "indiceInspeccionSeleccionadaInforme"
+    );
+    
     const resultadosPorInspeccion =
         JSON.parse(
             localStorage.getItem(
