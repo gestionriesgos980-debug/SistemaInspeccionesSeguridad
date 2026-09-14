@@ -4939,47 +4939,37 @@ const porcentajeGeneral = (() => {
 
         </tr>
 
-        <tr>
+       <tr>
 
-            <td style="
-                border:1px solid #777;
-                padding:10px;
-                height:260px;
-                vertical-align:middle;
-            ">
-                Imagen satelital
-            </td>
+    <td style="
+        border:1px solid #777;
+        padding:10px;
+        height:260px;
+        vertical-align:middle;
+        text-align:center;
+    ">
+        ${
+            inspeccion.imagenGoogleMaps
+                ? `<img src="${inspeccion.imagenGoogleMaps}"
+                       style="width:100%; height:240px; object-fit:contain;">`
+                : "Imagen satelital"
+        }
+    </td>
 
-            <td style="
-                border:1px solid #777;
-                padding:10px;
-                height:260px;
-                vertical-align:middle;
-            ">
-                Imagen satelital
-            </td>
-
-        </tr>
-
-        <tr>
-
-            <td style="
-                border:1px solid #777;
-                padding:7px;
-                font-size:11px;
-                font-style:italic;
-            ">
-                Imagen satelital tomada de Google Maps
-            </td>
-
-            <td style="
-                border:1px solid #777;
-                padding:7px;
-                font-size:11px;
-                font-style:italic;
-            ">
-                Imagen satelital tomada de Google Earth
-            </td>
+    <td style="
+        border:1px solid #777;
+        padding:10px;
+        height:260px;
+        vertical-align:middle;
+        text-align:center;
+    ">
+        ${
+            inspeccion.imagenGoogleEarth
+                ? `<img src="${inspeccion.imagenGoogleEarth}"
+                       style="width:100%; height:240px; object-fit:contain;">`
+                : "Imagen satelital"
+        }
+    </td>
 
         </tr>
 
