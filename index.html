@@ -2449,7 +2449,8 @@ function guardarChecklist() {
         JSON.parse(localStorage.getItem("inspecciones")) || [];
 
     const respuestas = {};
-
+    let totalRespondidos = 0;
+    
     Object.keys(datosChecklist).forEach((categoria, indice) => {
 
         respuestas[categoria] = {};
@@ -2464,15 +2465,25 @@ function guardarChecklist() {
                     'input[name="' + id + '"]:checked'
                 );
 
-            if (seleccionado) {
-                respuestas[categoria][item] =
-                    seleccionado.value;
-            }
+           if (seleccionado) {
+
+    respuestas[categoria][item] =
+        seleccionado.value;
+
+    totalRespondidos++;
+}
 
         });
 
     });
+if (totalRespondidos === 0) {
 
+    alert(
+        "No se puede guardar la lista de chequeo. Seleccione al menos una opción."
+    );
+
+    return;
+}
    const indiceGuardado =
     localStorage.getItem(
         "indiceInspeccionSeleccionadaInforme"
