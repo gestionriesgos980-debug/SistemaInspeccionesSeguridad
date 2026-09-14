@@ -4536,14 +4536,18 @@ const porcentajeGeneral = (() => {
 
         <tr>
 
-            <td colspan="3" style="
-                border:1px solid #555;
-                padding:8px;
-                text-align:center;
-                font-weight:bold;
-            ">
-                ${escapar(inspeccion.cliente)}
-            </td>
+           <td colspan="3" style="
+    border:1px solid #555;
+    padding:8px;
+    text-align:center;
+    font-weight:bold;
+">
+    ${escapar(inspeccion.cliente)}
+    <br>
+    <strong>
+        ID DE INSPECCIÓN: ${escapar(inspeccion.idControl || "SIN ID")}
+    </strong>
+</td>
 
         </tr>
 
