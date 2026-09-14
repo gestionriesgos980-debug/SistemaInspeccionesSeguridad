@@ -4973,7 +4973,26 @@ const porcentajeGeneral = (() => {
 
         </tr>
 
-    </table>
+       </table>
+
+    <div style="
+        margin-top:12px;
+        padding:10px;
+        border:1px solid #777;
+        background:#f7f7f7;
+        text-align:center;
+        font-size:11px;
+    ">
+        <strong>COORDENADAS DE LA INSPECCIÓN</strong>
+        <br><br>
+
+        <strong>Latitud:</strong>
+        ${escapar(inspeccion.latitud || "No registrada")}
+        &nbsp;&nbsp;&nbsp;&nbsp;
+
+        <strong>Longitud:</strong>
+        ${escapar(inspeccion.longitud || "No registrada")}
+    </div>
 
 </div>
 
