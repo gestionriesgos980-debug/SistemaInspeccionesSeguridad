@@ -3900,7 +3900,8 @@ const ventana =
 
     let filasHallazgos = "";
 
-   hallazgos.forEach((hallazgo, indice) => {
+   hallazgos.forEach((hallazgo) => {
+       const indiceReal = todosLosHallazgos.indexOf(hallazgo);
         
         let fotosHTML = "";
 
@@ -3932,7 +3933,7 @@ const ventana =
         <td>
             <button
                 type="button"
-               onclick="window.opener.editarHallazgo(${indice})"
+               onclick="window.opener.editarHallazgo(${indiceReal})"
             >
                 Editar
             </button>
