@@ -860,7 +860,7 @@ indiceInspeccionEditando = null;
 
 
     document.getElementById("formInspeccion")
-        .addEventListener("submit", function(event) {
+    .addEventListener("submit", async function(event) {
 
             event.preventDefault();
             /* =========================
@@ -924,6 +924,95 @@ indiceInspeccionEditando = null;
                     String(ultimoNumeroInspeccion)
                         .padStart(4, "0");
             }
+
+const archivoGoogleMaps =
+    document.getElementById("imagenGoogleMaps")?.files[0] || null;
+
+const archivoGoogleEarth =
+    document.getElementById("imagenGoogleEarth")?.files[0] || null;
+
+const convertirImagen =
+    archivo => new Promise((resolve, reject) => {
+
+        if (!archivo) {
+            resolve("");
+            return;
+        }
+
+        const lector = new FileReader();
+
+        lector.onload = function(evento) {
+
+            const imagen = new Image();
+
+            imagen.onload = function() {
+
+                const maximo = 1400;
+
+                let ancho = imagen.width;
+                let alto = imagen.height;
+
+                if (ancho > maximo || alto > maximo) {
+
+                    if (ancho > alto) {
+                        alto =
+                            Math.round(
+                                alto * maximo / ancho
+                            );
+                        ancho = maximo;
+                    } else {
+                        ancho =
+                            Math.round(
+                                ancho * maximo / alto
+                            );
+                        alto = maximo;
+                    }
+                }
+
+                const canvas =
+                    document.createElement("canvas");
+
+                canvas.width = ancho;
+                canvas.height = alto;
+
+                const ctx =
+                    canvas.getContext("2d");
+
+                ctx.drawImage(
+                    imagen,
+                    0,
+                    0,
+                    ancho,
+                    alto
+                );
+
+                resolve(
+                    canvas.toDataURL(
+                        "image/jpeg",
+                        0.80
+                    )
+                );
+            };
+
+            imagen.onerror = reject;
+
+            imagen.src = evento.target.result;
+        };
+
+        lector.onerror = reject;
+
+        lector.readAsDataURL(archivo);
+    });
+
+const imagenGoogleMaps =
+    await convertirImagen(archivoGoogleMaps);
+
+const imagenGoogleEarth =
+    await convertirImagen(archivoGoogleEarth);
+
+
+
+            
             const inspeccion = {
 
                                 idControl: idControl,
