@@ -2595,7 +2595,7 @@ const registroChecklist = {
 };
 
 const indiceExistente =
-    registros.findIndex(
+    registros.findLastIndex(
         registro =>
             Number(registro.inspeccion) ===
             indiceSeleccionado
