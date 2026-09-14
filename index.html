@@ -3900,8 +3900,8 @@ const ventana =
 
     let filasHallazgos = "";
 
-   hallazgos.forEach((hallazgo) => {
-       const indiceReal = todosLosHallazgos.indexOf(hallazgo);
+ hallazgos.forEach((hallazgo, indice) => {
+    const indiceReal = todosLosHallazgos.indexOf(hallazgo);
         
         let fotosHTML = "";
 
