@@ -2666,10 +2666,6 @@ let fotosHallazgoEditando = [];
 
 function editarHallazgo(indice) {
     
-if (window.opener && !window.opener.closed) {
-    window.close();
-}
-
     const hallazgos =
         JSON.parse(localStorage.getItem("hallazgos")) || [];
 
@@ -3936,7 +3932,7 @@ const ventana =
         <td>
             <button
                 type="button"
-               onclick="window.opener.editarHallazgo(${indiceReal})"
+               onclick="window.close(); window.opener.editarHallazgo(${indiceReal})"
             >
                 Editar
             </button>
