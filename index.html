@@ -2661,7 +2661,8 @@ function cerrarHallazgos() {
         ventana.style.display = "none";
     }
 }
-let indiceHallazgoEditando = null;
+    let indiceHallazgoEditando = null;
+let fotosHallazgoEditando = [];
 
 function editarHallazgo(indice) {
     alert("Entró a editarHallazgo. Índice: " + indice);
@@ -2695,32 +2696,12 @@ function editarHallazgo(indice) {
 
     document.getElementById("hallazgoFotos").value = "";
 
-    const vistaFotos =
-        document.getElementById("vistaFotosHallazgo");
+fotosHallazgoEditando =
+    Array.isArray(hallazgo.fotos)
+        ? [...hallazgo.fotos]
+        : [];
 
-    if (vistaFotos) {
-
-        if (
-            Array.isArray(hallazgo.fotos) &&
-            hallazgo.fotos.length
-        ) {
-
-            vistaFotos.innerHTML = `
-                <div class="fotos">
-                    ${hallazgo.fotos.map(foto => `
-                        <img
-                            src="${foto}"
-                            alt="Evidencia fotográfica"
-                        >
-                    `).join("")}
-                </div>
-            `;
-
-        } else {
-
-            vistaFotos.innerHTML = "";
-        }
-    }
+mostrarFotosHallazgoEditando();
 
     const ventana =
         document.getElementById("ventanaHallazgos");
@@ -2730,6 +2711,76 @@ function editarHallazgo(indice) {
     }
 }
 
+    
+function mostrarFotosHallazgoEditando() {
+
+    const vistaFotos =
+        document.getElementById("vistaFotosHallazgo");
+
+    if (!vistaFotos) {
+        return;
+    }
+
+    if (!fotosHallazgoEditando.length) {
+        vistaFotos.innerHTML = "";
+        return;
+    }
+
+    vistaFotos.innerHTML = fotosHallazgoEditando
+        .map((foto, indice) => `
+            <div
+                style="
+                    display:inline-block;
+                    margin:8px;
+                    vertical-align:top;
+                    text-align:center;
+                "
+            >
+                <img
+                    src="${foto}"
+                    alt="Evidencia fotográfica"
+                    style="
+                        width:180px;
+                        height:135px;
+                        object-fit:cover;
+                        display:block;
+                        margin-bottom:6px;
+                    "
+                >
+
+                <button
+                    type="button"
+                    onclick="eliminarFotoHallazgo(${indice})"
+                    style="
+                        background:#b91c1c;
+                        color:white;
+                        border:none;
+                        padding:6px 10px;
+                        border-radius:5px;
+                        cursor:pointer;
+                    "
+                >
+                    🗑️ Eliminar foto
+                </button>
+            </div>
+        `)
+        .join("");
+}
+    
+function eliminarFotoHallazgo(indice) {
+
+    if (
+        indice < 0 ||
+        indice >= fotosHallazgoEditando.length
+    ) {
+        return;
+    }
+
+    fotosHallazgoEditando.splice(indice, 1);
+
+    mostrarFotosHallazgoEditando();
+}
+    
 async function guardarHallazgo() {
 
     const area = document.getElementById("hallazgoArea").value;
