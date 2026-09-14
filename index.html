@@ -720,7 +720,14 @@
         </table>
 
     </div>
-
+<button
+    type="button"
+    class="boton-principal"
+    onclick="agregarServicioSeguridad('actual')"
+    style="margin-bottom:20px;"
+>
+    + Agregar servicio
+</button>
     <h4 style="color:#123b5d;margin-bottom:10px;">
         Dispositivo de Seguridad sugerido
     </h4>
@@ -824,7 +831,14 @@
 
 </div>
 
-            
+   <button
+    type="button"
+    class="boton-principal"
+    onclick="agregarServicioSeguridad('sugerido')"
+    style="margin-bottom:20px;"
+>
+    + Agregar servicio
+</button>         
 
 <!-- HISTÓRICO DE INCIDENTES -->
 <div class="section">
@@ -1043,6 +1057,94 @@ function eliminarIncidente(boton) {
         fila.remove();
     }
 }
+
+function agregarServicioSeguridad(tipo) {
+
+    const idCuerpo =
+        tipo === "actual"
+            ? "cuerpoSeguridadActual"
+            : "cuerpoSeguridadSugerido";
+
+    const cuerpo =
+        document.getElementById(idCuerpo);
+
+    if (!cuerpo) {
+        return;
+    }
+
+    const fila =
+        document.createElement("tr");
+
+    fila.innerHTML = `
+        <td style="padding:6px;border:1px solid #999;">
+            <select class="servicio-seguridad">
+                <option value="">Seleccione</option>
+                <option value="Portería">Portería</option>
+                <option value="Conserjería">Conserjería</option>
+                <option value="Administración">Administración</option>
+                <option value="Ronda">Ronda</option>
+                <option value="Líder / Coordinador">
+                    Líder / Coordinador
+                </option>
+                <option value="Operador de medios tecnológicos">
+                    Operador de medios tecnológicos
+                </option>
+            </select>
+        </td>
+
+        <td style="padding:6px;border:1px solid #999;">
+            <select class="horario-seguridad">
+                <option value="">Seleccione</option>
+                <option value="8 horas">8 horas</option>
+                <option value="12 horas">12 horas</option>
+                <option value="24 horas">24 horas</option>
+            </select>
+        </td>
+
+        <td style="padding:6px;border:1px solid #999;">
+            <select class="jornada-seguridad">
+                <option value="">Seleccione</option>
+                <option value="Diurno">Diurno</option>
+                <option value="Nocturno">Nocturno</option>
+            </select>
+        </td>
+
+        <td style="padding:6px;border:1px solid #999;">
+            <input
+                type="text"
+                class="dias-seguridad"
+                placeholder="Ej. Lunes a viernes"
+            >
+        </td>
+
+        <td style="padding:6px;border:1px solid #999;">
+            <select class="modalidad-seguridad">
+                <option value="">Seleccione</option>
+                <option value="Con arma">Con arma</option>
+                <option value="Sin arma">Sin arma</option>
+            </select>
+        </td>
+
+        <td style="
+            padding:6px;
+            border:1px solid #999;
+            text-align:center;
+        ">
+            <button
+                type="button"
+                class="boton-secundario"
+                onclick="this.closest('tr').remove()"
+            >
+                Eliminar
+            </button>
+        </td>
+    `;
+
+    cuerpo.appendChild(fila);
+}
+
+
+    
     function abrirNuevaInspeccion() {
         document.getElementById("formInspeccion").removeAttribute("data-editando");
 indiceInspeccionEditando = null;
