@@ -2891,13 +2891,12 @@ const indiceInspeccion =
     recomendacion: recomendacion,
 
     fotos:
-        indiceHallazgoEditando !== null &&
-        fotos.length === 0 &&
-        Array.isArray(
-            hallazgos[indiceHallazgoEditando]?.fotos
-        )
-            ? hallazgos[indiceHallazgoEditando].fotos
-            : fotos
+    indiceHallazgoEditando !== null
+        ? [
+            ...fotosHallazgoEditando,
+            ...fotos
+        ]
+        : fotos
 };
 
 if (
