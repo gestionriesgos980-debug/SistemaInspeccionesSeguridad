@@ -3775,18 +3775,26 @@ const ventana =
         }
 
         filasHallazgos += `
-            <tr>
-                <td>${indice + 1}</td>
-                <td>${escapar(hallazgo.area)}</td>
-                <td>${escapar(hallazgo.elemento)}</td>
-                <td>
-                    ${escapar(hallazgo.descripcion)}
-                    ${fotosHTML}
-                </td>
-                <td>${escapar(hallazgo.nivel)}</td>
-                <td>${escapar(hallazgo.recomendacion)}</td>
-            </tr>
-        `;
+    <tr>
+        <td>${indice + 1}</td>
+        <td>${escapar(hallazgo.area)}</td>
+        <td>${escapar(hallazgo.elemento)}</td>
+        <td>
+            ${escapar(hallazgo.descripcion)}
+            ${fotosHTML}
+        </td>
+        <td>${escapar(hallazgo.nivel)}</td>
+        <td>${escapar(hallazgo.recomendacion)}</td>
+        <td>
+            <button
+                type="button"
+                onclick="editarHallazgo(${indice})"
+            >
+                Editar
+            </button>
+        </td>
+    </tr>
+`;
     });
 
     if (!filasHallazgos) {
