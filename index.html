@@ -2661,6 +2661,73 @@ function cerrarHallazgos() {
         ventana.style.display = "none";
     }
 }
+let indiceHallazgoEditando = null;
+
+function editarHallazgo(indice) {
+
+    const hallazgos =
+        JSON.parse(localStorage.getItem("hallazgos")) || [];
+
+    const hallazgo = hallazgos[indice];
+
+    if (!hallazgo) {
+        alert("No se encontró el hallazgo seleccionado.");
+        return;
+    }
+
+    indiceHallazgoEditando = indice;
+
+    document.getElementById("hallazgoArea").value =
+        hallazgo.area || "";
+
+    document.getElementById("hallazgoElemento").value =
+        hallazgo.elemento || "";
+
+    document.getElementById("hallazgoDescripcion").value =
+        hallazgo.descripcion || "";
+
+    document.getElementById("hallazgoNivel").value =
+        hallazgo.nivel || "";
+
+    document.getElementById("hallazgoRecomendacion").value =
+        hallazgo.recomendacion || "";
+
+    document.getElementById("hallazgoFotos").value = "";
+
+    const vistaFotos =
+        document.getElementById("vistaFotosHallazgo");
+
+    if (vistaFotos) {
+
+        if (
+            Array.isArray(hallazgo.fotos) &&
+            hallazgo.fotos.length
+        ) {
+
+            vistaFotos.innerHTML = `
+                <div class="fotos">
+                    ${hallazgo.fotos.map(foto => `
+                        <img
+                            src="${foto}"
+                            alt="Evidencia fotográfica"
+                        >
+                    `).join("")}
+                </div>
+            `;
+
+        } else {
+
+            vistaFotos.innerHTML = "";
+        }
+    }
+
+    const ventana =
+        document.getElementById("ventanaHallazgos");
+
+    if (ventana) {
+        ventana.style.display = "flex";
+    }
+}
 
 async function guardarHallazgo() {
 
