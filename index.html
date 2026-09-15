@@ -1596,6 +1596,33 @@ function crearRespaldo() {
         );
     }
 }
+    
+function seleccionarRespaldo() {
+
+    const selector =
+        document.createElement("input");
+
+    selector.type = "file";
+    selector.accept = ".json,application/json";
+
+    selector.onchange = function(evento) {
+
+        const archivo =
+            evento.target.files[0];
+
+        if (!archivo) {
+            return;
+        }
+
+        alert(
+            "Archivo seleccionado: " +
+            archivo.name
+        );
+    };
+
+    selector.click();
+}
+    
 
     actualizarContadores();// ===============================
 // LISTA DE CHEQUEO DE SEGURIDAD
