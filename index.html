@@ -5764,6 +5764,105 @@ const porcentajeGeneral = (() => {
 
                 </table>
 
+
+                <h3 style="
+    color:#123b5d;
+    border-bottom:2px solid #123b5d;
+    padding-bottom:6px;
+    margin-top:25px;
+    margin-bottom:15px;
+">
+    Características de la instalación
+</h3>
+
+<table style="
+    width:100%;
+    border-collapse:collapse;
+    margin-bottom:20px;
+">
+
+    <tr>
+        <td style="padding:8px;border:1px solid #999;">
+            <strong>Tipo de instalación</strong>
+        </td>
+        <td style="padding:8px;border:1px solid #999;">
+            ${escapar(inspeccion.tipoInstalacion || "")}
+        </td>
+
+        <td style="padding:8px;border:1px solid #999;">
+            <strong>Torres</strong>
+        </td>
+        <td style="padding:8px;border:1px solid #999;">
+            ${escapar(inspeccion.cantidadTorres || "")}
+        </td>
+    </tr>
+
+    <tr>
+        <td style="padding:8px;border:1px solid #999;">
+            <strong>Niveles</strong>
+        </td>
+        <td style="padding:8px;border:1px solid #999;">
+            ${escapar(inspeccion.cantidadNiveles || "")}
+        </td>
+
+        <td style="padding:8px;border:1px solid #999;">
+            <strong>Sótanos</strong>
+        </td>
+        <td style="padding:8px;border:1px solid #999;">
+            ${escapar(inspeccion.cantidadSotanos || "")}
+        </td>
+    </tr>
+
+    <tr>
+        <td style="padding:8px;border:1px solid #999;">
+            <strong>Viviendas</strong>
+        </td>
+        <td style="padding:8px;border:1px solid #999;">
+            ${escapar(inspeccion.cantidadViviendas || "")}
+        </td>
+
+        <td style="padding:8px;border:1px solid #999;">
+            <strong>Parqueaderos privados</strong>
+        </td>
+        <td style="padding:8px;border:1px solid #999;">
+            ${escapar(inspeccion.parqueaderosPrivados || "")}
+        </td>
+    </tr>
+
+    <tr>
+        <td style="padding:8px;border:1px solid #999;">
+            <strong>Parqueaderos visitantes</strong>
+        </td>
+        <td style="padding:8px;border:1px solid #999;">
+            ${escapar(inspeccion.parqueaderosVisitantes || "")}
+        </td>
+
+        <td style="padding:8px;border:1px solid #999;">
+            <strong>Parqueaderos motos</strong>
+        </td>
+        <td style="padding:8px;border:1px solid #999;">
+            ${escapar(inspeccion.parqueaderosMotos || "")}
+        </td>
+    </tr>
+
+    <tr>
+        <td style="padding:8px;border:1px solid #999;">
+            <strong>Parqueaderos uso común</strong>
+        </td>
+        <td style="padding:8px;border:1px solid #999;">
+            ${escapar(inspeccion.parqueaderosComunes || "")}
+        </td>
+
+        <td style="padding:8px;border:1px solid #999;">
+            <strong>Bicicleteros</strong>
+        </td>
+        <td style="padding:8px;border:1px solid #999;">
+            ${escapar(inspeccion.bicicleteros || "")}
+        </td>
+    </tr>
+
+</table>
+
 <div style="
     margin-top:25px;
     margin-bottom:20px;
