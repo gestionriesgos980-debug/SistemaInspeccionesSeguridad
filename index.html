@@ -1485,13 +1485,9 @@ indiceInspeccionEditando = null;
         }
     }
 
-        function abrirDashboard() {
+       function abrirDashboard() {
 
-    const inspecciones =
-        JSON.parse(localStorage.getItem("inspecciones")) || [];
-
-    document.getElementById("totalInspecciones").textContent =
-        inspecciones.length;
+    actualizarContadores();
 
     document.getElementById("dashboard").style.display = "block";
 }
