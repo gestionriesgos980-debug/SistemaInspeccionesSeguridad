@@ -6215,24 +6215,28 @@ ${filasCategorias}
 
                 <div class="firmas">
 
-                    <div class="firma">
-    <strong>Realizado por:</strong><br>
-    ${escapar(inspeccion.inspector || "")}
+    <div class="firma">
+        <strong>Realizado por:</strong><br>
+        ${escapar(inspeccion.inspector || "")}
+    </div>
+
+    <div class="firma">
+        <strong>Responsable del cliente:</strong><br>
+        ${escapar(inspeccion.director || "")}
+    </div>
+
 </div>
 
-<div class="firma">
-    <strong>Responsable del cliente:</strong><br>
-    ${escapar(inspeccion.director || "")}
+<div class="botones" style="
+    margin-top:25px;
+    text-align:center;
+">
+
+    <button onclick="window.print()">
+        🖨️ Imprimir / Guardar como PDF
+    </button>
+
 </div>
-
-
-                <div class="botones">
-
-                    <button onclick="window.print()">
-                        🖨️ Imprimir / Guardar como PDF
-                    </button>
-
-                </div>
 
 
                 <div class="pie">
