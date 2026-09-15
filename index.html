@@ -2935,13 +2935,23 @@ document.getElementById("bicicleteros").value =
 
     document.getElementById("tipo").value =
         inspeccion.tipo || "";
+
     
-    document.getElementById("sectorInspeccion").value =
+   document.getElementById("sectorInspeccion").value =
     inspeccion.sectorInspeccion || "";
 
-    document.getElementById("objetivo").value =
-        inspeccion.objetivo || "";
+const caracteristicasIndustrial =
+    document.getElementById("caracteristicasIndustrial");
 
+if (caracteristicasIndustrial) {
+    caracteristicasIndustrial.style.display =
+        inspeccion.sectorInspeccion === "Industrial"
+            ? "block"
+            : "none";
+}
+
+document.getElementById("objetivo").value =
+    inspeccion.objetivo || "";
     document.getElementById("latitud").value =
         inspeccion.latitud || "";
 
