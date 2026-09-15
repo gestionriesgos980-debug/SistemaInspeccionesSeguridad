@@ -1639,14 +1639,32 @@ lector.onload = function(e) {
         const hallazgos =
             respaldo.datos?.hallazgos || [];
 
-        alert(
-            "Respaldo válido.\n\n" +
-            "Inspecciones encontradas: " +
-            inspecciones.length +
-            "\n" +
-            "Hallazgos encontrados: " +
-            hallazgos.length
-        );
+        const confirmar =
+    confirm(
+        "Respaldo válido.\n\n" +
+        "Inspecciones encontradas: " +
+        inspecciones.length +
+        "\n" +
+        "Hallazgos encontrados: " +
+        hallazgos.length +
+        "\n\n" +
+        "¿Desea continuar con la restauración?"
+    );
+
+if (!confirmar) {
+
+    alert(
+        "Restauración cancelada. " +
+        "Los datos actuales no han sido modificados."
+    );
+
+    return;
+}
+
+alert(
+    "Confirmación recibida. " +
+    "Los datos todavía no han sido modificados."
+);
 
     } catch (error) {
 
