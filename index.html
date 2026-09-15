@@ -5973,7 +5973,80 @@ const porcentajeGeneral = (() => {
     </tr>
 
 </table>
+<h3 style="
+    color:#123b5d;
+    border-bottom:2px solid #123b5d;
+    padding-bottom:6px;
+    margin-top:25px;
+    margin-bottom:15px;
+">
+    Sistema CCTV
+</h3>
 
+<table style="
+    width:100%;
+    border-collapse:collapse;
+    margin-bottom:20px;
+">
+
+    <tr>
+        <td style="padding:8px;border:1px solid #999;">
+            <strong>Tipo de sistema CCTV</strong>
+        </td>
+        <td style="padding:8px;border:1px solid #999;">
+            ${escapar(inspeccion.tipoCCTV || "")}
+        </td>
+
+        <td style="padding:8px;border:1px solid #999;">
+            <strong>Cantidad de cámaras</strong>
+        </td>
+        <td style="padding:8px;border:1px solid #999;">
+            ${escapar(inspeccion.cantidadCamaras || "")}
+        </td>
+    </tr>
+
+    <tr>
+        <td style="padding:8px;border:1px solid #999;">
+            <strong>Vídeo analítica</strong>
+        </td>
+        <td style="padding:8px;border:1px solid #999;">
+            ${escapar(inspeccion.videoAnalitica || "")}
+        </td>
+
+        <td style="padding:8px;border:1px solid #999;">
+            <strong>Ubicación del rack</strong>
+        </td>
+        <td style="padding:8px;border:1px solid #999;">
+            ${escapar(inspeccion.ubicacionRack || "")}
+        </td>
+    </tr>
+
+    <tr>
+        <td style="padding:8px;border:1px solid #999;">
+            <strong>Días de almacenamiento</strong>
+        </td>
+        <td style="padding:8px;border:1px solid #999;">
+            ${escapar(inspeccion.diasAlmacenamiento || "")}
+        </td>
+
+        <td style="padding:8px;border:1px solid #999;">
+            <strong>UPS / sistema ininterrumpido</strong>
+        </td>
+        <td style="padding:8px;border:1px solid #999;">
+            ${escapar(inspeccion.upsCCTV || "")}
+        </td>
+    </tr>
+
+    <tr>
+        <td style="padding:8px;border:1px solid #999;">
+            <strong>Manejo de contraseñas</strong>
+        </td>
+        <td colspan="3" style="padding:8px;border:1px solid #999;">
+            ${escapar(inspeccion.manejoContrasenasCCTV || "")}
+        </td>
+    </tr>
+
+</table>
 <div style="
     margin-top:25px;
     margin-bottom:20px;
