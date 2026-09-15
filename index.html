@@ -6079,14 +6079,8 @@ const porcentajeGeneral = (() => {
     </td>
 </tr>
 
-<tr>
-    <td style="padding:8px;border:1px solid #999;">
-        <strong>Sector de la inspección</strong>
-    </td>
-    <td colspan="3" style="padding:8px;border:1px solid #999;">
-        ${escapar(inspeccion.sectorInspeccion || "")}
-    </td>
-</tr>
+
+${inspeccion.sectorInspeccion === "Industrial" ? `
 
 <tr>
     <td style="padding:8px;border:1px solid #999;">
@@ -6112,6 +6106,8 @@ const porcentajeGeneral = (() => {
         ${escapar(inspeccion.areaIndustrial || "")}
     </td>
 </tr>
+
+` : ""}
 
 </table>
 
