@@ -6079,8 +6079,42 @@ const porcentajeGeneral = (() => {
     </td>
 </tr>
 
+<tr>
+    <td style="padding:8px;border:1px solid #999;">
+        <strong>Sector de la inspección</strong>
+    </td>
+    <td colspan="3" style="padding:8px;border:1px solid #999;">
+        ${escapar(inspeccion.sectorInspeccion || "")}
+    </td>
+</tr>
+
+<tr>
+    <td style="padding:8px;border:1px solid #999;">
+        <strong>Tipo de instalación industrial</strong>
+    </td>
+    <td style="padding:8px;border:1px solid #999;">
+        ${escapar(inspeccion.tipoInstalacionIndustrial || "")}
+    </td>
+
+    <td style="padding:8px;border:1px solid #999;">
+        <strong>Actividad principal</strong>
+    </td>
+    <td style="padding:8px;border:1px solid #999;">
+        ${escapar(inspeccion.actividadPrincipalIndustrial || "")}
+    </td>
+</tr>
+
+<tr>
+    <td style="padding:8px;border:1px solid #999;">
+        <strong>Área industrial (m²)</strong>
+    </td>
+    <td colspan="3" style="padding:8px;border:1px solid #999;">
+        ${escapar(inspeccion.areaIndustrial || "")}
+    </td>
+</tr>
 
 </table>
+
 <h3 style="
     color:#123b5d;
     border-bottom:2px solid #123b5d;
