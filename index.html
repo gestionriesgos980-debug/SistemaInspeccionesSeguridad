@@ -7095,6 +7095,20 @@ ${filasCategorias}
     }
 
 }
+    
+// Mostrar características específicas según el sector
+document.getElementById("sectorInspeccion").addEventListener("change", function () {
+
+    const sector = this.value;
+    const industrial = document.getElementById("caracteristicasIndustrial");
+
+    if (industrial) {
+        industrial.style.display =
+            sector === "Industrial" ? "block" : "none";
+    }
+
+});
+    
 </script>  
 
             <script>
