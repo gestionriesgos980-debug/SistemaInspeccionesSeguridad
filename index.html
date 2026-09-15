@@ -6216,14 +6216,14 @@ ${filasCategorias}
                 <div class="firmas">
 
                     <div class="firma">
-                        Inspector de seguridad
-                    </div>
+    <strong>Realizado por:</strong><br>
+    ${escapar(inspeccion.inspector || "")}
+</div>
 
-                    <div class="firma">
-                        Responsable del cliente
-                    </div>
-
-                </div>
+<div class="firma">
+    <strong>Responsable del cliente:</strong><br>
+    ${escapar(inspeccion.director || "")}
+</div>
 
 
                 <div class="botones">
