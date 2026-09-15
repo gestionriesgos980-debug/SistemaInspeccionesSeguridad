@@ -1378,6 +1378,45 @@ inspeccion.historicoIncidentes = Array.from(
 
 inspeccion.sinIncidentes =
     document.getElementById("sinIncidentes")?.checked || false;
+
+
+        inspeccion.seguridadActual = Array.from(
+    document.querySelectorAll("#cuerpoSeguridadActual tr")
+).map(fila => ({
+    servicio: fila.querySelector(".servicio-seguridad")?.value || "",
+    horario: fila.querySelector(".horario-seguridad")?.value || "",
+    jornada: fila.querySelector(".jornada-seguridad")?.value || "",
+    dias: fila.querySelector(".dias-seguridad")?.value || "",
+    modalidad: fila.querySelector(".modalidad-seguridad")?.value || ""
+})).filter(item =>
+    item.servicio ||
+    item.horario ||
+    item.jornada ||
+    item.dias ||
+    item.modalidad
+);
+
+inspeccion.seguridadSugerida = Array.from(
+    document.querySelectorAll("#cuerpoSeguridadSugerido tr")
+).map(fila => ({
+    servicio: fila.querySelector(".servicio-seguridad")?.value || "",
+    horario: fila.querySelector(".horario-seguridad")?.value || "",
+    jornada: fila.querySelector(".jornada-seguridad")?.value || "",
+    dias: fila.querySelector(".dias-seguridad")?.value || "",
+    modalidad: fila.querySelector(".modalidad-seguridad")?.value || ""
+})).filter(item =>
+    item.servicio ||
+    item.horario ||
+    item.jornada ||
+    item.dias ||
+    item.modalidad
+);
+
+
+
+
+
+        
             let inspecciones =
                 JSON.parse(localStorage.getItem("inspecciones")) || [];
 
