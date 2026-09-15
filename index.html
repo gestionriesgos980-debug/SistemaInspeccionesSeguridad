@@ -5344,9 +5344,299 @@ const porcentajeGeneral = (() => {
     </table>
 </div>
 
+<!-- HERRAMIENTAS DE SEGURIDAD -->
+
+<div style="
+    margin-top:25px;
+    margin-bottom:25px;
+">
+
+    <h3 style="
+        margin-bottom:10px;
+        color:#123b5d;
+        border-bottom:2px solid #123b5d;
+        padding-bottom:6px;
+    ">
+        HERRAMIENTAS DE SEGURIDAD
+    </h3>
+
+    <h4 style="
+        color:#123b5d;
+        margin-bottom:8px;
+    ">
+        Dispositivo de Seguridad actual
+    </h4>
+
+    <table style="
+        width:100%;
+        border-collapse:collapse;
+        font-size:10px;
+        margin-bottom:20px;
+    ">
+
+        <thead>
+            <tr>
+
+                <th style="
+                    background:#123b5d;
+                    color:white;
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    SERVICIO
+                </th>
+
+                <th style="
+                    background:#123b5d;
+                    color:white;
+                    padding:7px;
+                    border:1px solid #aaa;
+                    text-align:center;
+                ">
+                    HORARIO
+                </th>
+
+                <th style="
+                    background:#123b5d;
+                    color:white;
+                    padding:7px;
+                    border:1px solid #aaa;
+                    text-align:center;
+                ">
+                    JORNADA
+                </th>
+
+                <th style="
+                    background:#123b5d;
+                    color:white;
+                    padding:7px;
+                    border:1px solid #aaa;
+                    text-align:center;
+                ">
+                    DÍAS DE SERVICIO
+                </th>
+
+                <th style="
+                    background:#123b5d;
+                    color:white;
+                    padding:7px;
+                    border:1px solid #aaa;
+                    text-align:center;
+                ">
+                    MODALIDAD
+                </th>
+
+            </tr>
+        </thead>
+
+        <tbody>
+
+            ${
+                (inspeccion.seguridadActual || []).length > 0
+                ? inspeccion.seguridadActual.map(servicio => `
+                    <tr>
+
+                        <td style="
+                            padding:7px;
+                            border:1px solid #aaa;
+                        ">
+                            ${escapar(servicio.servicio || "")}
+                        </td>
+
+                        <td style="
+                            padding:7px;
+                            border:1px solid #aaa;
+                            text-align:center;
+                        ">
+                            ${escapar(servicio.horario || "")}
+                        </td>
+
+                        <td style="
+                            padding:7px;
+                            border:1px solid #aaa;
+                            text-align:center;
+                        ">
+                            ${escapar(servicio.jornada || "")}
+                        </td>
+
+                        <td style="
+                            padding:7px;
+                            border:1px solid #aaa;
+                            text-align:center;
+                        ">
+                            ${escapar(servicio.dias || "")}
+                        </td>
+
+                        <td style="
+                            padding:7px;
+                            border:1px solid #aaa;
+                            text-align:center;
+                        ">
+                            ${escapar(servicio.modalidad || "")}
+                        </td>
+
+                    </tr>
+                `).join("")
+                : `
+                    <tr>
+                        <td
+                            colspan="5"
+                            style="
+                                padding:10px;
+                                border:1px solid #aaa;
+                                text-align:center;
+                                color:#777;
+                            "
+                        >
+                            No se registraron servicios actuales.
+                        </td>
+                    </tr>
+                `
+            }
+
+        </tbody>
+
+    </table>
+
+
+    <h4 style="
+        color:#123b5d;
+        margin-bottom:8px;
+    ">
+        Dispositivo de Seguridad sugerido
+    </h4>
+
+    <table style="
+        width:100%;
+        border-collapse:collapse;
+        font-size:10px;
+    ">
+
+        <thead>
+            <tr>
+
+                <th style="
+                    background:#123b5d;
+                    color:white;
+                    padding:7px;
+                    border:1px solid #aaa;
+                ">
+                    SERVICIO
+                </th>
+
+                <th style="
+                    background:#123b5d;
+                    color:white;
+                    padding:7px;
+                    border:1px solid #aaa;
+                    text-align:center;
+                ">
+                    HORARIO
+                </th>
+
+                <th style="
+                    background:#123b5d;
+                    color:white;
+                    padding:7px;
+                    border:1px solid #aaa;
+                    text-align:center;
+                ">
+                    JORNADA
+                </th>
+
+                <th style="
+                    background:#123b5d;
+                    color:white;
+                    padding:7px;
+                    border:1px solid #aaa;
+                    text-align:center;
+                ">
+                    DÍAS DE SERVICIO
+                </th>
+
+                <th style="
+                    background:#123b5d;
+                    color:white;
+                    padding:7px;
+                    border:1px solid #aaa;
+                    text-align:center;
+                ">
+                    MODALIDAD
+                </th>
+
+            </tr>
+        </thead>
+
+        <tbody>
+
+            ${
+                (inspeccion.seguridadSugerida || []).length > 0
+                ? inspeccion.seguridadSugerida.map(servicio => `
+                    <tr>
+
+                        <td style="
+                            padding:7px;
+                            border:1px solid #aaa;
+                        ">
+                            ${escapar(servicio.servicio || "")}
+                        </td>
+
+                        <td style="
+                            padding:7px;
+                            border:1px solid #aaa;
+                            text-align:center;
+                        ">
+                            ${escapar(servicio.horario || "")}
+                        </td>
+
+                        <td style="
+                            padding:7px;
+                            border:1px solid #aaa;
+                            text-align:center;
+                        ">
+                            ${escapar(servicio.jornada || "")}
+                        </td>
+
+                        <td style="
+                            padding:7px;
+                            border:1px solid #aaa;
+                            text-align:center;
+                        ">
+                            ${escapar(servicio.dias || "")}
+                        </td>
+
+                        <td style="
+                            padding:7px;
+                            border:1px solid #aaa;
+                            text-align:center;
+                        ">
+                            ${escapar(servicio.modalidad || "")}
+                        </td>
+
+                    </tr>
+                `).join("")
+                : `
+                    <tr>
+                        <td
+                            colspan="5"
+                            style="
+                                padding:10px;
+                                border:1px solid #aaa;
+                                text-align:center;
+                                color:#777;
+                            "
+                        >
+                            No se registraron servicios sugeridos.
+                        </td>
+                    </tr>
+                `
+            }
+
+        </tbody>
+
+    </table>
+
 </div>
-
-
 
 <h2>
     3. Resultado de la lista de chequeo
