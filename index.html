@@ -1614,10 +1614,54 @@ function seleccionarRespaldo() {
             return;
         }
 
+       const lector = new FileReader();
+
+lector.onload = function(e) {
+
+    try {
+
+        const respaldo =
+            JSON.parse(e.target.result);
+
+        if (
+            respaldo.sistema !==
+            "Sistema de Inspecciones de Seguridad"
+        ) {
+            alert(
+                "El archivo seleccionado no es un respaldo válido del sistema."
+            );
+            return;
+        }
+
+        const inspecciones =
+            respaldo.datos?.inspecciones || [];
+
+        const hallazgos =
+            respaldo.datos?.hallazgos || [];
+
         alert(
-            "Archivo seleccionado: " +
-            archivo.name
+            "Respaldo válido.\n\n" +
+            "Inspecciones encontradas: " +
+            inspecciones.length +
+            "\n" +
+            "Hallazgos encontrados: " +
+            hallazgos.length
         );
+
+    } catch (error) {
+
+        console.error(
+            "Error al leer respaldo:",
+            error
+        );
+
+        alert(
+            "No se pudo leer el archivo de respaldo."
+        );
+    }
+};
+
+lector.readAsText(archivo);
     };
 
     selector.click();
