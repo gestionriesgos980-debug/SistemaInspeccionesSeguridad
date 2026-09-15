@@ -2257,6 +2257,12 @@ function editarInspeccion(indice) {
     }
 
     indiceInspeccionEditando = indice;
+    localStorage.setItem(
+    "indiceInspeccionSeleccionadaInforme",
+    String(indice)
+);
+
+    
     document.getElementById("formInspeccion").dataset.editando = indice;
 
     const modal =
