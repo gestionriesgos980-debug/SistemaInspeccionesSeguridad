@@ -1302,22 +1302,22 @@
 
                 <div class="modulo">
                     <h3>📋 Inspecciones</h3>
-                    <p id="totalInspecciones">0</p>
+                    <p id="dashboardTotalInspecciones">0</p>
                 </div>
 
                 <div class="modulo">
                     <h3>👥 Clientes</h3>
-                    <p id="totalClientes">0</p>
+                    <p id="dashboardTotalClientes">0</p>
                 </div>
 
                 <div class="modulo">
                     <h3>⚠️ Hallazgos</h3>
-                    <p id="totalHallazgos">0</p>
+                    <p id="dashboardTotalHallazgos">0</p>
                 </div>
 
                 <div class="modulo">
                     <h3>📄 Informes</h3>
-                    <p id="totalInformes">0</p>
+                    <p id="dashboardTotalInformes">0</p>
                 </div>
 
             </div>
@@ -1847,6 +1847,18 @@ const informes =
 
 document.getElementById("totalInformes").textContent =
     informes;
+
+     document.getElementById("dashboardTotalInspecciones").textContent =
+        inspecciones.length;
+
+    document.getElementById("dashboardTotalClientes").textContent =
+        clientes.size;
+
+    document.getElementById("dashboardTotalHallazgos").textContent =
+        todosLosHallazgos.length;
+
+    document.getElementById("dashboardTotalInformes").textContent =
+        informes;   
 }
 function crearRespaldo() {
 
