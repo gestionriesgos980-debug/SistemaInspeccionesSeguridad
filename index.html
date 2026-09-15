@@ -1661,9 +1661,54 @@ if (!confirmar) {
     return;
 }
 
+const datos = respaldo.datos;
+
+localStorage.setItem(
+    "inspecciones",
+    JSON.stringify(datos.inspecciones || [])
+);
+
+localStorage.setItem(
+    "checklists",
+    JSON.stringify(datos.checklists || [])
+);
+
+localStorage.setItem(
+    "hallazgos",
+    JSON.stringify(datos.hallazgos || [])
+);
+
+localStorage.setItem(
+    "matrizRiesgos",
+    JSON.stringify(datos.matrizRiesgos || [])
+);
+
+localStorage.setItem(
+    "resultadosChecklistCategorias",
+    JSON.stringify(
+        datos.resultadosChecklistCategorias || []
+    )
+);
+
+localStorage.setItem(
+    "ultimoNumeroInspeccion",
+    datos.ultimoNumeroInspeccion || "0"
+);
+
+localStorage.setItem(
+    "informesGenerados",
+    datos.informesGenerados || "0"
+);
+
+actualizarContadores();
+
 alert(
-    "Confirmación recibida. " +
-    "Los datos todavía no han sido modificados."
+    "¡Respaldo restaurado correctamente!\n\n" +
+    "Inspecciones recuperadas: " +
+    (datos.inspecciones || []).length +
+    "\n" +
+    "Hallazgos recuperados: " +
+    (datos.hallazgos || []).length
 );
 
     } catch (error) {
