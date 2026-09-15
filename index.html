@@ -3720,11 +3720,12 @@ alert("Hallazgo guardado correctamente.");
             placeholder="Indique la medida preventiva recomendada"></textarea>
 
         <label>Evidencia fotográfica</label>
-        <input
-            type="file"
-            id="hallazgoFotos"
-            accept="image/*"
-            multiple>
+       <input
+    type="file"
+    id="hallazgoFotos"
+    accept="image/*"
+    capture="environment"
+    multiple>
 
         <div id="vistaFotosHallazgo"></div>
 
