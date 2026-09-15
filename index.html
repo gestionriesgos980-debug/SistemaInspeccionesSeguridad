@@ -720,7 +720,83 @@
 
 </div>
 
+<!-- SISTEMA CCTV -->
+<div class="seccion">
 
+    <h3>Sistema CCTV</h3>
+
+    <div class="fila">
+
+        <div class="campo">
+            <label>Tipo de sistema CCTV</label>
+            <select id="tipoCCTV">
+                <option value="">Seleccione...</option>
+                <option value="NVR">NVR</option>
+                <option value="DVR">DVR</option>
+                <option value="Híbrido">Híbrido</option>
+                <option value="No dispone">No dispone</option>
+            </select>
+        </div>
+
+        <div class="campo">
+            <label>Cantidad de cámaras</label>
+            <input
+                type="number"
+                id="cantidadCamaras"
+                min="0"
+                placeholder="Ej. 48">
+        </div>
+
+        <div class="campo">
+            <label>Vídeo analítica</label>
+            <select id="videoAnalitica">
+                <option value="">Seleccione...</option>
+                <option value="Sí">Sí</option>
+                <option value="No">No</option>
+                <option value="Parcial">Parcial</option>
+            </select>
+        </div>
+
+        <div class="campo">
+            <label>Ubicación del rack</label>
+            <input
+                type="text"
+                id="ubicacionRack"
+                placeholder="Ej. Cuarto de seguridad">
+        </div>
+
+        <div class="campo">
+            <label>Días de almacenamiento</label>
+            <input
+                type="number"
+                id="diasAlmacenamiento"
+                min="0"
+                placeholder="Ej. 30">
+        </div>
+
+        <div class="campo">
+            <label>UPS / sistema ininterrumpido</label>
+            <select id="upsCCTV">
+                <option value="">Seleccione...</option>
+                <option value="Sí">Sí</option>
+                <option value="No">No</option>
+            </select>
+        </div>
+
+        <div class="campo">
+            <label>Manejo de contraseñas</label>
+            <select id="manejoContrasenasCCTV">
+                <option value="">Seleccione...</option>
+                <option value="Administración">Administración</option>
+                <option value="Vigilantes">Vigilantes</option>
+                <option value="Administración y Vigilantes">Administración y Vigilantes</option>
+                <option value="Otro">Otro</option>
+            </select>
+        </div>
+
+    </div>
+
+</div>
 
 
 
