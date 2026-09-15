@@ -996,7 +996,14 @@
     type="submit"
     class="boton-guardar">
     Guardar inspección
-</button>          
+</button> 
+                <button
+    type="button"
+    class="boton-respaldo"
+    onclick="crearRespaldo()">
+    💾 Crear respaldo
+</button>
+                
 
             </div>
 
@@ -1486,7 +1493,103 @@ const informes =
 document.getElementById("totalInformes").textContent =
     informes;
 }
+function crearRespaldo() {
 
+    try {
+
+        const respaldo = {
+            sistema: "Sistema de Inspecciones de Seguridad",
+            versionRespaldo: "1.0",
+            fechaRespaldo: new Date().toISOString(),
+
+            datos: {
+                inspecciones:
+                    JSON.parse(
+                        localStorage.getItem("inspecciones")
+                    ) || [],
+
+                checklists:
+                    JSON.parse(
+                        localStorage.getItem("checklists")
+                    ) || [],
+
+                hallazgos:
+                    JSON.parse(
+                        localStorage.getItem("hallazgos")
+                    ) || [],
+
+                matrizRiesgos:
+                    JSON.parse(
+                        localStorage.getItem("matrizRiesgos")
+                    ) || [],
+
+                resultadosChecklistCategorias:
+                    JSON.parse(
+                        localStorage.getItem(
+                            "resultadosChecklistCategorias"
+                        )
+                    ) || [],
+
+                ultimoNumeroInspeccion:
+                    localStorage.getItem(
+                        "ultimoNumeroInspeccion"
+                    ) || "0",
+
+                informesGenerados:
+                    localStorage.getItem(
+                        "informesGenerados"
+                    ) || "0"
+            }
+        };
+
+        const contenido =
+            JSON.stringify(respaldo, null, 2);
+
+        const archivo =
+            new Blob(
+                [contenido],
+                { type: "application/json" }
+            );
+
+        const url =
+            URL.createObjectURL(archivo);
+
+        const enlace =
+            document.createElement("a");
+
+        enlace.href = url;
+
+        enlace.download =
+            "Respaldo-Inspecciones-" +
+            new Date()
+                .toISOString()
+                .slice(0, 10) +
+            ".json";
+
+        document.body.appendChild(enlace);
+
+        enlace.click();
+
+        document.body.removeChild(enlace);
+
+        URL.revokeObjectURL(url);
+
+        alert(
+            "Respaldo creado correctamente."
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Error al crear respaldo:",
+            error
+        );
+
+        alert(
+            "No fue posible crear el respaldo."
+        );
+    }
+}
 
     actualizarContadores();// ===============================
 // LISTA DE CHEQUEO DE SEGURIDAD
