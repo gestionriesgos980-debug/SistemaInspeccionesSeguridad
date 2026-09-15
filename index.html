@@ -1278,6 +1278,56 @@
 </div>
 
 
+            <!-- DASHBOARD -->
+
+<div id="dashboard" class="modal">
+
+    <div class="modal-contenido">
+
+        <div class="modal-cabecera">
+
+            <h2>📊 Dashboard</h2>
+
+            <span class="cerrar" onclick="cerrarDashboard()">
+                &times;
+            </span>
+
+        </div>
+
+        <div class="panel">
+
+            <h3>Indicadores del sistema</h3>
+
+            <div class="modulos">
+
+                <div class="modulo">
+                    <h3>📋 Inspecciones</h3>
+                    <p id="totalInspecciones">0</p>
+                </div>
+
+                <div class="modulo">
+                    <h3>👥 Clientes</h3>
+                    <p id="totalClientes">0</p>
+                </div>
+
+                <div class="modulo">
+                    <h3>⚠️ Hallazgos</h3>
+                    <p id="totalHallazgos">0</p>
+                </div>
+
+                <div class="modulo">
+                    <h3>📄 Informes</h3>
+                    <p id="totalInformes">0</p>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
 <script>
 
     const modal = document.getElementById("modalInspeccion");
@@ -1436,8 +1486,12 @@ indiceInspeccionEditando = null;
     }
 
         function abrirDashboard() {
-        alert("Dashboard en construcción");
-    }
+    document.getElementById("dashboard").style.display = "block";
+}
+
+function cerrarDashboard() {
+    document.getElementById("dashboard").style.display = "none";
+}
 
     function cerrarNuevaInspeccion() {
         modal.style.display = "none";
