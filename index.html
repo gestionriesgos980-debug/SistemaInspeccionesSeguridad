@@ -1974,15 +1974,29 @@ const porcentajeMensual =
 
         const fila = document.createElement("tr");
 
-        fila.innerHTML = `
-            <td style="border:1px solid #ccc; padding:8px;">
-                ${mes}
-            </td>
+        // =====================================================
+// FUNCIÓN: VISUALIZACIÓN DEL CUMPLIMIENTO MENSUAL
+// OBJETIVO: Mostrar las inspecciones realizadas y el
+// porcentaje de cumplimiento frente a la meta mensual.
+// =====================================================
+fila.innerHTML = `
+    <td style="border:1px solid #ccc; padding:8px;">
+        ${mes}
+    </td>
 
-            <td style="border:1px solid #ccc; padding:8px;">
-                ${cantidad}
-            </td>
-        `;
+    <td style="border:1px solid #ccc; padding:8px;">
+        ${cantidad}
+    </td>
+
+    <td style="
+        border:1px solid #ccc;
+        padding:8px;
+        text-align:center;
+        font-weight:bold;
+    ">
+        ${porcentajeMensual}%
+    </td>
+`;
 
         tabla.appendChild(fila);
 
