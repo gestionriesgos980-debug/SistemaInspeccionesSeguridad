@@ -3338,6 +3338,7 @@ const diferencia =
 
 <div style="
     margin-top:20px;
+    width:100%;
 ">
 
     <label style="
@@ -3350,19 +3351,19 @@ const diferencia =
     </label>
 
     <input
-        type="text"
-        id="buscadorClientes"
-        placeholder="Buscar por cliente, NIT o Director Operativo..."
-       style="
-    width:350px;
-    max-width:100%;
-    padding:8px 12px;
-    border:1px solid #ccc;
-    border-radius:6px;
-    box-sizing:border-box;
-    font-size:14px;
-        "
-    >
+    type="text"
+    id="buscadorClientes"
+    placeholder="Buscar por cliente, NIT o Director Operativo..."
+    style="
+        width:350px;
+        max-width:100%;
+        padding:8px 12px;
+        border:1px solid #ccc;
+        border-radius:6px;
+        box-sizing:border-box;
+        font-size:14px;
+    "
+>
 
 </div>
             ${contenido}
@@ -3381,7 +3382,7 @@ const buscadorClientes =
 
 if (buscadorClientes) {
 
-    buscadorClientes.addEventListener("input", function () {
+    placeholder="Buscar
 
         textoBusquedaClientes =
             this.value.trim().toLowerCase();
