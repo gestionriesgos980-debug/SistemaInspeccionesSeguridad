@@ -2758,24 +2758,36 @@ function abrirMatrizRiesgosCliente(nombreCliente) {
 
     </div>
 
-    <div style="
-        text-align:center;
-        margin-bottom:20px;
-    ">
+    <!-- =====================================================
+     FUNCIÓN: CONTROLES DE MATRIZ DE RIESGOS DEL CLIENTE
+     OBJETIVO: Permitir agregar riesgos y guardar la matriz
+     independiente de las inspecciones.
+     IDENTIFICADOR: MATRIZ-RIESGOS-CLIENTE-CONTROLES
+====================================================== -->
 
-        <button
-            type="button"
-            class="boton-principal"
-            onclick="agregarRiesgoMatrizCliente()"
-        >
-            ➕ Agregar riesgo
-        </button>
+<div style="
+    text-align:center;
+    margin-bottom:20px;
+">
 
-    </div>
+    <button
+        type="button"
+        class="boton-principal"
+        onclick="agregarRiesgoMatrizCliente()"
+    >
+        ➕ Agregar riesgo
+    </button>
 
-    <div id="listaRiesgosCliente">
-
-    </div>
+    <button
+        type="button"
+        class="boton-principal"
+        onclick="guardarMatrizRiesgosCliente('${String(nombreCliente).replace(/'/g, "\\'")}')"
+        style="
+            margin-left:10px;
+        "
+    >
+        💾 Guardar matriz
+    </button>
 
 </div>
 
@@ -5986,7 +5998,168 @@ function calcularNivelRiesgoCliente(bloque) {
                 : nivel;
     }
 }
-    
+  // =====================================================
+// FUNCIÓN: GUARDAR MATRIZ DE RIESGOS DEL CLIENTE
+// OBJETIVO: Almacenar los riesgos asociados directamente
+// al cliente, independientes de una inspección.
+// IDENTIFICADOR: MATRIZ-RIESGOS-CLIENTE-GUARDAR
+// =====================================================
+
+function guardarMatrizRiesgosCliente(nombreCliente) {
+
+    if (!nombreCliente) {
+        alert("No se encontró el cliente seleccionado.");
+        return;
+    }
+
+    const contenedor =
+        document.getElementById(
+            "listaRiesgosCliente"
+        );
+
+    if (!contenedor) {
+        alert(
+            "No se encontró la matriz de riesgos del cliente."
+        );
+        return;
+    }
+
+    const riesgos = [];
+
+    Array.from(
+        contenedor.querySelectorAll(
+            ".bloque-riesgo-cliente"
+        )
+    ).forEach(bloque => {
+
+        const area =
+            bloque.querySelector(
+                ".matriz-cliente-area"
+            )?.value || "";
+
+        const peligro =
+            bloque.querySelector(
+                ".matriz-cliente-peligro"
+            )?.value || "";
+
+        const riesgo =
+            bloque.querySelector(
+                ".matriz-cliente-riesgo"
+            )?.value || "";
+
+        const probabilidad =
+            Number(
+                bloque.querySelector(
+                    ".matriz-cliente-probabilidad"
+                )?.value || 0
+            );
+
+        const impacto =
+            Number(
+                bloque.querySelector(
+                    ".matriz-cliente-impacto"
+                )?.value || 0
+            );
+
+        const puntuacion =
+            probabilidad * impacto;
+
+        let nivel =
+            "Pendiente de cálculo";
+
+        if (
+            probabilidad > 0 &&
+            impacto > 0
+        ) {
+
+            nivel = "Bajo";
+
+            if (puntuacion >= 15) {
+                nivel = "Crítico";
+            } else if (puntuacion >= 10) {
+                nivel = "Alto";
+            } else if (puntuacion >= 5) {
+                nivel = "Medio";
+            }
+        }
+
+        const tratamiento =
+            bloque.querySelector(
+                ".matriz-cliente-tratamiento"
+            )?.value || "";
+
+        riesgos.push({
+
+            cliente:
+                nombreCliente,
+
+            area:
+                area,
+
+            peligro:
+                peligro,
+
+            riesgo:
+                riesgo,
+
+            probabilidad:
+                probabilidad,
+
+            impacto:
+                impacto,
+
+            puntuacion:
+                puntuacion,
+
+            nivel:
+                nivel,
+
+            tratamiento:
+                tratamiento
+        });
+
+    });
+
+    // =====================================================
+    // FUNCIÓN: CONSERVAR MATRICES DE OTROS CLIENTES
+    // OBJETIVO: Evitar que guardar la matriz de un cliente
+    // elimine accidentalmente la información de otros.
+    // =====================================================
+
+    const matricesGuardadas =
+        JSON.parse(
+            localStorage.getItem(
+                "matricesRiesgosClientes"
+            )
+        ) || [];
+
+    const matricesDeOtrosClientes =
+        matricesGuardadas.filter(
+            registro =>
+                String(
+                    registro.cliente || ""
+                ) !==
+                String(
+                    nombreCliente
+                )
+        );
+
+    const matrizFinal = [
+        ...matricesDeOtrosClientes,
+        ...riesgos
+    ];
+
+    localStorage.setItem(
+        "matricesRiesgosClientes",
+        JSON.stringify(
+            matrizFinal
+        )
+    );
+
+    alert(
+        "Matriz de riesgos del cliente guardada correctamente."
+    );
+}  
 function generarInforme() {
 
     const inspecciones =
