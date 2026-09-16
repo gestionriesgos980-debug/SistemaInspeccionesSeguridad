@@ -6400,6 +6400,18 @@ const respuestasChecklist =
     checklist && checklist.respuestas
         ? checklist.respuestas
         : {};
+    // =====================================================
+// FUNCIÓN: MATRIZ UTILIZADA POR EL MAPA DE CALOR
+// OBJETIVO: Utilizar la matriz independiente del cliente
+// cuando exista y mantener la matriz de inspección como
+// respaldo.
+// IDENTIFICADOR: MAPA-CALOR-MATRIZ-PARA-INFORME
+// =====================================================
+
+const matrizParaMapaCalor =
+    matrizCliente.length > 0
+        ? matrizCliente
+        : matriz;
     /* =========================
        MAPA DE CALOR DE RIESGOS
     ========================= */
@@ -6432,11 +6444,11 @@ const respuestasChecklist =
 
 function riesgosEnCelda(probabilidad, impacto) {
 
-    const encontrados = matrizParaInforme.filter(
-        riesgo =>
-            Number(riesgo.probabilidad) === probabilidad &&
-            Number(riesgo.impacto) === impacto
-    );
+   const encontrados = matrizParaMapaCalor.filter(
+    riesgo =>
+        Number(riesgo.probabilidad) === probabilidad &&
+        Number(riesgo.impacto) === impacto
+);
 
         if (!encontrados.length) {
             return "";
@@ -6444,8 +6456,8 @@ function riesgosEnCelda(probabilidad, impacto) {
 
         return encontrados.map((riesgo, indice) => {
 
-            const numero =
-    matrizParaInforme.indexOf(riesgo) + 1;
+           const numero =
+    matrizParaMapaCalor.indexOf(riesgo) + 1;
 
             return `
                 <span style="
