@@ -2674,6 +2674,16 @@ function coincideBusquedaCliente(inspeccion, texto) {
                         ${indiceCliente + 1}. ${cliente}
                     </h3>
 
+                    <p style="
+    margin:5px 0;
+    color:#555;
+">
+    <strong>NIT:</strong>
+    ${
+        inspeccionesCliente[0]?.inspeccion?.nit || "—"
+    }
+</p>
+
                     <p>
                         <strong>
                             Inspecciones realizadas:
