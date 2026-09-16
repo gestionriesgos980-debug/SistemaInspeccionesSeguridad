@@ -7472,21 +7472,36 @@ ${filasCategorias}
 
 }
     
-// Mostrar características específicas según el sector
+// =====================================================
+// FUNCIÓN: VISIBILIDAD SEGÚN TIPO DE SERVICIO
+// OBJETIVO: Mostrar únicamente las características
+// correspondientes al sector seleccionado.
+// =====================================================
 document.addEventListener("DOMContentLoaded", function () {
 
     const sectorSelect = document.getElementById("sectorInspeccion");
     const industrial = document.getElementById("caracteristicasIndustrial");
 
-    if (sectorSelect && industrial) {
+    if (sectorSelect) {
 
         function actualizarSector() {
-            industrial.style.display =
-                sectorSelect.value === "Industrial" ? "block" : "none";
+
+            // Ocultar Industrial inicialmente
+            if (industrial) {
+                industrial.style.display = "none";
+            }
+
+            // Mostrar Industrial únicamente cuando sea seleccionado
+            if (sectorSelect.value === "Industrial") {
+                if (industrial) {
+                    industrial.style.display = "block";
+                }
+            }
         }
 
         sectorSelect.addEventListener("change", actualizarSector);
 
+        // Ejecutar al cargar la pantalla
         actualizarSector();
     }
 
