@@ -2083,11 +2083,20 @@ if (canvas) {
 const anchoDisponible =
     canvas.parentElement.clientWidth;
 
+// =====================================================
+// FUNCIÓN: TAMAÑO ÓPTIMO DE LA GRÁFICA
+// OBJETIVO: Aprovechar el ancho disponible del Dashboard
+// manteniendo la gráfica dentro de la ventana.
+// =====================================================
 const ancho =
-    canvas.width = Math.max(anchoDisponible - 20, 300);
+    canvas.width = Math.max(anchoDisponible, 600);
 
 const alto =
-    canvas.height = 350;
+    canvas.height = 400;
+
+canvas.style.width = "100%";
+canvas.style.maxWidth = "100%";
+canvas.style.height = "auto";
 
     ctx.clearRect(0, 0, ancho, alto);
 
