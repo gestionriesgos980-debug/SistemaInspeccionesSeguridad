@@ -1990,11 +1990,13 @@ const porcentajeMensual =
 
         totalAnual += cantidad;
 
-        const fila = document.createElement("tr");
-        // =====================================================
-// FUNCIÓN: MOSTRAR META MENSUAL
-// OBJETIVO: Mostrar en cada mes la meta establecida
-// de 20 inspecciones mensuales.
+       const fila = document.createElement("tr");
+
+// =====================================================
+// FUNCIÓN: VISUALIZACIÓN DE META Y CUMPLIMIENTO MENSUAL
+// OBJETIVO: Mostrar meta, mes, inspecciones realizadas
+// y porcentaje de cumplimiento.
+// Meta inicial: 20 inspecciones por mes.
 // =====================================================
 fila.innerHTML = `
     <td style="border:1px solid #ccc; padding:8px;">
@@ -2019,31 +2021,7 @@ fila.innerHTML = `
     </td>
 `;
 
-        // =====================================================
-// FUNCIÓN: VISUALIZACIÓN DEL CUMPLIMIENTO MENSUAL
-// OBJETIVO: Mostrar las inspecciones realizadas y el
-// porcentaje de cumplimiento frente a la meta mensual.
-// =====================================================
-fila.innerHTML = `
-    <td style="border:1px solid #ccc; padding:8px;">
-        ${mes}
-    </td>
-
-    <td style="border:1px solid #ccc; padding:8px;">
-        ${cantidad}
-    </td>
-
-    <td style="
-        border:1px solid #ccc;
-        padding:8px;
-        text-align:center;
-        font-weight:bold;
-    ">
-        ${porcentajeMensual}%
-    </td>
-`;
-
-        tabla.appendChild(fila);
+tabla.appendChild(fila);
 
     });
 
