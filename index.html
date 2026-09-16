@@ -2683,7 +2683,15 @@ function coincideBusquedaCliente(inspeccion, texto) {
         inspeccionesCliente[0]?.inspeccion?.nit || "—"
     }
 </p>
-
+<p style="
+    margin:5px 0;
+    color:#555;
+">
+    <strong>Director operativo:</strong>
+    ${
+        inspeccionesCliente[0]?.inspeccion?.director || "—"
+    }
+</p>
                     <p>
                         <strong>
                             Inspecciones realizadas:
