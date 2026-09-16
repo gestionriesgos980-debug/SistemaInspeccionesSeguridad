@@ -1959,6 +1959,16 @@ document.getElementById("totalHallazgos").textContent =
     meses.forEach((mes, indice) => {
 
         const cantidad = conteoMensual[indice];
+        // =====================================================
+// FUNCIÓN: CUMPLIMIENTO MENSUAL DE INSPECCIONES
+// OBJETIVO: Calcular el porcentaje de inspecciones
+// realizadas frente a la meta mensual establecida.
+// Meta inicial: 20 inspecciones por mes.
+// =====================================================
+const metaMensual = 20;
+
+const porcentajeMensual =
+    Math.round((cantidad / metaMensual) * 100);
 
         totalAnual += cantidad;
 
