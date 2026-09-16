@@ -5889,7 +5889,43 @@ function agregarRiesgoMatrizCliente() {
 
     `;
 
-    contenedor.appendChild(bloque);
+    // =====================================================
+// FUNCIÓN: ACTUALIZACIÓN AUTOMÁTICA DEL NIVEL
+// OBJETIVO: Recalcular el riesgo cuando cambien
+// Probabilidad o Impacto.
+// IDENTIFICADOR: MATRIZ-RIESGOS-CLIENTE-ACTUALIZAR
+// =====================================================
+
+contenedor.appendChild(bloque);
+
+const probabilidad =
+    bloque.querySelector(
+        ".matriz-cliente-probabilidad"
+    );
+
+const impacto =
+    bloque.querySelector(
+        ".matriz-cliente-impacto"
+    );
+
+if (probabilidad) {
+
+    probabilidad.addEventListener(
+        "change",
+        () => calcularNivelRiesgoCliente(bloque)
+    );
+
+}
+
+if (impacto) {
+
+     impacto.addEventListener(
+        "change",
+        () => calcularNivelRiesgoCliente(bloque)
+    );
+
+}
+
 }
     // =====================================================
 // FUNCIÓN: CÁLCULO DE NIVEL DE RIESGO DEL CLIENTE
