@@ -5240,10 +5240,11 @@ if (inspeccion.sectorInspeccion === "Residencial") {
 } else if (inspeccion.sectorInspeccion === "Industrial") {
 
     const camposIndustriales = [
-        ["Tipo de instalación", inspeccion.tipoInstalacionIndustrial],
-        ["Actividad principal", inspeccion.actividadPrincipalIndustrial],
-        ["Área aproximada (m²)", inspeccion.areaIndustrial]
-    ];
+    ["Tipo de instalación", inspeccion.tipoInstalacionIndustrial],
+    ["Actividad principal", inspeccion.actividadPrincipalIndustrial],
+    ["Cantidad de bodegas", inspeccion.cantidadBodegas],
+    ["Área aproximada (m²)", inspeccion.areaIndustrial]
+];
 
     const camposDiligenciados =
         camposIndustriales.filter(campo =>
