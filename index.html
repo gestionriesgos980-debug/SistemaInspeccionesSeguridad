@@ -2555,13 +2555,20 @@ function abrirClientes() {
         JSON.stringify(inspecciones)
     );
 
-    const clientes = [
-        ...new Set(
-            inspecciones
-                .map(inspeccion => inspeccion.cliente)
-                .filter(cliente => cliente)
-        )
-    ];
+    // =====================================================
+// FUNCIÓN: BUSCADOR DE CLIENTES
+// OBJETIVO: Permitir filtrar clientes por nombre,
+// NIT o Director Operativo.
+// =====================================================
+const clientes = [
+    ...new Set(
+        inspecciones
+            .map(inspeccion => inspeccion.cliente)
+            .filter(cliente => cliente)
+    )
+];
+
+let textoBusquedaClientes = "";
 
     let ventana =
         document.getElementById("ventanaClientes");
