@@ -1335,14 +1335,23 @@
 
                 <thead>
                     <tr>
-                       <th style="border:1px solid #ccc; padding:8px;">
+                       <!-- =====================================================
+     FUNCIÓN: META MENSUAL DE INSPECCIONES
+     OBJETIVO: Mostrar la meta establecida de inspecciones
+     que se utilizará como referencia para el cumplimiento.
+     Meta inicial: 20 inspecciones por mes.
+====================================================== -->
+<th style="border:1px solid #ccc; padding:8px;">
+    Meta
+</th>
+
+<th style="border:1px solid #ccc; padding:8px;">
     Mes
 </th>
 
 <th style="border:1px solid #ccc; padding:8px;">
     Inspecciones
 </th>
-
 <!-- =====================================================
      FUNCIÓN: ENCABEZADO DE CUMPLIMIENTO MENSUAL
      OBJETIVO: Identificar el porcentaje de cumplimiento
@@ -1982,6 +1991,33 @@ const porcentajeMensual =
         totalAnual += cantidad;
 
         const fila = document.createElement("tr");
+        // =====================================================
+// FUNCIÓN: MOSTRAR META MENSUAL
+// OBJETIVO: Mostrar en cada mes la meta establecida
+// de 20 inspecciones mensuales.
+// =====================================================
+fila.innerHTML = `
+    <td style="border:1px solid #ccc; padding:8px;">
+        ${metaMensual}
+    </td>
+
+    <td style="border:1px solid #ccc; padding:8px;">
+        ${mes}
+    </td>
+
+    <td style="border:1px solid #ccc; padding:8px;">
+        ${cantidad}
+    </td>
+
+    <td style="
+        border:1px solid #ccc;
+        padding:8px;
+        text-align:center;
+        font-weight:bold;
+    ">
+        ${porcentajeMensual}%
+    </td>
+`;
 
         // =====================================================
 // FUNCIÓN: VISUALIZACIÓN DEL CUMPLIMIENTO MENSUAL
