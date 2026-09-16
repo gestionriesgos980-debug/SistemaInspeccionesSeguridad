@@ -2009,27 +2009,75 @@ if (canvas) {
         anchoGrafica / meses.length;
 
 
-    /* Ejes */
+   /* =========================
+   ESTILO VISUAL DE LA GRÁFICA
+========================= */
+
+ctx.clearRect(0, 0, ancho, alto);
+
+/* Fondo limpio */
+
+ctx.fillStyle = "#ffffff";
+
+ctx.fillRect(
+    0,
+    0,
+    ancho,
+    alto
+);
+
+/* Líneas guía */
+
+ctx.strokeStyle = "#e5e7eb";
+ctx.lineWidth = 1;
+
+const niveles = 4;
+
+for (let i = 0; i <= niveles; i++) {
+
+    const y =
+        alto - margenInferior -
+        (altoGrafica / niveles) * i;
 
     ctx.beginPath();
 
     ctx.moveTo(
         margenIzquierdo,
-        margenSuperior
-    );
-
-    ctx.lineTo(
-        margenIzquierdo,
-        alto - margenInferior
+        y
     );
 
     ctx.lineTo(
         ancho - margenDerecho,
-        alto - margenInferior
+        y
     );
 
     ctx.stroke();
 
+}
+
+/* Ejes principales */
+
+ctx.strokeStyle = "#123b5d";
+ctx.lineWidth = 2;
+
+ctx.beginPath();
+
+ctx.moveTo(
+    margenIzquierdo,
+    margenSuperior
+);
+
+ctx.lineTo(
+    margenIzquierdo,
+    alto - margenInferior
+);
+
+ctx.lineTo(
+    ancho - margenDerecho,
+    alto - margenInferior
+);
+
+ctx.stroke();
 
     /* Barras */
 
@@ -2047,12 +2095,23 @@ if (canvas) {
             alto - margenInferior - alturaBarra;
 
 
-        ctx.fillRect(
+               /* Barra */
+
+        ctx.fillStyle = "#123b5d";
+
+        ctx.beginPath();
+
+        const radio = 6;
+
+        ctx.roundRect(
             x,
             y,
             anchoBarra,
-            alturaBarra
+            alturaBarra,
+            radio
         );
+
+        ctx.fill();
 
 
         /* Cantidad */
