@@ -7253,18 +7253,26 @@ matrizParaInforme.forEach((riesgo, indice) => {
 >
 </td>
 
-            <td style="
-                width:55%;
-                border:1px solid #555;
-                padding:10px;
-                text-align:center;
-                font-weight:bold;
-                font-size:16px;
-                color:#123b5d;
-            ">
-                INFORME PREVENTIVO DE<br>
-                SEGURIDAD INTEGRAL
-            </td>
+            <!-- =====================================================
+     FUNCIÓN: AJUSTE VISUAL DEL TÍTULO DEL INFORME
+     OBJETIVO: Mejorar tamaño, centrado y presentación
+     del título corporativo sin modificar su contenido.
+     IDENTIFICADOR: PDF-ENCABEZADO-TITULO
+====================================================== -->
+<td style="
+    width:55%;
+    border:1px solid #555;
+    padding:10px;
+    text-align:center;
+    vertical-align:middle;
+    font-weight:bold;
+    font-size:17px;
+    line-height:1.35;
+    color:#123b5d;
+">
+    INFORME PREVENTIVO DE<br>
+    SEGURIDAD INTEGRAL
+</td>
 
             <td style="
                 width:25%;
