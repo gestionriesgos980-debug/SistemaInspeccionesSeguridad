@@ -1834,13 +1834,10 @@ function actualizarContadores() {
 document.getElementById("totalHallazgos").textContent =
     todosLosHallazgos.length;
 
-const informes =
+    const informes =
     Number(
         localStorage.getItem("informesGenerados") || 0
     );
-
-document.getElementById("totalInformes").textContent =
-    informes;
 
      document.getElementById("dashboardTotalInspecciones").textContent =
         inspecciones.length;
