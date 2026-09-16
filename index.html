@@ -2847,11 +2847,27 @@ const diferencia =
     ">
         ${item.inspeccion.fecha || "—"}
     </td>
+<!-- =====================================================
+     FUNCIÓN: INDICADOR VISUAL DE VIGENCIA
+     OBJETIVO: Mostrar el estado de la inspección con
+     identificación visual según su condición.
+====================================================== -->
 <td style="
     padding:8px;
     border:1px solid #999;
     text-align:center;
     font-weight:bold;
+    ${
+        obtenerEstadoVencimiento(
+            item.inspeccion.fecha
+        ).clase === "inspeccion-vencida"
+            ? "color:#b91c1c;"
+            : obtenerEstadoVencimiento(
+                item.inspeccion.fecha
+            ).clase === "inspeccion-proxima"
+                ? "color:#b45309;"
+                : "color:#15803d;"
+    }
 ">
     ${
         obtenerEstadoVencimiento(
