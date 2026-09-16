@@ -2570,6 +2570,33 @@ const clientes = [
 
 let textoBusquedaClientes = "";
 
+    // =====================================================
+// FUNCIÓN: FILTRAR CLIENTES
+// OBJETIVO: Buscar por nombre de cliente, NIT o
+// Director Operativo.
+// =====================================================
+function coincideBusquedaCliente(inspeccion, texto) {
+
+    if (!texto) {
+        return true;
+    }
+
+    const cliente =
+        String(inspeccion.cliente || "").toLowerCase();
+
+    const nit =
+        String(inspeccion.nit || "").toLowerCase();
+
+    const director =
+        String(inspeccion.director || "").toLowerCase();
+
+    return (
+        cliente.includes(texto) ||
+        nit.includes(texto) ||
+        director.includes(texto)
+    );
+}
+
     let ventana =
         document.getElementById("ventanaClientes");
 
