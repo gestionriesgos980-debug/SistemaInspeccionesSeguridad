@@ -2635,7 +2635,112 @@ const datosChecklist = {
     ]
 };
 
+// =====================================================
+// FUNCIÓN: MATRIZ DE RIESGOS DEL CLIENTE
+// OBJETIVO: Abrir la matriz de riesgos asociada
+// directamente al cliente seleccionado.
+// IDENTIFICADOR: MATRIZ-RIESGOS-CLIENTE-APERTURA
+// =====================================================
+function abrirMatrizRiesgosCliente(nombreCliente) {
 
+    let ventana =
+        document.getElementById("ventanaMatrizRiesgosCliente");
+
+    if (ventana) {
+        ventana.remove();
+    }
+
+    ventana = document.createElement("div");
+
+    ventana.id =
+        "ventanaMatrizRiesgosCliente";
+
+    ventana.style.position = "fixed";
+    ventana.style.top = "0";
+    ventana.style.left = "0";
+    ventana.style.width = "100%";
+    ventana.style.height = "100%";
+    ventana.style.background =
+        "rgba(0,0,0,0.55)";
+    ventana.style.zIndex = "4000";
+    ventana.style.overflowY = "auto";
+
+    ventana.innerHTML = `
+
+        <div style="
+            width:90%;
+            max-width:1100px;
+            margin:40px auto;
+            background:white;
+            padding:25px;
+            border-radius:10px;
+            box-shadow:0 4px 20px rgba(0,0,0,0.25);
+            box-sizing:border-box;
+        ">
+
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                margin-bottom:20px;
+            ">
+
+                <h2 style="
+                    margin:0;
+                    color:#123b5d;
+                ">
+                    📊 Matriz de Riesgos del Cliente
+                </h2>
+
+                <button
+                    type="button"
+                    class="boton-secundario"
+                    onclick="
+                        document
+                            .getElementById(
+                                'ventanaMatrizRiesgosCliente'
+                            )
+                            .remove()
+                    "
+                >
+                    Cerrar
+                </button>
+
+            </div>
+
+            <div style="
+                background:#eef4f8;
+                border:1px solid #cbd8e1;
+                border-radius:8px;
+                padding:15px;
+                margin-bottom:20px;
+            ">
+
+                <strong>Cliente:</strong>
+                ${nombreCliente}
+
+            </div>
+
+            <div
+                id="contenedorMatrizRiesgosCliente"
+            >
+
+                <p style="
+                    text-align:center;
+                    color:#666;
+                    padding:20px;
+                ">
+                    Aquí construiremos la matriz de riesgos
+                    propia de este cliente.
+                </p>
+
+            </div>
+
+        </div>
+    `;
+
+    document.body.appendChild(ventana);
+}
 function abrirClientes() {
 
    const inspecciones =
