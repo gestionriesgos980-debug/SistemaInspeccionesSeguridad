@@ -2014,11 +2014,12 @@ const porcentajeMensual =
        const fila = document.createElement("tr");
 
 // =====================================================
-// FUNCIÓN: VISUALIZACIÓN DE META Y CUMPLIMIENTO MENSUAL
+// FUNCIÓN: SEMÁFORO DE CUMPLIMIENTO MENSUAL
 // OBJETIVO: Mostrar meta, mes, inspecciones realizadas
-// y porcentaje de cumplimiento.
-// Meta inicial: 20 inspecciones por mes.
+// y porcentaje de cumplimiento con indicador de color.
+// 🔴 0-69% | 🟡 70-99% | 🟢 100% o más
 // =====================================================
+
 fila.innerHTML = `
     <td style="border:1px solid #ccc; padding:8px;">
         ${metaMensual}
@@ -2037,6 +2038,13 @@ fila.innerHTML = `
         padding:8px;
         text-align:center;
         font-weight:bold;
+        color:${
+            porcentajeMensual >= 100
+                ? "#15803d"
+                : porcentajeMensual >= 70
+                    ? "#b45309"
+                    : "#b91c1c"
+        };
     ">
         ${porcentajeMensual}%
     </td>
@@ -2044,10 +2052,11 @@ fila.innerHTML = `
 
 tabla.appendChild(fila);
 
-    });
+});
 
     document.getElementById("totalInspeccionesAnual").textContent =
     totalAnual;
+    
 // =====================================================
 // FUNCIÓN: CÁLCULO DEL CUMPLIMIENTO ANUAL
 // OBJETIVO: Calcular el porcentaje de inspecciones
