@@ -1890,6 +1890,72 @@ document.getElementById("totalHallazgos").textContent =
 
     document.getElementById("dashboardTotalInformes").textContent =
         informes;   
+
+        const meses = [
+        "Enero",
+        "Febrero",
+        "Marzo",
+        "Abril",
+        "Mayo",
+        "Junio",
+        "Julio",
+        "Agosto",
+        "Septiembre",
+        "Octubre",
+        "Noviembre",
+        "Diciembre"
+    ];
+
+    const conteoMensual = Array(12).fill(0);
+
+    const anioActual = new Date().getFullYear();
+
+    inspecciones.forEach(inspeccion => {
+
+        if (!inspeccion.fecha) {
+            return;
+        }
+
+        const fecha = new Date(inspeccion.fecha + "T00:00:00");
+
+        if (fecha.getFullYear() === anioActual) {
+            conteoMensual[fecha.getMonth()]++;
+        }
+
+    });
+
+    const tabla = document.getElementById(
+        "tablaInspeccionesMensual"
+    );
+
+    tabla.innerHTML = "";
+
+    let totalAnual = 0;
+
+    meses.forEach((mes, indice) => {
+
+        const cantidad = conteoMensual[indice];
+
+        totalAnual += cantidad;
+
+        const fila = document.createElement("tr");
+
+        fila.innerHTML = `
+            <td style="border:1px solid #ccc; padding:8px;">
+                ${mes}
+            </td>
+
+            <td style="border:1px solid #ccc; padding:8px;">
+                ${cantidad}
+            </td>
+        `;
+
+        tabla.appendChild(fila);
+
+    });
+
+    document.getElementById("totalInspeccionesAnual").textContent =
+        totalAnual;
 }
 function crearRespaldo() {
 
