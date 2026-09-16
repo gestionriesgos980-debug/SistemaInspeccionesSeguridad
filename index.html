@@ -3371,15 +3371,19 @@ const diferencia =
     `;
 
     document.body.appendChild(ventana);
-    // =====================================================
+  // =====================================================
 // FUNCIÓN: ACTIVAR BUSCADOR DE CLIENTES
 // OBJETIVO: Filtrar el listado en tiempo real por
 // Cliente, NIT o Director Operativo.
+// IDENTIFICADOR: BUSCADOR-CLIENTES
 // =====================================================
+
 const buscadorClientes =
     document.getElementById("buscadorClientes");
 
 if (buscadorClientes) {
+
+    buscadorClientes.addEventListener("input", function () {
 
         textoBusquedaClientes =
             this.value.trim().toLowerCase();
@@ -3404,8 +3408,6 @@ if (buscadorClientes) {
     });
 }
 }
-
-   
     function generarInformeInspeccion(indice) {
         alert(
     "Índice de la inspección seleccionada: " +
