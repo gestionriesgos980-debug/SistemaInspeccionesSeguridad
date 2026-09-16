@@ -2631,17 +2631,28 @@ function obtenerEstadoVencimiento(fecha) {
         };
     }
 
-    const fechaInspeccion = new Date(fecha);
-    const hoy = new Date();
+   const fechaInspeccion = new Date(fecha);
+const hoy = new Date();
 
-    fechaInspeccion.setHours(0, 0, 0, 0);
-    hoy.setHours(0, 0, 0, 0);
+fechaInspeccion.setHours(0, 0, 0, 0);
+hoy.setHours(0, 0, 0, 0);
 
-    const diferencia =
-        Math.ceil(
-            (fechaInspeccion - hoy) /
-            (1000 * 60 * 60 * 24)
-        );
+// =====================================================
+// FUNCIÓN: VIGENCIA DE INSPECCIÓN
+// OBJETIVO: Establecer una vigencia de 12 meses
+// desde la fecha de realización de la inspección.
+// =====================================================
+const fechaVencimiento = new Date(fechaInspeccion);
+
+fechaVencimiento.setFullYear(
+    fechaVencimiento.getFullYear() + 1
+);
+
+const diferencia =
+    Math.ceil(
+        (fechaVencimiento - hoy) /
+        (1000 * 60 * 60 * 24)
+    );
 
     if (diferencia < 0) {
 
