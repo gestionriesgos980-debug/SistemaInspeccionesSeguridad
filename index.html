@@ -2790,6 +2790,18 @@ const diferencia =
                                         Fecha
                                     </th>
 
+                                    <!-- =====================================================
+     FUNCIÓN: ESTADO DE VIGENCIA EN LISTADO
+     OBJETIVO: Mostrar visualmente si la inspección está
+     vigente, próxima a vencer o vencida.
+====================================================== -->
+<th style="
+    padding:8px;
+    border:1px solid #999;
+">
+    Estado de vigencia
+</th>
+
                                     <th style="
                                         padding:8px;
                                         border:1px solid #999;
@@ -2835,7 +2847,18 @@ const diferencia =
     ">
         ${item.inspeccion.fecha || "—"}
     </td>
-
+<td style="
+    padding:8px;
+    border:1px solid #999;
+    text-align:center;
+    font-weight:bold;
+">
+    ${
+        obtenerEstadoVencimiento(
+            item.inspeccion.fecha
+        ).texto
+    }
+</td>
     <td style="
         padding:8px;
         border:1px solid #999;
