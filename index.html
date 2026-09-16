@@ -6241,6 +6241,30 @@ console.log("INSPECCIÓN SELECCIONADA:", inspecciones[indiceSeleccionado]);
 const inspeccion =
     inspecciones[indiceSeleccionado];
 
+    // =====================================================
+// FUNCIÓN: CARGAR MATRIZ DE RIESGOS DEL CLIENTE EN INFORME
+// OBJETIVO: Permitir que el informe consulte la matriz
+// independiente asociada al cliente de la inspección.
+// IDENTIFICADOR: MATRIZ-RIESGOS-CLIENTE-INFORME
+// NOTA: No modifica la matriz propia de la inspección.
+// =====================================================
+
+const matricesRiesgosClientes =
+    JSON.parse(
+        localStorage.getItem("matricesRiesgosClientes")
+    ) || [];
+
+const matrizCliente =
+    matricesRiesgosClientes.filter(
+        registro =>
+            String(registro.cliente || "") ===
+            String(inspeccion.cliente || "")
+    );
+
+console.log(
+    "MATRIZ DEL CLIENTE EN INFORME:",
+    matrizCliente
+);
     /* =========================
    CARACTERÍSTICAS SEGÚN SECTOR
 ========================= */
