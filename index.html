@@ -3038,103 +3038,11 @@ if (
                     <td colspan="3" style="padding:8px;border:1px solid #999;">
                         ${inspeccion.correo || ""}
                     </td>
-                </tr>
+                                </tr>
 
                         </table>
 
-<h3 style="color:#123b5d;">
-    Características de la instalación
-</h3>
-
-<table style="
-    width:100%;
-    border-collapse:collapse;
-    margin-bottom:20px;
-">
-
-    <tr>
-        <td style="padding:8px;border:1px solid #999;">
-            <strong>Tipo de instalación</strong>
-        </td>
-        <td style="padding:8px;border:1px solid #999;">
-            ${inspeccion.tipoInstalacion || ""}
-        </td>
-
-        <td style="padding:8px;border:1px solid #999;">
-            <strong>Torres</strong>
-        </td>
-        <td style="padding:8px;border:1px solid #999;">
-            ${inspeccion.cantidadTorres || ""}
-        </td>
-    </tr>
-
-    <tr>
-        <td style="padding:8px;border:1px solid #999;">
-            <strong>Niveles</strong>
-        </td>
-        <td style="padding:8px;border:1px solid #999;">
-            ${inspeccion.cantidadNiveles || ""}
-        </td>
-
-        <td style="padding:8px;border:1px solid #999;">
-            <strong>Sótanos</strong>
-        </td>
-        <td style="padding:8px;border:1px solid #999;">
-            ${inspeccion.cantidadSotanos || ""}
-        </td>
-    </tr>
-
-    <tr>
-        <td style="padding:8px;border:1px solid #999;">
-            <strong>Viviendas</strong>
-        </td>
-        <td style="padding:8px;border:1px solid #999;">
-            ${inspeccion.cantidadViviendas || ""}
-        </td>
-
-        <td style="padding:8px;border:1px solid #999;">
-            <strong>Parqueaderos privados</strong>
-        </td>
-        <td style="padding:8px;border:1px solid #999;">
-            ${inspeccion.parqueaderosPrivados || ""}
-        </td>
-    </tr>
-
-    <tr>
-        <td style="padding:8px;border:1px solid #999;">
-            <strong>Parqueaderos visitantes</strong>
-        </td>
-        <td style="padding:8px;border:1px solid #999;">
-            ${inspeccion.parqueaderosVisitantes || ""}
-        </td>
-
-        <td style="padding:8px;border:1px solid #999;">
-            <strong>Parqueaderos motos</strong>
-        </td>
-        <td style="padding:8px;border:1px solid #999;">
-            ${inspeccion.parqueaderosMotos || ""}
-        </td>
-    </tr>
-
-    <tr>
-        <td style="padding:8px;border:1px solid #999;">
-            <strong>Parqueaderos uso común</strong>
-        </td>
-        <td style="padding:8px;border:1px solid #999;">
-            ${inspeccion.parqueaderosComunes || ""}
-        </td>
-
-        <td style="padding:8px;border:1px solid #999;">
-            <strong>Bicicleteros</strong>
-        </td>
-        <td style="padding:8px;border:1px solid #999;">
-            ${inspeccion.bicicleteros || ""}
-        </td>
-    </tr>
-
-</table>
-
-           
+${caracteristicasInstalacionHTML}
 
             <h3 style="color:#123b5d;">
                 Información de la inspección
@@ -3627,28 +3535,7 @@ function abrirListaChequeo(indice) {
 
         ventana.style.position = "fixed";
         ventana.style.top = "0";
-        ventana.style.left = "0";
-        ventana.style.width = "100%";
-        ventana.style.height = "100%";
-        ventana.style.background = "rgba(0,0,0,0.65)";
-        ventana.style.zIndex = "9999";
-        ventana.style.overflowY = "auto";
-        ventana.style.padding = "30px";
-        ventana.style.boxSizing = "border-box";
-
-       ventana.innerHTML = `
-
-        <div style="
-            max-width:1100px;
-            margin:40px auto;
-            background:white;
-            border-radius:12px;
-            padding:30px;
-            box-shadow:0 10px 40px rgba(0,0,0,0.3);
-        ">
-
-                               <div style="
-                    display:flex;
+       clex;
                     justify-content:space-between;
                     align-items:center;
                     margin-bottom:20px;
@@ -5272,6 +5159,96 @@ const matriz =
 const inspeccion =
     inspecciones[indiceSeleccionado];
 
+    /* =========================
+   CARACTERÍSTICAS SEGÚN SECTOR
+========================= */
+    let caracteristicasInstalacionHTML = "";
+    
+if (inspeccion.sectorInspeccion === "Residencial") {
+
+    const camposResidenciales = [
+        ["Tipo de instalación", inspeccion.tipoInstalacion],
+        ["Torres", inspeccion.cantidadTorres],
+        ["Niveles", inspeccion.cantidadNiveles],
+        ["Sótanos", inspeccion.cantidadSotanos],
+        ["Viviendas", inspeccion.cantidadViviendas],
+        ["Parqueaderos privados", inspeccion.parqueaderosPrivados],
+        ["Parqueaderos visitantes", inspeccion.parqueaderosVisitantes],
+        ["Parqueaderos motos", inspeccion.parqueaderosMotos],
+        ["Parqueaderos uso común", inspeccion.parqueaderosComunes],
+        ["Bicicleteros", inspeccion.bicicleteros]
+    ];
+
+    const camposDiligenciados =
+        camposResidenciales.filter(campo =>
+            campo[1] !== undefined &&
+            campo[1] !== null &&
+            String(campo[1]).trim() !== ""
+        );
+
+    caracteristicasInstalacionHTML = `
+        <h3 style="color:#123b5d;">
+            Características de la instalación - Residencial
+        </h3>
+
+        <table style="
+            width:100%;
+            border-collapse:collapse;
+            margin-bottom:20px;
+        ">
+            ${camposDiligenciados.map(campo => `
+                <tr>
+                    <td style="padding:8px;border:1px solid #999;">
+                        <strong>${campo[0]}</strong>
+                    </td>
+                    <td style="padding:8px;border:1px solid #999;">
+                        ${escapar(campo[1])}
+                    </td>
+                </tr>
+            `).join("")}
+        </table>
+    `;
+
+} else if (inspeccion.sectorInspeccion === "Industrial") {
+
+    const camposIndustriales = [
+        ["Tipo de instalación", inspeccion.tipoInstalacionIndustrial],
+        ["Actividad principal", inspeccion.actividadPrincipalIndustrial],
+        ["Área aproximada (m²)", inspeccion.areaIndustrial]
+    ];
+
+    const camposDiligenciados =
+        camposIndustriales.filter(campo =>
+            campo[1] !== undefined &&
+            campo[1] !== null &&
+            String(campo[1]).trim() !== ""
+        );
+
+    caracteristicasInstalacionHTML = `
+        <h3 style="color:#123b5d;">
+            Características de la instalación - Industrial
+        </h3>
+
+        <table style="
+            width:100%;
+            border-collapse:collapse;
+            margin-bottom:20px;
+        ">
+            ${camposDiligenciados.map(campo => `
+                <tr>
+                    <td style="padding:8px;border:1px solid #999;">
+                        <strong>${campo[0]}</strong>
+                    </td>
+                    <td style="padding:8px;border:1px solid #999;">
+                        ${escapar(campo[1])}
+                    </td>
+                </tr>
+            `).join("")}
+        </table>
+    `;
+
+}
+
     console.log("INSPECCIÓN DEL INFORME:", inspeccion);
 console.log("SEGURIDAD ACTUAL:", inspeccion.seguridadActual);
 console.log("SEGURIDAD SUGERIDA:", inspeccion.seguridadSugerida);
@@ -5279,9 +5256,6 @@ console.log("SEGURIDAD SUGERIDA:", inspeccion.seguridadSugerida);
     console.log("INSPECCIÓN DEL INFORME:", inspeccion);
 console.log("LATITUD:", inspeccion.latitud);
 console.log("LONGITUD:", inspeccion.longitud);
-
-
-    
 
 const checklist = (() => {
 
