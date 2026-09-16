@@ -3543,42 +3543,52 @@ ventana.style.zIndex = "9999";
 
 ventana.innerHTML = `
 
-                   <div style="
-    background:white;
-    width:90%;
-    max-width:1100px;
-    margin:30px auto;
-    padding:25px;
-    border-radius:12px;
-    box-shadow:0 8px 25px rgba(0,0,0,0.2);
-">
-                        <h2 style="margin:0;color:#123b5d;">
-                            Lista de chequeo de seguridad
-                        </h2>
+    <div style="
+        background:white;
+        width:90%;
+        max-width:1100px;
+        margin:30px auto;
+        padding:25px;
+        border-radius:12px;
+        box-shadow:0 8px 25px rgba(0,0,0,0.2);
+    ">
 
-                        <p style="margin:6px 0 0;color:#666;">
-                            Evaluación de condiciones de seguridad integral
-                        </p>
-                    </div>
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            margin-bottom:20px;
+            border-bottom:2px solid #eee;
+            padding-bottom:15px;
+        ">
 
-                    <button
-                        onclick="cerrarListaChequeo()"
-                        style="
-                            background:#d9534f;
-                            color:white;
-                            border:none;
-                            border-radius:6px;
-                            padding:10px 16px;
-                            cursor:pointer;
-                            font-size:16px;
-                        ">
-                        ✕ Cerrar
-                    </button>
+            <div>
+                <h2 style="margin:0;color:#123b5d;">
+                    Lista de chequeo de seguridad
+                </h2>
 
-                </div>
+                <p style="margin:6px 0 0;color:#666;">
+                    Evaluación de condiciones de seguridad integral
+                </p>
+            </div>
 
-               <div id="contenidoChecklist"></div>
+            <button
+                onclick="cerrarListaChequeo()"
+                style="
+                    background:#d9534f;
+                    color:white;
+                    border:none;
+                    border-radius:6px;
+                    padding:10px 16px;
+                    cursor:pointer;
+                    font-size:16px;
+                ">
+                ✕ Cerrar
+            </button>
 
+        </div>
+
+        <div id="contenidoChecklist"></div>
 <div style="
     margin-top:25px;
     padding:20px;
