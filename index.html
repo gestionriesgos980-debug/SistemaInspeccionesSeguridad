@@ -3055,32 +3055,46 @@ const diferencia =
 </button>
 
                                             <button
-                                                type="button"
-                                                class="boton-principal"
-                                                onclick="editarInspeccion(${item.indiceOriginal})"
-                                            >
-                                                Editar
-                                            </button>
+    type="button"
+    class="boton-principal"
+    onclick="editarInspeccion(${item.indiceOriginal})"
+>
+    Editar
+</button>
 
-                                            <button
-                                                type="button"
-                                                class="boton-principal"
-                                                onclick="generarInformeInspeccion(${item.indiceOriginal})"
-                                            >
-                                                Informe
-                                            </button>
+<button
+    type="button"
+    class="boton-principal"
+    onclick="generarInformeInspeccion(${item.indiceOriginal})"
+>
+    Informe
+</button>
 
-                                        </td>
+<!-- =====================================================
+     FUNCIÓN: ACCESO A MATRIZ DE RIESGOS DEL CLIENTE
+     OBJETIVO: Permitir consultar y editar la matriz de
+     riesgos independiente de una inspección específica.
+     IDENTIFICADOR: MATRIZ-RIESGOS-CLIENTE
+====================================================== -->
+<button
+    type="button"
+    class="boton-principal"
+    onclick="abrirMatrizRiesgosCliente('${String(cliente).replace(/'/g, "\\'")}')"
+>
+    📊 Matriz de Riesgos
+</button>
 
-                                    </tr>
+</td>
 
-                                `).join("")}
+</tr>
 
-                            </tbody>
+`).join("")}
 
-                        </table>
+</tbody>
 
-                    </div>
+</table>
+
+</div>
 
                 </div>
             `;
