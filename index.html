@@ -1079,13 +1079,22 @@
                         </select>
                     </td>
 
-                    <td style="padding:6px;border:1px solid #999;">
-                        <input
-                            type="text"
-                            class="dias-seguridad"
-                            placeholder="Ej. Lunes a viernes"
-                        >
-                    </td>
+                    <!-- =====================================================
+     FUNCIÓN: DÍAS DE SERVICIO - DISPOSITIVO SUGERIDO
+     OBJETIVO: Estandarizar los días de prestación
+     del servicio de seguridad sugerido.
+====================================================== -->
+<td style="padding:6px;border:1px solid #999;">
+    <select class="dias-seguridad">
+        <option value="">Seleccione</option>
+        <option value="Lunes a viernes">Lunes a viernes</option>
+        <option value="Lunes a sábado">Lunes a sábado</option>
+        <option value="Lunes a domingo">Lunes a domingo</option>
+        <option value="Sábado y domingo">Sábado y domingo</option>
+        <option value="Todos los días">Todos los días</option>
+        <option value="Otro">Otro</option>
+    </select>
+</td>
 
                     <td style="padding:6px;border:1px solid #999;">
                         <select class="modalidad-seguridad">
