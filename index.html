@@ -5891,6 +5891,65 @@ function agregarRiesgoMatrizCliente() {
 
     contenedor.appendChild(bloque);
 }
+    // =====================================================
+// FUNCIÓN: CÁLCULO DE NIVEL DE RIESGO DEL CLIENTE
+// OBJETIVO: Calcular automáticamente Probabilidad ×
+// Impacto para cada riesgo de la matriz del cliente.
+// IDENTIFICADOR: MATRIZ-RIESGOS-CLIENTE-CALCULO
+// NOTA: Esta función es independiente de la matriz
+//       asociada a las inspecciones.
+// =====================================================
+function calcularNivelRiesgoCliente(bloque) {
+
+    if (!bloque) {
+        return;
+    }
+
+    const probabilidad =
+        Number(
+            bloque.querySelector(
+                ".matriz-cliente-probabilidad"
+            )?.value || 0
+        );
+
+    const impacto =
+        Number(
+            bloque.querySelector(
+                ".matriz-cliente-impacto"
+            )?.value || 0
+        );
+
+    const resultado =
+        probabilidad * impacto;
+
+    let nivel = "Pendiente de cálculo";
+
+    if (probabilidad > 0 && impacto > 0) {
+
+        nivel = "Bajo";
+
+        if (resultado >= 15) {
+            nivel = "Crítico";
+        } else if (resultado >= 10) {
+            nivel = "Alto";
+        } else if (resultado >= 5) {
+            nivel = "Medio";
+        }
+    }
+
+    const campoNivel =
+        bloque.querySelector(
+            ".matriz-cliente-nivel"
+        );
+
+    if (campoNivel) {
+
+        campoNivel.textContent =
+            probabilidad > 0 && impacto > 0
+                ? resultado + " - " + nivel
+                : nivel;
+    }
+}
     
 function generarInforme() {
 
