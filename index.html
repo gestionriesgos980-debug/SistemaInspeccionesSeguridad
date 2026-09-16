@@ -1968,7 +1968,138 @@ document.getElementById("totalHallazgos").textContent =
     });
 
     document.getElementById("totalInspeccionesAnual").textContent =
-        totalAnual;
+    totalAnual;
+
+
+/* =========================
+   GRÁFICA DE INSPECCIONES
+   POR MES
+========================= */
+
+const canvas =
+    document.getElementById("graficaInspeccionesMensual");
+
+if (canvas) {
+
+    const ctx = canvas.getContext("2d");
+
+    const ancho = canvas.width = 900;
+    const alto = canvas.height = 350;
+
+    ctx.clearRect(0, 0, ancho, alto);
+
+    const margenIzquierdo = 60;
+    const margenDerecho = 30;
+    const margenSuperior = 30;
+    const margenInferior = 60;
+
+    const anchoGrafica =
+        ancho - margenIzquierdo - margenDerecho;
+
+    const altoGrafica =
+        alto - margenSuperior - margenInferior;
+
+    const maximo =
+        Math.max(...conteoMensual, 1);
+
+    const anchoBarra =
+        anchoGrafica / meses.length * 0.6;
+
+    const espacioMes =
+        anchoGrafica / meses.length;
+
+
+    /* Ejes */
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        margenIzquierdo,
+        margenSuperior
+    );
+
+    ctx.lineTo(
+        margenIzquierdo,
+        alto - margenInferior
+    );
+
+    ctx.lineTo(
+        ancho - margenDerecho,
+        alto - margenInferior
+    );
+
+    ctx.stroke();
+
+
+    /* Barras */
+
+    conteoMensual.forEach((cantidad, indice) => {
+
+        const alturaBarra =
+            (cantidad / maximo) * altoGrafica;
+
+        const x =
+            margenIzquierdo +
+            indice * espacioMes +
+            (espacioMes - anchoBarra) / 2;
+
+        const y =
+            alto - margenInferior - alturaBarra;
+
+
+        ctx.fillRect(
+            x,
+            y,
+            anchoBarra,
+            alturaBarra
+        );
+
+
+        /* Cantidad */
+
+        ctx.font = "bold 14px Arial";
+
+        ctx.textAlign = "center";
+
+        ctx.fillText(
+            cantidad,
+            x + anchoBarra / 2,
+            y - 8
+        );
+
+
+        /* Mes */
+
+        ctx.font = "12px Arial";
+
+        ctx.fillText(
+            meses[indice].substring(0, 3),
+            x + anchoBarra / 2,
+            alto - margenInferior + 25
+        );
+
+    });
+
+
+    /* Escala vertical */
+
+    ctx.textAlign = "right";
+
+    ctx.font = "12px Arial";
+
+    ctx.fillText(
+        maximo,
+        margenIzquierdo - 8,
+        margenSuperior + 5
+    );
+
+    ctx.fillText(
+        "0",
+        margenIzquierdo - 8,
+        alto - margenInferior + 5
+    );
+
+}
 }
 function crearRespaldo() {
 
