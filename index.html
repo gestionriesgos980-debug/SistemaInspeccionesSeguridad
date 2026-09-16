@@ -1367,19 +1367,40 @@
                 </tbody>
 
                 <tfoot>
-                    <tr>
-                        <th style="border:1px solid #ccc; padding:8px;">
-                            Total anual
-                        </th>
+    <tr>
 
-                        <th
-                            id="totalInspeccionesAnual"
-                            style="border:1px solid #ccc; padding:8px;"
-                        >
-                            0
-                        </th>
-                    </tr>
-                </tfoot>
+        <!-- =====================================================
+             FUNCIÓN: RESUMEN ANUAL DE INSPECCIONES
+             OBJETIVO: Mostrar la meta anual, las inspecciones
+             realizadas y el porcentaje de cumplimiento anual.
+             Meta anual: 240 inspecciones.
+        ====================================================== -->
+
+        <th style="border:1px solid #ccc; padding:8px;">
+            Meta anual
+        </th>
+
+        <th
+            id="totalInspeccionesAnual"
+            style="border:1px solid #ccc; padding:8px;"
+        >
+            0
+        </th>
+
+        <th
+            id="cumplimientoAnual"
+            style="
+                border:1px solid #ccc;
+                padding:8px;
+                text-align:center;
+                font-weight:bold;
+            "
+        >
+            0%
+        </th>
+
+    </tr>
+</tfoot>
 
             </table>
 
@@ -2027,7 +2048,20 @@ tabla.appendChild(fila);
 
     document.getElementById("totalInspeccionesAnual").textContent =
     totalAnual;
+// =====================================================
+// FUNCIÓN: CÁLCULO DEL CUMPLIMIENTO ANUAL
+// OBJETIVO: Calcular el porcentaje de inspecciones
+// realizadas frente a la meta anual.
+// Meta mensual: 20 inspecciones.
+// Meta anual: 240 inspecciones.
+// =====================================================
+const metaAnual = 20 * 12;
 
+const porcentajeAnual =
+    Math.round((totalAnual / metaAnual) * 100);
+
+document.getElementById("cumplimientoAnual").textContent =
+    porcentajeAnual + "%";
 
 /* =========================
    GRÁFICA DE INSPECCIONES
@@ -2041,8 +2075,19 @@ if (canvas) {
 
     const ctx = canvas.getContext("2d");
 
-    const ancho = canvas.width = 900;
-    const alto = canvas.height = 350;
+    // =====================================================
+// FUNCIÓN: GRÁFICA RESPONSIVE DEL DASHBOARD
+// OBJETIVO: Adaptar el ancho de la gráfica al espacio
+// disponible dentro de la ventana del Dashboard.
+// =====================================================
+const anchoDisponible =
+    canvas.parentElement.clientWidth;
+
+const ancho =
+    canvas.width = Math.max(anchoDisponible - 20, 300);
+
+const alto =
+    canvas.height = 350;
 
     ctx.clearRect(0, 0, ancho, alto);
 
