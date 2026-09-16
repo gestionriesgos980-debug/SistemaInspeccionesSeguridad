@@ -636,8 +636,12 @@
 
 
 
-<!-- CARACTERÍSTICAS DE LA INSTALACIÓN -->
-<div class="seccion">
+<!-- =====================================================
+     FUNCIÓN: CARACTERÍSTICAS DE LA INSTALACIÓN RESIDENCIAL
+     OBJETIVO: Identificar esta sección para mostrarla u
+     ocultarla según el tipo de servicio seleccionado.
+====================================================== -->
+<div class="seccion" id="caracteristicasResidencial">
 
     <h3>Características de la instalación</h3>
 
@@ -7481,23 +7485,36 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const sectorSelect = document.getElementById("sectorInspeccion");
     const industrial = document.getElementById("caracteristicasIndustrial");
+    const residencial = document.getElementById("caracteristicasResidencial");
 
     if (sectorSelect) {
 
         function actualizarSector() {
 
-            // Ocultar Industrial inicialmente
-            if (industrial) {
-                industrial.style.display = "none";
-            }
+    // Ocultar Industrial inicialmente
+    if (industrial) {
+        industrial.style.display = "none";
+    }
 
-            // Mostrar Industrial únicamente cuando sea seleccionado
-            if (sectorSelect.value === "Industrial") {
-                if (industrial) {
-                    industrial.style.display = "block";
-                }
-            }
+    // Ocultar Residencial inicialmente
+    if (residencial) {
+        residencial.style.display = "none";
+    }
+
+    // Mostrar la sección correspondiente
+    if (sectorSelect.value === "Industrial") {
+
+        if (industrial) {
+            industrial.style.display = "block";
         }
+
+    } else if (sectorSelect.value === "Residencial") {
+
+        if (residencial) {
+            residencial.style.display = "block";
+        }
+    }
+}
 
         sectorSelect.addEventListener("change", actualizarSector);
 
