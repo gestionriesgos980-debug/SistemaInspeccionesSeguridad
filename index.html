@@ -2634,24 +2634,31 @@ const datosChecklist = {
         "Tanques y áreas técnicas en condiciones adecuadas"
     ]
 };
-
 // =====================================================
 // FUNCIÓN: MATRIZ DE RIESGOS DEL CLIENTE
 // OBJETIVO: Abrir la matriz de riesgos asociada
 // directamente al cliente seleccionado.
 // IDENTIFICADOR: MATRIZ-RIESGOS-CLIENTE-APERTURA
 // =====================================================
+
 function abrirMatrizRiesgosCliente(nombreCliente) {
-    console.log("MATRIZ CLIENTE ABIERTA:", nombreCliente);
+
+    console.log(
+        "MATRIZ CLIENTE ABIERTA:",
+        nombreCliente
+    );
 
     let ventana =
-        document.getElementById("ventanaMatrizRiesgosCliente");
+        document.getElementById(
+            "ventanaMatrizRiesgosCliente"
+        );
 
     if (ventana) {
         ventana.remove();
     }
 
-    ventana = document.createElement("div");
+    ventana =
+        document.createElement("div");
 
     ventana.id =
         "ventanaMatrizRiesgosCliente";
@@ -2723,73 +2730,87 @@ function abrirMatrizRiesgosCliente(nombreCliente) {
             </div>
 
             <!-- =====================================================
-     FUNCIÓN: CONTENEDOR DE MATRIZ DE RIESGOS DEL CLIENTE
-     OBJETIVO: Preparar el espacio independiente para
-     registrar los riesgos propios del cliente.
-     IDENTIFICADOR: MATRIZ-RIESGOS-CLIENTE-CONTENEDOR
-====================================================== -->
+                 FUNCIÓN: CONTENEDOR DE MATRIZ DE RIESGOS DEL CLIENTE
+                 OBJETIVO: Preparar el espacio independiente para
+                 registrar los riesgos propios del cliente.
+                 IDENTIFICADOR: MATRIZ-RIESGOS-CLIENTE-CONTENEDOR
+            ====================================================== -->
 
-<div
-    id="contenedorMatrizRiesgosCliente"
->
+            <div
+                id="contenedorMatrizRiesgosCliente"
+            >
 
-    <div style="
-        margin-bottom:20px;
-        padding:15px;
-        background:#eef4f8;
-        border:1px solid #cbd8e1;
-        border-radius:8px;
-    ">
+                <div style="
+                    margin-bottom:20px;
+                    padding:15px;
+                    background:#eef4f8;
+                    border:1px solid #cbd8e1;
+                    border-radius:8px;
+                ">
 
-        <h3 style="
-            margin:0 0 8px 0;
-            color:#123b5d;
-        ">
-            Matriz de riesgos
-        </h3>
+                    <h3 style="
+                        margin:0 0 8px 0;
+                        color:#123b5d;
+                    ">
+                        Matriz de riesgos
+                    </h3>
 
-        <p style="
-            margin:0;
-            color:#555;
-        ">
-            Registre y gestione los riesgos asociados
-            directamente a este cliente.
-        </p>
+                    <p style="
+                        margin:0;
+                        color:#555;
+                    ">
+                        Registre y gestione los riesgos asociados
+                        directamente a este cliente.
+                    </p>
 
-    </div>
+                </div>
 
-    <!-- =====================================================
-     FUNCIÓN: CONTROLES DE MATRIZ DE RIESGOS DEL CLIENTE
-     OBJETIVO: Permitir agregar riesgos y guardar la matriz
-     independiente de las inspecciones.
-     IDENTIFICADOR: MATRIZ-RIESGOS-CLIENTE-CONTROLES
-====================================================== -->
+                <!-- =====================================================
+                     FUNCIÓN: CONTROLES DE MATRIZ DE RIESGOS DEL CLIENTE
+                     OBJETIVO: Permitir agregar riesgos y guardar la matriz
+                     independiente de las inspecciones.
+                     IDENTIFICADOR: MATRIZ-RIESGOS-CLIENTE-CONTROLES
+                ====================================================== -->
 
-<div style="
-    text-align:center;
-    margin-bottom:20px;
-">
+                <div style="
+                    text-align:center;
+                    margin-bottom:20px;
+                ">
 
-    <button
-        type="button"
-        class="boton-principal"
-        onclick="agregarRiesgoMatrizCliente()"
-    >
-        ➕ Agregar riesgo
-    </button>
+                    <button
+                        type="button"
+                        class="boton-principal"
+                        onclick="agregarRiesgoMatrizCliente()"
+                    >
+                        ➕ Agregar riesgo
+                    </button>
 
-    <button
-        type="button"
-        class="boton-principal"
-        onclick="guardarMatrizRiesgosCliente('${String(nombreCliente).replace(/'/g, "\\'")}')"
-        style="
-            margin-left:10px;
-        "
-    >
-        💾 Guardar matriz
-    </button>
+                    <button
+                        type="button"
+                        class="boton-principal"
+                        onclick="guardarMatrizRiesgosCliente('${String(nombreCliente).replace(/'/g, "\\'")}')"
+                        style="
+                            margin-left:10px;
+                        "
+                    >
+                        💾 Guardar matriz
+                    </button>
 
-</div>
+                </div>
+
+                <!-- =====================================================
+                     FUNCIÓN: LISTA DE RIESGOS DEL CLIENTE
+                     OBJETIVO: Contenedor donde se crearán
+                     dinámicamente los riesgos.
+                     IDENTIFICADOR: MATRIZ-RIESGOS-CLIENTE-LISTA
+                ====================================================== -->
+
+                <div
+                    id="listaRiesgosCliente"
+                >
+                </div>
+
+            </div>
 
         </div>
     `;
