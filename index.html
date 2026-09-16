@@ -6827,10 +6827,22 @@ const porcentajeGeneral = (() => {
     /* =========================
        MATRIZ DE RIESGOS
     ========================= */
+// =====================================================
+// FUNCIÓN: SELECCIÓN DE MATRIZ PARA EL INFORME
+// OBJETIVO: Mostrar la matriz independiente del cliente
+// cuando exista; conservar la matriz de inspección como
+// respaldo para no afectar informes existentes.
+// IDENTIFICADOR: MATRIZ-RIESGOS-CLIENTE-INFORME-VISUAL
+// =====================================================
 
-    let filasMatriz = "";
+let filasMatriz = "";
 
-    matriz.forEach((riesgo, indice) => {
+const matrizParaInforme =
+    matrizCliente.length > 0
+        ? matrizCliente
+        : matriz;
+
+matrizParaInforme.forEach((riesgo, indice) => {
 
         filasMatriz += `
             <tr>
