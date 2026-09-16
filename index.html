@@ -2617,6 +2617,56 @@ function coincideBusquedaCliente(inspeccion, texto) {
     ventana.style.zIndex = "2000";
     ventana.style.overflowY = "auto";
 
+    // =====================================================
+// FUNCIÓN: ESTADO DE VENCIMIENTO DE INSPECCIÓN
+// OBJETIVO: Determinar si una inspección está vigente,
+// próxima a vencer o vencida.
+// =====================================================
+function obtenerEstadoVencimiento(fecha) {
+
+    if (!fecha) {
+        return {
+            texto: "Sin fecha",
+            clase: ""
+        };
+    }
+
+    const fechaInspeccion = new Date(fecha);
+    const hoy = new Date();
+
+    fechaInspeccion.setHours(0, 0, 0, 0);
+    hoy.setHours(0, 0, 0, 0);
+
+    const diferencia =
+        Math.ceil(
+            (fechaInspeccion - hoy) /
+            (1000 * 60 * 60 * 24)
+        );
+
+    if (diferencia < 0) {
+
+        return {
+            texto: "VENCIDA",
+            clase: "inspeccion-vencida"
+        };
+
+    }
+
+    if (diferencia <= 30) {
+
+        return {
+            texto: "PRÓXIMA A VENCER",
+            clase: "inspeccion-proxima"
+        };
+
+    }
+
+    return {
+        texto: "VIGENTE",
+        clase: "inspeccion-vigente"
+    };
+}
+
     let contenido = "";
 
     if (clientes.length === 0) {
