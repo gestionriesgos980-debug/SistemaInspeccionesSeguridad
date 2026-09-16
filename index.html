@@ -3,63 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">   }
-    
-    /* =========================
-       MATRIZ DE RIESGOS
-    ========================= */
-// =====================================================
-// FUNCIÓN: SELECCIÓN DE MATRIZ PARA EL INFORME
-// OBJETIVO: Mostrar la matriz independiente del cliente
-// cuando exista; conservar la matriz de inspección como
-// respaldo para no afectar informes existentes.
-// IDENTIFICADOR: MATRIZ-RIESGOS-CLIENTE-INFORME-VISUAL
-// =====================================================
-
-let filasMatriz = "";
-
-const matrizParaInforme =
-    matrizCliente.length > 0
-        ? matrizCliente
-        : matriz;
-
-matrizParaInforme.forEach((riesgo, indice) => {
-
-        filasMatriz += `
-            <tr>
-                <td>${indice + 1}</td>
-                <td>${escapar(riesgo.area)}</td>
-               <td>${escapar(riesgo.peligro)}</td>
-                <td>${escapar(riesgo.probabilidad)}</td>
-                <td>${escapar(riesgo.impacto)}</td>
-                <td>${escapar(riesgo.puntuacion)}</td>
-                <td>
-                    <strong>
-                        ${escapar(riesgo.nivel)}
-                    </strong>
-                </td>
-                <td>${escapar(riesgo.tratamiento)}</td>
-            </tr>
-        `;
-    });
-
-    if (!filasMatriz) {
-
-        filasMatriz = `
-            <tr>
-                <td colspan="8">
-                    No se registró matriz de riesgos.
-                </td>
-            </tr>
-        `;
-    }
-
-
-    /* =========================
-       DOCUMENTO
-    ========================= */
-
-    ventana.document.write(`
-
+   
         <!DOCTYPE html>
 
         <html lang="es">
