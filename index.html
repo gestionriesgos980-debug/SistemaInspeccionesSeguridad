@@ -2722,20 +2722,62 @@ function abrirMatrizRiesgosCliente(nombreCliente) {
 
             </div>
 
-            <div
-                id="contenedorMatrizRiesgosCliente"
-            >
+            <!-- =====================================================
+     FUNCIÓN: CONTENEDOR DE MATRIZ DE RIESGOS DEL CLIENTE
+     OBJETIVO: Preparar el espacio independiente para
+     registrar los riesgos propios del cliente.
+     IDENTIFICADOR: MATRIZ-RIESGOS-CLIENTE-CONTENEDOR
+====================================================== -->
 
-                <p style="
-                    text-align:center;
-                    color:#666;
-                    padding:20px;
-                ">
-                    Aquí construiremos la matriz de riesgos
-                    propia de este cliente.
-                </p>
+<div
+    id="contenedorMatrizRiesgosCliente"
+>
 
-            </div>
+    <div style="
+        margin-bottom:20px;
+        padding:15px;
+        background:#eef4f8;
+        border:1px solid #cbd8e1;
+        border-radius:8px;
+    ">
+
+        <h3 style="
+            margin:0 0 8px 0;
+            color:#123b5d;
+        ">
+            Matriz de riesgos
+        </h3>
+
+        <p style="
+            margin:0;
+            color:#555;
+        ">
+            Registre y gestione los riesgos asociados
+            directamente a este cliente.
+        </p>
+
+    </div>
+
+    <div style="
+        text-align:center;
+        margin-bottom:20px;
+    ">
+
+        <button
+            type="button"
+            class="boton-principal"
+            onclick="agregarRiesgoMatrizCliente()"
+        >
+            ➕ Agregar riesgo
+        </button>
+
+    </div>
+
+    <div id="listaRiesgosCliente">
+
+    </div>
+
+</div>
 
         </div>
     `;
@@ -5272,19 +5314,19 @@ function agregarRiesgoMatriz() {
             </h3>
 
             <button
-                type="button"
-                onclick="this.closest('div[style]').remove()"
-                style="
-                    background:#b91c1c;
-                    color:white;
-                    border:none;
-                    border-radius:5px;
-                    padding:6px 10px;
-                    cursor:pointer;
-                "
-            >
-                Eliminar
-            </button>
+    type="button"
+    onclick="this.closest('div[style]').remove()"
+    style="
+        background:#b91c1c;
+        color:white;
+        border:none;
+        border-radius:5px;
+        padding:6px 10px;
+        cursor:pointer;
+    "
+>
+    Eliminar
+</button>
 
         </div>
 
@@ -5616,6 +5658,240 @@ function guardarMatrizRiesgos() {
         "Matriz de riesgos guardada correctamente."
     );
 }
+// =====================================================
+// FUNCIÓN: AGREGAR RIESGO A MATRIZ DEL CLIENTE
+// OBJETIVO: Crear visualmente un nuevo registro de riesgo
+// independiente de la matriz asociada a una inspección.
+// IDENTIFICADOR: MATRIZ-RIESGOS-CLIENTE-AGREGAR
+// NOTA: En este paso NO se guarda información.
+// =====================================================
+function agregarRiesgoMatrizCliente() {
+
+    const contenedor =
+        document.getElementById("listaRiesgosCliente");
+
+    if (!contenedor) {
+        return;
+    }
+
+    const indice =
+        contenedor.children.length;
+
+    const bloque =
+        document.createElement("div");
+
+    bloque.className =
+        "bloque-riesgo-cliente";
+
+    bloque.style.background =
+        "#f8fafc";
+
+    bloque.style.border =
+        "1px solid #dbe3ea";
+
+    bloque.style.borderRadius =
+        "10px";
+
+    bloque.style.padding =
+        "18px";
+
+    bloque.style.marginBottom =
+        "15px";
+
+    bloque.innerHTML = `
+
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            margin-bottom:15px;
+        ">
+
+            <h3 style="
+                margin:0;
+                color:#123b5d;
+            ">
+                Riesgo ${indice + 1}
+            </h3>
+
+            <button
+                type="button"
+                onclick="
+                    this.closest(
+                        '.bloque-riesgo-cliente'
+                    ).remove()
+                "
+                style="
+                    background:#b91c1c;
+                    color:white;
+                    border:none;
+                    border-radius:5px;
+                    padding:6px 10px;
+                    cursor:pointer;
+                "
+            >
+                🗑️ Eliminar
+            </button>
+
+        </div>
+
+        <div class="formulario">
+
+            <div class="campo">
+
+                <label>
+                    Área
+                </label>
+
+                <input
+                    type="text"
+                    class="matriz-cliente-area"
+                    placeholder="Área o proceso"
+                >
+
+            </div>
+
+            <div class="campo">
+
+                <label>
+                    Peligro / amenaza
+                </label>
+
+                <input
+                    type="text"
+                    class="matriz-cliente-peligro"
+                    placeholder="Peligro o amenaza identificada"
+                >
+
+            </div>
+
+            <div class="campo completo">
+
+                <label>
+                    Riesgo
+                </label>
+
+                <textarea
+                    class="matriz-cliente-riesgo"
+                    rows="3"
+                    placeholder="Describa el riesgo"
+                ></textarea>
+
+            </div>
+
+            <div class="campo">
+
+                <label>
+                    Probabilidad
+                </label>
+
+                <select
+                    class="matriz-cliente-probabilidad"
+                >
+
+                    <option value="">
+                        Seleccione
+                    </option>
+
+                    <option value="1">
+                        1 - Rara
+                    </option>
+
+                    <option value="2">
+                        2 - Improbable
+                    </option>
+
+                    <option value="3">
+                        3 - Posible
+                    </option>
+
+                    <option value="4">
+                        4 - Probable
+                    </option>
+
+                    <option value="5">
+                        5 - Casi segura
+                    </option>
+
+                </select>
+
+            </div>
+
+            <div class="campo">
+
+                <label>
+                    Impacto
+                </label>
+
+                <select
+                    class="matriz-cliente-impacto"
+                >
+
+                    <option value="">
+                        Seleccione
+                    </option>
+
+                    <option value="1">
+                        1 - Insignificante
+                    </option>
+
+                    <option value="2">
+                        2 - Menor
+                    </option>
+
+                    <option value="3">
+                        3 - Moderado
+                    </option>
+
+                    <option value="4">
+                        4 - Mayor
+                    </option>
+
+                    <option value="5">
+                        5 - Catastrófico
+                    </option>
+
+                </select>
+
+            </div>
+
+        </div>
+
+        <p style="
+            margin-top:15px;
+        ">
+
+            <strong>
+                Nivel de riesgo:
+            </strong>
+
+            <span
+                class="matriz-cliente-nivel"
+            >
+                Pendiente de cálculo
+            </span>
+
+        </p>
+
+        <div class="campo completo">
+
+            <label>
+                Medida de tratamiento
+            </label>
+
+            <textarea
+                class="matriz-cliente-tratamiento"
+                rows="3"
+                placeholder="Indique la medida de tratamiento del riesgo"
+            ></textarea>
+
+        </div>
+
+    `;
+
+    contenedor.appendChild(bloque);
+}
+    
 function generarInforme() {
 
     const inspecciones =
