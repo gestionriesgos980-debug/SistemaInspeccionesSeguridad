@@ -459,7 +459,7 @@
     </p>
 </div>
 
-<div class="modulo" onclick="generarInforme()">
+<div class="modulo" onclick="generarInformeDesdeModulo()">
     <h3>📄 Generar informe</h3>
     <p>
         Crear el informe final para entregar al cliente
@@ -3408,6 +3408,41 @@ if (buscadorClientes) {
     });
 }
 }
+/*
+========================================================
+TECCHNEX - CORRECCIÓN CAM-008-A
+MÓDULO: Sistema de Inspecciones de Seguridad
+SECCIÓN: Generación del informe PDF
+FUNCIÓN: generarInformeDesdeModulo
+OBJETIVO: Permitir generar el informe desde el módulo
+principal utilizando la inspección previamente seleccionada.
+CAMBIO: Enviar la inspección seleccionada a
+generarInformeInspeccion() mediante una función intermediaria.
+NO SE MODIFICAN DATOS NI CÁLCULOS.
+ESTADO: EN DESARROLLO
+========================================================
+*/
+
+function generarInformeDesdeModulo() {
+
+    const indiceGuardado =
+        localStorage.getItem("indiceInspeccionSeleccionadaInforme");
+
+    if (indiceGuardado === null) {
+        alert("Seleccione una inspección antes de generar el informe.");
+        return;
+    }
+
+    const indice = Number(indiceGuardado);
+
+    if (!Number.isInteger(indice) || indice < 0) {
+        alert("La inspección seleccionada no es válida.");
+        return;
+    }
+
+    generarInformeInspeccion(indice);
+}
+
    function generarInformeInspeccion(indice) {
 
     const ventana = window.open("", "_blank");
