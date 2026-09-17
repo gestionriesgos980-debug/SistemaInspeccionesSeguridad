@@ -7105,15 +7105,20 @@ matrizParaInforme.forEach((riesgo, indice) => {
 
                     vertical-align:top;
                 }
-                /* =========================
+/* =========================
    CAM-008 — DISTRIBUCIÓN TABLA HALLAZGOS
    ========================= */
 
-.tabla-hallazgos {
-    width:100%;
-    table-layout:fixed;
+.tabla-hallazgos td {
+    word-wrap:break-word;
+    overflow-wrap:break-word;
+    vertical-align:top;
 }
-
+.tabla-hallazgos img {
+    max-width:100%;
+    height:auto;
+    display:block;
+}
 .tabla-hallazgos th:nth-child(1),
 .tabla-hallazgos td:nth-child(1) {
     width:5%;
@@ -7144,10 +7149,6 @@ matrizParaInforme.forEach((riesgo, indice) => {
     width:29%;
 }
 
-.tabla-hallazgos td {
-    word-wrap:break-word;
-    overflow-wrap:break-word;
-}
 
                 .datos td:first-child {
 
@@ -8736,7 +8737,7 @@ ESTADO: EN DESARROLLO
     5. Hallazgos identificados
 </h2>
 
-<table>
+<table class="tabla-hallazgos">
     <thead>
         <tr>
             <th>#</th>
