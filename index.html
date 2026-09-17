@@ -6658,12 +6658,36 @@ function riesgosEnCelda(probabilidad, impacto) {
         ) {
 
             fotosHTML = `
-                <div class="fotos">
-                    ${hallazgo.fotos.map(foto => `
-                        <img src="${foto}" alt="Evidencia fotográfica">
-                    `).join("")}
-                </div>
-            `;
+    <div class="fotos" style="
+        width:100%;
+        max-width:100%;
+        margin-top:8px;
+        overflow:hidden;
+    ">
+        ${hallazgo.fotos.map(foto => `
+            <div style="
+                width:100%;
+                max-width:100%;
+                margin-bottom:8px;
+                text-align:left;
+                overflow:hidden;
+            ">
+                <img
+                    src="${foto}"
+                    alt="Evidencia fotográfica"
+                    style="
+                        display:block;
+                        width:auto;
+                        max-width:100%;
+                        height:auto;
+                        max-height:180px;
+                        object-fit:contain;
+                    "
+                >
+            </div>
+        `).join("")}
+    </div>
+`;
         }
 
                /*
@@ -6688,10 +6712,21 @@ filasHallazgos += `
 
         <td>${escapar(hallazgo.elemento)}</td>
 
-        <td>
-            ${escapar(hallazgo.descripcion)}
-            ${fotosHTML}
-        </td>
+        <td style="
+    width:29%;
+    vertical-align:top;
+    word-wrap:break-word;
+    overflow-wrap:break-word;
+">
+    <div style="
+        width:100%;
+        max-width:100%;
+        overflow:hidden;
+    ">
+        ${escapar(hallazgo.descripcion)}
+        ${fotosHTML}
+    </div>
+</td>
 
         <td>${escapar(hallazgo.nivel)}</td>
 
