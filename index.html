@@ -8065,64 +8065,23 @@ ESTADO: EN DESARROLLO
 <h2>
     3. Resultado de la lista de chequeo
 </h2>
+
+<!--
+========================================================
+TECCHNEX - CAMBIO #006
+MÓDULO: Sistema de Inspecciones de Seguridad
+SECCIÓN: Generación del informe PDF
+FUNCIÓN / SECCIÓN: Resultado de la lista de chequeo
+OBJETIVO: Mejorar la secuencia visual del informe.
+CAMBIO: Reubicar "Consolidado de resultados por categoría"
+debajo de "EVALUACIÓN DE ESQUEMAS DE SEGURIDAD EXISTENTES".
+NO SE MODIFICAN DATOS NI CÁLCULOS.
+ESTADO: EN DESARROLLO
+========================================================
+-->
+
 <div style="
     margin-top:15px;
-    margin-bottom:20px;
-">
-
-    <h3 style="
-        margin-bottom:10px;
-        color:#123b5d;
-    ">
-        Consolidado de resultados por categoría
-    </h3>
-
-    <table style="
-        width:100%;
-        border-collapse:collapse;
-        font-size:12px;
-    ">
-
-        <thead>
-
-            <tr>
-
-                <th style="
-                    background:#123b5d;
-                    color:white;
-                    padding:9px;
-                    border:1px solid #aaa;
-                    text-align:left;
-                ">
-                    Área de evaluación
-                </th>
-
-                <th style="
-                    width:150px;
-                    background:#123b5d;
-                    color:white;
-                    padding:9px;
-                    border:1px solid #aaa;
-                    text-align:center;
-                ">
-                    Resultado
-                </th>
-
-            </tr>
-
-        </thead>
-
-                <tbody>
-
-${filasCategorias}
-
-</tbody>
-
-</table>
-
-</div>
-<div style="
-    margin-top:25px;
     margin-bottom:20px;
 ">
 
@@ -8195,26 +8154,104 @@ ${filasCategorias}
     </table>
 
 </div>
-<div class="resultado">
 
-  <div style="
+<div style="
+    margin-top:15px;
     margin-bottom:20px;
-    padding:14px;
-    border:2px solid #123b5d;
-    background:#f4f7fa;
-    text-align:center;
-    font-size:17px;
-    font-weight:bold;
-    color:#123b5d;
 ">
-    Resultado de la lista de chequeo:
-    <strong style="
-        font-size:20px;
-        margin-left:5px;
+
+    <h3 style="
+        margin-bottom:10px;
+        color:#123b5d;
     ">
-        ${porcentajeGeneral}%
-    </strong>
+        Consolidado de resultados por categoría
+    </h3>
+
+    <table style="
+        width:100%;
+        border-collapse:collapse;
+        font-size:12px;
+    ">
+
+        <thead>
+
+            <tr>
+
+                <th style="
+                    background:#123b5d;
+                    color:white;
+                    padding:9px;
+                    border:1px solid #aaa;
+                    text-align:left;
+                ">
+                    Área de evaluación
+                </th>
+
+                <th style="
+                    width:150px;
+                    background:#123b5d;
+                    color:white;
+                    padding:9px;
+                    border:1px solid #aaa;
+                    text-align:center;
+                ">
+                    Resultado
+                </th>
+
+            </tr>
+
+        </thead>
+
+                <tbody>
+
+${filasCategorias}
+
+</tbody>
+
+</table>
+
 </div>
+<!--
+========================================================
+TECCHNEX - CAMBIO #005
+MÓDULO: Sistema de Inspecciones de Seguridad
+SECCIÓN: Generación del informe PDF
+FUNCIÓN / SECCIÓN: Resultado general de la lista de chequeo
+OBJETIVO: Mejorar la jerarquía visual del resultado general
+de la inspección sin modificar su cálculo ni sus datos.
+CAMBIO: Presentación destacada del porcentaje general.
+ESTADO: EN DESARROLLO
+========================================================
+-->
+
+<div class="resultado">
+    <div style="
+        margin-top:20px;
+        margin-bottom:25px;
+        padding:18px 20px;
+        border:2px solid #123b5d;
+        background:#f4f7fa;
+        text-align:center;
+        border-radius:4px;
+    ">
+        <div style="
+            font-size:15px;
+            font-weight:bold;
+            color:#123b5d;
+            margin-bottom:6px;
+        ">
+            RESULTADO GENERAL DE LA LISTA DE CHEQUEO
+        </div>
+
+        <div style="
+            font-size:28px;
+            font-weight:bold;
+            color:#123b5d;
+            line-height:1.2;
+        ">
+            ${porcentajeGeneral}%
+        </div>
+    </div>
     
       <div style="
     margin-top:20px;
