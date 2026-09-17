@@ -375,8 +375,8 @@
 <body>
 
 <header>
-    <h1>Sistema de Inspecciones de Seguridad</h1>
-    <p>Gestión de inspecciones, riesgos, hallazgos y generación de informes</p>
+    <h1>Sistema de  de Seguridad</h1>
+    <p>Gestión de , riesgos, hallazgos y generación de informes</p>
 </header>
 
 <div class="contenedor">
@@ -392,8 +392,8 @@
     <div class="tarjetas">
 
         <div class="tarjeta">
-            <h3>Inspecciones realizadas</h3>
-            <div class="numero" id="totalInspecciones">0</div>
+            <h3> realizadas</h3>
+            <div class="numero" id="total">0</div>
         </div>
 
         <div class="tarjeta">
@@ -6760,6 +6760,7 @@ filasHallazgos += `
             text-align:left;
             vertical-align:top;
         ">
+        
             ${escapar(hallazgo.recomendacion)}
         </td>
     </tr>
@@ -7165,6 +7166,49 @@ matrizParaInforme.forEach((riesgo, indice) => {
 
                     vertical-align:top;
                 }
+                /* =========================
+   CAM-008 — DISTRIBUCIÓN TABLA HALLAZGOS
+   ========================= */
+
+.tabla-hallazgos {
+    width:100%;
+    table-layout:fixed;
+}
+
+.tabla-hallazgos th:nth-child(1),
+.tabla-hallazgos td:nth-child(1) {
+    width:5%;
+}
+
+.tabla-hallazgos th:nth-child(2),
+.tabla-hallazgos td:nth-child(2) {
+    width:13%;
+}
+
+.tabla-hallazgos th:nth-child(3),
+.tabla-hallazgos td:nth-child(3) {
+    width:16%;
+}
+
+.tabla-hallazgos th:nth-child(4),
+.tabla-hallazgos td:nth-child(4) {
+    width:29%;
+}
+
+.tabla-hallazgos th:nth-child(5),
+.tabla-hallazgos td:nth-child(5) {
+    width:8%;
+}
+
+.tabla-hallazgos th:nth-child(6),
+.tabla-hallazgos td:nth-child(6) {
+    width:29%;
+}
+
+.tabla-hallazgos td {
+    word-wrap:break-word;
+    overflow-wrap:break-word;
+}
 
                 .datos td:first-child {
 
@@ -8757,7 +8801,7 @@ ESTADO: EN DESARROLLO
     5. Hallazgos identificados
 </h2>
 
-<table>
+<table class="tabla-hallazgos">
     <thead>
         <tr>
             <th>#</th>
