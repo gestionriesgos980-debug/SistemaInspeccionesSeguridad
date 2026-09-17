@@ -6220,58 +6220,6 @@ function guardarMatrizRiesgosCliente(nombreCliente) {
     );
 }  
 
-/*
-========================================================
-TECCHNEX - CAMBIO #008
-MÓDULO: Sistema de Inspecciones de Seguridad
-SECCIÓN: Generación del informe PDF
-FUNCIÓN: generarPDF
-OBJETIVO: Generar directamente un archivo PDF a partir
-del informe mostrado en la ventana del informe.
-CAMBIO: Incorporar generación de PDF mediante html2pdf.js.
-NO SE MODIFICAN DATOS, CÁLCULOS NI CONTENIDO DEL INFORME.
-ESTADO: EN DESARROLLO
-========================================================
-*/
-
-function generarPDF(ventana) {
-
-    if (!ventana || ventana.closed) {
-        alert("No se encontró la ventana del informe.");
-        return;
-    }
-
-    const contenido =
-        ventana.document.body;
-
-    if (!contenido) {
-        alert("No se encontró el contenido del informe.");
-        return;
-    }
-
-    const opciones = {
-        margin: 10,
-        filename: "Informe_Inspeccion_Seguridad.pdf",
-        image: {
-            type: "jpeg",
-            quality: 0.98
-        },
-        html2canvas: {
-            scale: 2,
-            useCORS: true
-        },
-        jsPDF: {
-            unit: "mm",
-            format: "a4",
-            orientation: "portrait"
-        }
-    };
-
-    html2pdf()
-        .set(opciones)
-        .from(contenido)
-        .save();
-}
    /*
 ========================================================
 TECCHNEX - CAMBIO #008
@@ -6292,7 +6240,7 @@ function generarPDF(ventana) {
         return;
     }
 
-    const contenido = ventana.document.body;
+   const contenido = ventana.document.querySelector(".hoja");
 
     if (!contenido) {
         alert("No se encontró el contenido del informe.");
@@ -7561,11 +7509,7 @@ matrizParaInforme.forEach((riesgo, indice) => {
 
 
 </div>
-
-              
-
-
-               
+          
 
  <h2>
     1. Información general de la inspección
