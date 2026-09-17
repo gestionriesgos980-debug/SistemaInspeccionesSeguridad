@@ -1959,30 +1959,21 @@ function actualizarContadores() {
     const inspecciones =
         JSON.parse(localStorage.getItem("inspecciones")) || [];
 
-    document.getElementById("totalInspecciones").textContent =
-        inspecciones.length;
-
     const clientes = new Set(
         inspecciones
             .map(i => i.cliente)
             .filter(c => c)
     );
 
-    document.getElementById("totalClientes").textContent =
-        clientes.size;
-
-  const todosLosHallazgos =
-    JSON.parse(localStorage.getItem("hallazgos")) || [];
-    
-document.getElementById("totalHallazgos").textContent =
-    todosLosHallazgos.length;
+    const todosLosHallazgos =
+        JSON.parse(localStorage.getItem("hallazgos")) || [];
 
     const informes =
-    Number(
-        localStorage.getItem("informesGenerados") || 0
-    );
+        Number(
+            localStorage.getItem("informesGenerados") || 0
+        );
 
-     document.getElementById("dashboardTotalInspecciones").textContent =
+    document.getElementById("dashboardTotalInspecciones").textContent =
         inspecciones.length;
 
     document.getElementById("dashboardTotalClientes").textContent =
@@ -1992,7 +1983,7 @@ document.getElementById("totalHallazgos").textContent =
         todosLosHallazgos.length;
 
     document.getElementById("dashboardTotalInformes").textContent =
-        informes;   
+        informes;
 
         const meses = [
         "Enero",
