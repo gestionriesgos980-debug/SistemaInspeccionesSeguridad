@@ -6228,6 +6228,60 @@ function guardarMatrizRiesgosCliente(nombreCliente) {
         "Matriz de riesgos del cliente guardada correctamente."
     );
 }  
+
+/*
+========================================================
+TECCHNEX - CAMBIO #008
+MÓDULO: Sistema de Inspecciones de Seguridad
+SECCIÓN: Generación del informe PDF
+FUNCIÓN: generarPDF
+OBJETIVO: Generar directamente un archivo PDF a partir
+del informe mostrado en la ventana del informe.
+CAMBIO: Incorporar generación de PDF mediante html2pdf.js.
+NO SE MODIFICAN DATOS, CÁLCULOS NI CONTENIDO DEL INFORME.
+ESTADO: EN DESARROLLO
+========================================================
+*/
+
+function generarPDF(ventana) {
+
+    if (!ventana || ventana.closed) {
+        alert("No se encontró la ventana del informe.");
+        return;
+    }
+
+    const contenido =
+        ventana.document.body;
+
+    if (!contenido) {
+        alert("No se encontró el contenido del informe.");
+        return;
+    }
+
+    const opciones = {
+        margin: 10,
+        filename: "Informe_Inspeccion_Seguridad.pdf",
+        image: {
+            type: "jpeg",
+            quality: 0.98
+        },
+        html2canvas: {
+            scale: 2,
+            useCORS: true
+        },
+        jsPDF: {
+            unit: "mm",
+            format: "a4",
+            orientation: "portrait"
+        }
+    };
+
+    html2pdf()
+        .set(opciones)
+        .from(contenido)
+        .save();
+}
+   
 function generarInforme(ventana) {
 
     const inspecciones =
@@ -8687,11 +8741,23 @@ ESTADO: EN DESARROLLO
     text-align:center;
 ">
 
-    <button onclick="window.print()">
-        🖨️ Imprimir / Guardar como PDF
-    </button>
+    <!--
+========================================================
+TECCHNEX - CAMBIO #008
+MÓDULO: Sistema de Inspecciones de Seguridad
+SECCIÓN: Generación del informe PDF
+FUNCIÓN / SECCIÓN: Botón de generación de PDF
+OBJETIVO: Permitir generar el informe directamente como
+archivo PDF sin utilizar el diálogo de impresión del navegador.
+CAMBIO: Sustituir window.print() por generarPDF().
+NO SE MODIFICAN DATOS, CÁLCULOS NI CONTENIDO DEL INFORME.
+ESTADO: EN DESARROLLO
+========================================================
+-->
 
-</div>
+<button onclick="generarPDF()">
+    📄 Generar PDF
+</button>
 
 
                 <div class="pie">
