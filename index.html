@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">   }
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">   }F
    
         <!DOCTYPE html>
 
@@ -3408,32 +3408,38 @@ if (buscadorClientes) {
     });
 }
 }
-    function generarInformeInspeccion(indice) {
+   function generarInformeInspeccion(indice) {
+
+    const ventana = window.open("", "_blank");
+
+    if (!ventana) {
         alert(
-    "Índice de la inspección seleccionada: " +
-    indice
-);
+            "El navegador bloqueó la ventana del informe. " +
+            "Permita las ventanas emergentes para este sitio."
+        );
+        return;
+    }
 
     const inspecciones =
         JSON.parse(localStorage.getItem("inspecciones")) || [];
 
     const inspeccion = inspecciones[indice];
-     
 
     if (!inspeccion) {
         alert("No se encontró la inspección seleccionada.");
         return;
     }
-localStorage.setItem(
-    "indiceInspeccionSeleccionadaInforme",
-    String(indice)
-);
-       
+
+    localStorage.setItem(
+        "indiceInspeccionSeleccionadaInforme",
+        String(indice)
+    );
 
     cerrarClientes();
 
-    generarInforme();
+    generarInforme(ventana);
 }
+
 function verInspeccion(indice) {
 
     const inspecciones =
@@ -3468,12 +3474,12 @@ function verInspeccion(indice) {
 
     const incidentes = inspeccion.historicoIncidentes || [];
 
-  let tablaIncidentes = "";
+    let tablaIncidentes = "";
 
-if (
-    inspeccion.sinIncidentes ||
-    incidentes.length === 0
-) {
+    if (
+        inspeccion.sinIncidentes ||
+        incidentes.length === 0
+    ) {
 
     tablaIncidentes += `
         <tr>
@@ -6187,7 +6193,7 @@ function guardarMatrizRiesgosCliente(nombreCliente) {
         "Matriz de riesgos del cliente guardada correctamente."
     );
 }  
-function generarInforme() {
+function generarInforme(ventana) {
 
     const inspecciones =
         JSON.parse(localStorage.getItem("inspecciones")) || [];
