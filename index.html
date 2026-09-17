@@ -6714,43 +6714,47 @@ CAMBIO: Eliminar el botón "Editar" del informe PDF y
 alinear a la izquierda el texto de "Recomendación".
 NO SE MODIFICAN DATOS, FOTOGRAFÍAS NI CÁLCULOS.
 ESTADO: EN DESARROLLO
-========================================================
+   ========================================================
 */
-filasHallazgos += `
-    <tr>
-        <td>${indice + 1}</td>
 
-        <td>${escapar(hallazgo.area)}</td>
+        filasHallazgos += `
+            <tr>
+                <td>${indice + 1}</td>
 
-        <td>${escapar(hallazgo.elemento)}</td>
+                <td>
+                    ${escapar(hallazgo.area)}
+                </td>
 
-        <td style="
-    width:29%;
-    vertical-align:top;
-    word-wrap:break-word;
-    overflow-wrap:break-word;
-">
-    <div style="
-        width:100%;
-        max-width:100%;
-        overflow:hidden;
-    ">
-        ${escapar(hallazgo.descripcion)}
-        ${fotosHTML}
-    </div>
-</td>
+                <td>
+                    ${escapar(hallazgo.elemento)}
+                </td>
 
-        <td>${escapar(hallazgo.nivel)}</td>
+                <td style="
+                    width:28%;
+                    vertical-align:top;
+                    word-wrap:break-word;
+                    overflow-wrap:break-word;
+                ">
+                    ${escapar(hallazgo.descripcion)}
+                </td>
 
-        <td style="
-            text-align:left;
-            vertical-align:top;
-        ">
-        
-            ${escapar(hallazgo.recomendacion)}
-        </td>
-    </tr>
-`;
+                <td style="
+                    width:23%;
+                    vertical-align:top;
+                    text-align:center;
+                    overflow:hidden;
+                ">
+                    ${fotosHTML}
+                </td>
+
+                <td style="
+                    text-align:left;
+                    vertical-align:top;
+                ">
+                    ${escapar(hallazgo.recomendacion)}
+                </td>
+            </tr>
+        `;
     });
 
     if (!filasHallazgos) {
@@ -8793,14 +8797,14 @@ ESTADO: EN DESARROLLO
 
 <table class="tabla-hallazgos">
     <thead>
-        <tr>
-            <th>#</th>
-            <th>Área</th>
-            <th>Elemento</th>
-            <th>Descripción / evidencia</th>
-            <th>Nivel</th>
-            <th>Recomendación</th>
-        </tr>
+       <tr>
+    <th>#</th>
+    <th>Área</th>
+    <th>Elemento</th>
+    <th>Descripción / evidencia</th>
+    <th>Fotografías</th>
+    <th>Recomendación</th>
+</tr>
     </thead>
 
     <tbody>
