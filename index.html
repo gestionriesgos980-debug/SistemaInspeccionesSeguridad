@@ -6593,24 +6593,41 @@ const ventana =
             `;
         }
 
-        filasHallazgos += `
+        <!--
+========================================================
+TECCHNEX - CAMBIO #007
+MÓDULO: Sistema de Inspecciones de Seguridad
+SECCIÓN: Generación del informe PDF
+FUNCIÓN / SECCIÓN: Hallazgos identificados
+OBJETIVO: Mejorar la distribución y legibilidad de los
+hallazgos en el informe final entregado al cliente.
+CAMBIO: Eliminar el botón "Editar" del informe PDF y
+alinear a la izquierda el texto de "Recomendación".
+NO SE MODIFICAN DATOS, FOTOGRAFÍAS NI CÁLCULOS.
+ESTADO: EN DESARROLLO
+========================================================
+-->
+
+filasHallazgos += `
     <tr>
         <td>${indice + 1}</td>
+
         <td>${escapar(hallazgo.area)}</td>
+
         <td>${escapar(hallazgo.elemento)}</td>
+
         <td>
             ${escapar(hallazgo.descripcion)}
             ${fotosHTML}
         </td>
+
         <td>${escapar(hallazgo.nivel)}</td>
-        <td>${escapar(hallazgo.recomendacion)}</td>
-        <td>
-            <button
-                type="button"
-               onclick="window.close(); window.opener.editarHallazgo(${indiceReal})"
-            >
-                Editar
-            </button>
+
+        <td style="
+            text-align:left;
+            vertical-align:top;
+        ">
+            ${escapar(hallazgo.recomendacion)}
         </td>
     </tr>
 `;
@@ -6620,7 +6637,7 @@ const ventana =
 
         filasHallazgos = `
             <tr>
-                <td colspan="7">
+                <td colspan="6">
     No se registraron hallazgos.
 </td>
             </tr>
@@ -8740,9 +8757,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
 });
     
-</script>  
+</script>
 
-            <script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<script>
 if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
         navigator.serviceWorker.register("./sw.js")
@@ -8755,6 +8774,6 @@ if ("serviceWorker" in navigator) {
     });
 }
 </script>
-            
+
 </body>
 </html>
