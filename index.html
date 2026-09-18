@@ -1568,12 +1568,17 @@ function agregarServicioSeguridad(tipo) {
             </select>
         </td>
 
+        <!-- CAMBIO OM-02: Estandariza los días de servicio en las filas agregadas para mantener la misma selección de las filas iniciales. -->
         <td style="padding:6px;border:1px solid #999;">
-            <input
-                type="text"
-                class="dias-seguridad"
-                placeholder="Ej. Lunes a viernes"
-            >
+            <select class="dias-seguridad">
+                <option value="">Seleccione</option>
+                <option value="Lunes a viernes">Lunes a viernes</option>
+                <option value="Lunes a sábado">Lunes a sábado</option>
+                <option value="Lunes a domingo">Lunes a domingo</option>
+                <option value="Sábado y domingo">Sábado y domingo</option>
+                <option value="Todos los días">Todos los días</option>
+                <option value="Otro">Otro</option>
+            </select>
         </td>
 
         <td style="padding:6px;border:1px solid #999;">
