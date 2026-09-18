@@ -822,6 +822,16 @@
                 placeholder="Ej. 48">
         </div>
 
+        <!-- CAMBIO OM-05: Registro de cantidad de equipos de grabación del sistema CCTV. -->
+        <div class="campo">
+            <label>Cantidad de equipos de grabación</label>
+            <input
+                type="number"
+                id="cantidadEquiposGrabacionCCTV"
+                min="0"
+                placeholder="Ej. 2">
+        </div>
+
         <div class="campo">
             <label>Vídeo analítica</label>
             <select id="videoAnalitica">
@@ -867,6 +877,15 @@
                 <option value="Administración y Vigilantes">Administración y Vigilantes</option>
                 <option value="Otro">Otro</option>
             </select>
+        </div>
+
+        <!-- CAMBIO OM-05: Observaciones técnicas para describir detalles del sistema CCTV. -->
+        <div class="campo" style="width:100%;">
+            <label>Observaciones del sistema CCTV</label>
+            <textarea
+                id="observacionesCCTV"
+                rows="4"
+                placeholder="Describa detalles, condiciones, novedades o aspectos técnicos relevantes del sistema CCTV"></textarea>
         </div>
 
     </div>
@@ -1849,6 +1868,9 @@ areaIndustrial:
 
                 tipoCCTV: document.getElementById("tipoCCTV").value,
                 cantidadCamaras: document.getElementById("cantidadCamaras").value,
+                // CAMBIO OM-05: Guarda cantidad de equipos de grabación y observaciones CCTV.
+                cantidadEquiposGrabacionCCTV: document.getElementById("cantidadEquiposGrabacionCCTV").value,
+                observacionesCCTV: document.getElementById("observacionesCCTV").value,
                 videoAnalitica: document.getElementById("videoAnalitica").value,
                 ubicacionRack: document.getElementById("ubicacionRack").value,
                 diasAlmacenamiento: document.getElementById("diasAlmacenamiento").value,
@@ -3869,6 +3891,13 @@ document.getElementById("bicicleteros").value =
 
     document.getElementById("cantidadCamaras").value =
         inspeccion.cantidadCamaras || "";
+
+    // CAMBIO OM-05: Recupera al editar la cantidad de equipos de grabación y observaciones CCTV.
+    document.getElementById("cantidadEquiposGrabacionCCTV").value =
+        inspeccion.cantidadEquiposGrabacionCCTV || "";
+
+    document.getElementById("observacionesCCTV").value =
+        inspeccion.observacionesCCTV || "";
 
     document.getElementById("videoAnalitica").value =
         inspeccion.videoAnalitica || "";
@@ -7849,6 +7878,16 @@ ${caracteristicasInstalacionHTML}
         </td>
     </tr>
 
+    <!-- CAMBIO OM-05: Muestra en el informe la cantidad de equipos de grabación CCTV. -->
+    <tr>
+        <td style="padding:8px;border:1px solid #999;">
+            <strong>Cantidad de equipos de grabación</strong>
+        </td>
+        <td colspan="3" style="padding:8px;border:1px solid #999;">
+            ${escapar(inspeccion.cantidadEquiposGrabacionCCTV || "")}
+        </td>
+    </tr>
+
     <tr>
         <td style="padding:8px;border:1px solid #999;">
             <strong>Vídeo analítica</strong>
@@ -7887,6 +7926,16 @@ ${caracteristicasInstalacionHTML}
         </td>
         <td colspan="3" style="padding:8px;border:1px solid #999;">
             ${escapar(inspeccion.manejoContrasenasCCTV || "")}
+        </td>
+    </tr>
+
+    <!-- CAMBIO OM-05: Muestra en el informe las observaciones técnicas del sistema CCTV. -->
+    <tr>
+        <td style="padding:8px;border:1px solid #999;vertical-align:top;">
+            <strong>Observaciones</strong>
+        </td>
+        <td colspan="3" style="padding:8px;border:1px solid #999;white-space:pre-wrap;">
+            ${escapar(inspeccion.observacionesCCTV || "")}
         </td>
     </tr>
 
