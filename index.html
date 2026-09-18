@@ -2012,6 +2012,21 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
                 JSON.stringify(inspecciones)
             );
 
+            // CAMBIO TIMESTAMP ETAPA 1 — Registrar creación o modificación de la inspección
+            // después de guardar correctamente, sin alterar la estructura existente de inspecciones.
+            registrarEventoTrazabilidad({
+                modulo: "Inspecciones",
+                accion: (indiceEdicion !== undefined && indiceEdicion !== "")
+                    ? "MODIFICACION"
+                    : "CREACION",
+                indiceInspeccion: (indiceEdicion !== undefined && indiceEdicion !== "")
+                    ? Number(indiceEdicion)
+                    : inspecciones.length - 1,
+                idControl: inspeccion.idControl,
+                descripcion: (indiceEdicion !== undefined && indiceEdicion !== "")
+                    ? "Inspección modificada"
+                    : "Inspección creada"
+            });
 
             actualizarContadores();
 
@@ -4945,6 +4960,47 @@ let fotosHallazgoEditando = [];
    la decisión del inspector. La biblioteca se almacena
    en localStorage y puede crecer con nuevas recomendaciones.
 ===================================================== */
+// CAMBIO TIMESTAMP ETAPA 1 — Motor central de trazabilidad.
+// Registra eventos en una estructura independiente de los módulos existentes,
+// conservando fecha/hora, módulo, acción y asociación con la inspección.
+// Esta etapa no crea todavía una pantalla de línea de tiempo.
+const CLAVE_BITACORA_TRAZABILIDAD = "bitacoraTrazabilidad";
+
+function registrarEventoTrazabilidad(datos = {}) {
+
+    try {
+        const bitacora = JSON.parse(
+            localStorage.getItem(CLAVE_BITACORA_TRAZABILIDAD)
+        ) || [];
+
+        const ahora = new Date();
+
+        bitacora.push({
+            idEvento: "EVT-" + ahora.getTime() + "-" +
+                Math.random().toString(36).slice(2, 8),
+            fechaHora: ahora.toISOString(),
+            modulo: datos.modulo || "",
+            accion: datos.accion || "",
+            indiceInspeccion: Number.isInteger(datos.indiceInspeccion)
+                ? datos.indiceInspeccion
+                : null,
+            idControl: datos.idControl || null,
+            descripcion: datos.descripcion || "",
+            area: datos.area || "",
+            tema: datos.tema || ""
+        });
+
+        localStorage.setItem(
+            CLAVE_BITACORA_TRAZABILIDAD,
+            JSON.stringify(bitacora)
+        );
+
+    } catch (error) {
+        // La trazabilidad no debe bloquear ni modificar el funcionamiento principal.
+        console.error("Error al registrar evento de trazabilidad:", error);
+    }
+}
+
 const CLAVE_BIBLIOTECA_RECOMENDACIONES = "bibliotecaRecomendaciones";
 
 function escaparTextoOM12(valor) {
@@ -5219,6 +5275,28 @@ function guardarRecomendacionEnBiblioteca() {
         CLAVE_BIBLIOTECA_RECOMENDACIONES,
         JSON.stringify(biblioteca)
     );
+
+    // CAMBIO TIMESTAMP ETAPA 1 — Registrar el alta de una recomendación en la biblioteca OM-12.
+    // El registro es independiente de la biblioteca para no modificar su funcionamiento actual.
+    const indiceInspeccionTrazabilidad = Number(
+        localStorage.getItem("indiceInspeccionSeleccionadaInforme")
+    );
+    const inspeccionesTrazabilidad =
+        JSON.parse(localStorage.getItem("inspecciones")) || [];
+
+    registrarEventoTrazabilidad({
+        modulo: "OM-12",
+        accion: "RECOMENDACION_AGREGADA",
+        indiceInspeccion: Number.isNaN(indiceInspeccionTrazabilidad)
+            ? null
+            : indiceInspeccionTrazabilidad,
+        idControl: !Number.isNaN(indiceInspeccionTrazabilidad)
+            ? inspeccionesTrazabilidad[indiceInspeccionTrazabilidad]?.idControl || null
+            : null,
+        descripcion: "Nueva recomendación agregada a la biblioteca",
+        area: area,
+        tema: elemento || "Nueva recomendación"
+    });
 
     mostrarRecomendacionesSugeridas();
 
@@ -5571,6 +5649,31 @@ if (
     JSON.stringify(hallazgos)
 );
 
+    // CAMBIO TIMESTAMP ETAPA 1 — Registrar creación o modificación del hallazgo
+    // únicamente después de confirmar que el almacenamiento fue exitoso.
+    const inspeccionParaTrazabilidad =
+        Number.isNaN(inspeccionHallazgo) ? null : inspeccionHallazgo;
+
+    const inspeccionesTrazabilidad =
+        JSON.parse(localStorage.getItem("inspecciones")) || [];
+
+    const idControlTrazabilidad =
+        inspeccionParaTrazabilidad !== null
+            ? inspeccionesTrazabilidad[inspeccionParaTrazabilidad]?.idControl || null
+            : null;
+
+    registrarEventoTrazabilidad({
+        modulo: "Hallazgos",
+        accion: indiceHallazgoEditando !== null
+            ? "MODIFICACION"
+            : "CREACION",
+        indiceInspeccion: inspeccionParaTrazabilidad,
+        idControl: idControlTrazabilidad,
+        descripcion: indiceHallazgoEditando !== null
+            ? "Hallazgo modificado"
+            : "Hallazgo creado",
+        area: area
+    });
 
 
 } catch (error) {
