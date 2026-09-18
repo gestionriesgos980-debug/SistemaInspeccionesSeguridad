@@ -5568,24 +5568,27 @@ async function procesarFotoConTimestamp(archivo, indiceInspeccion, numeroHallazg
                     const selloHora = fechaHora.toLocaleTimeString("es-CO", { hour12: false });
                     const idControl = obtenerIdControlFoto(indiceInspeccion);
 
-                    const altoSello = 54;
+                    // AJUSTE TIMESTAMP FOTOGRÁFICO — Aumentar la visibilidad del sello
+                    // directamente sobre la fotografía, manteniendo la información integrada
+                    // en los píxeles de la evidencia.
+                    const altoSello = Math.max(86, Math.round(alto * 0.11));
                     const selloY = Math.max(0, alto - altoSello);
 
-                    contexto.fillStyle = "rgba(0,0,0,0.72)";
+                    contexto.fillStyle = "rgba(8, 35, 58, 0.82)";
                     contexto.fillRect(0, selloY, ancho, altoSello);
 
                     contexto.fillStyle = "#ffffff";
-                    contexto.font = "bold 13px Arial";
+                    contexto.font = `bold ${Math.max(18, Math.round(ancho * 0.018))}px Arial`;
                     contexto.fillText(
                         `TECCHNEX | ${idControl || "SIN-ID"} | HALLAZGO ${numeroHallazgo}`,
-                        10,
-                        selloY + 20
+                        Math.max(14, Math.round(ancho * 0.018)),
+                        selloY + Math.round(altoSello * 0.38)
                     );
-                    contexto.font = "12px Arial";
+                    contexto.font = `${Math.max(16, Math.round(ancho * 0.015))}px Arial`;
                     contexto.fillText(
                         `CAPTURA: ${selloFecha} ${selloHora}`,
-                        10,
-                        selloY + 40
+                        Math.max(14, Math.round(ancho * 0.018)),
+                        selloY + Math.round(altoSello * 0.73)
                     );
 
                     const imagenSellada = canvas.toDataURL("image/jpeg", 0.82);
@@ -7525,11 +7528,6 @@ function riesgosEnCelda(probabilidad, impacto) {
                         object-fit:contain;
                     "
                 >
-                ${typeof foto === "object" && foto?.hashSha256 ? `
-                    <div style="font-size:9px;color:#555;margin-top:3px;word-break:break-all;">
-                        Timestamp: ${foto.timestamp || ""} | SHA-256: ${foto.hashSha256}
-                    </div>
-                ` : ""}
             </div>
         `).join("")}
     </div>
