@@ -2435,7 +2435,14 @@ function crearRespaldo() {
                 informesGenerados:
                     localStorage.getItem(
                         "informesGenerados"
-                    ) || "0"
+                    ) || "0",
+
+                bibliotecaRecomendaciones:
+                    JSON.parse(
+                        localStorage.getItem(
+                            CLAVE_BIBLIOTECA_RECOMENDACIONES
+                        )
+                    ) || []
             }
         };
 
@@ -2590,6 +2597,15 @@ localStorage.setItem(
     "informesGenerados",
     datos.informesGenerados || "0"
 );
+
+// OM-12 — Restaurar la biblioteca solo cuando el respaldo la contiene.
+// Así, respaldos anteriores a OM-12 no borran una biblioteca ya existente.
+if (Object.prototype.hasOwnProperty.call(datos, "bibliotecaRecomendaciones")) {
+    localStorage.setItem(
+        CLAVE_BIBLIOTECA_RECOMENDACIONES,
+        JSON.stringify(datos.bibliotecaRecomendaciones || [])
+    );
+}
 
 actualizarContadores();
 
@@ -4889,11 +4905,16 @@ function abrirHallazgos(indice) {
         String(indice)
     );
 
+    // CAMBIO OM-12 — Inicializar la biblioteca viva de recomendaciones al abrir Hallazgos.
+    // Si ya existe, se conserva para permitir su crecimiento progresivo.
+    inicializarBibliotecaRecomendaciones();
+
     // CAMBIO OM-08 — Mostrar los hallazgos ya registrados de la inspección
     // para permitir seleccionarlos y editarlos sin alterar el almacenamiento existente.
     indiceHallazgoEditando = null;
     fotosHallazgoEditando = [];
     renderizarHallazgosRegistrados();
+    mostrarRecomendacionesSugeridas();
 
     const ventana =
         document.getElementById("ventanaHallazgos");
@@ -4916,6 +4937,293 @@ function cerrarHallazgos() {
 }
     let indiceHallazgoEditando = null;
 let fotosHallazgoEditando = [];
+
+/* =====================================================
+   OM-12 — BIBLIOTECA VIVA DE RECOMENDACIONES
+   Objetivo: sugerir recomendaciones a partir del área,
+   elemento y descripción del hallazgo, sin reemplazar
+   la decisión del inspector. La biblioteca se almacena
+   en localStorage y puede crecer con nuevas recomendaciones.
+===================================================== */
+const CLAVE_BIBLIOTECA_RECOMENDACIONES = "bibliotecaRecomendaciones";
+
+function escaparTextoOM12(valor) {
+    return String(valor ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function inicializarBibliotecaRecomendaciones() {
+
+    const existente = localStorage.getItem(
+        CLAVE_BIBLIOTECA_RECOMENDACIONES
+    );
+
+    if (existente) {
+        return;
+    }
+
+    // OM-12 — Biblioteca inicial alimentada con recomendaciones reales
+    // del informe proporcionado para este desarrollo. No se inventan
+    // recomendaciones; se conserva el contenido de acción preventiva.
+    const bibliotecaInicial = [
+        {
+            id: "OM12-001",
+            area: "Control de Accesos",
+            tema: "CCTV en acceso vehicular",
+            palabrasClave: ["control de acceso", "vehicular", "reja", "ingresos no autorizados", "usuarios", "visitantes", "paquetería"],
+            recomendacion: "Se recomienda instalar una cámara del CCTV a la altura del conductor y otra enfocando las placas de los vehículos, que le permitan identificar plenamente a usuarios y visitantes, con la finalidad de prevenir un acceso no controlado a la copropiedad, una modalidad delictiva que se presenta con frecuencia en horas de alta afluencia de usuarios o paquetería, donde la carga operativa del guarda impide un control exhaustivo de cada ingreso.",
+            fuente: "Informe Preventivo de Seguridad Integral – Urb. Monte Sion P.H."
+        },
+        {
+            id: "OM12-002",
+            area: "Control de Accesos",
+            tema: "Base de datos y analítica",
+            palabrasClave: ["base de datos", "control de acceso", "residentes", "registros", "cámaras", "analítica", "inteligencia artificial", "ingresos no autorizados"],
+            recomendacion: "Se recomienda actualizar la base de datos de control de acceso para dar de baja los registros de personas que ya no residen en la copropiedad, mitigando así el riesgo de ingresos no autorizados. Asimismo, se sugiere complementar este proceso mediante la implementación de cámaras con analítica de video e inteligencia artificial, orientadas a la identificación oportuna de perfiles sospechosos con intenciones de ingreso.",
+            fuente: "Informe Preventivo de Seguridad Integral – Urb. Monte Sion P.H."
+        },
+        {
+            id: "OM12-003",
+            area: "Control de Accesos",
+            tema: "Avisos informativos en accesos",
+            palabrasClave: ["áreas de ingreso", "avisos", "visitante", "anuncio", "registro", "conducción", "precaución"],
+            recomendacion: "En las áreas de ingreso, se puede instalar más avisos informativos, que orienten al usuario visitante, sobre la ejecución de controles (anuncio y registro), adopción de conductas específicas, (conducción con precaución), para el ingreso a la copropiedad.",
+            fuente: "Informe Preventivo de Seguridad Integral – Urb. Monte Sion P.H."
+        },
+        {
+            id: "OM12-004",
+            area: "Control de Accesos",
+            tema: "Piezas informativas de seguridad",
+            palabrasClave: ["accesos peatonales", "accesos vehiculares", "ascensores", "velocidad máxima", "casco", "vidrio polarizado", "armas", "grabado", "objetos de valor"],
+            recomendacion: "Se recomienda instalar, piezas informativas en los accesos peatonales, vehiculares o de ascensores; en los cuales se den las recomendaciones de seguridad, políticas y protocolos al interior de la edificación tales como; (velocidad máxima, esperar ser anunciado, retirarse el casco, bajar el vidrio si es polarizado, no ingresar armas, informarle que está siendo grabado y monitoreado, no dejar objetos de valor en áreas comunes o sociales).",
+            fuente: "Informe Preventivo de Seguridad Integral – Urb. Monte Sion P.H."
+        },
+        {
+            id: "OM12-005",
+            area: "Sistemas Electrónicos de Seguridad",
+            tema: "Botón de pánico para vigilante",
+            palabrasClave: ["botón de pánico", "inalámbrico", "vigilante", "coacción", "apoyo", "reacción inmediata", "emergencia"],
+            recomendacion: "Se recomienda la implementación de un botón de pánico inalámbrico, para ser asignado al vigilante, elemento efectivo para dar aviso a las autoridades, ante un requerimiento de apoyo o (reacción inmediata).",
+            fuente: "Informe Preventivo de Seguridad Integral – Urb. Monte Sion P.H."
+        },
+        {
+            id: "OM12-006",
+            area: "Sistemas Electrónicos de Seguridad",
+            tema: "Alarma comunitaria",
+            palabrasClave: ["alarma comunitaria", "policía nacional", "botón de emergencia", "vigilante de portería", "vigilante de ronda", "emergencia", "delincuenciales"],
+            recomendacion: "Se recomienda la instalación de un sistema de alarma comunitaria obturado por el celular así: Vigilante de portería, vigilante de ronda (si aplica) y empleado de oficios varios, con enlace a la policía nacional (nuevos ZAMP) y botón de emergencia en la portería para alertar de actividades sub normales o delincuenciales.",
+            fuente: "Informe Preventivo de Seguridad Integral – Urb. Monte Sion P.H."
+        },
+        {
+            id: "OM12-007",
+            area: "Gestión de Autocuidado",
+            tema: "Protección de bienes personales",
+            palabrasClave: ["autocuidado", "bicicletas", "cascos", "áreas comunes", "bienes muebles", "cerraduras", "ventanas", "CCTV", "alarma"],
+            recomendacion: "Instalar dispositivos físicos (cerraduras de seguridad, bloqueos para ventanas y ventanales, cajas fuertes, guayas de protección, etc.) y electrónicos (sistema de alarma y CCTV.) que faciliten la custodia de sus bienes muebles. Todo esto con la adopción de una Cultura en Seguridad, que se reflejará en la activación oportuna de los mismos y de la sensibilización sobre el tema en cada uno de los integrantes del grupo familiar.",
+            fuente: "Informe Preventivo de Seguridad Integral – Urb. Monte Sion P.H."
+        },
+        {
+            id: "OM12-008",
+            area: "SG-SST / Medio ambiente / Otros",
+            tema: "Política de SG-SST",
+            palabrasClave: ["SG-SST", "seguridad y salud en el trabajo", "política", "PHVA", "riesgos", "Decreto 1072/2015", "Resolución 0312/2019"],
+            recomendacion: "Se recomienda la socialización mediante acta firmada del SG-SST; además, desarrollar actividades que permitan anticipar, evaluar, reconocer y controlar los riesgos existentes. Tener en cuenta el ciclo PHVA (planificar, hacer, verificar y actuar). Remitirse al Decreto 1072/2015, capítulo sexto; expedido por el Ministerio del Trabajo, donde se enmarca el SG-SST. También se sugiere remitirse a la Resolución 0312/2019 donde se tienen estipulados los estándares mínimos para el SG.",
+            fuente: "Informe Preventivo de Seguridad Integral – Urb. Monte Sion P.H."
+        },
+        {
+            id: "OM12-009",
+            area: "SG-SST / Medio ambiente / Otros",
+            tema: "Gestión del riesgo y plan de emergencia",
+            palabrasClave: ["desastres naturales", "terremotos", "inundaciones", "incendios", "gestión del riesgo", "plan de emergencia", "entrenar", "partes interesadas"],
+            recomendacion: "Tener presente los lineamientos dados por la Ley 1523 de 2012 Política Nacional de Gestión del Riego de Desastres, en cuanto a la importancia de difundir y entrenar a todas las partes interesadas en cuanto al Plan de Emergencia, aspecto que fomentará en las personas la cultura de cuidado y protección.",
+            fuente: "Informe Preventivo de Seguridad Integral – Urb. Monte Sion P.H."
+        },
+        {
+            id: "OM12-010",
+            area: "SG-SST / Medio ambiente / Otros",
+            tema: "Señalética y atención de emergencias",
+            palabrasClave: ["señalética", "red contra incendios", "extintores", "primeros auxilios", "búsqueda y rescate", "NFPA 10", "NTC2885", "NTC 1461"],
+            recomendacion: "La señalética de la red contra incendios debe cumplir con los lineamientos de la norma, en sus colores y diagramas. Una alternativa innovadora para las áreas comunes del primer nivel, son las casetas de ataque rápido con los siguientes elementos (extinción de incendios, primeros auxilios, búsqueda y rescate). Por norma (NFPA 10, NTC2885 y NTC 1461), todos los elementos que componen el sistema de atención de emergencias, deben cumplir con lo dispuesto para facilitar su ubicación y uso en el momento preciso.",
+            fuente: "Informe Preventivo de Seguridad Integral – Urb. Monte Sion P.H."
+        },
+        {
+            id: "OM12-011",
+            area: "SG-SST / Medio ambiente / Otros",
+            tema: "Extinción de incendios",
+            palabrasClave: ["conato de incendio", "esferas autónomas", "extinción de incendios", "lugares críticos", "incendio"],
+            recomendacion: "Se recomienda instalar en los lugares más críticos para un conato de incendio, esferas autónomas de extinción de incendios.",
+            fuente: "Informe Preventivo de Seguridad Integral – Urb. Monte Sion P.H."
+        }
+    ];
+
+    localStorage.setItem(
+        CLAVE_BIBLIOTECA_RECOMENDACIONES,
+        JSON.stringify(bibliotecaInicial)
+    );
+}
+
+function obtenerBibliotecaRecomendaciones() {
+    try {
+        const datos = JSON.parse(
+            localStorage.getItem(CLAVE_BIBLIOTECA_RECOMENDACIONES)
+        );
+        return Array.isArray(datos) ? datos : [];
+    } catch (error) {
+        console.error("Error al leer la biblioteca OM-12:", error);
+        return [];
+    }
+}
+
+function normalizarTextoOM12(texto) {
+    return String(texto || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+}
+
+function obtenerRecomendacionesSugeridas() {
+
+    const area = document.getElementById("hallazgoArea")?.value || "";
+    const elemento = document.getElementById("hallazgoElemento")?.value || "";
+    const descripcion = document.getElementById("hallazgoDescripcion")?.value || "";
+
+    const textoConsulta = normalizarTextoOM12(
+        `${area} ${elemento} ${descripcion}`
+    );
+
+    const biblioteca = obtenerBibliotecaRecomendaciones();
+
+    return biblioteca
+        .map((item, indice) => {
+            let puntaje = 0;
+
+            if (area && normalizarTextoOM12(item.area) === normalizarTextoOM12(area)) {
+                puntaje += 5;
+            }
+
+            (item.palabrasClave || []).forEach(palabra => {
+                const clave = normalizarTextoOM12(palabra);
+                if (clave && textoConsulta.includes(clave)) {
+                    puntaje += 2;
+                }
+            });
+
+            return { item, indice, puntaje };
+        })
+        .filter(resultado => resultado.puntaje > 0)
+        .sort((a, b) => b.puntaje - a.puntaje)
+        .slice(0, 5);
+}
+
+function mostrarRecomendacionesSugeridas() {
+
+    const contenedor =
+        document.getElementById("panelRecomendacionesOM12");
+
+    if (!contenedor) {
+        return;
+    }
+
+    const sugerencias = obtenerRecomendacionesSugeridas();
+
+    if (!sugerencias.length) {
+        contenedor.innerHTML =
+            '<div style="color:#666;font-size:13px;">Seleccione un área o escriba el elemento y la descripción para consultar sugerencias de la biblioteca.</div>';
+        return;
+    }
+
+    contenedor.innerHTML = `
+        <div style="font-weight:bold;color:#123b5d;margin-bottom:8px;">💡 Recomendaciones sugeridas</div>
+        ${sugerencias.map(({ item, indice }) => `
+            <div style="border:1px solid #d1d5db;border-radius:7px;padding:10px;margin-bottom:8px;background:#fff;">
+                <div style="font-weight:bold;color:#123b5d;font-size:13px;">${escaparTextoOM12(item.tema || item.area)}</div>
+                <div style="font-size:13px;line-height:1.45;margin:6px 0;">${escaparTextoOM12(item.recomendacion)}</div>
+                <button type="button" onclick="usarRecomendacionBiblioteca(${indice})"
+                    style="background:#1d70b7;color:white;border:none;padding:7px 11px;border-radius:5px;cursor:pointer;">
+                    Usar esta recomendación
+                </button>
+            </div>
+        `).join("")}
+    `;
+}
+
+function usarRecomendacionBiblioteca(indice) {
+
+    const biblioteca = obtenerBibliotecaRecomendaciones();
+    const recomendacion = biblioteca[indice];
+
+    if (!recomendacion) {
+        return;
+    }
+
+    const campo = document.getElementById("hallazgoRecomendacion");
+
+    if (!campo) {
+        return;
+    }
+
+    campo.value = recomendacion.recomendacion || "";
+    campo.focus();
+}
+
+function guardarRecomendacionEnBiblioteca() {
+
+    const area = document.getElementById("hallazgoArea")?.value || "";
+    const elemento = document.getElementById("hallazgoElemento")?.value || "";
+    const recomendacion = document.getElementById("hallazgoRecomendacion")?.value.trim() || "";
+    const palabras = document.getElementById("hallazgoPalabrasClaveBiblioteca")?.value || "";
+
+    if (!area || !recomendacion) {
+        alert("Para agregar una recomendación a la biblioteca, indique el área y la recomendación.");
+        return;
+    }
+
+    const biblioteca = obtenerBibliotecaRecomendaciones();
+    const recomendacionNormalizada = normalizarTextoOM12(recomendacion);
+
+    const duplicada = biblioteca.some(item =>
+        normalizarTextoOM12(item.recomendacion) === recomendacionNormalizada &&
+        normalizarTextoOM12(item.area) === normalizarTextoOM12(area)
+    );
+
+    if (duplicada) {
+        alert("Esta recomendación ya existe en la biblioteca para el área seleccionada.");
+        return;
+    }
+
+    const palabrasClave = palabras
+        .split(",")
+        .map(palabra => palabra.trim())
+        .filter(Boolean);
+
+    if (elemento && !palabrasClave.includes(elemento.trim())) {
+        palabrasClave.unshift(elemento.trim());
+    }
+
+    const nuevo = {
+        id: "OM12-" + String(Date.now()),
+        area: area,
+        tema: elemento || "Nueva recomendación",
+        palabrasClave: palabrasClave,
+        recomendacion: recomendacion,
+        fuente: "Agregada por el inspector"
+    };
+
+    biblioteca.push(nuevo);
+
+    localStorage.setItem(
+        CLAVE_BIBLIOTECA_RECOMENDACIONES,
+        JSON.stringify(biblioteca)
+    );
+
+    mostrarRecomendacionesSugeridas();
+
+    alert("Recomendación agregada a la biblioteca OM-12. La biblioteca seguirá creciendo con nuevas recomendaciones.");
+}
 
 // CAMBIO OM-11 — Agrupar los hallazgos registrados por área/categoría.
 // Se reutiliza hallazgo.area ya existente, conservando los índices reales para editar
@@ -5023,8 +5331,10 @@ function editarHallazgo(indice) {
     document.getElementById("hallazgoRecomendacion").value =
         hallazgo.recomendacion || "";
 
+    document.getElementById("hallazgoPalabrasClaveBiblioteca").value = "";
     document.getElementById("hallazgoFotoCamara").value = "";
     document.getElementById("hallazgoFotosGaleria").value = "";
+    mostrarRecomendacionesSugeridas();
 
 fotosHallazgoEditando =
     Array.isArray(hallazgo.fotos)
@@ -5286,11 +5596,13 @@ actualizarContadores();
     document.getElementById("hallazgoDescripcion").value = "";
     document.getElementById("hallazgoNivel").value = "";
     document.getElementById("hallazgoRecomendacion").value = "";
+    document.getElementById("hallazgoPalabrasClaveBiblioteca").value = "";
     document.getElementById("hallazgoFotoCamara").value = "";
     document.getElementById("hallazgoFotosGaleria").value = "";
 
     mostrarFotosHallazgoEditando();
     renderizarHallazgosRegistrados();
+    mostrarRecomendacionesSugeridas();
 
     alert("Hallazgo guardado correctamente. Puede registrar otro hallazgo.");
 
@@ -5320,7 +5632,7 @@ actualizarContadores();
         </div>
 
         <label>Área o categoría</label>
-        <select id="hallazgoArea">
+        <select id="hallazgoArea" onchange="mostrarRecomendacionesSugeridas()">
             <option value="">Seleccione un área</option>
             <option>Control de Accesos</option>
             <option>Seguridad Perimetral</option>
@@ -5334,13 +5646,15 @@ actualizarContadores();
         <input
             type="text"
             id="hallazgoElemento"
-            placeholder="Ejemplo: Portón vehicular">
+            placeholder="Ejemplo: Portón vehicular"
+            oninput="mostrarRecomendacionesSugeridas()">
 
         <label>Descripción del hallazgo</label>
         <textarea
             id="hallazgoDescripcion"
             rows="4"
-            placeholder="Describa detalladamente la condición encontrada"></textarea>
+            placeholder="Describa detalladamente la condición encontrada"
+            oninput="mostrarRecomendacionesSugeridas()"></textarea>
 
         <label>Nivel de riesgo</label>
         <select id="hallazgoNivel">
@@ -5356,6 +5670,35 @@ actualizarContadores();
             id="hallazgoRecomendacion"
             rows="4"
             placeholder="Indique la medida preventiva recomendada"></textarea>
+
+        <!-- =====================================================
+             OM-12 — ASISTENTE DE RECOMENDACIONES
+             Sugiere contenido desde la biblioteca viva, pero el
+             inspector conserva siempre la revisión y decisión final.
+        ====================================================== -->
+        <div style="margin-top:10px;padding:12px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;">
+            <div style="font-weight:bold;color:#123b5d;margin-bottom:6px;">🧠 Asistente OM-12</div>
+            <div style="font-size:13px;color:#555;margin-bottom:10px;">
+                Sugerencias basadas en recomendaciones guardadas. Puede usarlas, editarlas o escribir una nueva.
+            </div>
+
+            <div id="panelRecomendacionesOM12" style="margin-bottom:10px;">
+                <div style="color:#666;font-size:13px;">Seleccione un área o escriba el elemento y la descripción para consultar sugerencias de la biblioteca.</div>
+            </div>
+
+            <label style="font-size:13px;">Palabras clave para esta nueva recomendación (opcional)</label>
+            <input
+                type="text"
+                id="hallazgoPalabrasClaveBiblioteca"
+                placeholder="Ejemplo: iluminación, punto ciego, cerramiento"
+                style="margin-bottom:8px;"
+            >
+
+            <button type="button" onclick="guardarRecomendacionEnBiblioteca()"
+                style="background:#123b5d;color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;">
+                ➕ Agregar recomendación a la biblioteca
+            </button>
+        </div>
 
         <label>Evidencia fotográfica</label>
 
