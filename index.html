@@ -1923,6 +1923,14 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
 
     inspecciones[Number(indiceEdicion)] = inspeccion;
 
+    // CAMBIO OM-08 — Mantener activa la inspección que se está editando.
+    // Así, el módulo de Hallazgos trabaja sobre el mismo informe y no sobre
+    // una inspección anterior que haya quedado seleccionada en localStorage.
+    localStorage.setItem(
+        "indiceInspeccionSeleccionadaInforme",
+        String(Number(indiceEdicion))
+    );
+
     delete formulario.dataset.editando;
 
     indiceInspeccionEditando = null;
@@ -1930,6 +1938,13 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
 } else {
 
     inspecciones.push(inspeccion);
+
+    // CAMBIO OM-08 — Al crear una inspección nueva, seleccionar inmediatamente
+    // su índice interno para que los nuevos hallazgos queden ligados a este informe.
+    localStorage.setItem(
+        "indiceInspeccionSeleccionadaInforme",
+        String(inspecciones.length - 1)
+    );
 }
 
             localStorage.setItem(
@@ -5042,12 +5057,20 @@ async function guardarHallazgo() {
     const hallazgos = JSON.parse(
         localStorage.getItem("hallazgos")
     ) || [];
-const indiceInspeccion =
-    localStorage.getItem("indiceInspeccionSeleccionadaInforme");
-    alert(
-    "Inspección asignada al hallazgo: " +
-    indiceInspeccion
-);
+
+    const indiceInspeccion =
+        localStorage.getItem("indiceInspeccionSeleccionadaInforme");
+
+    // CAMBIO OM-08 — Mantener cada hallazgo ligado a la inspección a la que pertenece.
+    // Al editar, se conserva la inspección original del hallazgo; solo los hallazgos nuevos
+    // toman la inspección actualmente seleccionada. Esto evita que un informe pueda modificar
+    // la pertenencia de un hallazgo de otro informe.
+    const inspeccionHallazgo =
+        indiceHallazgoEditando !== null &&
+        hallazgos[indiceHallazgoEditando]
+            ? Number(hallazgos[indiceHallazgoEditando].inspeccion)
+            : (indiceInspeccion !== null ? Number(indiceInspeccion) : null);
+
     const hallazgoActualizado = {
 
     fecha:
@@ -5056,9 +5079,9 @@ const indiceInspeccion =
             ? hallazgos[indiceHallazgoEditando].fecha
             : new Date().toISOString(),
 
-    inspeccion: indiceInspeccion !== null
-        ? Number(indiceInspeccion)
-        : null,
+    inspeccion: Number.isNaN(inspeccionHallazgo)
+        ? null
+        : inspeccionHallazgo,
 
     area: area,
 
