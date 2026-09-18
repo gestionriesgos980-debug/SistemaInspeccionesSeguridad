@@ -4996,7 +4996,8 @@ function editarHallazgo(indice) {
     document.getElementById("hallazgoRecomendacion").value =
         hallazgo.recomendacion || "";
 
-    document.getElementById("hallazgoFotos").value = "";
+    document.getElementById("hallazgoFotoCamara").value = "";
+    document.getElementById("hallazgoFotosGaleria").value = "";
 
 fotosHallazgoEditando =
     Array.isArray(hallazgo.fotos)
@@ -5090,7 +5091,11 @@ async function guardarHallazgo() {
     const descripcion = document.getElementById("hallazgoDescripcion").value;
     const nivel = document.getElementById("hallazgoNivel").value;
     const recomendacion = document.getElementById("hallazgoRecomendacion").value;
-    const archivos = document.getElementById("hallazgoFotos").files;
+    // CAMBIO OM-08-C: Reúne las fotos tomadas con cámara y las seleccionadas desde galería
+    // en el mismo flujo de procesamiento existente, sin modificar compresión ni almacenamiento.
+    const archivosCamara = document.getElementById("hallazgoFotoCamara").files;
+    const archivosGaleria = document.getElementById("hallazgoFotosGaleria").files;
+    const archivos = [...archivosCamara, ...archivosGaleria];
 
     if (!area || !elemento || !descripcion || !nivel || !recomendacion) {
         alert("Por favor complete todos los campos del hallazgo.");
@@ -5254,7 +5259,8 @@ actualizarContadores();
     document.getElementById("hallazgoDescripcion").value = "";
     document.getElementById("hallazgoNivel").value = "";
     document.getElementById("hallazgoRecomendacion").value = "";
-    document.getElementById("hallazgoFotos").value = "";
+    document.getElementById("hallazgoFotoCamara").value = "";
+    document.getElementById("hallazgoFotosGaleria").value = "";
 
     mostrarFotosHallazgoEditando();
     renderizarHallazgosRegistrados();
@@ -5325,12 +5331,26 @@ actualizarContadores();
             placeholder="Indique la medida preventiva recomendada"></textarea>
 
         <label>Evidencia fotográfica</label>
-       <!-- CAMBIO OM-08-C: Se elimina capture="environment" para mejorar la compatibilidad del selector de fotografías con Chrome en Android/Samsung. Se conserva accept="image/*" y multiple. -->
-       <input
-    type="file"
-    id="hallazgoFotos"
-    accept="image/*"
-    multiple>
+
+        <!-- CAMBIO OM-08-C: Se separan explícitamente la captura con cámara y la selección de galería.
+             Esto evita depender de cómo Chrome/Android interprete un único input de archivos.
+             Ambos campos alimentan el mismo flujo actual de compresión y almacenamiento de fotos. -->
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin:8px 0 12px;">
+            <button type="button" onclick="document.getElementById('hallazgoFotoCamara').click()"
+                    style="padding:9px 14px; border:1px solid #123b5d; border-radius:6px; cursor:pointer;">
+                📷 Tomar foto
+            </button>
+
+            <button type="button" onclick="document.getElementById('hallazgoFotosGaleria').click()"
+                    style="padding:9px 14px; border:1px solid #123b5d; border-radius:6px; cursor:pointer;">
+                🖼️ Seleccionar de galería
+            </button>
+        </div>
+
+        <input type="file" id="hallazgoFotoCamara" accept="image/*" capture="environment"
+               style="display:none;">
+        <input type="file" id="hallazgoFotosGaleria" accept="image/*" multiple
+               style="display:none;">
 
         <div id="vistaFotosHallazgo"></div>
 
