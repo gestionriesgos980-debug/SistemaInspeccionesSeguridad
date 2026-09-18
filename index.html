@@ -617,6 +617,9 @@
         type="file"
         id="imagenGoogleMaps"
         accept="image/*">
+    <img id="vistaPreviaGoogleMaps"
+         alt="Vista previa Google Maps"
+         style="display:none; max-width:100%; max-height:180px; margin-top:10px; border:1px solid #ccc; border-radius:6px;">
 </div>
 
 <div class="campo">
@@ -625,6 +628,9 @@
         type="file"
         id="imagenGoogleEarth"
         accept="image/*">
+    <img id="vistaPreviaGoogleEarth"
+         alt="Vista previa Google Earth"
+         style="display:none; max-width:100%; max-height:180px; margin-top:10px; border:1px solid #ccc; border-radius:6px;">
 </div>
                     
                     <div class="campo completo">
@@ -1652,6 +1658,16 @@ function cerrarDashboard() {
 
     function cerrarNuevaInspeccion() {
         modal.style.display = "none";
+
+        // CAMBIO OM-06: Limpia las vistas previas al cerrar el formulario
+        // para que una inspección nueva no muestre imágenes de otra.
+        ["vistaPreviaGoogleMaps", "vistaPreviaGoogleEarth"].forEach(id => {
+            const vista = document.getElementById(id);
+            if (vista) {
+                vista.src = "";
+                vista.style.display = "none";
+            }
+        });
     }
 
 
@@ -1729,6 +1745,16 @@ function cerrarDashboard() {
                     String(ultimoNumeroInspeccion)
                         .padStart(4, "0");
             }
+
+// CAMBIO OM-06: Conserva las imágenes de georreferenciación existentes
+// durante una edición cuando el usuario no selecciona una imagen nueva.
+const inspeccionesParaImagenes =
+    JSON.parse(localStorage.getItem("inspecciones")) || [];
+
+const inspeccionAnteriorImagenes =
+    (indiceEdicion !== undefined && indiceEdicion !== "")
+        ? inspeccionesParaImagenes[Number(indiceEdicion)]
+        : null;
 
 const archivoGoogleMaps =
     document.getElementById("imagenGoogleMaps")?.files[0] || null;
@@ -1815,6 +1841,17 @@ const imagenGoogleMapsNueva =
 const imagenGoogleEarthNueva =
     await convertirImagen(archivoGoogleEarth);
 
+// CAMBIO OM-06: Usa la imagen nueva si existe; de lo contrario conserva
+// la imagen previamente almacenada para evitar perderla al editar.
+const imagenGoogleMapsFinal =
+    imagenGoogleMapsNueva ||
+    inspeccionAnteriorImagenes?.imagenGoogleMaps ||
+    "";
+
+const imagenGoogleEarthFinal =
+    imagenGoogleEarthNueva ||
+    inspeccionAnteriorImagenes?.imagenGoogleEarth ||
+    "";
 
 
             
@@ -1880,8 +1917,9 @@ areaIndustrial:
 
                 
 
-                imagenGoogleMaps: imagenGoogleMapsNueva,
-imagenGoogleEarth: imagenGoogleEarthNueva
+                // CAMBIO OM-06: Conserva o reemplaza las imágenes de georreferenciación.
+                imagenGoogleMaps: imagenGoogleMapsFinal,
+                imagenGoogleEarth: imagenGoogleEarthFinal
 
                
             };
@@ -3971,6 +4009,33 @@ document.getElementById("objetivo").value =
 
     document.getElementById("entorno").value =
         inspeccion.entorno || "";
+
+    // CAMBIO OM-06: Muestra las imágenes satelitales previamente guardadas
+    // al editar una inspección; el input file sigue libre para seleccionar
+    // una nueva imagen que reemplace la anterior al guardar.
+    const vistaGoogleMaps =
+        document.getElementById("vistaPreviaGoogleMaps");
+    if (vistaGoogleMaps) {
+        if (inspeccion.imagenGoogleMaps) {
+            vistaGoogleMaps.src = inspeccion.imagenGoogleMaps;
+            vistaGoogleMaps.style.display = "block";
+        } else {
+            vistaGoogleMaps.src = "";
+            vistaGoogleMaps.style.display = "none";
+        }
+    }
+
+    const vistaGoogleEarth =
+        document.getElementById("vistaPreviaGoogleEarth");
+    if (vistaGoogleEarth) {
+        if (inspeccion.imagenGoogleEarth) {
+            vistaGoogleEarth.src = inspeccion.imagenGoogleEarth;
+            vistaGoogleEarth.style.display = "block";
+        } else {
+            vistaGoogleEarth.src = "";
+            vistaGoogleEarth.style.display = "none";
+        }
+    }
 
     const cuerpo =
         document.getElementById("cuerpoIncidentes");
