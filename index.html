@@ -4917,8 +4917,9 @@ function cerrarHallazgos() {
     let indiceHallazgoEditando = null;
 let fotosHallazgoEditando = [];
 
-// CAMBIO OM-08 — Lista de hallazgos registrados de la inspección seleccionada.
-// Utiliza los índices reales de localStorage para reutilizar editarHallazgo(indice).
+// CAMBIO OM-11 — Agrupar los hallazgos registrados por área/categoría.
+// Se reutiliza hallazgo.area ya existente, conservando los índices reales para editar
+// y sin modificar la estructura de almacenamiento ni la asociación con la inspección.
 function renderizarHallazgosRegistrados() {
 
     const contenedor =
@@ -4947,21 +4948,47 @@ function renderizarHallazgosRegistrados() {
         return;
     }
 
-    contenedor.innerHTML = hallazgosInspeccion
-        .map(({ hallazgo, indiceReal }, posicion) => `
-            <div style="border:1px solid #cbd5e1;border-radius:8px;padding:12px;margin-bottom:10px;background:#f8fafc;">
-                <div style="font-weight:bold;color:#123b5d;margin-bottom:6px;">
-                    Hallazgo ${posicion + 1} — ${hallazgo.area || "Sin área"}
+    // CAMBIO OM-11 — Construye grupos visuales por área/categoría sin cambiar
+    // los datos guardados. El orden de aparición de las familias se conserva.
+    const grupos = {};
+
+    hallazgosInspeccion.forEach(({ hallazgo, indiceReal }) => {
+        const area = hallazgo.area || "Sin área";
+
+        if (!grupos[area]) {
+            grupos[area] = [];
+        }
+
+        grupos[area].push({ hallazgo, indiceReal });
+    });
+
+    let numeroHallazgo = 0;
+
+    contenedor.innerHTML = Object.entries(grupos)
+        .map(([area, registros]) => `
+            <div style="margin-bottom:16px;">
+                <div style="font-weight:bold;color:#123b5d;font-size:16px;margin-bottom:8px;padding:8px 10px;background:#eef4f8;border-left:4px solid #123b5d;border-radius:6px;">
+                    ${area} <span style="font-weight:normal;color:#666;font-size:13px;">(${registros.length})</span>
                 </div>
-                <div><strong>Elemento:</strong> ${hallazgo.elemento || "Sin especificar"}</div>
-                <div><strong>Nivel:</strong> ${hallazgo.nivel || "Sin especificar"}</div>
-                <div style="margin-top:6px;"><strong>Descripción:</strong> ${hallazgo.descripcion || "Sin descripción"}</div>
-                <button
-                    type="button"
-                    onclick="editarHallazgo(${indiceReal})"
-                    style="margin-top:10px;background:#1d70b7;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;">
-                    ✏️ Editar hallazgo
-                </button>
+                ${registros.map(({ hallazgo, indiceReal }) => {
+                    numeroHallazgo++;
+                    return `
+                        <div style="border:1px solid #cbd5e1;border-radius:8px;padding:12px;margin-bottom:10px;background:#f8fafc;">
+                            <div style="font-weight:bold;color:#123b5d;margin-bottom:6px;">
+                                Hallazgo ${numeroHallazgo}
+                            </div>
+                            <div><strong>Elemento:</strong> ${hallazgo.elemento || "Sin especificar"}</div>
+                            <div><strong>Nivel:</strong> ${hallazgo.nivel || "Sin especificar"}</div>
+                            <div style="margin-top:6px;"><strong>Descripción:</strong> ${hallazgo.descripcion || "Sin descripción"}</div>
+                            <button
+                                type="button"
+                                onclick="editarHallazgo(${indiceReal})"
+                                style="margin-top:10px;background:#1d70b7;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;">
+                                ✏️ Editar hallazgo
+                            </button>
+                        </div>
+                    `;
+                }).join("")}
             </div>
         `)
         .join("");
