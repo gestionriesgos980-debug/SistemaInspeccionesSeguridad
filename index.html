@@ -6506,6 +6506,18 @@ const respuestasChecklist =
 console.log("RESPUESTAS CHECKLIST:", respuestasChecklist);
 console.log("DATOS CHECKLIST:", datosChecklist);
 console.log("RESULTADOS CATEGORÍAS:", resultadosCategorias);
+
+    console.log(
+    "DEBUG CHECKLIST INFORME:",
+    JSON.stringify({
+        indiceSeleccionado,
+        respuestasChecklist,
+        datosChecklist,
+        resultadosCategorias
+    }, null, 2)
+);
+
+    
     // =====================================================
 // FUNCIÓN: MATRIZ UTILIZADA POR EL MAPA DE CALOR
 // OBJETIVO: Utilizar la matriz independiente del cliente
