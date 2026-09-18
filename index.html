@@ -5455,7 +5455,7 @@ function mostrarFotosHallazgoEditando() {
                 "
             >
                 <img
-                    src="${foto}"
+                    src="${obtenerImagenDeFoto(foto)}"
                     alt="Evidencia fotográfica"
                     style="
                         width:180px;
@@ -5499,6 +5499,119 @@ function eliminarFotoHallazgo(indice) {
     mostrarFotosHallazgoEditando();
 }
     
+// CAMBIO TIMESTAMP FOTOGRÁFICO — Evidencia fotográfica con sello visible e integridad.
+// La fotografía se sella en el momento de procesarla y se calcula una huella SHA-256
+// sobre la imagen sellada. Las fotografías antiguas continúan siendo compatibles.
+function obtenerImagenDeFoto(foto) {
+    return typeof foto === "string" ? foto : (foto?.imagen || foto?.data || "");
+}
+
+async function calcularHashFoto(dataUrl) {
+    if (!dataUrl || !window.crypto?.subtle) {
+        return "";
+    }
+
+    const datos = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(dataUrl)
+    );
+
+    return Array.from(new Uint8Array(datos))
+        .map(byte => byte.toString(16).padStart(2, "0"))
+        .join("");
+}
+
+function obtenerIdControlFoto(indiceInspeccion) {
+    const inspecciones =
+        JSON.parse(localStorage.getItem("inspecciones")) || [];
+
+    return indiceInspeccion !== null &&
+        inspecciones[Number(indiceInspeccion)]
+        ? (inspecciones[Number(indiceInspeccion)].idControl || "")
+        : "";
+}
+
+async function procesarFotoConTimestamp(archivo, indiceInspeccion, numeroHallazgo) {
+    return new Promise((resolve, reject) => {
+
+        const lector = new FileReader();
+
+        lector.onload = async function(evento) {
+            try {
+                const imagen = new Image();
+
+                imagen.onload = async function() {
+                    const maximo = 1200;
+                    let ancho = imagen.width;
+                    let alto = imagen.height;
+
+                    if (ancho > maximo || alto > maximo) {
+                        if (ancho > alto) {
+                            alto = Math.round(alto * maximo / ancho);
+                            ancho = maximo;
+                        } else {
+                            ancho = Math.round(ancho * maximo / alto);
+                            alto = maximo;
+                        }
+                    }
+
+                    const canvas = document.createElement("canvas");
+                    canvas.width = ancho;
+                    canvas.height = alto;
+
+                    const contexto = canvas.getContext("2d");
+                    contexto.drawImage(imagen, 0, 0, ancho, alto);
+
+                    // Sello visible: se incorpora a los píxeles de la evidencia.
+                    const fechaHora = new Date();
+                    const selloFecha = fechaHora.toLocaleDateString("es-CO");
+                    const selloHora = fechaHora.toLocaleTimeString("es-CO", { hour12: false });
+                    const idControl = obtenerIdControlFoto(indiceInspeccion);
+
+                    const altoSello = 54;
+                    const selloY = Math.max(0, alto - altoSello);
+
+                    contexto.fillStyle = "rgba(0,0,0,0.72)";
+                    contexto.fillRect(0, selloY, ancho, altoSello);
+
+                    contexto.fillStyle = "#ffffff";
+                    contexto.font = "bold 13px Arial";
+                    contexto.fillText(
+                        `TECCHNEX | ${idControl || "SIN-ID"} | HALLAZGO ${numeroHallazgo}`,
+                        10,
+                        selloY + 20
+                    );
+                    contexto.font = "12px Arial";
+                    contexto.fillText(
+                        `CAPTURA: ${selloFecha} ${selloHora}`,
+                        10,
+                        selloY + 40
+                    );
+
+                    const imagenSellada = canvas.toDataURL("image/jpeg", 0.82);
+                    const hash = await calcularHashFoto(imagenSellada);
+
+                    resolve({
+                        imagen: imagenSellada,
+                        timestamp: fechaHora.toISOString(),
+                        hashSha256: hash,
+                        idControl: idControl,
+                        hallazgo: numeroHallazgo
+                    });
+                };
+
+                imagen.onerror = reject;
+                imagen.src = evento.target.result;
+            } catch (error) {
+                reject(error);
+            }
+        };
+
+        lector.onerror = reject;
+        lector.readAsDataURL(archivo);
+    });
+}
+
 async function guardarHallazgo() {
 
     const area = document.getElementById("hallazgoArea").value;
@@ -5517,68 +5630,25 @@ async function guardarHallazgo() {
         return;
     }
 
-    /* Convertir y comprimir fotografías */
+    /* CAMBIO TIMESTAMP FOTOGRÁFICO — Procesar cada evidencia con sello + SHA-256. */
+    const inspeccionParaFoto =
+        localStorage.getItem("indiceInspeccionSeleccionadaInforme");
+
+    const hallazgosExistentesParaFoto =
+        JSON.parse(localStorage.getItem("hallazgos")) || [];
+
+    const numeroHallazgoFoto = indiceHallazgoEditando !== null
+        ? indiceHallazgoEditando + 1
+        : hallazgosExistentesParaFoto.length + 1;
+
     const fotos = await Promise.all(
-        Array.from(archivos).map(archivo => {
-
-            return new Promise((resolve, reject) => {
-
-                const lector = new FileReader();
-
-                lector.onload = function(evento) {
-
-                    const imagen = new Image();
-
-                    imagen.onload = function() {
-
-                        const maximo = 1200;
-
-                        let ancho = imagen.width;
-                        let alto = imagen.height;
-
-                        if (ancho > maximo || alto > maximo) {
-
-                            if (ancho > alto) {
-                                alto = Math.round(alto * maximo / ancho);
-                                ancho = maximo;
-                            } else {
-                                ancho = Math.round(ancho * maximo / alto);
-                                alto = maximo;
-                            }
-                        }
-
-                        const canvas = document.createElement("canvas");
-
-                        canvas.width = ancho;
-                        canvas.height = alto;
-
-                        const contexto = canvas.getContext("2d");
-
-                        contexto.drawImage(
-                            imagen,
-                            0,
-                            0,
-                            ancho,
-                            alto
-                        );
-
-                        const fotoComprimida = canvas.toDataURL(
-                            "image/jpeg",
-                            0.75
-                        );
-
-                        resolve(fotoComprimida);
-                    };
-
-                    imagen.onerror = reject;
-                    imagen.src = evento.target.result;
-                };
-
-                lector.onerror = reject;
-
-                lector.readAsDataURL(archivo);
-            });
-        })
+        Array.from(archivos).map(archivo =>
+            procesarFotoConTimestamp(
+                archivo,
+                inspeccionParaFoto,
+                numeroHallazgoFoto
+            )
+        )
     );
 
     const hallazgos = JSON.parse(
@@ -7444,7 +7514,7 @@ function riesgosEnCelda(probabilidad, impacto) {
                 overflow:hidden;
             ">
                 <img
-                    src="${foto}"
+                    src="${obtenerImagenDeFoto(foto)}"
                     alt="Evidencia fotográfica"
                     style="
                         display:block;
@@ -7455,6 +7525,11 @@ function riesgosEnCelda(probabilidad, impacto) {
                         object-fit:contain;
                     "
                 >
+                ${typeof foto === "object" && foto?.hashSha256 ? `
+                    <div style="font-size:9px;color:#555;margin-top:3px;word-break:break-all;">
+                        Timestamp: ${foto.timestamp || ""} | SHA-256: ${foto.hashSha256}
+                    </div>
+                ` : ""}
             </div>
         `).join("")}
     </div>
