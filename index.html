@@ -3266,6 +3266,19 @@ const diferencia =
 </button>
 
 <!-- =====================================================
+     CAMBIO OM-08 — ACCESO INDEPENDIENTE A HALLAZGOS
+     OBJETIVO: abrir Hallazgos directamente sobre la inspección
+     de esta fila, evitando depender de una inspección previamente seleccionada.
+====================================================== -->
+<button
+    type="button"
+    class="boton-principal"
+    onclick="abrirHallazgos(${item.indiceOriginal})"
+>
+    ⚠️ Hallazgos
+</button>
+
+<!-- =====================================================
      FUNCIÓN: ACCESO A MATRIZ DE RIESGOS DEL CLIENTE
      OBJETIVO: Permitir consultar y editar la matriz de
      riesgos independiente de una inspección específica.
@@ -5136,12 +5149,11 @@ if (
 
 actualizarContadores();
 
-// CAMBIO OM-08 — Finalizar el modo edición después de guardar para que el siguiente
-// hallazgo se cree como un registro nuevo y no reutilice el índice anterior.
-indiceHallazgoEditando = null;
-fotosHallazgoEditando = [];
-
-alert("Hallazgo guardado correctamente.");
+    // CAMBIO OM-08-B — Mantener abierta la ventana de Hallazgos después de guardar.
+    // El formulario se limpia, la lista se actualiza y el inspector puede registrar
+    // inmediatamente otro hallazgo sin cerrar ni volver a abrir la ventana.
+    indiceHallazgoEditando = null;
+    fotosHallazgoEditando = [];
 
     document.getElementById("hallazgoArea").value = "";
     document.getElementById("hallazgoElemento").value = "";
@@ -5150,7 +5162,12 @@ alert("Hallazgo guardado correctamente.");
     document.getElementById("hallazgoRecomendacion").value = "";
     document.getElementById("hallazgoFotos").value = "";
 
-    cerrarHallazgos();
+    mostrarFotosHallazgoEditando();
+    renderizarHallazgosRegistrados();
+
+    alert("Hallazgo guardado correctamente. Puede registrar otro hallazgo.");
+
+    // La ventana permanece abierta deliberadamente para permitir el registro consecutivo.
 }
 
 </script>
