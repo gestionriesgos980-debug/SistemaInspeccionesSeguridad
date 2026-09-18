@@ -3967,6 +3967,42 @@ document.getElementById("objetivo").value =
         }
     }
 
+    // CAMBIO OM-04: Reconstruye los servicios de seguridad guardados al editar una inspección, evitando perderlos o duplicarlos en el formulario.
+    [
+        { id: "cuerpoSeguridadActual", datos: inspeccion.seguridadActual, tipo: "actual" },
+        { id: "cuerpoSeguridadSugerido", datos: inspeccion.seguridadSugerida, tipo: "sugerida" }
+    ].forEach(({ id, datos, tipo }) => {
+        const cuerpoSeguridad = document.getElementById(id);
+
+        if (!cuerpoSeguridad) {
+            return;
+        }
+
+        cuerpoSeguridad.innerHTML = "";
+
+        if (Array.isArray(datos) && datos.length > 0) {
+            datos.forEach(servicio => {
+                agregarServicioSeguridad(tipo);
+
+                const filas = cuerpoSeguridad.querySelectorAll("tr");
+                const fila = filas[filas.length - 1];
+
+                fila.querySelector(".servicio-seguridad").value =
+                    servicio.servicio || "";
+                fila.querySelector(".horario-seguridad").value =
+                    servicio.horario || "";
+                fila.querySelector(".jornada-seguridad").value =
+                    servicio.jornada || "";
+                fila.querySelector(".dias-seguridad").value =
+                    servicio.dias || "";
+                fila.querySelector(".modalidad-seguridad").value =
+                    servicio.modalidad || "";
+            });
+        } else {
+            agregarServicioSeguridad(tipo);
+        }
+    });
+
     modal.style.display = "block";
 }
   function eliminarInspeccion(indice) {
@@ -4731,6 +4767,12 @@ function abrirHallazgos(indice) {
         String(indice)
     );
 
+    // CAMBIO OM-08 — Mostrar los hallazgos ya registrados de la inspección
+    // para permitir seleccionarlos y editarlos sin alterar el almacenamiento existente.
+    indiceHallazgoEditando = null;
+    fotosHallazgoEditando = [];
+    renderizarHallazgosRegistrados();
+
     const ventana =
         document.getElementById("ventanaHallazgos");
 
@@ -4741,12 +4783,67 @@ function abrirHallazgos(indice) {
 function cerrarHallazgos() {
     const ventana = document.getElementById("ventanaHallazgos");
 
+    // CAMBIO OM-08 — Al cerrar, liberar el modo edición para que un nuevo hallazgo
+    // no pueda sobrescribir accidentalmente el hallazgo editado anteriormente.
+    indiceHallazgoEditando = null;
+    fotosHallazgoEditando = [];
+
     if (ventana) {
         ventana.style.display = "none";
     }
 }
     let indiceHallazgoEditando = null;
 let fotosHallazgoEditando = [];
+
+// CAMBIO OM-08 — Lista de hallazgos registrados de la inspección seleccionada.
+// Utiliza los índices reales de localStorage para reutilizar editarHallazgo(indice).
+function renderizarHallazgosRegistrados() {
+
+    const contenedor =
+        document.getElementById("listaHallazgosRegistrados");
+
+    if (!contenedor) {
+        return;
+    }
+
+    const indiceInspeccion = Number(
+        localStorage.getItem("indiceInspeccionSeleccionadaInforme")
+    );
+
+    const hallazgos =
+        JSON.parse(localStorage.getItem("hallazgos")) || [];
+
+    const hallazgosInspeccion = hallazgos
+        .map((hallazgo, indiceReal) => ({ hallazgo, indiceReal }))
+        .filter(({ hallazgo }) =>
+            Number(hallazgo.inspeccion) === indiceInspeccion
+        );
+
+    if (!hallazgosInspeccion.length) {
+        contenedor.innerHTML =
+            '<p style="margin:0;color:#666;">No hay hallazgos registrados para esta inspección.</p>';
+        return;
+    }
+
+    contenedor.innerHTML = hallazgosInspeccion
+        .map(({ hallazgo, indiceReal }, posicion) => `
+            <div style="border:1px solid #cbd5e1;border-radius:8px;padding:12px;margin-bottom:10px;background:#f8fafc;">
+                <div style="font-weight:bold;color:#123b5d;margin-bottom:6px;">
+                    Hallazgo ${posicion + 1} — ${hallazgo.area || "Sin área"}
+                </div>
+                <div><strong>Elemento:</strong> ${hallazgo.elemento || "Sin especificar"}</div>
+                <div><strong>Nivel:</strong> ${hallazgo.nivel || "Sin especificar"}</div>
+                <div style="margin-top:6px;"><strong>Descripción:</strong> ${hallazgo.descripcion || "Sin descripción"}</div>
+                <button
+                    type="button"
+                    onclick="editarHallazgo(${indiceReal})"
+                    style="margin-top:10px;background:#1d70b7;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;">
+                    ✏️ Editar hallazgo
+                </button>
+            </div>
+        `)
+        .join("");
+}
 
 function editarHallazgo(indice) {
     
@@ -5016,6 +5113,11 @@ if (
 
 actualizarContadores();
 
+// CAMBIO OM-08 — Finalizar el modo edición después de guardar para que el siguiente
+// hallazgo se cree como un registro nuevo y no reutilice el índice anterior.
+indiceHallazgoEditando = null;
+fotosHallazgoEditando = [];
+
 alert("Hallazgo guardado correctamente.");
 
     document.getElementById("hallazgoArea").value = "";
@@ -5043,6 +5145,12 @@ alert("Hallazgo guardado correctamente.");
         <p class="modal-subtitulo">
             Registro de hallazgos, observaciones, evidencias y recomendaciones.
         </p>
+
+        <!-- CAMBIO OM-08 — Acceso visual a los hallazgos existentes para editar. -->
+        <div
+            id="listaHallazgosRegistrados"
+            style="margin-bottom:18px; padding:12px; border:1px solid #d1d5db; border-radius:8px; background:#ffffff;">
+        </div>
 
         <label>Área o categoría</label>
         <select id="hallazgoArea">
