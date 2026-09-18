@@ -5325,11 +5325,11 @@ actualizarContadores();
             placeholder="Indique la medida preventiva recomendada"></textarea>
 
         <label>Evidencia fotográfica</label>
+       <!-- CAMBIO OM-08-C: Se elimina capture="environment" para mejorar la compatibilidad del selector de fotografías con Chrome en Android/Samsung. Se conserva accept="image/*" y multiple. -->
        <input
     type="file"
     id="hallazgoFotos"
     accept="image/*"
-    capture="environment"
     multiple>
 
         <div id="vistaFotosHallazgo"></div>
