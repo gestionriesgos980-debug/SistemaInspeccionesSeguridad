@@ -570,6 +570,7 @@
     <select id="sectorInspeccion">
         <option value="">Seleccione...</option>
         <option value="Residencial">Residencial</option>
+        <option value="Parcelación">Parcelación</option>
         <option value="Industrial">Industrial</option>
         <option value="Comercial">Comercial</option>
         <option value="Educativo">Educativo</option>
@@ -664,7 +665,6 @@
                 <option value="">Seleccione...</option>
                 <option value="Urbanización">Urbanización</option>
                 <option value="Edificio">Edificio</option>
-                <option value="Parcelación">Parcelación</option>
                 <option value="Otro">Otro</option>
             </select>
         </div>
@@ -794,6 +794,80 @@
                 id="areaIndustrial"
                 min="0"
                 placeholder="Ej. 5000">
+        </div>
+
+    </div>
+
+</div>
+
+<!-- CAMBIO SECTOR-PARCELACION-COMERCIAL: Características específicas de Parcelación.
+     Se mantiene independiente de Residencial para que el formulario responda al sector seleccionado. -->
+<div class="seccion" id="caracteristicasParcelacion" style="display:none;">
+
+    <h3>Características de la instalación - Parcelación</h3>
+
+    <div class="fila">
+
+        <div class="campo">
+            <label>Número de lotes</label>
+            <input type="number" id="numeroLotesParcelacion" min="0" placeholder="Ej. 80">
+        </div>
+
+        <div class="campo">
+            <label>Viviendas construidas</label>
+            <input type="number" id="viviendasConstruidasParcelacion" min="0" placeholder="Ej. 45">
+        </div>
+
+        <div class="campo">
+            <label>Viviendas en construcción</label>
+            <input type="number" id="viviendasConstruccionParcelacion" min="0" placeholder="Ej. 10">
+        </div>
+
+    </div>
+
+</div>
+
+<!-- CAMBIO SECTOR-PARCELACION-COMERCIAL: Características específicas del sector Comercial.
+     El campo Otra información permite registrar particularidades sin alterar la estructura principal. -->
+<div class="seccion" id="caracteristicasComercial" style="display:none;">
+
+    <h3>Características de la instalación - Comercial</h3>
+
+    <div class="fila">
+
+        <div class="campo">
+            <label>Tipo de establecimiento</label>
+            <input type="text" id="tipoEstablecimientoComercial" placeholder="Ej. Centro comercial, supermercado, local">
+        </div>
+
+        <div class="campo">
+            <label>Actividad comercial</label>
+            <input type="text" id="actividadComercial" placeholder="Actividad principal">
+        </div>
+
+        <div class="campo">
+            <label>Área aproximada (m²)</label>
+            <input type="number" id="areaComercial" min="0" placeholder="Ej. 2500">
+        </div>
+
+        <div class="campo">
+            <label>Número de locales</label>
+            <input type="number" id="numeroLocalesComercial" min="0" placeholder="Ej. 40">
+        </div>
+
+        <div class="campo">
+            <label>Número de niveles</label>
+            <input type="number" id="nivelesComercial" min="0" placeholder="Ej. 3">
+        </div>
+
+        <div class="campo">
+            <label>Parqueaderos</label>
+            <input type="number" id="parqueaderosComercial" min="0" placeholder="Cantidad">
+        </div>
+
+        <div class="campo completo">
+            <label>Otra información</label>
+            <textarea id="otraInformacionComercial" placeholder="Registre información adicional relevante de la instalación comercial."></textarea>
         </div>
 
     </div>
@@ -1885,6 +1959,30 @@ cantidadBodegas:
 
 areaIndustrial:
     document.getElementById("areaIndustrial").value,
+
+// CAMBIO SECTOR-PARCELACION-COMERCIAL: Guarda las características
+// específicas de Parcelación y Comercial para conservarlas al editar
+// y utilizarlas posteriormente en el informe.
+numeroLotesParcelacion:
+    document.getElementById("numeroLotesParcelacion").value,
+viviendasConstruidasParcelacion:
+    document.getElementById("viviendasConstruidasParcelacion").value,
+viviendasConstruccionParcelacion:
+    document.getElementById("viviendasConstruccionParcelacion").value,
+tipoEstablecimientoComercial:
+    document.getElementById("tipoEstablecimientoComercial").value,
+actividadComercial:
+    document.getElementById("actividadComercial").value,
+areaComercial:
+    document.getElementById("areaComercial").value,
+numeroLocalesComercial:
+    document.getElementById("numeroLocalesComercial").value,
+nivelesComercial:
+    document.getElementById("nivelesComercial").value,
+parqueaderosComercial:
+    document.getElementById("parqueaderosComercial").value,
+otraInformacionComercial:
+    document.getElementById("otraInformacionComercial").value,
                 
                 objetivo: document.getElementById("objetivo").value,
 
@@ -4017,15 +4115,56 @@ document.getElementById("actividadPrincipalIndustrial").value =
 document.getElementById("areaIndustrial").value =
     inspeccion.areaIndustrial || "";
 
+// CAMBIO SECTOR-PARCELACION-COMERCIAL: Recupera al editar los campos
+// específicos de Parcelación y Comercial sin afectar inspecciones antiguas.
+document.getElementById("numeroLotesParcelacion").value =
+    inspeccion.numeroLotesParcelacion || "";
+document.getElementById("viviendasConstruidasParcelacion").value =
+    inspeccion.viviendasConstruidasParcelacion || "";
+document.getElementById("viviendasConstruccionParcelacion").value =
+    inspeccion.viviendasConstruccionParcelacion || "";
+document.getElementById("tipoEstablecimientoComercial").value =
+    inspeccion.tipoEstablecimientoComercial || "";
+document.getElementById("actividadComercial").value =
+    inspeccion.actividadComercial || "";
+document.getElementById("areaComercial").value =
+    inspeccion.areaComercial || "";
+document.getElementById("numeroLocalesComercial").value =
+    inspeccion.numeroLocalesComercial || "";
+document.getElementById("nivelesComercial").value =
+    inspeccion.nivelesComercial || "";
+document.getElementById("parqueaderosComercial").value =
+    inspeccion.parqueaderosComercial || "";
+document.getElementById("otraInformacionComercial").value =
+    inspeccion.otraInformacionComercial || "";
+
 
     
 
 const caracteristicasIndustrial =
     document.getElementById("caracteristicasIndustrial");
+const caracteristicasParcelacion =
+    document.getElementById("caracteristicasParcelacion");
+const caracteristicasComercial =
+    document.getElementById("caracteristicasComercial");
 
 if (caracteristicasIndustrial) {
     caracteristicasIndustrial.style.display =
         inspeccion.sectorInspeccion === "Industrial"
+            ? "block"
+            : "none";
+}
+
+if (caracteristicasParcelacion) {
+    caracteristicasParcelacion.style.display =
+        inspeccion.sectorInspeccion === "Parcelación"
+            ? "block"
+            : "none";
+}
+
+if (caracteristicasComercial) {
+    caracteristicasComercial.style.display =
+        inspeccion.sectorInspeccion === "Comercial"
             ? "block"
             : "none";
 }
@@ -7278,6 +7417,86 @@ if (inspeccion.sectorInspeccion === "Residencial") {
         </table>
     `;
 
+} else if (inspeccion.sectorInspeccion === "Parcelación") {
+
+    const camposParcelacion = [
+        ["Número de lotes", inspeccion.numeroLotesParcelacion],
+        ["Viviendas construidas", inspeccion.viviendasConstruidasParcelacion],
+        ["Viviendas en construcción", inspeccion.viviendasConstruccionParcelacion]
+    ];
+
+    const camposDiligenciados =
+        camposParcelacion.filter(campo =>
+            campo[1] !== undefined &&
+            campo[1] !== null &&
+            String(campo[1]).trim() !== ""
+        );
+
+    caracteristicasInstalacionHTML = `
+        <h3 style="color:#123b5d;">
+            Características de la instalación - Parcelación
+        </h3>
+
+        <table style="
+            width:100%;
+            border-collapse:collapse;
+            margin-bottom:20px;
+        ">
+            ${camposDiligenciados.map(campo => `
+                <tr>
+                    <td style="padding:8px;border:1px solid #999;">
+                        <strong>${campo[0]}</strong>
+                    </td>
+                    <td style="padding:8px;border:1px solid #999;">
+                        ${escapar(campo[1])}
+                    </td>
+                </tr>
+            `).join("")}
+        </table>
+    `;
+
+} else if (inspeccion.sectorInspeccion === "Comercial") {
+
+    const camposComercial = [
+        ["Tipo de establecimiento", inspeccion.tipoEstablecimientoComercial],
+        ["Actividad comercial", inspeccion.actividadComercial],
+        ["Área aproximada (m²)", inspeccion.areaComercial],
+        ["Número de locales", inspeccion.numeroLocalesComercial],
+        ["Número de niveles", inspeccion.nivelesComercial],
+        ["Parqueaderos", inspeccion.parqueaderosComercial],
+        ["Otra información", inspeccion.otraInformacionComercial]
+    ];
+
+    const camposDiligenciados =
+        camposComercial.filter(campo =>
+            campo[1] !== undefined &&
+            campo[1] !== null &&
+            String(campo[1]).trim() !== ""
+        );
+
+    caracteristicasInstalacionHTML = `
+        <h3 style="color:#123b5d;">
+            Características de la instalación - Comercial
+        </h3>
+
+        <table style="
+            width:100%;
+            border-collapse:collapse;
+            margin-bottom:20px;
+        ">
+            ${camposDiligenciados.map(campo => `
+                <tr>
+                    <td style="padding:8px;border:1px solid #999;">
+                        <strong>${campo[0]}</strong>
+                    </td>
+                    <td style="padding:8px;border:1px solid #999;">
+                        ${escapar(campo[1])}
+                    </td>
+                </tr>
+            `).join("")}
+        </table>
+    `;
+
 }
 
    console.log("INSPECCIÓN DEL INFORME:", inspeccion);
@@ -9948,22 +10167,31 @@ document.addEventListener("DOMContentLoaded", function () {
     const sectorSelect = document.getElementById("sectorInspeccion");
     const industrial = document.getElementById("caracteristicasIndustrial");
     const residencial = document.getElementById("caracteristicasResidencial");
+    const parcelacion = document.getElementById("caracteristicasParcelacion");
+    const comercial = document.getElementById("caracteristicasComercial");
 
     if (sectorSelect) {
 
         function actualizarSector() {
 
-    // Ocultar Industrial inicialmente
+    // CAMBIO SECTOR-PARCELACION-COMERCIAL: Oculta todas las secciones
+    // sectoriales y muestra únicamente la correspondiente a la selección.
     if (industrial) {
         industrial.style.display = "none";
     }
 
-    // Ocultar Residencial inicialmente
     if (residencial) {
         residencial.style.display = "none";
     }
 
-    // Mostrar la sección correspondiente
+    if (parcelacion) {
+        parcelacion.style.display = "none";
+    }
+
+    if (comercial) {
+        comercial.style.display = "none";
+    }
+
     if (sectorSelect.value === "Industrial") {
 
         if (industrial) {
@@ -9974,6 +10202,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (residencial) {
             residencial.style.display = "block";
+        }
+
+    } else if (sectorSelect.value === "Parcelación") {
+
+        if (parcelacion) {
+            parcelacion.style.display = "block";
+        }
+
+    } else if (sectorSelect.value === "Comercial") {
+
+        if (comercial) {
+            comercial.style.display = "block";
         }
     }
 }
