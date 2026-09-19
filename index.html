@@ -3189,10 +3189,96 @@ function renderizarDirectorioClientesOM16() {
                 <td style="padding:9px;border:1px solid #ddd;text-align:center;white-space:nowrap;">
                     <button type="button" onclick="editarClienteOM16(${indice})" style="margin:2px;padding:7px 9px;border:0;border-radius:6px;background:#e5e7eb;cursor:pointer;">✏️</button>
                     <button type="button" onclick="eliminarClienteOM16(${indice})" style="margin:2px;padding:7px 9px;border:0;border-radius:6px;background:#fee2e2;color:#991b1b;cursor:pointer;">🗑️</button>
+                    <button type="button" onclick="mostrarInspeccionesClienteOM16(${indice})" style="margin:2px;padding:7px 9px;border:0;border-radius:6px;background:#dbeafe;color:#123b5d;cursor:pointer;">📋 ${cantidadInspecciones}</button>
+                </td>
+            </tr>
+            <tr id="filaInspeccionesClienteOM16-${indice}" style="display:none;">
+                <td colspan="7" style="padding:0;border:1px solid #cbd5e1;background:#f8fafc;">
+                    <div id="detalleInspeccionesClienteOM16-${indice}" style="padding:14px;"></div>
                 </td>
             </tr>
         `;
     }).join("");
+}
+
+// OM-16.1-A — Recuperar consulta y edición de inspecciones realizadas por cliente.
+function mostrarInspeccionesClienteOM16(indiceCliente) {
+    const fila = document.getElementById(`filaInspeccionesClienteOM16-${indiceCliente}`);
+    const detalle = document.getElementById(`detalleInspeccionesClienteOM16-${indiceCliente}`);
+
+    if (!fila || !detalle) return;
+
+    if (fila.style.display === "table-row") {
+        fila.style.display = "none";
+        return;
+    }
+
+    const clientes = inicializarDirectorioClientesOM16();
+    const cliente = clientes[indiceCliente];
+    const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
+
+    if (!cliente) return;
+
+    const inspeccionesCliente = inspecciones
+        .map((inspeccion, indiceOriginal) => ({ inspeccion, indiceOriginal }))
+        .filter(item =>
+            String(item.inspeccion.cliente || "").trim().toLowerCase() ===
+            String(cliente.cliente || "").trim().toLowerCase()
+        );
+
+    if (!inspeccionesCliente.length) {
+        detalle.innerHTML = `
+            <div style="padding:12px;text-align:center;color:#666;">
+                Este cliente no tiene inspecciones registradas.
+            </div>
+        `;
+        fila.style.display = "table-row";
+        return;
+    }
+
+    detalle.innerHTML = `
+        <div style="font-weight:bold;color:#123b5d;margin-bottom:10px;">
+            📋 Inspecciones realizadas — ${escaparClienteOM16(cliente.cliente || "")}
+        </div>
+        <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;background:#fff;">
+                <thead>
+                    <tr style="background:#123b5d;color:#fff;">
+                        <th style="padding:8px;border:1px solid #9ca3af;">ID de inspección</th>
+                        <th style="padding:8px;border:1px solid #9ca3af;">Fecha</th>
+                        <th style="padding:8px;border:1px solid #9ca3af;">Inspector</th>
+                        <th style="padding:8px;border:1px solid #9ca3af;">Tipo de inspección</th>
+                        <th style="padding:8px;border:1px solid #9ca3af;">Vigencia</th>
+                        <th style="padding:8px;border:1px solid #9ca3af;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${inspeccionesCliente.map(item => {
+                        const inspeccion = item.inspeccion;
+                        const estado = typeof obtenerEstadoVencimiento === "function"
+                            ? obtenerEstadoVencimiento(inspeccion.fecha || "")
+                            : { texto: "", clase: "" };
+
+                        return `
+                            <tr>
+                                <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">${escaparClienteOM16(inspeccion.idControl || `INS-${String(item.indiceOriginal + 1).padStart(4, "0")}`)}</td>
+                                <td style="padding:8px;border:1px solid #ddd;">${escaparClienteOM16(inspeccion.fecha || "—")}</td>
+                                <td style="padding:8px;border:1px solid #ddd;">${escaparClienteOM16(inspeccion.inspector || "—")}</td>
+                                <td style="padding:8px;border:1px solid #ddd;">${escaparClienteOM16(inspeccion.tipo || "—")}</td>
+                                <td style="padding:8px;border:1px solid #ddd;text-align:center;">${escaparClienteOM16(estado.texto || "—")}</td>
+                                <td style="padding:8px;border:1px solid #ddd;text-align:center;white-space:nowrap;">
+                                    <button type="button" onclick="editarInspeccion(${item.indiceOriginal})" style="margin:2px;padding:7px 10px;border:0;border-radius:6px;background:#e5e7eb;cursor:pointer;">✏️ Editar</button>
+                                    <button type="button" onclick="generarInformeInspeccion(${item.indiceOriginal})" style="margin:2px;padding:7px 10px;border:0;border-radius:6px;background:#dbeafe;color:#123b5d;cursor:pointer;">📄 Informe</button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    fila.style.display = "table-row";
 }
 
 function mostrarFormularioClienteOM16(indice = "") {
