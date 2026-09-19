@@ -7082,6 +7082,11 @@ function generarPDF(ventana) {
             useCORS: true
         },
 
+        pagebreak: {
+            mode: ["css", "legacy"],
+            avoid: [".bloque-pdf"]
+        },
+
         jsPDF: {
             unit: "mm",
             format: "a4",
@@ -7922,6 +7927,28 @@ matrizParaInforme.forEach((riesgo, indice) => {
                     padding:45px;
                 }
 
+                /* CAMBIO PDF-PRESENTACION-2 — Mantener cada bloque principal del informe
+                   unido cuando sea posible para evitar que una sección quede partida entre páginas. */
+                .bloque-pdf {
+                    display:block;
+                    break-inside: avoid !important;
+                    page-break-inside: avoid !important;
+                }
+
+                /* AJUSTE PDF-PRESENTACION-2 — Evitar que los títulos de sección
+                   queden solos al final de una página. Las secciones principales
+                   comienzan en una página nueva para conservar su integridad visual. */
+                .seccion-pdf {
+                    display:block;
+                    break-inside: avoid;
+                    page-break-inside: avoid;
+                }
+
+                .inicio-seccion-pdf {
+                    break-before: page;
+                    page-break-before: always;
+                }
+
                 .encabezado {
 
                     border-bottom:4px solid #123b5d;
@@ -8218,6 +8245,21 @@ matrizParaInforme.forEach((riesgo, indice) => {
         page-break-after: avoid;
     }
 
+    .bloque-pdf {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+    }
+
+    .seccion-pdf {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .inicio-seccion-pdf {
+        break-before: page;
+        page-break-before: always;
+    }
+
     table {
         break-inside: auto;
         page-break-inside: auto;
@@ -8410,6 +8452,8 @@ matrizParaInforme.forEach((riesgo, indice) => {
 </div>
           
 
+<div class="bloque-pdf">
+
  <h2>
     1. Información general de la inspección
 </h2>
@@ -8483,8 +8527,11 @@ matrizParaInforme.forEach((riesgo, indice) => {
 
                 </table>
 
+</div>
+
 ${caracteristicasInstalacionHTML}
                 
+<div class="bloque-pdf inicio-seccion-pdf">
 <h3 style="
     color:#123b5d;
     border-bottom:2px solid #123b5d;
@@ -8579,7 +8626,9 @@ ${caracteristicasInstalacionHTML}
     </tr>
 
 </table>
-<div style="
+</div>
+
+<div class="bloque-pdf inicio-seccion-pdf" style="
     margin-top:25px;
     margin-bottom:20px;
 ">
@@ -9530,7 +9579,7 @@ ESTADO: EN DESARROLLO
 
 </div>                   
             
-               <h2>
+               <h2 class="inicio-seccion-pdf">
     4. Matriz de riesgos
 </h2>
 
@@ -9651,7 +9700,8 @@ ESTADO: EN DESARROLLO
 </div>
 
 
-<h2>
+<div class="seccion-pdf">
+<h2 class="inicio-seccion-pdf">
     5. Hallazgos identificados
 </h2>
 
@@ -9671,6 +9721,7 @@ ESTADO: EN DESARROLLO
         ${filasHallazgos}
     </tbody>
 </table>
+</div>
 
 
                 <div class="firmas">
