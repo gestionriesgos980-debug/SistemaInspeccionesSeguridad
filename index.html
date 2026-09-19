@@ -2,11 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">   }
-   
-        <!DOCTYPE html>
-
-        <html lang="es">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <link rel="manifest" href="manifest.json">
 
@@ -286,42 +282,6 @@
         @media (max-width: 500px) {
             .tarjetas {
                 grid-template-columns: 1fr;
-            }
-
-            /* OM-13.1: adaptar Checklist para uso vertical en celulares */
-            #ventanaChecklist {
-                padding: 10px !important;
-            }
-
-            #ventanaChecklist > div {
-                width: 100% !important;
-                margin: 0 auto !important;
-                padding: 15px !important;
-            }
-
-            #ventanaChecklist .checklist-item {
-                grid-template-columns: repeat(4, 1fr) !important;
-                gap: 6px !important;
-                padding: 12px 4px !important;
-            }
-
-            #ventanaChecklist .checklist-pregunta {
-                grid-column: 1 / -1;
-                padding-bottom: 8px;
-                line-height: 1.4;
-            }
-
-            #ventanaChecklist .checklist-opcion {
-                min-height: 58px;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-                gap: 4px;
-            }
-
-            #ventanaChecklist .checklist-opcion input[type="radio"] {
-                transform: scale(1.2);
             }
         }
 #ventanaHallazgos {
@@ -4674,7 +4634,7 @@ function generarChecklist() {
                 "check_" + indice + "_" + i;
 
             html += `
-                <div class="checklist-item" style="
+                <div style="
                     display:grid;
                     grid-template-columns:1fr 110px 110px 110px 110px;
                     gap:8px;
@@ -4683,11 +4643,11 @@ function generarChecklist() {
                     border-bottom:1px solid #eee;
                 ">
 
-                    <div class="checklist-pregunta">
+                    <div>
                         ${item}
                     </div>
 
-                    <label class="checklist-opcion" style="text-align:center;">
+                    <label style="text-align:center;">
                         <input
                             type="radio"
                             name="${id}"
@@ -4697,7 +4657,7 @@ function generarChecklist() {
                         <small>BUENO</small>
                     </label>
 
-                    <label class="checklist-opcion" style="text-align:center;">
+                    <label style="text-align:center;">
                         <input
                             type="radio"
                             name="${id}"
@@ -4707,7 +4667,7 @@ function generarChecklist() {
                         <small>REGULAR</small>
                     </label>
 
-                    <label class="checklist-opcion" style="text-align:center;">
+                    <label style="text-align:center;">
                         <input
                             type="radio"
                             name="${id}"
@@ -4716,7 +4676,7 @@ function generarChecklist() {
                         <br>
                         <small>MALO</small>
                     </label>
-<label class="checklist-opcion" style="text-align:center;">
+<label style="text-align:center;">
     <input
         type="radio"
         name="${id}"
