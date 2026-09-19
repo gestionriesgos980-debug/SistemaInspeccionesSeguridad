@@ -7501,46 +7501,6 @@ function riesgosEnCelda(probabilidad, impacto) {
  hallazgos.forEach((hallazgo, indice) => {
     const indiceReal = todosLosHallazgos.indexOf(hallazgo);
         
-        let fotosHTML = "";
-
-        if (
-            Array.isArray(hallazgo.fotos) &&
-            hallazgo.fotos.length
-        ) {
-
-            fotosHTML = `
-    <div class="fotos" style="
-        width:100%;
-        max-width:100%;
-        margin-top:8px;
-        overflow:hidden;
-    ">
-        ${hallazgo.fotos.map(foto => `
-            <div style="
-                width:100%;
-                max-width:100%;
-                margin-bottom:8px;
-                text-align:left;
-                overflow:hidden;
-            ">
-                <img
-                    src="${obtenerImagenDeFoto(foto)}"
-                    alt="Evidencia fotográfica"
-                    style="
-                        display:block;
-                        width:auto;
-                        max-width:100%;
-                        height:auto;
-                        max-height:180px;
-                        object-fit:contain;
-                    "
-                >
-            </div>
-        `).join("")}
-    </div>
-`;
-        }
-
                /*
 ========================================================
 TECCHNEX - CAMBIO #007
@@ -7556,56 +7516,75 @@ ESTADO: EN DESARROLLO
    ========================================================
 */
 
+        /*
+========================================================
+TECCHNEX - AJUSTE PDF HALLAZGOS - REFERENCIA ORIGINAL
+OBJETIVO: Reproducir la estructura visual del informe base:
+HALLAZGOS | ACCIÓN PREVENTIVA | REGISTRO FOTOGRÁFICO.
+El área se presenta como separador de categoría.
+Se reutilizan los datos existentes del hallazgo.
+========================================================
+*/
+        const areaHallazgo = String(hallazgo.area || "Sin área").trim();
+        const nivelHallazgo = String(hallazgo.nivel || "").trim();
+
+        let fotosHTML = "";
+
+        if (Array.isArray(hallazgo.fotos) && hallazgo.fotos.length) {
+            fotosHTML = `
+                <div class="fotos">
+                    ${hallazgo.fotos.map(foto => `
+                        <div>
+                            <img
+                                src="${obtenerImagenDeFoto(foto)}"
+                                alt="Registro fotográfico"
+                            >
+                        </div>
+                    `).join("")}
+                </div>
+            `;
+        }
+
+        /* CAMBIO PDF-HALLAZGOS-REFERENCIA — Cada área inicia con una
+           franja separadora, igual al informe base. Solo se agrega una
+           vez cuando cambia el área del hallazgo anterior. */
+        const areaAnterior = indice > 0 ? (hallazgos[indice - 1]?.area || "") : "";
+
+        if (areaHallazgo !== String(areaAnterior || "").trim()) {
+            filasHallazgos += `
+                <tr class="fila-area">
+                    <td colspan="3">${escapar(areaHallazgo)}</td>
+                </tr>
+            `;
+        }
+
         filasHallazgos += `
-            <tr>
-                <td>${indice + 1}</td>
-
-                <td>
-                    ${escapar(hallazgo.area)}
+            <tr class="fila-hallazgo">
+                <td class="col-hallazgo">
+                    <div class="dato-elemento">${escapar(hallazgo.elemento || "")}</div>
+                    <div>${escapar(hallazgo.descripcion || "Sin descripción")}</div>
+                    ${nivelHallazgo ? `<div class="dato-estado"><strong>Estado:</strong> ${escapar(nivelHallazgo)}</div>` : ""}
                 </td>
 
-                <td>
-                    ${escapar(hallazgo.elemento)}
+                <td class="col-recomendacion">
+                    ${escapar(hallazgo.recomendacion || "Sin recomendación registrada")}
                 </td>
 
-                <td style="
-                    vertical-align:top;
-                    word-wrap:break-word;
-                    overflow-wrap:break-word;
-                    word-break:break-word;
-                ">
-                    ${escapar(hallazgo.descripcion)}
-                </td>
-
-                <td style="
-                    vertical-align:top;
-                    text-align:center;
-                    overflow:hidden;
-                    word-break:break-word;
-                ">
-                    ${fotosHTML}
-                </td>
-
-                <td style="
-                    text-align:left;
-                    vertical-align:top;
-                ">
-                    ${escapar(hallazgo.recomendacion)}
+                <td class="col-fotografias">
+                    ${fotosHTML || '<span class="sin-foto">Sin evidencia fotográfica</span>'}
                 </td>
             </tr>
         `;
     });
 
     if (!filasHallazgos) {
-
         filasHallazgos = `
             <tr>
-                <td colspan="6">
-    No se registraron hallazgos.
-</td>
+                <td colspan="3">No se registraron hallazgos.</td>
             </tr>
         `;
     }
+
     /* =========================
        RESULTADOS POR CATEGORÍA
     ========================= */
@@ -8075,85 +8054,126 @@ matrizParaInforme.forEach((riesgo, indice) => {
                     vertical-align:top;
                 }
 /* =========================
-   CAM-008 — DISTRIBUCIÓN TABLA HALLAZGOS
+   PDF — HALLAZGOS / REFERENCIA ORIGINAL
+   Objetivo: recuperar la estructura visual del informe base:
+   HALLAZGOS | ACCIÓN PREVENTIVA | REGISTRO FOTOGRÁFICO.
+   El área/categoría se muestra como una franja separadora y
+   las fotografías se organizan dentro de su propia columna.
+   Solo se modifica la presentación del PDF.
    ========================= */
-/* =========================
-   CAM-011 — FIJAR DISTRIBUCIÓN DE COLUMNAS
-   ========================= */
-/* CAMBIO PDF-PRESENTACION-6 — Mejorar la presentación de la tabla de Hallazgos.
-   Se hacen explícitas las líneas exteriores, horizontales y verticales para que
-   cada hallazgo quede claramente delimitado en el PDF, sin modificar datos. */
-
 .tabla-hallazgos {
     width:100%;
     table-layout:fixed;
     border-collapse:collapse !important;
     border-spacing:0 !important;
-    border:1px solid #9aa7b2 !important;
+    border:1px solid #7f8c96 !important;
+    margin-top:8px;
+    font-size:8.8px;
+    color:#222;
 }
 
 .tabla-hallazgos th,
 .tabla-hallazgos td {
-    border:1px solid #9aa7b2 !important;
+    border:1px solid #7f8c96 !important;
     box-sizing:border-box;
-    word-wrap:break-word;
+    padding:6px 7px;
+    vertical-align:top;
     overflow-wrap:anywhere;
     word-break:normal;
-    vertical-align:top;
+    line-height:1.22;
 }
 
 .tabla-hallazgos th {
-    background:#123b5d !important;
-    color:#ffffff !important;
+    background:#d9d9d9 !important;
+    color:#111 !important;
     text-align:center;
     font-weight:bold;
+    vertical-align:middle;
+    font-size:8.5px;
+    padding:5px 4px;
 }
 
-.tabla-hallazgos td {
-    background:#ffffff;
+.tabla-hallazgos .fila-area td {
+    background:#d9d9d9 !important;
+    color:#111 !important;
+    font-weight:bold;
+    text-align:center;
+    padding:5px 6px;
+    font-size:9px;
 }
 
-.tabla-hallazgos tbody tr {
-    border-top:1px solid #9aa7b2 !important;
-    border-bottom:1px solid #9aa7b2 !important;
+.tabla-hallazgos .fila-hallazgo {
+    break-inside:avoid;
+    page-break-inside:avoid;
 }
 
-.tabla-hallazgos img {
-    max-width:100%;
-    height:auto;
-    display:block;
-    margin:0 auto;
+.tabla-hallazgos td.col-hallazgo,
+.tabla-hallazgos td.col-recomendacion {
+    text-align:left;
 }
+
+.tabla-hallazgos td.col-fotografias {
+    padding:4px;
+    text-align:center;
+    vertical-align:top;
+    overflow:hidden;
+}
+
+.tabla-hallazgos .fotos {
+    width:100% !important;
+    max-width:100% !important;
+    margin:0 !important;
+    display:grid !important;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:4px !important;
+    overflow:hidden !important;
+}
+
+.tabla-hallazgos .fotos > div {
+    width:100% !important;
+    max-width:100% !important;
+    margin:0 !important;
+    text-align:center !important;
+    overflow:hidden !important;
+}
+
+.tabla-hallazgos .fotos img {
+    display:block !important;
+    width:100% !important;
+    max-width:100% !important;
+    height:92px !important;
+    object-fit:contain !important;
+    margin:0 auto !important;
+    border:1px solid #70ad47 !important;
+    box-sizing:border-box;
+}
+
+.tabla-hallazgos .dato-elemento {
+    font-weight:bold;
+    margin-bottom:4px;
+}
+
+.tabla-hallazgos .dato-estado {
+    margin-top:5px;
+    font-size:8px;
+    color:#555;
+}
+
 .tabla-hallazgos th:nth-child(1),
-.tabla-hallazgos td:nth-child(1) {
-    width:5%;
-}
-
+.tabla-hallazgos td:nth-child(1) { width:35%; }
 .tabla-hallazgos th:nth-child(2),
-.tabla-hallazgos td:nth-child(2) {
-    width:13%;
-}
-
+.tabla-hallazgos td:nth-child(2) { width:30%; }
 .tabla-hallazgos th:nth-child(3),
-.tabla-hallazgos td:nth-child(3) {
-    width:16%;
+.tabla-hallazgos td:nth-child(3) { width:35%; }
+
+.tabla-hallazgos thead {
+    display:table-header-group;
 }
 
-.tabla-hallazgos th:nth-child(4),
-.tabla-hallazgos td:nth-child(4) {
-    width:28%;
+.sin-foto {
+    color:#777;
+    font-size:8.5px;
 }
-
-.tabla-hallazgos th:nth-child(5),
-.tabla-hallazgos td:nth-child(5) {
-    width:12%;
-}
-
-.tabla-hallazgos th:nth-child(6),
-.tabla-hallazgos td:nth-child(6) {
-    width:26%;
-}
-
 
                 .datos td:first-child {
 
@@ -8355,12 +8375,27 @@ matrizParaInforme.forEach((riesgo, indice) => {
         page-break-inside: avoid !important;
     }
 
-    /* CAMBIO PDF-PRESENTACION-6 — Reforzar líneas de la tabla durante impresión/PDF. */
+    /* CAMBIO PDF-PRESENTACION-7 — Mantener la tabla profesional y sus líneas
+       completas también al convertir el informe a PDF. */
     .tabla-hallazgos,
     .tabla-hallazgos th,
     .tabla-hallazgos td {
-        border:1px solid #9aa7b2 !important;
+        border:1px solid #7f8c96 !important;
         border-collapse:collapse !important;
+    }
+
+    .tabla-hallazgos thead {
+        display:table-header-group !important;
+    }
+
+    .tabla-hallazgos .fila-hallazgo {
+        break-inside:avoid !important;
+        page-break-inside:avoid !important;
+    }
+
+    .tabla-hallazgos .fila-area {
+        break-after:avoid !important;
+        page-break-after:avoid !important;
     }
 
     table {
@@ -9812,14 +9847,11 @@ ESTADO: EN DESARROLLO
 
 <table class="tabla-hallazgos">
     <thead>
-       <tr>
-    <th>#</th>
-    <th>Área</th>
-    <th>Elemento</th>
-    <th>Descripción / evidencia</th>
-    <th>Fotografías</th>
-    <th>Recomendación</th>
-</tr>
+        <tr>
+            <th>HALLAZGOS</th>
+            <th>ACCIÓN PREVENTIVA</th>
+            <th>REGISTRO FOTOGRÁFICO</th>
+        </tr>
     </thead>
 
     <tbody>
