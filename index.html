@@ -4082,6 +4082,7 @@ function generarInformeDesdeModulo() {
     );
 
     cerrarClientes();
+    cerrarDirectorioClientesOM16();
 
     generarInforme(ventana);
 }
@@ -4407,6 +4408,7 @@ function editarInspeccion(indice) {
         return;
     }
 cerrarClientes();
+cerrarDirectorioClientesOM16();
 modal.style.display = "block";
     document.getElementById("cliente").value =
         inspeccion.cliente || "";
