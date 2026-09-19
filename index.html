@@ -5712,19 +5712,78 @@ async function procesarFotoConTimestamp(archivo, indiceInspeccion, numeroHallazg
                     contexto.fillStyle = "rgba(8, 35, 58, 0.82)";
                     contexto.fillRect(0, selloY, ancho, altoSello);
 
-                    contexto.fillStyle = "#ffffff";
-                    contexto.font = `bold ${Math.max(18, Math.round(ancho * 0.018))}px Arial`;
-                    contexto.fillText(
-                        `TECCHNEX | ${idControl || "SIN-ID"} | HALLAZGO ${numeroHallazgo}`,
-                        Math.max(14, Math.round(ancho * 0.018)),
-                        selloY + Math.round(altoSello * 0.38)
+                    // CAMBIO OM-14.1 — Incorporar el mismo logo corporativo del encabezado
+                    // dentro del sello fotográfico, sin modificar la fotografía original
+                    // fuera del área destinada al timestamp.
+                    const margenSello = Math.max(14, Math.round(ancho * 0.018));
+                    const altoLogo = Math.min(
+                        Math.max(52, Math.round(altoSello * 0.72)),
+                        altoSello - 14
                     );
-                    contexto.font = `${Math.max(16, Math.round(ancho * 0.015))}px Arial`;
-                    contexto.fillText(
-                        `CAPTURA: ${selloFecha} ${selloHora}`,
-                        Math.max(14, Math.round(ancho * 0.018)),
-                        selloY + Math.round(altoSello * 0.73)
-                    );
+                    const logo = new Image();
+
+                    try {
+                        await new Promise((resolveLogo, rejectLogo) => {
+                            logo.onload = resolveLogo;
+                            logo.onerror = rejectLogo;
+                            logo.src = "logo-cotraser.png";
+                        });
+
+                        const proporcionLogo = logo.width / logo.height;
+                        const anchoLogo = Math.round(altoLogo * proporcionLogo);
+                        const logoX = margenSello;
+                        const logoY = selloY + Math.round((altoSello - altoLogo) / 2);
+
+                        contexto.drawImage(
+                            logo,
+                            logoX,
+                            logoY,
+                            anchoLogo,
+                            altoLogo
+                        );
+
+                        // El texto se desplaza para dejar el logo completamente visible.
+                        const inicioTexto = logoX + anchoLogo + margenSello;
+                        const espacioTexto = Math.max(
+                            14,
+                            ancho - inicioTexto - margenSello
+                        );
+
+                        contexto.fillStyle = "#ffffff";
+                        contexto.font = `bold ${Math.max(18, Math.round(ancho * 0.018))}px Arial`;
+                        contexto.fillText(
+                            `TECCHNEX | ${idControl || "SIN-ID"} | HALLAZGO ${numeroHallazgo}`,
+                            inicioTexto,
+                            selloY + Math.round(altoSello * 0.38),
+                            espacioTexto
+                        );
+
+                        contexto.font = `${Math.max(16, Math.round(ancho * 0.015))}px Arial`;
+                        contexto.fillText(
+                            `CAPTURA: ${selloFecha} ${selloHora}`,
+                            inicioTexto,
+                            selloY + Math.round(altoSello * 0.73),
+                            espacioTexto
+                        );
+
+                    } catch (errorLogo) {
+                        // Si el logo no pudiera cargarse, el timestamp continúa funcionando
+                        // con el diseño anterior para no perder la evidencia fotográfica.
+                        contexto.fillStyle = "#ffffff";
+                        contexto.font = `bold ${Math.max(18, Math.round(ancho * 0.018))}px Arial`;
+                        contexto.fillText(
+                            `TECCHNEX | ${idControl || "SIN-ID"} | HALLAZGO ${numeroHallazgo}`,
+                            margenSello,
+                            selloY + Math.round(altoSello * 0.38)
+                        );
+
+                        contexto.font = `${Math.max(16, Math.round(ancho * 0.015))}px Arial`;
+                        contexto.fillText(
+                            `CAPTURA: ${selloFecha} ${selloHora}`,
+                            margenSello,
+                            selloY + Math.round(altoSello * 0.73)
+                        );
+                    }
 
                     const imagenSellada = canvas.toDataURL("image/jpeg", 0.82);
                     const hash = await calcularHashFoto(imagenSellada);
@@ -5749,6 +5808,7 @@ async function procesarFotoConTimestamp(archivo, indiceInspeccion, numeroHallazg
         lector.readAsDataURL(archivo);
     });
 }
+
 
 async function guardarHallazgo() {
 
