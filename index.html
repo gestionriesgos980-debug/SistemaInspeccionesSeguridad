@@ -490,6 +490,14 @@
 
                 <div class="formulario">
 
+                    <div class="campo completo">
+                        <label>Seleccionar cliente del Directorio</label>
+                        <select id="clienteDirectorioOM17" onchange="cargarClienteDesdeDirectorioOM17(this.value)">
+                            <option value="">Seleccione un cliente...</option>
+                        </select>
+                        <small style="display:block;margin-top:5px;color:#64748b;">Los datos registrados en el Directorio se cargarán automáticamente.</small>
+                    </div>
+
                     <div class="campo">
                         <label>Cliente *</label>
                         <input type="text" id="cliente" required>
@@ -1704,9 +1712,50 @@ function agregarServicioSeguridad(tipo) {
     cuerpo.appendChild(fila);
 }
     
+    // CAMBIO OM-17 — Integración del Directorio de Clientes con Nueva Inspección.
+    // Al iniciar una inspección nueva se prepara el selector y, al seleccionar
+    // un cliente, se cargan automáticamente sus datos en el formulario.
+    function prepararSelectorClienteOM17() {
+        const selector = document.getElementById("clienteDirectorioOM17");
+        if (!selector || typeof inicializarDirectorioClientesOM16 !== "function") return;
+        const clientes = inicializarDirectorioClientesOM16();
+        selector.innerHTML = '<option value="">Seleccione un cliente...</option>';
+        clientes.forEach((cliente, indice) => {
+            if (cliente && cliente.estado !== "Inactivo") {
+                const option = document.createElement("option");
+                option.value = String(indice);
+                option.textContent = [cliente.codigo, cliente.cliente, cliente.nit ? `NIT ${cliente.nit}` : ""]
+                    .filter(Boolean).join(" — ");
+                selector.appendChild(option);
+            }
+        });
+    }
+
+    function cargarClienteDesdeDirectorioOM17(indice) {
+        if (indice === "") return;
+        const clientes = inicializarDirectorioClientesOM16();
+        const cliente = clientes[Number(indice)];
+        if (!cliente) return;
+        document.getElementById("cliente").value = cliente.cliente || "";
+        document.getElementById("nit").value = cliente.nit || "";
+        document.getElementById("direccion").value = cliente.direccion || "";
+        document.getElementById("ciudad").value = cliente.barrioMunicipio || "";
+        document.getElementById("contacto").value = cliente.administrador || "";
+        document.getElementById("telefono").value = cliente.telefonoAdmin || cliente.telefonoPuesto || "";
+        document.getElementById("correo").value = cliente.correo || "";
+        const formulario = document.getElementById("formInspeccion");
+        formulario.dataset.idClienteOM17 = cliente.idCliente || "";
+        formulario.dataset.codigoClienteOM17 = cliente.codigo || "";
+    }
+
     function abrirNuevaInspeccion() {
         document.getElementById("formInspeccion").removeAttribute("data-editando");
-indiceInspeccionEditando = null;
+        document.getElementById("formInspeccion").removeAttribute("data-id-cliente-om17");
+        document.getElementById("formInspeccion").removeAttribute("data-codigo-cliente-om17");
+        indiceInspeccionEditando = null;
+        prepararSelectorClienteOM17();
+        const selector = document.getElementById("clienteDirectorioOM17");
+        if (selector) selector.value = "";
         modal.style.display = "block";
 
         const fecha = document.getElementById("fecha");
@@ -1931,6 +1980,9 @@ const imagenGoogleEarthFinal =
 
                                 idControl: idControl,
 
+                // CAMBIO OM-17 — Mantener la referencia del cliente seleccionado.
+                idCliente: document.getElementById("formInspeccion").dataset.idClienteOM17 || "",
+                codigoCliente: document.getElementById("formInspeccion").dataset.codigoClienteOM17 || "",
                 cliente: document.getElementById("cliente").value,
                 nit: document.getElementById("nit").value,
                 direccion: document.getElementById("direccion").value,
@@ -4410,6 +4462,22 @@ function editarInspeccion(indice) {
 cerrarClientes();
 cerrarDirectorioClientesOM16();
 modal.style.display = "block";
+
+    // CAMBIO OM-17 — Recuperar la referencia del Directorio al editar.
+    prepararSelectorClienteOM17();
+    const selectorEdicionOM17 = document.getElementById("clienteDirectorioOM17");
+    if (selectorEdicionOM17) {
+        const clientesEdicionOM17 = inicializarDirectorioClientesOM16();
+        const idxClienteOM17 = clientesEdicionOM17.findIndex(c =>
+            (inspeccion.idCliente && c.idCliente === inspeccion.idCliente) ||
+            (inspeccion.codigoCliente && c.codigo === inspeccion.codigoCliente) ||
+            (c.cliente && inspeccion.cliente && normalizarClaveClienteOM16(c.cliente) === normalizarClaveClienteOM16(inspeccion.cliente))
+        );
+        selectorEdicionOM17.value = idxClienteOM17 >= 0 ? String(idxClienteOM17) : "";
+    }
+    document.getElementById("formInspeccion").dataset.idClienteOM17 = inspeccion.idCliente || "";
+    document.getElementById("formInspeccion").dataset.codigoClienteOM17 = inspeccion.codigoCliente || "";
+
     document.getElementById("cliente").value =
         inspeccion.cliente || "";
 
