@@ -7562,19 +7562,19 @@ ESTADO: EN DESARROLLO
                 </td>
 
                 <td style="
-                    width:28%;
                     vertical-align:top;
                     word-wrap:break-word;
                     overflow-wrap:break-word;
+                    word-break:break-word;
                 ">
                     ${escapar(hallazgo.descripcion)}
                 </td>
 
                 <td style="
-                    width:23%;
                     vertical-align:top;
                     text-align:center;
                     overflow:hidden;
+                    word-break:break-word;
                 ">
                     ${fotosHTML}
                 </td>
@@ -7907,9 +7907,15 @@ matrizParaInforme.forEach((riesgo, indice) => {
                     background:white;
                 }
 
+                /* CAMBIO PDF-PRESENTACION — Mantener la hoja dentro del ancho útil A4.
+                   Evita que el padding se sume al ancho y provoque recortes laterales. */
                 .hoja {
 
+                    width:100%;
+
                     max-width:1100px;
+
+                    box-sizing:border-box;
 
                     margin:auto;
 
@@ -7994,6 +8000,8 @@ matrizParaInforme.forEach((riesgo, indice) => {
 /* =========================
    CAM-011 — FIJAR DISTRIBUCIÓN DE COLUMNAS
    ========================= */
+/* CAMBIO PDF-PRESENTACION — Las seis columnas deben sumar exactamente 100%.
+   Se evita el desbordamiento horizontal que cortaba información en el PDF. */
 
 .tabla-hallazgos {
     width:100%;
@@ -8026,17 +8034,17 @@ matrizParaInforme.forEach((riesgo, indice) => {
 
 .tabla-hallazgos th:nth-child(4),
 .tabla-hallazgos td:nth-child(4) {
-    width:29%;
+    width:28%;
 }
 
 .tabla-hallazgos th:nth-child(5),
 .tabla-hallazgos td:nth-child(5) {
-    width:8%;
+    width:12%;
 }
 
 .tabla-hallazgos th:nth-child(6),
 .tabla-hallazgos td:nth-child(6) {
-    width:29%;
+    width:26%;
 }
 
 
