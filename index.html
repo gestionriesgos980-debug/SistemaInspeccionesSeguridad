@@ -8718,6 +8718,26 @@ matrizParaInforme.forEach((riesgo, indice) => {
         page-break-inside: avoid;
     }
 
+    /* =====================================================
+       PDF-05 — BORDES DE TABLAS VISIBLES AL PAGINAR
+       OBJETIVO: Mantener visibles los límites de filas y
+       columnas para identificar claramente la continuidad
+       de las tablas entre páginas. No modifica contenido.
+    ====================================================== */
+    table {
+        border: 1px solid #777 !important;
+        border-collapse: collapse !important;
+    }
+
+    th,
+    td {
+        border: 1px solid #777 !important;
+    }
+
+    tbody tr {
+        border-bottom: 1px solid #777 !important;
+    }
+
     /* Mantener cada título con el contenido que le sigue. */
     h2,
     h3,
