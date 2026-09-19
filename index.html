@@ -7069,7 +7069,7 @@ function generarPDF(ventana) {
     }
 
     const opciones = {
-        margin: 5,
+        margin: 0,
         filename: "Informe_Inspeccion_Seguridad.pdf",
 
         image: {
@@ -7082,9 +7082,11 @@ function generarPDF(ventana) {
             useCORS: true
         },
 
+        /* CAMBIO PDF-PRESENTACION-4 — Usar únicamente las reglas CSS de paginación
+           para evitar saltos heredados que dejen títulos sin su contenido. */
         pagebreak: {
-            mode: ["css", "legacy"],
-            avoid: [".bloque-pdf"]
+            mode: ["css"],
+            avoid: [".bloque-pdf", "tr"]
         },
 
         jsPDF: {
@@ -7916,12 +7918,27 @@ matrizParaInforme.forEach((riesgo, indice) => {
                    Evita que el padding se sume al ancho y provoque recortes laterales. */
                 /* CAMBIO PDF-PRESENTACION-3 — Subir el encabezado y liberar espacio útil
                    en la primera página sin alterar el contenido del informe. */
+                /* CAMBIO PDF-PRESENTACION-4 — Ajustar la hoja al área útil A4
+                   para eliminar el espacio superior excesivo y mantener el contenido
+                   dentro del ancho imprimible sin recortes laterales. */
+                @page {
+                    size: A4 portrait;
+                    margin: 0;
+                }
+
                 .hoja {
-                    width:100%;
-                    max-width:1100px;
+                    width:190mm;
+                    max-width:190mm;
                     box-sizing:border-box;
-                    margin:auto;
-                    padding:18px 25px 30px;
+                    margin:0 auto;
+                    padding:0 0 8mm;
+                }
+
+                /* CAMBIO PDF-PRESENTACION-5 — Compactar el encabezado para
+                   eliminar el espacio superior excesivo y aprovechar el área útil A4. */
+                .encabezado {
+                    margin-top:0 !important;
+                    padding-top:0 !important;
                 }
 
                 /* CAMBIO PDF-PRESENTACION-3 — Evitar cortes arbitrarios de bloques pequeños,
@@ -7939,13 +7956,50 @@ matrizParaInforme.forEach((riesgo, indice) => {
                     page-break-inside: auto;
                 }
 
+                /* CAMBIO PDF-PRESENTACION-4 — Salto de página controlado mediante
+                   un elemento independiente. Evita que un bloque de sección pueda
+                   hacer desaparecer su tabla al forzar break-before sobre el contenedor. */
+                .salto-pagina-pdf {
+                    height:0;
+                    margin:0;
+                    padding:0;
+                    break-before: page;
+                    page-break-before: always;
+                }
+
                 /* CAMBIO PDF-PRESENTACION-3 — La página nueva se aplica al bloque de la sección,
                    no al H2 interno, evitando conflictos entre break-before y break-inside. */
                 .inicio-seccion-pdf {
-                    break-before: page;
-                    page-break-before: always;
                     break-after: avoid;
                     page-break-after: avoid;
+                }
+
+                /* CAMBIO PDF-PRESENTACION-5 — La sección de Hallazgos debe iniciar
+                   en una página nueva, pero su tabla sí puede continuar en páginas
+                   siguientes. */
+                .seccion-hallazgos-pdf {
+                    break-before:page;
+                    page-break-before:always;
+                    break-inside:auto;
+                    page-break-inside:auto;
+                }
+
+                .seccion-hallazgos-pdf h2 {
+                    break-after:avoid;
+                    page-break-after:avoid;
+                }
+
+                .tabla-hallazgos {
+                    table-layout:fixed;
+                    font-size:10px;
+                    width:100%;
+                }
+
+                .tabla-hallazgos th,
+                .tabla-hallazgos td {
+                    padding:5px;
+                    overflow-wrap:anywhere;
+                    word-break:break-word;
                 }
 
                 .encabezado {
@@ -8026,22 +8080,49 @@ matrizParaInforme.forEach((riesgo, indice) => {
 /* =========================
    CAM-011 — FIJAR DISTRIBUCIÓN DE COLUMNAS
    ========================= */
-/* CAMBIO PDF-PRESENTACION — Las seis columnas deben sumar exactamente 100%.
-   Se evita el desbordamiento horizontal que cortaba información en el PDF. */
+/* CAMBIO PDF-PRESENTACION-6 — Mejorar la presentación de la tabla de Hallazgos.
+   Se hacen explícitas las líneas exteriores, horizontales y verticales para que
+   cada hallazgo quede claramente delimitado en el PDF, sin modificar datos. */
 
 .tabla-hallazgos {
     width:100%;
     table-layout:fixed;
+    border-collapse:collapse !important;
+    border-spacing:0 !important;
+    border:1px solid #9aa7b2 !important;
 }
+
+.tabla-hallazgos th,
 .tabla-hallazgos td {
+    border:1px solid #9aa7b2 !important;
+    box-sizing:border-box;
     word-wrap:break-word;
-    overflow-wrap:break-word;
+    overflow-wrap:anywhere;
+    word-break:normal;
     vertical-align:top;
 }
+
+.tabla-hallazgos th {
+    background:#123b5d !important;
+    color:#ffffff !important;
+    text-align:center;
+    font-weight:bold;
+}
+
+.tabla-hallazgos td {
+    background:#ffffff;
+}
+
+.tabla-hallazgos tbody tr {
+    border-top:1px solid #9aa7b2 !important;
+    border-bottom:1px solid #9aa7b2 !important;
+}
+
 .tabla-hallazgos img {
     max-width:100%;
     height:auto;
     display:block;
+    margin:0 auto;
 }
 .tabla-hallazgos th:nth-child(1),
 .tabla-hallazgos td:nth-child(1) {
@@ -8248,13 +8329,38 @@ matrizParaInforme.forEach((riesgo, indice) => {
     }
 
     .seccion-pdf {
-        break-inside: avoid;
-        page-break-inside: avoid;
+        break-inside: auto;
+        page-break-inside: auto;
     }
 
     .inicio-seccion-pdf {
+        break-after: avoid;
+        page-break-after: avoid;
+    }
+
+    .salto-pagina-pdf {
         break-before: page;
         page-break-before: always;
+    }
+
+    .seccion-hallazgos-pdf {
+        break-before: page !important;
+        page-break-before: always !important;
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+    }
+
+    .tabla-hallazgos tr {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+    }
+
+    /* CAMBIO PDF-PRESENTACION-6 — Reforzar líneas de la tabla durante impresión/PDF. */
+    .tabla-hallazgos,
+    .tabla-hallazgos th,
+    .tabla-hallazgos td {
+        border:1px solid #9aa7b2 !important;
+        border-collapse:collapse !important;
     }
 
     table {
@@ -8343,6 +8449,7 @@ matrizParaInforme.forEach((riesgo, indice) => {
 ">
    INFORME PREVENTIVO DE<br>
 <span class="titulo-seguridad-integral" style="font-size:18px;">SEGURIDAD INTEGRAL</span>
+</td>
 
             <td style="
                 width:25%;
@@ -9576,7 +9683,8 @@ ESTADO: EN DESARROLLO
 
 </div>                   
             
-               <h2 class="inicio-seccion-pdf">
+               <div class="salto-pagina-pdf"></div>
+               <h2>
     4. Matriz de riesgos
 </h2>
 
@@ -9697,7 +9805,7 @@ ESTADO: EN DESARROLLO
 </div>
 
 
-<div class="seccion-pdf inicio-seccion-pdf">
+<div class="seccion-pdf seccion-hallazgos-pdf">
 <h2>
     5. Hallazgos identificados
 </h2>
