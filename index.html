@@ -7069,7 +7069,7 @@ function generarPDF(ventana) {
     }
 
     const opciones = {
-        margin: 10,
+        margin: 5,
         filename: "Informe_Inspeccion_Seguridad.pdf",
 
         image: {
@@ -7914,39 +7914,38 @@ matrizParaInforme.forEach((riesgo, indice) => {
 
                 /* CAMBIO PDF-PRESENTACION — Mantener la hoja dentro del ancho útil A4.
                    Evita que el padding se sume al ancho y provoque recortes laterales. */
+                /* CAMBIO PDF-PRESENTACION-3 — Subir el encabezado y liberar espacio útil
+                   en la primera página sin alterar el contenido del informe. */
                 .hoja {
-
                     width:100%;
-
                     max-width:1100px;
-
                     box-sizing:border-box;
-
                     margin:auto;
-
-                    padding:45px;
+                    padding:18px 25px 30px;
                 }
 
-                /* CAMBIO PDF-PRESENTACION-2 — Mantener cada bloque principal del informe
-                   unido cuando sea posible para evitar que una sección quede partida entre páginas. */
+                /* CAMBIO PDF-PRESENTACION-3 — Evitar cortes arbitrarios de bloques pequeños,
+                   pero permitir que una sección extensa continúe en la página siguiente.
+                   Esto evita que el bloque de Hallazgos desaparezca por exceder el alto útil. */
                 .bloque-pdf {
-                    display:block;
-                    break-inside: avoid !important;
-                    page-break-inside: avoid !important;
-                }
-
-                /* AJUSTE PDF-PRESENTACION-2 — Evitar que los títulos de sección
-                   queden solos al final de una página. Las secciones principales
-                   comienzan en una página nueva para conservar su integridad visual. */
-                .seccion-pdf {
                     display:block;
                     break-inside: avoid;
                     page-break-inside: avoid;
                 }
 
+                .seccion-pdf {
+                    display:block;
+                    break-inside: auto;
+                    page-break-inside: auto;
+                }
+
+                /* CAMBIO PDF-PRESENTACION-3 — La página nueva se aplica al bloque de la sección,
+                   no al H2 interno, evitando conflictos entre break-before y break-inside. */
                 .inicio-seccion-pdf {
                     break-before: page;
                     page-break-before: always;
+                    break-after: avoid;
+                    page-break-after: avoid;
                 }
 
                 .encabezado {
@@ -8187,13 +8186,11 @@ matrizParaInforme.forEach((riesgo, indice) => {
                 @media print {
 
                     .botones {
-
                         display:none;
                     }
 
                     .hoja {
-
-                        padding:20px;
+                        padding:18px 25px 30px;
                     }
 
                 }
@@ -9700,8 +9697,8 @@ ESTADO: EN DESARROLLO
 </div>
 
 
-<div class="seccion-pdf">
-<h2 class="inicio-seccion-pdf">
+<div class="seccion-pdf inicio-seccion-pdf">
+<h2>
     5. Hallazgos identificados
 </h2>
 
