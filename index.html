@@ -7193,6 +7193,22 @@ ESTADO: EN DESARROLLO
 ========================================================
 */
 
+/*
+========================================================
+TECCHNEX - PDF-PRESENTACION-06
+MÓDULO: Sistema de Inspecciones de Seguridad
+SECCIÓN: Vista previa / Generación de PDF
+OBJETIVO: Que la vista previa que utiliza el usuario sea la misma
+representación PDF que se genera, evitando diferencias visuales
+entre la vista HTML y el archivo final.
+CAMBIO: El informe HTML se convierte a PDF desde el mismo bloque
+.hoja y, al finalizar, la ventana del informe pasa a mostrar
+directamente el PDF generado. También se conserva la descarga
+directa del archivo.
+NO SE MODIFICAN DATOS, CÁLCULOS NI CONTENIDO DEL INFORME.
+ESTADO: EN DESARROLLO
+========================================================
+*/
 function generarPDF(ventana) {
 
     if (!ventana || ventana.closed) {
@@ -7200,7 +7216,7 @@ function generarPDF(ventana) {
         return;
     }
 
-   const contenido = ventana.document.querySelector(".hoja");
+    const contenido = ventana.document.querySelector(".hoja");
 
     if (!contenido) {
         alert("No se encontró el contenido del informe.");
@@ -7219,11 +7235,11 @@ function generarPDF(ventana) {
 
         html2canvas: {
             scale: 2,
-            useCORS: true
+            useCORS: true,
+            backgroundColor: "#ffffff"
         },
 
-        /* CAMBIO PDF-PRESENTACION-4 — Usar únicamente las reglas CSS de paginación
-           para evitar saltos heredados que dejen títulos sin su contenido. */
+        /* PDF-PRESENTACION-06 — Mantener la paginación definida por CSS. */
         pagebreak: {
             mode: ["css"],
             before: [".salto-hallazgos-pdf"],
@@ -7237,10 +7253,42 @@ function generarPDF(ventana) {
         }
     };
 
+    /*
+       Se genera primero el PDF como Blob desde exactamente el mismo
+       contenido que el usuario estaba viendo en la vista previa.
+       Luego esa misma ventana muestra el PDF generado.
+    */
     html2pdf()
         .set(opciones)
         .from(contenido)
-        .save();
+        .outputPdf("blob")
+        .then(blob => {
+
+            const url = URL.createObjectURL(blob);
+
+            /* Descargar directamente el archivo PDF. */
+            const enlace = document.createElement("a");
+            enlace.href = url;
+            enlace.download = opciones.filename;
+            document.body.appendChild(enlace);
+            enlace.click();
+            enlace.remove();
+
+            /*
+               La vista previa deja de ser HTML y pasa a ser el PDF real
+               generado, evitando que el usuario vea dos presentaciones
+               diferentes del mismo informe.
+            */
+            ventana.location.href = url;
+
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, 60000);
+        })
+        .catch(error => {
+            console.error("Error al generar el PDF:", error);
+            alert("No fue posible generar el PDF. Revise la consola para más información.");
+        });
 }
 
 function generarInforme(ventana) {
