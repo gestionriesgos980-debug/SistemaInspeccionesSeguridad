@@ -3153,6 +3153,58 @@ function abrirDirectorioClientesOM16() {
     renderizarDirectorioClientesOM16();
 }
 
+// OM-16.1-B — Vinculación robusta entre clientes e inspecciones existentes.
+// OBJETIVO: recuperar inspecciones aunque el registro histórico conserve
+// pequeñas diferencias de nombre, NIT, código o dirección.
+function normalizarClaveClienteOM16(valor) {
+    return String(valor ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, " ")
+        .trim()
+        .replace(/\s+/g, " ");
+}
+
+function soloDigitosClienteOM16(valor) {
+    return String(valor ?? "").replace(/\D/g, "");
+}
+
+function coincideClienteConInspeccionOM16(cliente, inspeccion) {
+    if (!cliente || !inspeccion) return false;
+
+    const nombreCliente = normalizarClaveClienteOM16(cliente.cliente);
+    const nombreInspeccion = normalizarClaveClienteOM16(inspeccion.cliente);
+
+    if (nombreCliente && nombreInspeccion) {
+        if (nombreCliente === nombreInspeccion) return true;
+
+        // Permite registros históricos que conservan el código u otro texto
+        // después del nombre principal del cliente.
+        if (nombreCliente.length >= 8 && nombreInspeccion.length >= 8 &&
+            (nombreInspeccion.startsWith(nombreCliente) ||
+             nombreCliente.startsWith(nombreInspeccion))) {
+            return true;
+        }
+    }
+
+    const nitCliente = soloDigitosClienteOM16(cliente.nit);
+    const nitInspeccion = soloDigitosClienteOM16(inspeccion.nit);
+    if (nitCliente && nitInspeccion && nitCliente === nitInspeccion) return true;
+
+    const codigoCliente = normalizarClaveClienteOM16(cliente.codigo);
+    const codigoInspeccion = normalizarClaveClienteOM16(
+        inspeccion.codigo || inspeccion.codCliente || inspeccion.codigoCliente
+    );
+    if (codigoCliente && codigoInspeccion && codigoCliente === codigoInspeccion) return true;
+
+    const direccionCliente = normalizarClaveClienteOM16(cliente.direccion);
+    const direccionInspeccion = normalizarClaveClienteOM16(inspeccion.direccion);
+    if (direccionCliente && direccionInspeccion && direccionCliente === direccionInspeccion) return true;
+
+    return false;
+}
+
 function renderizarDirectorioClientesOM16() {
     const clientes = inicializarDirectorioClientesOM16();
     const buscador = document.getElementById("buscadorClientesOM16");
@@ -3177,7 +3229,7 @@ function renderizarDirectorioClientesOM16() {
 
     cuerpo.innerHTML = filtrados.map(cliente => {
         const indice = clientes.indexOf(cliente);
-        const cantidadInspecciones = inspecciones.filter(i => String(i.cliente || "").trim().toLowerCase() === String(cliente.cliente || "").trim().toLowerCase()).length;
+        const cantidadInspecciones = inspecciones.filter(i => coincideClienteConInspeccionOM16(cliente, i)).length;
         return `
             <tr>
                 <td style="padding:9px;border:1px solid #ddd;"><strong>${escaparClienteOM16(cliente.cliente || "—")}</strong><br><small>${escaparClienteOM16(cliente.codigo || cliente.idCliente || "")}</small></td>
@@ -3221,10 +3273,7 @@ function mostrarInspeccionesClienteOM16(indiceCliente) {
 
     const inspeccionesCliente = inspecciones
         .map((inspeccion, indiceOriginal) => ({ inspeccion, indiceOriginal }))
-        .filter(item =>
-            String(item.inspeccion.cliente || "").trim().toLowerCase() ===
-            String(cliente.cliente || "").trim().toLowerCase()
-        );
+        .filter(item => coincideClienteConInspeccionOM16(cliente, item.inspeccion));
 
     if (!inspeccionesCliente.length) {
         detalle.innerHTML = `
