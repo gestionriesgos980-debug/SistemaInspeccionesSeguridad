@@ -7204,7 +7204,10 @@ function generarPDF(ventana) {
     }
 
     const opciones = {
-        margin: 0,
+        /* CAMBIO PDF-PRESENTACION-6 — Establecer margen físico mínimo de 15 mm
+           en los cuatro lados del PDF para evitar que el informe quede pegado
+           a los bordes de la hoja A4. */
+        margin: 15,
         filename: "Informe_Inspeccion_Seguridad.pdf",
 
         image: {
@@ -8126,9 +8129,12 @@ matrizParaInforme.forEach((riesgo, indice) => {
                     margin: 0;
                 }
 
+                /* CAMBIO PDF-PRESENTACION-6 — Ancho útil de 180 mm para A4.
+                   Con 210 mm de ancho total se conservan 15 mm de margen
+                   a izquierda y derecha, en concordancia con el margen del PDF. */
                 .hoja {
-                    width:190mm;
-                    max-width:190mm;
+                    width:180mm;
+                    max-width:180mm;
                     box-sizing:border-box;
                     margin:0 auto !important;
                     padding:0 !important;
@@ -8626,6 +8632,25 @@ matrizParaInforme.forEach((riesgo, indice) => {
         page-break-after: avoid;
     }
 
+    /* PDF-02.1 — Mantener unidos los bloques cortos de resultado.
+       Evita separar el título del resultado general ni partir su cuadro
+       entre dos páginas. */
+    .resultado {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+    }
+
+    .resultado > div {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+    }
+
+    /* PDF-02.2 — Repetir encabezados de tablas cuando una tabla
+       continúa en la página siguiente. */
+    table thead {
+        display: table-header-group;
+    }
+
     .salto-pagina-pdf {
         break-before: page;
         page-break-before: always;
@@ -8663,8 +8688,8 @@ matrizParaInforme.forEach((riesgo, indice) => {
     }
 
     tr {
-        break-inside: avoid;
-        page-break-inside: avoid;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
     }
 
     .fotos {
