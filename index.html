@@ -1363,6 +1363,53 @@
     </button>
 
 </div>
+            <!-- =====================================================
+                 OM-25 — ACCIONES DE LA INSPECCIÓN ACTIVA
+                 Se centralizan aquí los accesos a Lista de chequeo,
+                 Matriz de riesgos, Hallazgos, Editar y Eliminar.
+                 Las acciones trabajan exclusivamente sobre la inspección
+                 activa para evitar referencias accidentales a índice 0.
+            ====================================================== -->
+            <div id="panelAccionesOM25" style="
+                margin:20px 0 8px;
+                padding:16px;
+                border:1px solid #d7dee7;
+                border-radius:12px;
+                background:#f8fafc;
+            ">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+                    <div>
+                        <h3 style="margin:0;color:#123b5d;font-size:18px;">Acciones de la inspección</h3>
+                        <small style="color:#64748b;">Trabaje sobre la inspección actualmente abierta.</small>
+                    </div>
+                    <div id="idInspeccionOM25" style="font-weight:bold;color:#123b5d;background:white;border:1px solid #d7dee7;border-radius:8px;padding:8px 12px;">
+                        ID: Pendiente de guardar
+                    </div>
+                </div>
+
+                <div id="accionesBotonesOM25" style="
+                    display:grid;
+                    grid-template-columns:repeat(auto-fit,minmax(145px,1fr));
+                    gap:10px;
+                ">
+                    <button type="button" data-om25-action="checklist" class="boton-guardar" onclick="accionOM25ListaChequeo()">
+                        📋 Lista de chequeo
+                    </button>
+                    <button type="button" data-om25-action="matriz" class="boton-guardar" onclick="accionOM25Matriz()">
+                        📊 Matriz de riesgos
+                    </button>
+                    <button type="button" data-om25-action="hallazgos" class="boton-guardar" onclick="accionOM25Hallazgos()">
+                        ⚠️ Hallazgos
+                    </button>
+                    <button type="button" data-om25-action="editar" class="boton-secundario" onclick="accionOM25Editar()">
+                        ✏️ Editar
+                    </button>
+                    <button type="button" data-om25-action="eliminar" class="boton-secundario" onclick="accionOM25Eliminar()" style="color:#991b1b;">
+                        🗑️ Eliminar
+                    </button>
+                </div>
+            </div>
+
             <div class="botones">
 
                 <button type="button"
@@ -1371,12 +1418,6 @@
                     Cancelar
                 </button>
 
-               <button
-    type="button"
-    class="boton-guardar"
-    onclick="abrirListaChequeo(indiceInspeccionEditando)">
-    📋 Editar lista de chequeo
-</button>
       <button
     type="submit"
     class="boton-guardar">
@@ -1748,6 +1789,77 @@ function agregarServicioSeguridad(tipo) {
         formulario.dataset.codigoClienteOM17 = cliente.codigo || "";
     }
 
+    function actualizarAccionesOM25() {
+        const formulario = document.getElementById("formInspeccion");
+        const idElemento = document.getElementById("idInspeccionOM25");
+        const botones = document.querySelectorAll("#accionesBotonesOM25 [data-om25-action]");
+        const indice = Number.isInteger(indiceInspeccionEditando) ? indiceInspeccionEditando : null;
+        const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
+        const inspeccion = indice !== null ? inspecciones[indice] : null;
+        const esEdicion = !!inspeccion && !!formulario?.dataset.editando;
+
+        if (idElemento) {
+            idElemento.textContent = esEdicion
+                ? `ID: ${inspeccion.idControl || "SIN ID"}`
+                : "ID: Pendiente de guardar";
+        }
+
+        botones.forEach(boton => {
+            const accion = boton.dataset.om25Action;
+            // Las acciones asociadas a datos requieren una inspección ya guardada.
+            // Editar y eliminar solo tienen sentido cuando se está modificando una existente.
+            const requiereGuardado = ["checklist", "matriz", "hallazgos", "eliminar"].includes(accion);
+            boton.disabled = requiereGuardado ? !esEdicion : !esEdicion;
+            boton.style.opacity = boton.disabled ? "0.55" : "1";
+            boton.style.cursor = boton.disabled ? "not-allowed" : "pointer";
+        });
+    }
+
+    function obtenerIndiceActivoOM25() {
+        const formulario = document.getElementById("formInspeccion");
+        const indice = Number(formulario?.dataset.editando);
+        if (Number.isInteger(indice) && indice >= 0) return indice;
+        return Number.isInteger(indiceInspeccionEditando) && indiceInspeccionEditando >= 0
+            ? indiceInspeccionEditando
+            : null;
+    }
+
+    function validarInspeccionActivaOM25() {
+        const indice = obtenerIndiceActivoOM25();
+        const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
+        if (indice === null || !inspecciones[indice]) {
+            alert("Primero debe guardar la inspección para utilizar esta acción.");
+            return null;
+        }
+        localStorage.setItem("indiceInspeccionSeleccionadaInforme", String(indice));
+        return indice;
+    }
+
+    function accionOM25ListaChequeo() {
+        const indice = validarInspeccionActivaOM25();
+        if (indice !== null) abrirListaChequeo(indice);
+    }
+
+    function accionOM25Matriz() {
+        const indice = validarInspeccionActivaOM25();
+        if (indice !== null) abrirMatrizRiesgos();
+    }
+
+    function accionOM25Hallazgos() {
+        const indice = validarInspeccionActivaOM25();
+        if (indice !== null) abrirHallazgos(indice);
+    }
+
+    function accionOM25Editar() {
+        const indice = validarInspeccionActivaOM25();
+        if (indice !== null) editarInspeccion(indice);
+    }
+
+    function accionOM25Eliminar() {
+        const indice = validarInspeccionActivaOM25();
+        if (indice !== null) eliminarInspeccion(indice);
+    }
+
     function abrirNuevaInspeccion() {
         document.getElementById("formInspeccion").removeAttribute("data-editando");
         document.getElementById("formInspeccion").removeAttribute("data-id-cliente-om17");
@@ -1764,6 +1876,8 @@ function agregarServicioSeguridad(tipo) {
             const hoy = new Date();
             fecha.value = hoy.toISOString().split("T")[0];
         }
+
+        actualizarAccionesOM25();
     }
 
        function abrirDashboard() {
@@ -4766,6 +4880,7 @@ document.getElementById("objetivo").value =
     });
 
     modal.style.display = "block";
+    actualizarAccionesOM25();
 }
   function eliminarInspeccion(indice) {
 
