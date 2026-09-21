@@ -9619,6 +9619,22 @@ matrizParaInforme.forEach((riesgo, indice) => {
                     padding-top:2mm;
                 }
 
+                /* OM-27.1 · Intervención 3 — Indicador total de páginas.
+                   Visible al generar el informe y calculado dinámicamente. */
+                .indicador-total-paginas {
+                    width: min(180mm, calc(100% - 12mm));
+                    margin: 0 auto 4mm;
+                    padding: 2.5mm 4mm;
+                    box-sizing: border-box;
+                    border: 1px solid #cbd5df;
+                    border-radius: 4px;
+                    background: #f4f7fa;
+                    color: #123b5d;
+                    font-weight: 700;
+                    text-align: center;
+                    font-size: 12px;
+                }
+
                 .controles-informe-paginado {
                     margin-top:8mm;
                     text-align:center;
@@ -9903,19 +9919,12 @@ matrizParaInforme.forEach((riesgo, indice) => {
 
 .tabla-fotos-hallazgo img {
     display:block !important;
-    width:3.8cm !important;
-    height:2.6cm !important;
-    max-width:3.8cm !important;
-    max-height:2.6cm !important;
+    width:100% !important;
+    max-width:100% !important;
+    height:auto !important;
+    max-height:105px !important;
     object-fit:contain !important;
     margin:0 auto !important;
-}
-
-/* OM-27.1 · INTERVENCIÓN 2 — Las filas del cuadro de hallazgos se
-   conservan completas al paginar y el encabezado de la tabla se repite. */
-.tabla-hallazgos tbody tr {
-    break-inside:avoid !important;
-    page-break-inside:avoid !important;
 }
 
 .tabla-hallazgos .fotos {
@@ -12025,62 +12034,7 @@ ESTADO: EN DESARROLLO
 
         const alturaContenido = () => paginaActual.cuerpo.scrollHeight;
 
-        const crearTablaContinuacion = (tabla) => {
-            const nuevaTabla = tabla.cloneNode(false);
-            const thead = tabla.querySelector('thead');
-            if (thead) nuevaTabla.appendChild(thead.cloneNode(true));
-            const tbody = document.createElement('tbody');
-            nuevaTabla.appendChild(tbody);
-            return { tabla: nuevaTabla, tbody };
-        };
-
-        const moverTablaHallazgosPorFilas = (unidad, tabla) => {
-            const encabezado = unidad.find(el => el.tagName === 'H2');
-            const filas = Array.from(tabla.querySelectorAll(':scope > tbody > tr'));
-            if (!filas.length) return;
-
-            if (encabezado) {
-                paginaActual.cuerpo.appendChild(encabezado.cloneNode(true));
-            }
-
-            let bloque = crearTablaContinuacion(tabla);
-            paginaActual.cuerpo.appendChild(bloque.tabla);
-
-            const grupos = [];
-            for (let i = 0; i < filas.length; i++) {
-                const fila = filas[i];
-                if (fila.classList.contains('fila-area') && filas[i + 1]) {
-                    grupos.push([fila, filas[i + 1]]);
-                    i++;
-                } else {
-                    grupos.push([fila]);
-                }
-            }
-
-            grupos.forEach(grupo => {
-                const clones = grupo.map(fila => fila.cloneNode(true));
-                clones.forEach(clon => bloque.tbody.appendChild(clon));
-
-                if (alturaContenido() > alturaDisponible()) {
-                    clones.forEach(clon => bloque.tbody.removeChild(clon));
-                    paginaActual = crearPagina();
-                    bloque = crearTablaContinuacion(tabla);
-                    paginaActual.cuerpo.appendChild(bloque.tabla);
-                    clones.forEach(clon => bloque.tbody.appendChild(clon));
-                }
-            });
-        };
-
         const moverUnidad = (unidad) => {
-            const tablaHallazgos = unidad.find(el =>
-                el.tagName === 'TABLE' && el.classList.contains('tabla-hallazgos')
-            );
-
-            if (tablaHallazgos) {
-                moverTablaHallazgosPorFilas(unidad, tablaHallazgos);
-                return;
-            }
-
             const fragmento = document.createDocumentFragment();
             unidad.forEach(el => fragmento.appendChild(el));
             paginaActual.cuerpo.appendChild(fragmento);
@@ -12111,6 +12065,18 @@ ESTADO: EN DESARROLLO
         hoja.appendChild(contenedor);
 
         const paginas = Array.from(contenedor.querySelectorAll('.pagina-informe'));
+
+        // OM-27.1 · Intervención 3 — Indicador visible del total de páginas.
+        // Se calcula después de construir el informe, por lo que refleja
+        // automáticamente la cantidad real de páginas generadas.
+        const indicadorPaginas = document.createElement('div');
+        indicadorPaginas.className = 'indicador-total-paginas';
+        indicadorPaginas.setAttribute('role', 'status');
+        indicadorPaginas.textContent = '📄 Informe generado: ' + paginas.length +
+            (paginas.length === 1 ? ' página' : ' páginas');
+        hoja.insertBefore(indicadorPaginas, contenedor);
+
+        // Mantener la numeración individual de cada página.
         paginas.forEach((pagina, indice) => {
             const pie = document.createElement('div');
             pie.className = 'paginacion-informe';
