@@ -12084,18 +12084,8 @@ ESTADO: EN DESARROLLO
            HOJA(S) ESTÁTICA(S) — UBICACIÓN / CARACTERÍSTICAS /
            CCTV / GEOREFERENCIACIÓN
            ===================================================== */
-        /* OM-27 · INTERVENCIÓN 6 — TRANSICIÓN CONTROLADA DE LA PRIMERA PÁGINA
-           Objetivo: reservar el primer folio exclusivamente para el encabezado
-           y la información general de la inspección. La sección "Objetivo y
-           metodología" permanece intacta en el contenido, pero se incorpora
-           posteriormente al flujo dinámico para evitar que invada el primer folio.
-           No modifica datos, cálculos ni contenido del informe. */
-        const objetivoH2 = hijos.find(el =>
-            el.tagName === 'H2' && /Objetivo y metodología/i.test(el.textContent || '')
-        );
-        const objetivoContenido = objetivoH2 ? objetivoH2.nextElementSibling : null;
-
-        const movidos = new Set([encabezadoOriginal, infoGeneral, objetivoH2, objetivoContenido]);
+       
+        const movidos = new Set([encabezadoOriginal, infoGeneral]);
         let paginaEstatica = crearPagina('ubicacion-caracteristicas');
 
         const ubicacion = document.createElement('div');
@@ -12164,15 +12154,6 @@ ESTADO: EN DESARROLLO
         const heatmapMovidos = new Set([heatmapH2, heatmapContenido]);
 
         let paginaActual = crearPagina('desarrollo');
-
-        /* El objetivo/metodología se mantiene como sección propia y entra al
-           desarrollo después de las páginas estáticas, sin alterar su contenido. */
-        if (objetivoH2) {
-            paginaActual = agregarConSalto(paginaActual, objetivoH2, 'objetivo-continuacion');
-        }
-        if (objetivoContenido) {
-            paginaActual = agregarConSalto(paginaActual, objetivoContenido, 'objetivo-continuacion');
-        }
 
         const agregarElemento = el => {
             if (!el || heatmapMovidos.has(el)) return;
