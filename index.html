@@ -1442,6 +1442,32 @@
         </div>
     </div>
 
+    <!-- =====================================================
+         OM-26 · INTERVENCIÓN 2 — HISTÓRICO Y HALLAZGOS
+         Objetivo: concentrar en la Inspección Extraordinaria
+         el acceso a los antecedentes y hallazgos ya asociados
+         a la inspección, sin duplicar el almacenamiento existente.
+         ===================================================== -->
+    <div style="margin-top:16px;padding:14px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;">
+        <div style="font-weight:700;color:#123b5d;margin-bottom:6px;">Histórico y hallazgos del evento</div>
+        <div id="om26ResumenHistoricoHallazgos" style="color:#475569;margin-bottom:10px;">
+            Histórico: 0 registros · Hallazgos: 0
+        </div>
+        <div style="font-size:13px;color:#64748b;margin-bottom:10px;">
+            El histórico de incidentes corresponde a la sección de antecedentes de esta inspección. Los hallazgos se almacenan vinculados a la inspección para conservar su trazabilidad y podrán reutilizarse posteriormente en la Inspección de Seguridad.
+        </div>
+        <button
+            type="button"
+            id="btnHallazgosOM26"
+            class="boton-principal"
+            onclick="abrirHallazgosDesdeOM26()"
+            disabled
+        >
+            ⚠️ Registrar / editar hallazgos
+        </button>
+        <span id="om26EstadoHallazgos" style="margin-left:10px;font-size:13px;color:#64748b;">Guardar la inspección para habilitar los hallazgos.</span>
+    </div>
+
 </div>
 
             <div class="botones">
@@ -1645,6 +1671,7 @@
 // OM-26 · INTERVENCIÓN 1 — Inicializar visibilidad del bloque extraordinario.
 actualizarVisibilidadOM26();
 actualizarIndicadorRiesgoOM26();
+actualizarResumenOM26HistoricoHallazgos(null);
 
 function agregarIncidente() {
     const cuerpo = document.getElementById("cuerpoIncidentes");
@@ -1859,6 +1886,67 @@ function agregarServicioSeguridad(tipo) {
         indicador.textContent = "● " + nivel.toUpperCase();
         indicador.style.background = estilos[nivel][0];
         indicador.style.color = estilos[nivel][1];
+    }
+
+    // OM-26 · INTERVENCIÓN 2 — Resumen de histórico y hallazgos vinculados.
+    function actualizarResumenOM26HistoricoHallazgos(indice) {
+        const resumen = document.getElementById("om26ResumenHistoricoHallazgos");
+        const boton = document.getElementById("btnHallazgosOM26");
+        const estado = document.getElementById("om26EstadoHallazgos");
+
+        const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
+        const hallazgos = JSON.parse(localStorage.getItem("hallazgos")) || [];
+        const numeroIndice = (indice !== null && indice !== undefined && indice !== "")
+            ? Number(indice)
+            : null;
+
+        const inspeccion = Number.isInteger(numeroIndice)
+            ? inspecciones[numeroIndice]
+            : null;
+
+        const cantidadHistorico = inspeccion
+            ? (inspeccion.historicoIncidentes || []).filter(item =>
+                item && (item.riesgo || item.incidente || item.consecuencias)
+            ).length
+            : 0;
+
+        const cantidadHallazgos = Number.isInteger(numeroIndice)
+            ? hallazgos.filter(item => Number(item?.inspeccion) === numeroIndice).length
+            : 0;
+
+        if (resumen) {
+            resumen.textContent =
+                `Histórico: ${cantidadHistorico} registro(s) · Hallazgos: ${cantidadHallazgos}`;
+        }
+
+        const disponible = !!inspeccion;
+
+        if (boton) {
+            boton.disabled = !disponible;
+        }
+
+        if (estado) {
+            estado.textContent = disponible
+                ? "Inspección guardada · puede registrar o editar hallazgos."
+                : "Guardar la inspección para habilitar los hallazgos.";
+            estado.style.color = disponible ? "#15803d" : "#64748b";
+        }
+    }
+
+    function abrirHallazgosDesdeOM26() {
+        const indice = indiceInspeccionEditando;
+        const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
+        const inspeccion = (indice !== null && indice !== undefined && indice !== "")
+            ? inspecciones[Number(indice)]
+            : null;
+
+        if (!inspeccion) {
+            alert("Primero debe guardar la Inspección Extraordinaria para registrar sus hallazgos.");
+            return;
+        }
+
+        abrirHallazgos(Number(indice));
+        actualizarResumenOM26HistoricoHallazgos(Number(indice));
     }
 
     document.getElementById("tipo")?.addEventListener("change", actualizarVisibilidadOM26);
@@ -2841,6 +2929,7 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
                 : inspecciones.length - 1;
             indiceInspeccionEditando = indiceGuardadoOM22;
             actualizarPanelModularInspeccionOM22(indiceGuardadoOM22);
+            actualizarResumenOM26HistoricoHallazgos(indiceGuardadoOM22);
 
             document.getElementById("mensaje").style.display = "block";
 
@@ -5408,6 +5497,7 @@ document.getElementById("bicicleteros").value =
         inspeccion.om26?.observaciones || "";
     actualizarIndicadorRiesgoOM26();
     actualizarVisibilidadOM26();
+    actualizarResumenOM26HistoricoHallazgos(indice);
 
     
    document.getElementById("sectorInspeccion").value =
