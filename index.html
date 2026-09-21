@@ -1400,6 +1400,50 @@
     </button>
 
 </div>
+<!-- =====================================================
+     OM-26 · INTERVENCIÓN 1 — INSPECCIÓN EXTRAORDINARIA
+     Objetivo: registrar el análisis inicial del evento sin
+     alterar la estructura de la inspección normal.
+     La información quedará almacenada para posteriormente
+     crear una Inspección de Seguridad completa vinculada.
+====================================================== -->
+<div class="seccion" id="seccionOM26Extraordinaria" style="display:none;">
+
+    <h3>OM-26 · Análisis de Inspección Extraordinaria</h3>
+
+    <div style="padding:12px;margin-bottom:15px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;">
+        <strong>Registro inicial del evento</strong>
+        <p style="margin:6px 0 0;color:#475569;">
+            Esta información permanecerá asociada a la Inspección Extraordinaria y podrá utilizarse posteriormente como base para completar una Inspección de Seguridad.
+        </p>
+    </div>
+
+    <div class="formulario">
+        <div class="campo">
+            <label>Riesgo identificado</label>
+            <input type="text" id="om26RiesgoIdentificado" placeholder="Describa el riesgo identificado">
+        </div>
+
+        <div class="campo">
+            <label>Nivel de riesgo</label>
+            <select id="om26NivelRiesgo">
+                <option value="">Seleccione...</option>
+                <option value="Bajo">Bajo</option>
+                <option value="Medio">Medio</option>
+                <option value="Alto">Alto</option>
+                <option value="Crítico">Crítico</option>
+            </select>
+            <div id="om26IndicadorRiesgo" style="margin-top:8px;padding:8px;border-radius:6px;text-align:center;font-weight:700;background:#f1f5f9;color:#475569;">Sin calificar</div>
+        </div>
+
+        <div class="campo completo">
+            <label>Observaciones / análisis del evento</label>
+            <textarea id="om26Observaciones" rows="5" placeholder="Registre el análisis, condiciones encontradas, antecedentes relevantes y observaciones del evento."></textarea>
+        </div>
+    </div>
+
+</div>
+
             <div class="botones">
 
                 <button type="button"
@@ -1597,6 +1641,11 @@
 <script>
 
     const modal = document.getElementById("modalInspeccion");
+
+// OM-26 · INTERVENCIÓN 1 — Inicializar visibilidad del bloque extraordinario.
+actualizarVisibilidadOM26();
+actualizarIndicadorRiesgoOM26();
+
 function agregarIncidente() {
     const cuerpo = document.getElementById("cuerpoIncidentes");
 
@@ -1779,11 +1828,60 @@ function agregarServicioSeguridad(tipo) {
         formulario.dataset.codigoClienteOM17 = cliente.codigo || "";
     }
 
+    // OM-26 · INTERVENCIÓN 1 — Control visual del flujo extraordinario.
+    function actualizarVisibilidadOM26() {
+        const tipo = document.getElementById("tipo")?.value || "";
+        const seccion = document.getElementById("seccionOM26Extraordinaria");
+        if (seccion) {
+            seccion.style.display = tipo === "Inspección extraordinaria" ? "block" : "none";
+        }
+    }
+
+    function actualizarIndicadorRiesgoOM26() {
+        const nivel = document.getElementById("om26NivelRiesgo")?.value || "";
+        const indicador = document.getElementById("om26IndicadorRiesgo");
+        if (!indicador) return;
+
+        const estilos = {
+            "Bajo": ["#dcfce7", "#166534"],
+            "Medio": ["#fef9c3", "#854d0e"],
+            "Alto": ["#ffedd5", "#9a3412"],
+            "Crítico": ["#fee2e2", "#991b1b"]
+        };
+
+        if (!estilos[nivel]) {
+            indicador.textContent = "Sin calificar";
+            indicador.style.background = "#f1f5f9";
+            indicador.style.color = "#475569";
+            return;
+        }
+
+        indicador.textContent = "● " + nivel.toUpperCase();
+        indicador.style.background = estilos[nivel][0];
+        indicador.style.color = estilos[nivel][1];
+    }
+
+    document.getElementById("tipo")?.addEventListener("change", actualizarVisibilidadOM26);
+    document.getElementById("om26NivelRiesgo")?.addEventListener("change", actualizarIndicadorRiesgoOM26);
+
+    // OM-26 · INTERVENCIÓN 1 — Limpiar el bloque extraordinario al iniciar una nueva inspección.
+    function limpiarDatosOM26() {
+        const riesgo = document.getElementById("om26RiesgoIdentificado");
+        const nivel = document.getElementById("om26NivelRiesgo");
+        const observaciones = document.getElementById("om26Observaciones");
+        if (riesgo) riesgo.value = "";
+        if (nivel) nivel.value = "";
+        if (observaciones) observaciones.value = "";
+        actualizarIndicadorRiesgoOM26();
+        actualizarVisibilidadOM26();
+    }
+
     function abrirNuevaInspeccion() {
         document.getElementById("formInspeccion").removeAttribute("data-editando");
         document.getElementById("formInspeccion").removeAttribute("data-id-cliente-om17");
         document.getElementById("formInspeccion").removeAttribute("data-codigo-cliente-om17");
         indiceInspeccionEditando = null;
+        limpiarDatosOM26();
         actualizarPanelModularInspeccionOM22(null);
         prepararSelectorClienteOM17();
         const selector = document.getElementById("clienteDirectorioOM17");
@@ -2614,6 +2712,15 @@ inspeccion.historicoIncidentes = Array.from(
 
 inspeccion.sinIncidentes =
     document.getElementById("sinIncidentes")?.checked || false;
+
+// OM-26 · INTERVENCIÓN 1 — Datos exclusivos de Inspección Extraordinaria.
+// Se guardan dentro de la misma inspección para conservar trazabilidad y
+// permitir que posteriormente sirvan como base de una Inspección de Seguridad.
+inspeccion.om26 = {
+    riesgoIdentificado: document.getElementById("om26RiesgoIdentificado")?.value || "",
+    nivelRiesgo: document.getElementById("om26NivelRiesgo")?.value || "",
+    observaciones: document.getElementById("om26Observaciones")?.value || ""
+};
 
 
         inspeccion.seguridadActual = Array.from(
@@ -5269,6 +5376,16 @@ document.getElementById("bicicleteros").value =
 
     document.getElementById("tipo").value =
         inspeccion.tipo || "";
+
+    // OM-26 · INTERVENCIÓN 1 — Recuperar datos del análisis extraordinario.
+    document.getElementById("om26RiesgoIdentificado").value =
+        inspeccion.om26?.riesgoIdentificado || "";
+    document.getElementById("om26NivelRiesgo").value =
+        inspeccion.om26?.nivelRiesgo || "";
+    document.getElementById("om26Observaciones").value =
+        inspeccion.om26?.observaciones || "";
+    actualizarIndicadorRiesgoOM26();
+    actualizarVisibilidadOM26();
 
     
    document.getElementById("sectorInspeccion").value =
