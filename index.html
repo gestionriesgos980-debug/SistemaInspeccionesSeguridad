@@ -1809,8 +1809,6 @@ function abrirBibliotecaRecomendacionesOM22() {
 
     inicializarBibliotecaRecomendaciones();
 
-    const biblioteca = obtenerBibliotecaRecomendaciones();
-
     let ventana = document.getElementById("ventanaBibliotecaOM22");
 
     if (ventana) {
@@ -1825,56 +1823,234 @@ function abrirBibliotecaRecomendacionesOM22() {
         padding:20px; box-sizing:border-box;
     `;
 
-    const filas = biblioteca.length
-        ? biblioteca.map((item, indice) => `
-            <tr>
-                <td style="padding:9px;border:1px solid #ddd;">${indice + 1}</td>
-                <td style="padding:9px;border:1px solid #ddd;">${String(item.area || "")}</td>
-                <td style="padding:9px;border:1px solid #ddd;">${String(item.elemento || "")}</td>
-                <td style="padding:9px;border:1px solid #ddd;">${String(item.recomendacion || item.descripcion || "")}</td>
-            </tr>
-        `).join("")
-        : `
-            <tr>
-                <td colspan="4" style="padding:15px;text-align:center;border:1px solid #ddd;color:#6b7280;">
-                    No hay recomendaciones registradas en la biblioteca.
-                </td>
-            </tr>
-        `;
-
     ventana.innerHTML = `
-        <div style="max-width:1100px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25);overflow:hidden;">
+        <div style="max-width:1150px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25);overflow:hidden;">
             <div style="background:#123b5d;color:#fff;padding:18px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
                 <div>
                     <h2 style="margin:0;font-size:22px;">📚 Biblioteca de recomendaciones</h2>
-                    <div style="margin-top:5px;font-size:13px;opacity:.9;">OM-22 · Consulta de la biblioteca viva</div>
+                    <div style="margin-top:5px;font-size:13px;opacity:.9;">OM-20.2 · Administración de recomendaciones</div>
                 </div>
                 <button type="button" onclick="document.getElementById('ventanaBibliotecaOM22')?.remove()" style="background:transparent;color:#fff;border:0;font-size:28px;cursor:pointer;">&times;</button>
             </div>
 
             <div style="padding:20px;">
-                <p style="margin-top:0;color:#64748b;">
-                    Total de recomendaciones disponibles: <strong>${biblioteca.length}</strong>
-                </p>
-
-                <div style="overflow-x:auto;">
-                    <table style="width:100%;border-collapse:collapse;font-size:14px;">
-                        <thead>
-                            <tr style="background:#f3f4f6;">
-                                <th style="padding:9px;border:1px solid #ddd;text-align:center;">#</th>
-                                <th style="padding:9px;border:1px solid #ddd;text-align:left;">Área</th>
-                                <th style="padding:9px;border:1px solid #ddd;text-align:left;">Elemento</th>
-                                <th style="padding:9px;border:1px solid #ddd;text-align:left;">Recomendación</th>
-                            </tr>
-                        </thead>
-                        <tbody>${filas}</tbody>
-                    </table>
+                <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px;">
+                    <input id="buscadorBibliotecaOM20" type="search" placeholder="Buscar por área, tema, palabra clave o recomendación..."
+                        oninput="renderizarBibliotecaRecomendacionesOM20()"
+                        style="flex:1;min-width:260px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:7px;box-sizing:border-box;">
+                    <button type="button" onclick="abrirEditorBibliotecaRecomendacionOM20()"
+                        style="background:#1d70b7;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
+                        ➕ Agregar recomendación
+                    </button>
                 </div>
+
+                <div id="contenidoBibliotecaOM20"></div>
             </div>
         </div>
     `;
 
     document.body.appendChild(ventana);
+    renderizarBibliotecaRecomendacionesOM20();
+}
+
+function renderizarBibliotecaRecomendacionesOM20() {
+
+    const contenedor = document.getElementById("contenidoBibliotecaOM20");
+    if (!contenedor) return;
+
+    const biblioteca = obtenerBibliotecaRecomendaciones();
+    const buscador = normalizarTextoOM12(
+        document.getElementById("buscadorBibliotecaOM20")?.value || ""
+    );
+
+    const resultados = biblioteca.filter(item => {
+        if (!buscador) return true;
+        const texto = normalizarTextoOM12([
+            item.area,
+            item.tema,
+            item.elemento,
+            ...(item.palabrasClave || []),
+            item.recomendacion,
+            item.fuente
+        ].join(" "));
+        return texto.includes(buscador);
+    });
+
+    const filas = resultados.length
+        ? resultados.map(item => {
+            const indice = biblioteca.indexOf(item);
+            return `
+                <tr>
+                    <td style="padding:9px;border:1px solid #ddd;text-align:center;">${indice + 1}</td>
+                    <td style="padding:9px;border:1px solid #ddd;">${escaparTextoOM12(item.area || "")}</td>
+                    <td style="padding:9px;border:1px solid #ddd;">${escaparTextoOM12(item.tema || item.elemento || "")}</td>
+                    <td style="padding:9px;border:1px solid #ddd;line-height:1.4;">${escaparTextoOM12(item.recomendacion || item.descripcion || "")}</td>
+                    <td style="padding:9px;border:1px solid #ddd;text-align:center;white-space:nowrap;">
+                        <button type="button" onclick="abrirEditorBibliotecaRecomendacionOM20(${indice})"
+                            style="background:#f59e0b;color:#fff;border:0;padding:6px 9px;border-radius:5px;cursor:pointer;margin-right:4px;">✏️ Editar</button>
+                        <button type="button" onclick="eliminarRecomendacionBibliotecaOM20(${indice})"
+                            style="background:#b91c1c;color:#fff;border:0;padding:6px 9px;border-radius:5px;cursor:pointer;">🗑️ Eliminar</button>
+                    </td>
+                </tr>
+            `;
+        }).join("")
+        : `
+            <tr>
+                <td colspan="5" style="padding:15px;text-align:center;border:1px solid #ddd;color:#6b7280;">
+                    ${buscador ? "No se encontraron recomendaciones con ese criterio." : "No hay recomendaciones registradas en la biblioteca."}
+                </td>
+            </tr>
+        `;
+
+    contenedor.innerHTML = `
+        <p style="margin:0 0 12px;color:#64748b;">
+            Mostrando <strong>${resultados.length}</strong> de <strong>${biblioteca.length}</strong> recomendaciones.
+        </p>
+        <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                <thead>
+                    <tr style="background:#f3f4f6;">
+                        <th style="padding:9px;border:1px solid #ddd;text-align:center;">#</th>
+                        <th style="padding:9px;border:1px solid #ddd;text-align:left;">Área</th>
+                        <th style="padding:9px;border:1px solid #ddd;text-align:left;">Tema / elemento</th>
+                        <th style="padding:9px;border:1px solid #ddd;text-align:left;">Recomendación</th>
+                        <th style="padding:9px;border:1px solid #ddd;text-align:center;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>${filas}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+function abrirEditorBibliotecaRecomendacionOM20(indice = null) {
+
+    const biblioteca = obtenerBibliotecaRecomendaciones();
+    const editar = Number.isInteger(indice) && biblioteca[indice];
+    const item = editar ? biblioteca[indice] : {};
+
+    let modal = document.getElementById("modalEditorBibliotecaOM20");
+    if (modal) modal.remove();
+
+    modal = document.createElement("div");
+    modal.id = "modalEditorBibliotecaOM20";
+    modal.style.cssText = `
+        position:fixed;inset:0;z-index:3100;background:rgba(0,0,0,.6);
+        display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;
+    `;
+
+    modal.innerHTML = `
+        <div style="width:min(700px,100%);max-height:90vh;overflow-y:auto;background:#fff;border-radius:12px;box-shadow:0 10px 35px rgba(0,0,0,.3);">
+            <div style="background:#123b5d;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">
+                <strong style="font-size:18px;">${editar ? "✏️ Editar recomendación" : "➕ Nueva recomendación"}</strong>
+                <button type="button" onclick="document.getElementById('modalEditorBibliotecaOM20')?.remove()" style="background:transparent;color:#fff;border:0;font-size:26px;cursor:pointer;">&times;</button>
+            </div>
+            <div style="padding:20px;">
+                <label style="display:block;font-weight:bold;margin-bottom:5px;">Área</label>
+                <input id="editorOM20Area" value="${escaparTextoOM12(item.area || "")}" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">
+
+                <label style="display:block;font-weight:bold;margin-bottom:5px;">Tema / elemento</label>
+                <input id="editorOM20Tema" value="${escaparTextoOM12(item.tema || item.elemento || "")}" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">
+
+                <label style="display:block;font-weight:bold;margin-bottom:5px;">Palabras clave <span style="font-weight:normal;color:#64748b;">(separadas por coma)</span></label>
+                <input id="editorOM20Palabras" value="${escaparTextoOM12((item.palabrasClave || []).join(", "))}" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">
+
+                <label style="display:block;font-weight:bold;margin-bottom:5px;">Recomendación</label>
+                <textarea id="editorOM20Recomendacion" rows="7" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">${escaparTextoOM12(item.recomendacion || item.descripcion || "")}</textarea>
+
+                <label style="display:block;font-weight:bold;margin-bottom:5px;">Fuente</label>
+                <input id="editorOM20Fuente" value="${escaparTextoOM12(item.fuente || "")}" style="width:100%;padding:9px;margin-bottom:18px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">
+
+                <div style="display:flex;justify-content:flex-end;gap:8px;">
+                    <button type="button" onclick="document.getElementById('modalEditorBibliotecaOM20')?.remove()" style="background:#64748b;color:#fff;border:0;padding:9px 14px;border-radius:6px;cursor:pointer;">Cancelar</button>
+                    <button type="button" onclick="guardarEdicionBibliotecaRecomendacionOM20(${editar ? indice : "null"})" style="background:#1d70b7;color:#fff;border:0;padding:9px 14px;border-radius:6px;cursor:pointer;font-weight:bold;">💾 Guardar</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+}
+
+function guardarEdicionBibliotecaRecomendacionOM20(indice = null) {
+
+    const area = document.getElementById("editorOM20Area")?.value.trim() || "";
+    const tema = document.getElementById("editorOM20Tema")?.value.trim() || "";
+    const palabrasTexto = document.getElementById("editorOM20Palabras")?.value || "";
+    const recomendacion = document.getElementById("editorOM20Recomendacion")?.value.trim() || "";
+    const fuente = document.getElementById("editorOM20Fuente")?.value.trim() || "";
+
+    if (!area || !recomendacion) {
+        alert("Indique el área y la recomendación antes de guardar.");
+        return;
+    }
+
+    const biblioteca = obtenerBibliotecaRecomendaciones();
+    const editando = Number.isInteger(indice) && biblioteca[indice];
+    const recomendacionNormalizada = normalizarTextoOM12(recomendacion);
+
+    const duplicada = biblioteca.some((item, i) =>
+        i !== indice &&
+        normalizarTextoOM12(item.area) === normalizarTextoOM12(area) &&
+        normalizarTextoOM12(item.recomendacion) === recomendacionNormalizada
+    );
+
+    if (duplicada) {
+        alert("Ya existe otra recomendación igual para el área seleccionada.");
+        return;
+    }
+
+    const palabrasClave = palabrasTexto
+        .split(",")
+        .map(palabra => palabra.trim())
+        .filter(Boolean);
+
+    if (tema && !palabrasClave.some(p => normalizarTextoOM12(p) === normalizarTextoOM12(tema))) {
+        palabrasClave.unshift(tema);
+    }
+
+    if (editando) {
+        biblioteca[indice] = {
+            ...biblioteca[indice],
+            area,
+            tema: tema || biblioteca[indice].tema || "Nueva recomendación",
+            palabrasClave,
+            recomendacion,
+            fuente: fuente || biblioteca[indice].fuente || "Administrada desde Biblioteca"
+        };
+    } else {
+        biblioteca.push({
+            id: "OM20-" + String(Date.now()),
+            area,
+            tema: tema || "Nueva recomendación",
+            palabrasClave,
+            recomendacion,
+            fuente: fuente || "Administrada desde Biblioteca"
+        });
+    }
+
+    localStorage.setItem(CLAVE_BIBLIOTECA_RECOMENDACIONES, JSON.stringify(biblioteca));
+
+    document.getElementById("modalEditorBibliotecaOM20")?.remove();
+    renderizarBibliotecaRecomendacionesOM20();
+}
+
+function eliminarRecomendacionBibliotecaOM20(indice) {
+
+    const biblioteca = obtenerBibliotecaRecomendaciones();
+    const item = biblioteca[indice];
+
+    if (!item) return;
+
+    const confirmar = confirm(
+        `¿Desea eliminar esta recomendación de la biblioteca?\n\n${item.tema || item.area || "Recomendación"}`
+    );
+
+    if (!confirmar) return;
+
+    biblioteca.splice(indice, 1);
+    localStorage.setItem(CLAVE_BIBLIOTECA_RECOMENDACIONES, JSON.stringify(biblioteca));
+    renderizarBibliotecaRecomendacionesOM20();
 }
 
 function abrirGestionRespaldoOM22() {
