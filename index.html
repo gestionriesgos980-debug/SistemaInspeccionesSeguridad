@@ -11963,6 +11963,21 @@ ESTADO: EN DESARROLLO
    No modifica datos, cálculos ni funciones de generación PDF.
    ========================================================= */
 (function () {
+    /* =========================================================
+       OM-27.1 · INTERVENCIÓN 4
+       PAGINACIÓN FÍSICA REAL A4 DEL INFORME
+
+       Objetivo:
+       - Construir páginas A4 reales según la altura disponible.
+       - Respetar los saltos de página ya definidos en el informe.
+       - Mantener el encabezado institucional en cada página.
+       - No intervenir generarPDF() en esta etapa.
+
+       Criterio de trabajo:
+       cada unidad se incorpora a la página actual y se mide su
+       posición física. Si supera el área útil, se traslada completa
+       a una nueva página.
+       ========================================================= */
     function inicializarInformePaginado() {
         const hoja = document.querySelector('.hoja');
         if (!hoja || hoja.dataset.paginadoAplicado === 'true') return;
@@ -11984,23 +11999,35 @@ ESTADO: EN DESARROLLO
         const contenedor = document.createElement('div');
         contenedor.className = 'contenedor-paginado-tecchnex';
 
-        // Agrupar cada H2 con el contenido que le pertenece para evitar
-        // que un título quede solo al final de una página.
+        /*
+         * Agrupar cada H2 con el contenido que le pertenece.
+         * Los saltos explícitos se conservan como instrucciones de
+         * comenzar una página nueva, en lugar de eliminarse.
+         */
         const unidades = [];
         let unidadActual = [];
 
+        const cerrarUnidad = () => {
+            if (unidadActual.length) {
+                unidades.push({ tipo: 'contenido', elementos: unidadActual });
+                unidadActual = [];
+            }
+        };
+
         hijos.forEach(el => {
-            if (el.nodeType === 1 && el.classList.contains('salto-pagina-pdf')) return;
+            if (el.nodeType === 1 && el.classList.contains('salto-pagina-pdf')) {
+                cerrarUnidad();
+                unidades.push({ tipo: 'salto' });
+                return;
+            }
 
             if (el.tagName === 'H2' && unidadActual.length) {
-                unidades.push(unidadActual);
-                unidadActual = [];
+                cerrarUnidad();
             }
 
             unidadActual.push(el);
         });
-
-        if (unidadActual.length) unidades.push(unidadActual);
+        cerrarUnidad();
 
         const crearPagina = () => {
             const pagina = document.createElement('section');
@@ -12022,36 +12049,53 @@ ESTADO: EN DESARROLLO
 
         const mmAPx = mm => mm * (96 / 25.4);
 
-        const alturaDisponible = () => {
-            const pagina = paginaActual.pagina;
+        const limiteInferiorPagina = pagina => {
+            const rect = pagina.getBoundingClientRect();
             const estilo = getComputedStyle(pagina);
-            const paddingSuperior = parseFloat(estilo.paddingTop) || 0;
             const paddingInferior = parseFloat(estilo.paddingBottom) || 0;
             const reservaPie = mmAPx(12);
-            return pagina.clientHeight - paddingSuperior - paddingInferior -
-                paginaActual.encabezado.offsetHeight - reservaPie;
+            return rect.top + pagina.clientHeight - paddingInferior - reservaPie;
         };
 
-        const alturaContenido = () => paginaActual.cuerpo.scrollHeight;
+        const unidadSuperaPagina = unidad => {
+            if (!unidad.length) return false;
 
-        const moverUnidad = (unidad) => {
-            const fragmento = document.createDocumentFragment();
-            unidad.forEach(el => fragmento.appendChild(el));
-            paginaActual.cuerpo.appendChild(fragmento);
+            const ultimo = unidad[unidad.length - 1];
+            const rectUltimo = ultimo.getBoundingClientRect();
+            const limite = limiteInferiorPagina(paginaActual.pagina);
 
-            if (
-                alturaContenido() > alturaDisponible() &&
-                paginaActual.cuerpo.children.length > unidad.length
-            ) {
-                unidad.forEach(el => paginaActual.cuerpo.removeChild(el));
+            return rectUltimo.bottom > limite + 1;
+        };
+
+        const agregarUnidad = unidad => {
+            unidad.elementos.forEach(el => paginaActual.cuerpo.appendChild(el));
+
+            /*
+             * El navegador necesita tener la unidad dentro del DOM para
+             * calcular su tamaño físico. getBoundingClientRect() permite
+             * medir la posición real, no solamente el scrollHeight del
+             * contenedor.
+             */
+            if (unidadSuperaPagina(unidad) && paginaActual.cuerpo.children.length > unidad.elementos.length) {
+                unidad.elementos.forEach(el => paginaActual.cuerpo.removeChild(el));
                 paginaActual = crearPagina();
-                unidad.forEach(el => paginaActual.cuerpo.appendChild(el));
+                unidad.elementos.forEach(el => paginaActual.cuerpo.appendChild(el));
             }
         };
 
-        unidades.forEach(moverUnidad);
+        unidades.forEach(unidad => {
+            if (unidad.tipo === 'salto') {
+                /* Evitar crear una página vacía por un salto consecutivo. */
+                if (paginaActual.cuerpo.children.length) {
+                    paginaActual = crearPagina();
+                }
+                return;
+            }
 
-        // El bloque de controles se conserva al final del informe.
+            agregarUnidad(unidad);
+        });
+
+        /* El bloque de controles queda al final del último folio. */
         const controles = document.createElement('div');
         controles.className = 'controles-informe-paginado';
         controles.innerHTML =
@@ -12059,16 +12103,22 @@ ESTADO: EN DESARROLLO
                 '<button onclick="window.opener.generarPDF(window)">📄 Generar PDF</button>' +
                 '<div>Informe generado por el Sistema de Inspecciones de Seguridad</div>' +
             '</div>';
+
+        /* Si los controles no caben, crear un último folio para ellos. */
         paginaActual.cuerpo.appendChild(controles);
+        if (controles.getBoundingClientRect().bottom > limiteInferiorPagina(paginaActual.pagina) + 1 &&
+            paginaActual.cuerpo.children.length > 1) {
+            paginaActual.cuerpo.removeChild(controles);
+            paginaActual = crearPagina();
+            paginaActual.cuerpo.appendChild(controles);
+        }
 
         hoja.innerHTML = '';
         hoja.appendChild(contenedor);
 
         const paginas = Array.from(contenedor.querySelectorAll('.pagina-informe'));
 
-        // OM-27.1 · Intervención 3 — Indicador visible del total de páginas.
-        // Se calcula después de construir el informe, por lo que refleja
-        // automáticamente la cantidad real de páginas generadas.
+        /* OM-27.1 · Intervención 3 — Indicador visible del total de páginas. */
         const indicadorPaginas = document.createElement('div');
         indicadorPaginas.className = 'indicador-total-paginas';
         indicadorPaginas.setAttribute('role', 'status');
@@ -12076,7 +12126,6 @@ ESTADO: EN DESARROLLO
             (paginas.length === 1 ? ' página' : ' páginas');
         hoja.insertBefore(indicadorPaginas, contenedor);
 
-        // Mantener la numeración individual de cada página.
         paginas.forEach((pagina, indice) => {
             const pie = document.createElement('div');
             pie.className = 'paginacion-informe';
