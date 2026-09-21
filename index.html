@@ -3620,6 +3620,83 @@ function abrirMatrizRiesgosCliente(nombreCliente) {
     `;
 
     document.body.appendChild(ventana);
+
+    // =====================================================
+    // CORRECCIÓN MATRIZ-RIESGOS-CLIENTE-CARGA
+    // OBJETIVO: Cargar los riesgos previamente guardados del cliente
+    // al abrir su matriz. Si aún no existen registros, mostrar un
+    // bloque inicial listo para diligenciar.
+    // =====================================================
+    const contenedorRiesgosCliente =
+        document.getElementById("listaRiesgosCliente");
+
+    if (contenedorRiesgosCliente) {
+
+        const matricesGuardadas =
+            JSON.parse(
+                localStorage.getItem("matricesRiesgosClientes")
+            ) || [];
+
+        const nombreClienteNormalizado =
+            String(nombreCliente || "").trim().toLowerCase();
+
+        const riesgosCliente = matricesGuardadas.filter(
+            registro =>
+                String(registro.cliente || "")
+                    .trim()
+                    .toLowerCase() ===
+                nombreClienteNormalizado
+        );
+
+        if (riesgosCliente.length === 0) {
+            agregarRiesgoMatrizCliente();
+        } else {
+
+            riesgosCliente.forEach(riesgoGuardado => {
+
+                agregarRiesgoMatrizCliente();
+
+                const bloque =
+                    contenedorRiesgosCliente.lastElementChild;
+
+                if (!bloque) return;
+
+                const area =
+                    bloque.querySelector(".matriz-cliente-area");
+                const peligro =
+                    bloque.querySelector(".matriz-cliente-peligro");
+                const riesgo =
+                    bloque.querySelector(".matriz-cliente-riesgo");
+                const probabilidad =
+                    bloque.querySelector(".matriz-cliente-probabilidad");
+                const impacto =
+                    bloque.querySelector(".matriz-cliente-impacto");
+                const tratamiento =
+                    bloque.querySelector(".matriz-cliente-tratamiento");
+
+                if (area) area.value = riesgoGuardado.area || "";
+                if (peligro) peligro.value = riesgoGuardado.peligro || "";
+                if (riesgo) riesgo.value = riesgoGuardado.riesgo || "";
+                if (probabilidad) {
+                    probabilidad.value =
+                        riesgoGuardado.probabilidad
+                            ? String(riesgoGuardado.probabilidad)
+                            : "";
+                }
+                if (impacto) {
+                    impacto.value =
+                        riesgoGuardado.impacto
+                            ? String(riesgoGuardado.impacto)
+                            : "";
+                }
+                if (tratamiento) {
+                    tratamiento.value = riesgoGuardado.tratamiento || "";
+                }
+
+                calcularNivelRiesgoCliente(bloque);
+            });
+        }
+    }
 }
 
 // =====================================================
@@ -9826,12 +9903,19 @@ matrizParaInforme.forEach((riesgo, indice) => {
 
 .tabla-fotos-hallazgo img {
     display:block !important;
-    width:100% !important;
-    max-width:100% !important;
-    height:auto !important;
-    max-height:105px !important;
+    width:3.8cm !important;
+    height:2.6cm !important;
+    max-width:3.8cm !important;
+    max-height:2.6cm !important;
     object-fit:contain !important;
     margin:0 auto !important;
+}
+
+/* OM-27.1 · INTERVENCIÓN 2 — Las filas del cuadro de hallazgos se
+   conservan completas al paginar y el encabezado de la tabla se repite. */
+.tabla-hallazgos tbody tr {
+    break-inside:avoid !important;
+    page-break-inside:avoid !important;
 }
 
 .tabla-hallazgos .fotos {
@@ -11941,7 +12025,62 @@ ESTADO: EN DESARROLLO
 
         const alturaContenido = () => paginaActual.cuerpo.scrollHeight;
 
+        const crearTablaContinuacion = (tabla) => {
+            const nuevaTabla = tabla.cloneNode(false);
+            const thead = tabla.querySelector('thead');
+            if (thead) nuevaTabla.appendChild(thead.cloneNode(true));
+            const tbody = document.createElement('tbody');
+            nuevaTabla.appendChild(tbody);
+            return { tabla: nuevaTabla, tbody };
+        };
+
+        const moverTablaHallazgosPorFilas = (unidad, tabla) => {
+            const encabezado = unidad.find(el => el.tagName === 'H2');
+            const filas = Array.from(tabla.querySelectorAll(':scope > tbody > tr'));
+            if (!filas.length) return;
+
+            if (encabezado) {
+                paginaActual.cuerpo.appendChild(encabezado.cloneNode(true));
+            }
+
+            let bloque = crearTablaContinuacion(tabla);
+            paginaActual.cuerpo.appendChild(bloque.tabla);
+
+            const grupos = [];
+            for (let i = 0; i < filas.length; i++) {
+                const fila = filas[i];
+                if (fila.classList.contains('fila-area') && filas[i + 1]) {
+                    grupos.push([fila, filas[i + 1]]);
+                    i++;
+                } else {
+                    grupos.push([fila]);
+                }
+            }
+
+            grupos.forEach(grupo => {
+                const clones = grupo.map(fila => fila.cloneNode(true));
+                clones.forEach(clon => bloque.tbody.appendChild(clon));
+
+                if (alturaContenido() > alturaDisponible()) {
+                    clones.forEach(clon => bloque.tbody.removeChild(clon));
+                    paginaActual = crearPagina();
+                    bloque = crearTablaContinuacion(tabla);
+                    paginaActual.cuerpo.appendChild(bloque.tabla);
+                    clones.forEach(clon => bloque.tbody.appendChild(clon));
+                }
+            });
+        };
+
         const moverUnidad = (unidad) => {
+            const tablaHallazgos = unidad.find(el =>
+                el.tagName === 'TABLE' && el.classList.contains('tabla-hallazgos')
+            );
+
+            if (tablaHallazgos) {
+                moverTablaHallazgosPorFilas(unidad, tablaHallazgos);
+                return;
+            }
+
             const fragmento = document.createDocumentFragment();
             unidad.forEach(el => fragmento.appendChild(el));
             paginaActual.cuerpo.appendChild(fragmento);
