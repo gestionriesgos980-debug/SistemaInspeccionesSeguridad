@@ -1842,10 +1842,6 @@ function abrirBibliotecaRecomendacionesOM22() {
                         style="background:#1d70b7;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
                         ➕ Agregar recomendación
                     </button>
-                    <button type="button" onclick="abrirImportadorBibliotecasOM20()"
-                        style="background:#0f766e;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
-                        📥 Importar documento
-                    </button>
                     <button type="button" onclick="abrirBibliotecaRiesgosOM20()"
                         style="background:#475569;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
                         ⚠️ Biblioteca de riesgos
@@ -2116,14 +2112,6 @@ function abrirBibliotecaRiesgosOM20() {
                         style="background:#1d70b7;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
                         ➕ Agregar riesgo
                     </button>
-                    <button type="button" onclick="abrirImportadorBibliotecasOM20()"
-                        style="background:#0f766e;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
-                        📥 Importar documento
-                    </button>
-                    <button type="button" onclick="document.getElementById('ventanaBibliotecaRiesgosOM20')?.remove(); abrirBibliotecaRecomendacionesOM22();"
-                        style="background:#475569;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
-                        📚 Biblioteca de recomendaciones
-                    </button>
                 </div>
                 <div id="contenidoBibliotecaRiesgosOM20"></div>
             </div>
@@ -2269,217 +2257,6 @@ function eliminarRiesgoBibliotecaOM20(indice) {
     biblioteca.splice(indice, 1);
     localStorage.setItem(CLAVE_BIBLIOTECA_RIESGOS_OM20, JSON.stringify(biblioteca));
     renderizarBibliotecaRiesgosOM20();
-}
-
-
-/* ======================================================
-   OM-20.5 · IMPORTACIÓN DE DOCUMENTOS PARA BIBLIOTECAS
-   OBJETIVO: cargar registros estructurados desde JSON o CSV
-   sin modificar las inspecciones ni la Matriz de Riesgos.
-   ====================================================== */
-
-function abrirImportadorBibliotecasOM20() {
-    let modal = document.getElementById("modalImportadorBibliotecasOM20");
-    if (modal) modal.remove();
-
-    modal = document.createElement("div");
-    modal.id = "modalImportadorBibliotecasOM20";
-    modal.style.cssText = `position:fixed;inset:0;z-index:3200;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;`;
-    modal.innerHTML = `
-        <div style="width:min(720px,100%);background:#fff;border-radius:12px;box-shadow:0 10px 35px rgba(0,0,0,.3);overflow:hidden;">
-            <div style="background:#123b5d;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">
-                <div>
-                    <strong style="font-size:18px;">📥 Importar documento</strong>
-                    <div style="margin-top:4px;font-size:12px;opacity:.9;">OM-20.5 · Alimentar bibliotecas</div>
-                </div>
-                <button type="button" onclick="document.getElementById('modalImportadorBibliotecasOM20')?.remove()" style="background:transparent;color:#fff;border:0;font-size:26px;cursor:pointer;">&times;</button>
-            </div>
-            <div style="padding:20px;">
-                <p style="margin-top:0;color:#475569;line-height:1.5;">
-                    Seleccione un archivo <strong>JSON o CSV</strong> con registros estructurados. La importación agrega información a las bibliotecas existentes y no reemplaza las inspecciones.
-                </p>
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:15px;font-size:13px;line-height:1.5;">
-                    <strong>JSON:</strong> puede contener <code>recomendaciones</code>, <code>riesgos</code> o ambas listas.<br>
-                    <strong>CSV de recomendaciones:</strong> area, tema, palabrasClave, recomendacion, fuente.<br>
-                    <strong>CSV de riesgos:</strong> area, riesgo, descripcion, causas, consecuencias, palabrasClave, fuente.
-                </div>
-                <input id="selectorImportacionBibliotecasOM20" type="file" accept=".json,.csv,application/json,text/csv" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:7px;box-sizing:border-box;">
-                <div id="resultadoImportacionBibliotecasOM20" style="margin-top:14px;color:#475569;font-size:13px;"></div>
-                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;">
-                    <button type="button" onclick="document.getElementById('modalImportadorBibliotecasOM20')?.remove()" style="background:#64748b;color:#fff;border:0;padding:9px 14px;border-radius:6px;cursor:pointer;">Cerrar</button>
-                </div>
-            </div>
-        </div>`;
-
-    document.body.appendChild(modal);
-    document.getElementById("selectorImportacionBibliotecasOM20").addEventListener("change", importarDocumentoBibliotecasOM20);
-}
-
-function normalizarListaImportacionOM20(valor) {
-    if (Array.isArray(valor)) return valor.map(v => String(v).trim()).filter(Boolean);
-    return String(valor || "").split(/[;,|]/).map(v => v.trim()).filter(Boolean);
-}
-
-function parsearCSVOM20(texto) {
-    const filas = [];
-    let fila = [], campo = "", entreComillas = false;
-
-    for (let i = 0; i < texto.length; i++) {
-        const caracter = texto[i];
-        const siguiente = texto[i + 1];
-        if (caracter === '"') {
-            if (entreComillas && siguiente === '"') {
-                campo += '"';
-                i++;
-            } else {
-                entreComillas = !entreComillas;
-            }
-        } else if (caracter === "," && !entreComillas) {
-            fila.push(campo);
-            campo = "";
-        } else if ((caracter === "\n" || caracter === "\r") && !entreComillas) {
-            if (caracter === "\r" && siguiente === "\n") i++;
-            fila.push(campo);
-            campo = "";
-            if (fila.some(valor => valor.trim() !== "")) filas.push(fila);
-            fila = [];
-        } else {
-            campo += caracter;
-        }
-    }
-    fila.push(campo);
-    if (fila.some(valor => valor.trim() !== "")) filas.push(fila);
-
-    if (filas.length < 2) return [];
-    const encabezados = filas[0].map(h => normalizarTextoOM12(h).replace(/\s+/g, ""));
-    return filas.slice(1).map(valores => {
-        const registro = {};
-        encabezados.forEach((encabezado, indice) => {
-            registro[encabezado] = (valores[indice] || "").trim();
-        });
-        return registro;
-    });
-}
-
-function convertirRegistroImportadoRecomendacionOM20(item) {
-    const obtener = (...claves) => {
-        for (const clave of claves) {
-            if (item[clave] !== undefined && String(item[clave]).trim() !== "") return String(item[clave]).trim();
-        }
-        return "";
-    };
-    const area = obtener("area");
-    const tema = obtener("tema", "elemento");
-    const recomendacion = obtener("recomendacion", "descripcion");
-    if (!area || !recomendacion) return null;
-    return {
-        id: "OM20-IMP-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8),
-        area,
-        tema: tema || "Nueva recomendación",
-        palabrasClave: normalizarListaImportacionOM20(item.palabrasclave || item.palabras || item.keywords),
-        recomendacion,
-        fuente: obtener("fuente") || "Importada desde documento"
-    };
-}
-
-function convertirRegistroImportadoRiesgoOM20(item) {
-    const obtener = (...claves) => {
-        for (const clave of claves) {
-            if (item[clave] !== undefined && String(item[clave]).trim() !== "") return String(item[clave]).trim();
-        }
-        return "";
-    };
-    const area = obtener("area");
-    const riesgo = obtener("riesgo");
-    if (!area || !riesgo) return null;
-    return {
-        id: "OM20-IMP-RIESGO-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8),
-        area,
-        riesgo,
-        descripcion: obtener("descripcion"),
-        causas: obtener("causas"),
-        consecuencias: obtener("consecuencias"),
-        palabrasClave: normalizarListaImportacionOM20(item.palabrasclave || item.palabras || item.keywords),
-        fuente: obtener("fuente") || "Importado desde documento"
-    };
-}
-
-function importarDocumentoBibliotecasOM20(evento) {
-    const archivo = evento.target.files?.[0];
-    if (!archivo) return;
-
-    const resultado = document.getElementById("resultadoImportacionBibliotecasOM20");
-    const lector = new FileReader();
-
-    lector.onload = function(e) {
-        try {
-            const nombre = archivo.name.toLowerCase();
-            let recomendacionesImportadas = [];
-            let riesgosImportados = [];
-
-            if (nombre.endsWith(".json")) {
-                const datos = JSON.parse(e.target.result);
-                if (Array.isArray(datos)) {
-                    const esRiesgo = datos.some(item => item && (item.riesgo || item.causas || item.consecuencias));
-                    if (esRiesgo) riesgosImportados = datos.map(convertirRegistroImportadoRiesgoOM20).filter(Boolean);
-                    else recomendacionesImportadas = datos.map(convertirRegistroImportadoRecomendacionOM20).filter(Boolean);
-                } else if (datos && typeof datos === "object") {
-                    const recomendaciones = Array.isArray(datos.recomendaciones) ? datos.recomendaciones : [];
-                    const riesgos = Array.isArray(datos.riesgos) ? datos.riesgos : [];
-                    recomendacionesImportadas = recomendaciones.map(convertirRegistroImportadoRecomendacionOM20).filter(Boolean);
-                    riesgosImportados = riesgos.map(convertirRegistroImportadoRiesgoOM20).filter(Boolean);
-                }
-            } else {
-                const registros = parsearCSVOM20(String(e.target.result || ""));
-                if (!registros.length) throw new Error("El CSV no contiene filas de datos válidas.");
-                const esRiesgo = registros.some(item => item.riesgo || item.causas || item.consecuencias);
-                if (esRiesgo) riesgosImportados = registros.map(convertirRegistroImportadoRiesgoOM20).filter(Boolean);
-                else recomendacionesImportadas = registros.map(convertirRegistroImportadoRecomendacionOM20).filter(Boolean);
-            }
-
-            const bibliotecaRecomendaciones = obtenerBibliotecaRecomendaciones();
-            const bibliotecaRiesgos = obtenerBibliotecaRiesgosOM20();
-            let agregadasRecomendaciones = 0;
-            let duplicadasRecomendaciones = 0;
-            let agregadosRiesgos = 0;
-            let duplicadosRiesgos = 0;
-
-            recomendacionesImportadas.forEach(item => {
-                const duplicada = bibliotecaRecomendaciones.some(existente =>
-                    normalizarTextoOM12(existente.area) === normalizarTextoOM12(item.area) &&
-                    normalizarTextoOM12(existente.recomendacion) === normalizarTextoOM12(item.recomendacion)
-                );
-                if (duplicada) duplicadasRecomendaciones++;
-                else { bibliotecaRecomendaciones.push(item); agregadasRecomendaciones++; }
-            });
-
-            riesgosImportados.forEach(item => {
-                const duplicado = bibliotecaRiesgos.some(existente =>
-                    normalizarTextoOM12(existente.area) === normalizarTextoOM12(item.area) &&
-                    normalizarTextoOM12(existente.riesgo) === normalizarTextoOM12(item.riesgo)
-                );
-                if (duplicado) duplicadosRiesgos++;
-                else { bibliotecaRiesgos.push(item); agregadosRiesgos++; }
-            });
-
-            localStorage.setItem(CLAVE_BIBLIOTECA_RECOMENDACIONES, JSON.stringify(bibliotecaRecomendaciones));
-            localStorage.setItem(CLAVE_BIBLIOTECA_RIESGOS_OM20, JSON.stringify(bibliotecaRiesgos));
-
-            if (resultado) {
-                resultado.innerHTML = `<strong>Importación completada.</strong><br>
-                    Recomendaciones agregadas: ${agregadasRecomendaciones} · duplicadas omitidas: ${duplicadasRecomendaciones}<br>
-                    Riesgos agregados: ${agregadosRiesgos} · duplicados omitidos: ${duplicadosRiesgos}`;
-            }
-
-            renderizarBibliotecaRecomendacionesOM20();
-            renderizarBibliotecaRiesgosOM20();
-        } catch (error) {
-            console.error("Error al importar documento para bibliotecas:", error);
-            if (resultado) resultado.textContent = "No fue posible importar el documento. Verifique el formato y las columnas requeridas.";
-        }
-    };
-
-    lector.readAsText(archivo, "UTF-8");
 }
 
 function abrirGestionRespaldoOM22() {
@@ -7765,11 +7542,21 @@ function agregarRiesgoMatriz() {
 
                 <label>Riesgo</label>
 
-                <textarea
-                    id="riesgoDescripcion_${indice}"
-                    rows="3"
-                    placeholder="Describa el riesgo"
-                ></textarea>
+                <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">
+                    <textarea
+                        id="riesgoDescripcion_${indice}"
+                        rows="3"
+                        placeholder="Describa el riesgo"
+                        style="flex:1;min-width:240px;"
+                    ></textarea>
+                    <button
+                        type="button"
+                        onclick="abrirSelectorRiesgoBibliotecaOM20(${indice})"
+                        style="background:#1d70b7;color:white;border:none;border-radius:6px;padding:9px 12px;cursor:pointer;font-weight:bold;white-space:nowrap;"
+                    >
+                        📚 Biblioteca de riesgos
+                    </button>
+                </div>
 
             </div>
 
@@ -7884,6 +7671,80 @@ function agregarRiesgoMatriz() {
             () => calcularNivelRiesgo(indice)
         );
 }
+function abrirSelectorRiesgoBibliotecaOM20(indiceMatriz) {
+    const biblioteca = obtenerBibliotecaRiesgosOM20();
+    let modal = document.getElementById("modalSelectorRiesgoBibliotecaOM20");
+    if (modal) modal.remove();
+
+    modal = document.createElement("div");
+    modal.id = "modalSelectorRiesgoBibliotecaOM20";
+    modal.style.cssText = "position:fixed;inset:0;z-index:3200;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;";
+    modal.innerHTML = `
+        <div style="width:min(900px,100%);max-height:90vh;overflow-y:auto;background:#fff;border-radius:12px;box-shadow:0 10px 35px rgba(0,0,0,.3);">
+            <div style="background:#123b5d;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                <div>
+                    <strong style="font-size:18px;">📚 Seleccionar riesgo de la biblioteca</strong>
+                    <div style="font-size:12px;opacity:.9;margin-top:4px;">El riesgo seleccionado se copiará al registro de la matriz.</div>
+                </div>
+                <button type="button" onclick="document.getElementById('modalSelectorRiesgoBibliotecaOM20')?.remove()" style="background:transparent;color:#fff;border:0;font-size:26px;cursor:pointer;">&times;</button>
+            </div>
+            <div style="padding:20px;">
+                <input id="buscadorSelectorRiesgoBibliotecaOM20" type="search" placeholder="Buscar riesgo, área, causa, consecuencia o palabra clave..."
+                    oninput="renderizarSelectorRiesgoBibliotecaOM20(${indiceMatriz})"
+                    style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:7px;box-sizing:border-box;margin-bottom:14px;">
+                <div id="contenidoSelectorRiesgoBibliotecaOM20"></div>
+            </div>
+        </div>`;
+
+    document.body.appendChild(modal);
+    renderizarSelectorRiesgoBibliotecaOM20(indiceMatriz);
+}
+
+function renderizarSelectorRiesgoBibliotecaOM20(indiceMatriz) {
+    const contenedor = document.getElementById("contenidoSelectorRiesgoBibliotecaOM20");
+    if (!contenedor) return;
+
+    const biblioteca = obtenerBibliotecaRiesgosOM20();
+    const consulta = normalizarTextoOM12(document.getElementById("buscadorSelectorRiesgoBibliotecaOM20")?.value || "");
+    const resultados = biblioteca.filter(item => {
+        if (!consulta) return true;
+        return normalizarTextoOM12([
+            item.area, item.riesgo, item.descripcion, item.causas,
+            item.consecuencias, ...(item.palabrasClave || []), item.fuente
+        ].join(" ")).includes(consulta);
+    });
+
+    contenedor.innerHTML = resultados.length ? resultados.map(item => {
+        const indice = biblioteca.indexOf(item);
+        return `
+            <div style="border:1px solid #dbe3ea;border-radius:8px;padding:12px;margin-bottom:9px;background:#f8fafc;">
+                <div style="font-weight:bold;color:#123b5d;">${escaparTextoOM12(item.riesgo || "Riesgo sin nombre")}</div>
+                <div style="font-size:13px;margin-top:4px;"><strong>Área:</strong> ${escaparTextoOM12(item.area || "")}</div>
+                ${item.descripcion ? `<div style="font-size:13px;margin-top:4px;line-height:1.4;">${escaparTextoOM12(item.descripcion)}</div>` : ""}
+                <button type="button" onclick="usarRiesgoBibliotecaEnMatrizOM20(${indice},${indiceMatriz})"
+                    style="margin-top:9px;background:#1d70b7;color:#fff;border:0;padding:7px 11px;border-radius:5px;cursor:pointer;font-weight:bold;">
+                    Usar este riesgo
+                </button>
+            </div>`;
+    }).join("") : `<div style="padding:15px;text-align:center;color:#64748b;">No se encontraron riesgos.</div>`;
+}
+
+function usarRiesgoBibliotecaEnMatrizOM20(indiceBiblioteca, indiceMatriz) {
+    const biblioteca = obtenerBibliotecaRiesgosOM20();
+    const item = biblioteca[indiceBiblioteca];
+    if (!item) return;
+
+    const area = document.getElementById(`areaRiesgo_${indiceMatriz}`);
+    const peligro = document.getElementById(`peligroRiesgo_${indiceMatriz}`);
+    const riesgo = document.getElementById(`riesgoDescripcion_${indiceMatriz}`);
+
+    if (area) area.value = item.area || "";
+    if (peligro) peligro.value = item.peligro || item.riesgo || "";
+    if (riesgo) riesgo.value = item.descripcion || item.riesgo || "";
+
+    document.getElementById("modalSelectorRiesgoBibliotecaOM20")?.remove();
+}
+
 function calcularNivelRiesgo(indice) {
 
     const probabilidad =
