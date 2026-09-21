@@ -9586,7 +9586,7 @@ matrizParaInforme.forEach((riesgo, indice) => {
                     padding:12mm 15mm 15mm 15mm;
                     background:#fff;
                     box-shadow:0 2px 14px rgba(0,0,0,.16);
-                    overflow:hidden;
+                    overflow:visible;
                     flex:0 0 auto;
                 }
 
@@ -11964,20 +11964,22 @@ ESTADO: EN DESARROLLO
    ========================================================= */
 (function () {
     /* =========================================================
-       OM-27.1 · INTERVENCIÓN 4
-       PAGINACIÓN FÍSICA REAL A4 DEL INFORME
+       OM-27.1 · INTERVENCIÓN 4C
+       MODELO DE PAGINACIÓN INSTITUCIONAL
 
-       Objetivo:
-       - Construir páginas A4 reales según la altura disponible.
-       - Respetar los saltos de página ya definidos en el informe.
-       - Mantener el encabezado institucional en cada página.
-       - No intervenir generarPDF() en esta etapa.
+       Criterio definido con el usuario:
+       1) Información del cliente/inspección = hoja estática.
+       2) Ubicación y entorno + características de instalación
+          + CCTV/georreferenciación = hoja estática.
+       3) Las secciones de desarrollo (herramientas, objetivo,
+          checklist, matriz, hallazgos, etc.) continúan de forma
+          dinámica según su contenido.
+       4) El mapa de calor = hoja estática.
 
-       Criterio de trabajo:
-       cada unidad se incorpora a la página actual y se mide su
-       posición física. Si supera el área útil, se traslada completa
-       a una nueva página.
+       Se mantiene esta etapa exclusivamente en PRESENTACIÓN.
+       generarPDF() NO se modifica.
        ========================================================= */
+
     function inicializarInformePaginado() {
         const hoja = document.querySelector('.hoja');
         if (!hoja || hoja.dataset.paginadoAplicado === 'true') return;
@@ -11988,96 +11990,22 @@ ESTADO: EN DESARROLLO
         hoja.dataset.paginadoAplicado = 'true';
         hoja.classList.add('informe-paginado-activo');
 
-        /*
-         * OM-27.1 · INTERVENCIÓN 4B
-         * Paginación basada en bloques reales del documento.
-         *
-         * La Intervención 4A trataba algunos contenedores extensos como
-         * una sola unidad. En el modelo institucional, en cambio, una
-         * sección puede ocupar varias páginas y debe continuar de forma
-         * natural. Por eso aquí se descompone el contenido por elementos
-         * visuales (títulos, tablas y bloques de texto) y las tablas se
-         * continúan por filas.
-         */
-        const unidades = [];
+        const hijos = Array.from(hoja.children);
+        const ignorar = el => !el || el === encabezadoOriginal ||
+            el.classList.contains('botones') ||
+            el.classList.contains('pie') ||
+            el.classList.contains('controles-informe-paginado');
 
-        const esIgnorable = el => {
-            if (!el || el.nodeType !== 1) return true;
-            return el.classList.contains('botones') ||
-                   el.classList.contains('pie') ||
-                   el.classList.contains('controles-informe-paginado');
+        const crearContenedor = () => {
+            const c = document.createElement('div');
+            c.className = 'contenedor-paginado-tecchnex';
+            return c;
         };
 
-        const agregarUnidad = (elemento) => {
-            if (!elemento || esIgnorable(elemento)) return;
-            unidades.push({ tipo: 'contenido', elemento });
-        };
+        const contenedor = crearContenedor();
+        const paginas = [];
 
-        const recorrer = (contenedor) => {
-            Array.from(contenedor.children || []).forEach(el => {
-                if (esIgnorable(el)) return;
-
-                if (el.classList.contains('salto-pagina-pdf')) {
-                    unidades.push({ tipo: 'salto' });
-                    return;
-                }
-
-                if (el.tagName === 'TABLE') {
-                    agregarUnidad(el);
-                    return;
-                }
-
-                if (/^H[1-4]$/.test(el.tagName)) {
-                    agregarUnidad(el);
-                    return;
-                }
-
-                /* Bloques semánticos: se abren para que su contenido pueda
-                   repartirse entre páginas en lugar de quedar encerrado. */
-                if (el.classList.contains('bloque-pdf') ||
-                    el.classList.contains('seccion-pdf') ||
-                    el.classList.contains('resultado') ||
-                    el.classList.contains('firmas')) {
-                    if (el.classList.contains('firmas')) {
-                        agregarUnidad(el);
-                    } else {
-                        recorrer(el);
-                    }
-                    return;
-                }
-
-                /* Divs que contienen tablas/títulos se descomponen; los
-                   bloques simples de texto permanecen como una unidad. */
-                const tieneBloques = Array.from(el.children || []).some(hijo =>
-                    hijo.tagName === 'TABLE' ||
-                    /^H[1-4]$/.test(hijo.tagName) ||
-                    hijo.classList.contains('bloque-pdf') ||
-                    hijo.classList.contains('seccion-pdf') ||
-                    hijo.classList.contains('resultado') ||
-                    hijo.classList.contains('salto-pagina-pdf')
-                );
-
-                if (tieneBloques) {
-                    recorrer(el);
-                } else {
-                    agregarUnidad(el);
-                }
-            });
-        };
-
-        /* Todo lo que no sea el encabezado pasa al flujo paginado. */
-        Array.from(hoja.children).forEach(el => {
-            if (el === encabezadoOriginal || esIgnorable(el)) return;
-            if (el.classList.contains('salto-pagina-pdf')) {
-                unidades.push({ tipo: 'salto' });
-            } else if (el.tagName === 'TABLE' || /^H[1-4]$/.test(el.tagName)) {
-                agregarUnidad(el);
-            } else {
-                recorrer(el);
-            }
-        });
-
-        const crearPagina = () => {
+        const crearPagina = (titulo) => {
             const pagina = document.createElement('section');
             pagina.className = 'pagina-informe';
 
@@ -12087,132 +12015,303 @@ ESTADO: EN DESARROLLO
 
             const cuerpo = document.createElement('div');
             cuerpo.className = 'cuerpo-pagina-informe';
+            if (titulo) cuerpo.dataset.seccionPagina = titulo;
             pagina.appendChild(cuerpo);
 
             contenedor.appendChild(pagina);
-            return { pagina, cuerpo };
+            const registro = { pagina, cuerpo };
+            paginas.push(registro);
+            return registro;
         };
 
-        const contenedor = document.createElement('div');
-        contenedor.className = 'contenedor-paginado-tecchnex';
-        let paginaActual = null;
-
-        const mmAPx = mm => mm * (96 / 25.4);
-
-        const limiteInferiorPagina = pagina => {
-            const rect = pagina.getBoundingClientRect();
-            const estilo = getComputedStyle(pagina);
-            const paddingInferior = parseFloat(estilo.paddingBottom) || 0;
-            const reservaPie = mmAPx(12);
-            return rect.top + pagina.clientHeight - paddingInferior - reservaPie;
+        const añadir = (pagina, el) => {
+            if (!el) return;
+            pagina.cuerpo.appendChild(el);
         };
 
-        const cuerpoTieneContenido = () =>
-            !!paginaActual && paginaActual.cuerpo.children.length > 0;
+        /* ---------------------------------------------------------
+           HOJA 1 — Información del cliente e inspección
+           --------------------------------------------------------- */
+        const infoGeneral = hijos.find(el =>
+            el.classList.contains('bloque-pdf') &&
+            /Información general de la inspección/i.test(el.textContent || '')
+        );
 
-        const asegurarPagina = () => {
-            if (!paginaActual) paginaActual = crearPagina();
-        };
+        const page1 = crearPagina('informacion-general');
+        if (infoGeneral) añadir(page1, infoGeneral);
 
-        const nuevaPagina = () => {
-            paginaActual = crearPagina();
-        };
+        /* ---------------------------------------------------------
+           HOJA 2 — Ubicación/entorno + características + CCTV
+           + georreferenciación.
+           Se toman los bloques existentes sin alterar sus datos.
+           --------------------------------------------------------- */
+        let paginaEstatica = crearPagina('ubicacion-caracteristicas-cctv');
+        let despuesDeInfo = false;
+        let page2Terminada = false;
+        const page2Movidos = new Set();
 
-        const excede = elemento =>
-            elemento.getBoundingClientRect().bottom >
-            limiteInferiorPagina(paginaActual.pagina) + 1;
+        const esHerramientas = el => /HERRAMIENTAS DE SEGURIDAD/i.test(el.textContent || '');
+        const esCCTV = el => /Sistema CCTV/i.test(el.textContent || '');
+        const esGeo = el => /GEOREFERENCIACIÓN/i.test(el.textContent || '');
+        const esCaracteristicas = el => /Características de la instalación/i.test(el.textContent || '');
 
-        const agregarElemento = elemento => {
-            asegurarPagina();
-            paginaActual.cuerpo.appendChild(elemento);
+        /* Hoja estática 2: ubicación y entorno. El entorno se retira de la
+           tabla general para que la primera hoja quede dedicada al cliente
+           y a los datos propios de la inspección. */
+        if (infoGeneral) {
+            const filaEntorno = Array.from(infoGeneral.querySelectorAll('tr')).find(tr =>
+                /Descripción del entorno/i.test(tr.cells?.[0]?.textContent || '')
+            );
+            const entornoTexto = filaEntorno?.cells?.[1]?.textContent?.trim() || '';
+            if (filaEntorno) filaEntorno.remove();
 
-            if (excede(elemento) && paginaActual.cuerpo.children.length > 1) {
-                paginaActual.cuerpo.removeChild(elemento);
-                nuevaPagina();
-                paginaActual.cuerpo.appendChild(elemento);
-            }
-        };
+            const ubicacion = document.createElement('div');
+            ubicacion.className = 'bloque-pdf ubicacion-entorno-estatico';
+            ubicacion.innerHTML =
+                '<h3 style="color:#123b5d;border-bottom:2px solid #123b5d;padding-bottom:6px;margin:0 0 12px 0;">' +
+                    'UBICACIÓN Y ENTORNO' +
+                '</h3>' +
+                '<table style="width:100%;border-collapse:collapse;margin-bottom:18px;">' +
+                    '<tr>' +
+                        '<td style="padding:8px;border:1px solid #999;background:#f1f4f7;font-weight:bold;width:25%;">DIRECCIÓN</td>' +
+                        '<td style="padding:8px;border:1px solid #999;width:25%;">' + escapar(inspeccion.direccion || '') + '</td>' +
+                        '<td style="padding:8px;border:1px solid #999;background:#f1f4f7;font-weight:bold;width:25%;">CIUDAD</td>' +
+                        '<td style="padding:8px;border:1px solid #999;width:25%;">' + escapar(inspeccion.ciudad || '') + '</td>' +
+                    '</tr>' +
+                    '<tr>' +
+                        '<td style="padding:8px;border:1px solid #999;background:#f1f4f7;font-weight:bold;">ENTORNO</td>' +
+                        '<td colspan="3" style="padding:8px;border:1px solid #999;white-space:pre-wrap;">' + escapar(entornoTexto) + '</td>' +
+                    '</tr>' +
+                '</table>';
 
-        const agregarTabla = tablaOriginal => {
-            const filas = Array.from(tablaOriginal.querySelectorAll(':scope > tbody > tr'));
-            const thead = tablaOriginal.querySelector(':scope > thead');
-
-            if (!filas.length) {
-                agregarElemento(tablaOriginal);
-                return;
-            }
-
-            let tablaPagina = null;
-
-            const crearTablaPagina = () => {
-                asegurarPagina();
-                const tabla = tablaOriginal.cloneNode(false);
-                tabla.classList.add('tabla-continuacion-paginada');
-
-                if (thead) tabla.appendChild(thead.cloneNode(true));
-                const tbody = document.createElement('tbody');
-                tabla.appendChild(tbody);
-                paginaActual.cuerpo.appendChild(tabla);
-                tablaPagina = { tabla, tbody };
-            };
-
-            filas.forEach(fila => {
-                if (!tablaPagina) crearTablaPagina();
-
-                const filaClon = fila.cloneNode(true);
-                tablaPagina.tbody.appendChild(filaClon);
-
-                if (excede(tablaPagina.tabla)) {
-                    tablaPagina.tbody.removeChild(filaClon);
-
-                    if (tablaPagina.tbody.children.length) {
-                        nuevaPagina();
-                        crearTablaPagina();
-                    }
-
-                    tablaPagina.tbody.appendChild(filaClon);
-                }
-            });
-        };
-
-        /* Agrupar cada título con el bloque inmediatamente siguiente. Esto
-           evita títulos huérfanos al final de una página y se aproxima al
-           flujo editorial del documento de referencia. */
-        const flujo = [];
-        for (let i = 0; i < unidades.length; i++) {
-            const actual = unidades[i];
-            if (actual.tipo === 'contenido' && /^H[1-4]$/.test(actual.elemento.tagName)) {
-                const siguiente = unidades[i + 1];
-                if (siguiente && siguiente.tipo === 'contenido') {
-                    flujo.push({ tipo: 'grupo', elementos: [actual.elemento, siguiente.elemento] });
-                    i++;
-                    continue;
-                }
-            }
-            flujo.push(actual);
+            añadir(paginaEstatica, ubicacion);
         }
 
-        flujo.forEach(unidad => {
-            if (unidad.tipo === 'salto') {
-                if (cuerpoTieneContenido()) nuevaPagina();
+        /* Agregar un bloque estático completo. Si no cabe, se crea otra hoja
+           estática; nunca se recorta ni se comprime el contenido. */
+        const agregarEstatica = el => {
+            if (!el) return;
+            paginaEstatica.cuerpo.appendChild(el);
+            const limite = paginaEstatica.pagina.getBoundingClientRect().bottom - 42;
+            const pieProvisional = paginaEstatica.pagina.querySelector('.paginacion-informe');
+            const bottom = el.getBoundingClientRect().bottom;
+            if (bottom > limite && paginaEstatica.cuerpo.children.length > 1) {
+                paginaEstatica.cuerpo.removeChild(el);
+                paginaEstatica = crearPagina('continuacion-estatica');
+                paginaEstatica.cuerpo.appendChild(el);
+            }
+        };
+
+        hijos.forEach((el, indice) => {
+            if (el === infoGeneral) {
+                despuesDeInfo = true;
                 return;
             }
+            if (!despuesDeInfo || page2Terminada || ignorar(el) || page2Movidos.has(el)) return;
 
-            if (unidad.tipo === 'grupo') {
-                unidad.elementos.forEach(el => {
-                    if (el.tagName === 'TABLE') agregarTabla(el);
-                    else agregarElemento(el);
-                });
+            if (esCaracteristicas(el)) {
+                agregarEstatica(el);
+                page2Movidos.add(el);
+                const siguiente = hijos[indice + 1];
+                if (siguiente && siguiente.tagName === 'TABLE' && !ignorar(siguiente)) {
+                    agregarEstatica(siguiente);
+                    page2Movidos.add(siguiente);
+                }
                 return;
             }
-
-            const el = unidad.elemento;
-            if (el.tagName === 'TABLE') agregarTabla(el);
-            else agregarElemento(el);
+            if (esCCTV(el) || esGeo(el)) {
+                agregarEstatica(el);
+                page2Movidos.add(el);
+                return;
+            }
+            if (esHerramientas(el)) page2Terminada = true;
         });
 
-        /* Controles únicamente al final del último folio. */
-        asegurarPagina();
+        /* ---------------------------------------------------------
+           Restantes elementos en su orden original.
+           Se excluyen los que ya fueron trasladados a hojas 1 y 2.
+           --------------------------------------------------------- */
+        const usados = new Set([
+            encabezadoOriginal,
+            infoGeneral,
+            ...page2Movidos
+        ]);
+        // Registrar todos los nodos directos trasladados a las hojas estáticas.
+        // La ubicación/entorno es un bloque nuevo y no forma parte de hijos.
+        hijos.forEach(el => {
+            if (el !== infoGeneral && paginaEstatica && Array.from(paginaEstatica.cuerpo.children).includes(el)) {
+                usados.add(el);
+            }
+        });
+
+        const restantes = hijos.filter(el => !usados.has(el) && !ignorar(el));
+
+        /* ---------------------------------------------------------
+           Utilidades para flujo dinámico.
+           Las unidades pequeñas se agrupan; las tablas largas se
+           continúan por filas. Esto evita la explosión de páginas de 4B.
+           --------------------------------------------------------- */
+        const paginaVacia = p => p.cuerpo.children.length === 0;
+        const limitePx = p => p.cuerpo.getBoundingClientRect().top +
+            p.cuerpo.clientHeight - 18;
+
+        const cabe = (p, el) => {
+            const r = el.getBoundingClientRect();
+            return r.bottom <= limitePx(p) + 1;
+        };
+
+        const nuevaSiNecesario = (p, el) => {
+            if (!paginaVacia(p) && !cabe(p, el)) return crearPagina('continuacion');
+            return p;
+        };
+
+        const copiarTablaPorFilas = (tablaOriginal, paginaInicial) => {
+            const filas = Array.from(tablaOriginal.querySelectorAll(':scope > tbody > tr'));
+            const thead = tablaOriginal.querySelector(':scope > thead');
+            if (!filas.length) {
+                let p = nuevaSiNecesario(paginaInicial, tablaOriginal);
+                añadir(p, tablaOriginal);
+                return p;
+            }
+
+            let p = paginaInicial;
+            let tablaPagina = null;
+
+            const nuevaTabla = () => {
+                tablaPagina = tablaOriginal.cloneNode(false);
+                tablaPagina.classList.add('tabla-continuacion-paginada');
+                if (thead) tablaPagina.appendChild(thead.cloneNode(true));
+                const tbody = document.createElement('tbody');
+                tablaPagina.appendChild(tbody);
+                p.cuerpo.appendChild(tablaPagina);
+                return tbody;
+            };
+
+            let tbody = nuevaTabla();
+            filas.forEach(fila => {
+                const clon = fila.cloneNode(true);
+                tbody.appendChild(clon);
+                if (tablaPagina.getBoundingClientRect().bottom > limitePx(p) + 1 && tbody.children.length > 1) {
+                    tbody.removeChild(clon);
+                    p = crearPagina('continuacion-tabla');
+                    tbody = nuevaTabla();
+                    tbody.appendChild(clon);
+                }
+            });
+            return p;
+        };
+
+        /* Agrupa cada H2 con el contenido siguiente inmediato, pero permite
+           que el contenido posterior continúe en nuevas páginas. */
+        let paginaActual = crearPagina('desarrollo');
+
+        const añadirUnidad = el => {
+            if (!el || ignorar(el)) return;
+            if (el.classList.contains('salto-pagina-pdf')) {
+                if (!paginaVacia(paginaActual)) paginaActual = crearPagina('salto-controlado');
+                return;
+            }
+
+            if (el.tagName === 'TABLE') {
+                paginaActual = copiarTablaPorFilas(el, paginaActual);
+                return;
+            }
+
+            paginaActual = nuevaSiNecesario(paginaActual, el);
+            paginaActual.cuerpo.appendChild(el);
+        };
+
+        /* Identificar el mapa de calor y reservarlo como una hoja estática. */
+        const heatmapH2 = restantes.find(el =>
+            el.tagName === 'H2' && /Mapa de calor de riesgos/i.test(el.textContent || '')
+        );
+        const heatmapIndex = heatmapH2 ? restantes.indexOf(heatmapH2) : -1;
+        const heatmapContenido = heatmapIndex >= 0 ? restantes[heatmapIndex + 1] : null;
+        const heatmapMovidos = new Set();
+        if (heatmapH2) heatmapMovidos.add(heatmapH2);
+        if (heatmapContenido) heatmapMovidos.add(heatmapContenido);
+
+        let paginaActual = crearPagina('desarrollo');
+        const paginaVacia = p => p.cuerpo.children.length === 0;
+        const limitePx = p => p.cuerpo.getBoundingClientRect().top + p.cuerpo.clientHeight - 28;
+        const cabe = (p, el) => el.getBoundingClientRect().bottom <= limitePx(p) + 1;
+
+        const copiarTablaPorFilas = (tablaOriginal, pInicial) => {
+            const filas = Array.from(tablaOriginal.querySelectorAll(':scope > tbody > tr'));
+            const thead = tablaOriginal.querySelector(':scope > thead');
+            if (!filas.length) {
+                if (!paginaVacia(pInicial) && !cabe(pInicial, tablaOriginal)) pInicial = crearPagina('continuacion');
+                pInicial.cuerpo.appendChild(tablaOriginal);
+                return pInicial;
+            }
+            let p = pInicial;
+            let tablaPagina = null;
+            let tbody = null;
+            const nuevaTabla = () => {
+                tablaPagina = tablaOriginal.cloneNode(false);
+                tablaPagina.classList.add('tabla-continuacion-paginada');
+                if (thead) tablaPagina.appendChild(thead.cloneNode(true));
+                tbody = document.createElement('tbody');
+                tablaPagina.appendChild(tbody);
+                p.cuerpo.appendChild(tablaPagina);
+            };
+            nuevaTabla();
+            filas.forEach(fila => {
+                const clon = fila.cloneNode(true);
+                tbody.appendChild(clon);
+                if (tablaPagina.getBoundingClientRect().bottom > limitePx(p) + 1 && tbody.children.length > 1) {
+                    tbody.removeChild(clon);
+                    p = crearPagina('continuacion-tabla');
+                    nuevaTabla();
+                    tbody.appendChild(clon);
+                }
+            });
+            return p;
+        };
+
+        const añadirUnidad = el => {
+            if (!el || ignorar(el) || heatmapMovidos.has(el)) return;
+            if (el.classList.contains('salto-pagina-pdf')) {
+                if (!paginaVacia(paginaActual)) paginaActual = crearPagina('salto-controlado');
+                return;
+            }
+            if (el.tagName === 'TABLE') {
+                paginaActual = copiarTablaPorFilas(el, paginaActual);
+                return;
+            }
+            if (!paginaVacia(paginaActual) && !cabe(paginaActual, el)) {
+                paginaActual = crearPagina('continuacion');
+            }
+            paginaActual.cuerpo.appendChild(el);
+        };
+
+        /* El contenido posterior a la hoja estática se procesa dinámicamente.
+           Cuando llegamos al mapa de calor, se crea una hoja estática exclusiva. */
+        for (let i = 0; i < restantes.length; i++) {
+            const el = restantes[i];
+            if (heatmapMovidos.has(el)) continue;
+
+            if (el.classList.contains('salto-hallazgos-pdf')) {
+                if (!paginaVacia(paginaActual)) paginaActual = crearPagina('hallazgos');
+                continue;
+            }
+
+            añadirUnidad(el);
+
+            if (heatmapH2 && el.tagName === 'TABLE' && /Probabilidad|Impacto|Puntuación|Tratamiento/i.test(el.textContent || '')) {
+                const heat = crearPagina('mapa-calor');
+                heat.cuerpo.appendChild(heatmapH2);
+                if (heatmapContenido) heat.cuerpo.appendChild(heatmapContenido);
+                paginaActual = crearPagina('continuacion');
+            }
+        }
+
+        /* ---------------------------------------------------------
+           Controles al final del último folio.
+           --------------------------------------------------------- */
+        if (!paginaActual || paginaVacia(paginaActual)) {
+            paginaActual = crearPagina('final');
+        }
         const controles = document.createElement('div');
         controles.className = 'controles-informe-paginado';
         controles.innerHTML =
@@ -12220,50 +12319,45 @@ ESTADO: EN DESARROLLO
                 '<button onclick="window.opener.generarPDF(window)">📄 Generar PDF</button>' +
                 '<div>Informe generado por el Sistema de Inspecciones de Seguridad</div>' +
             '</div>';
-
         paginaActual.cuerpo.appendChild(controles);
-        if (excede(controles) && paginaActual.cuerpo.children.length > 1) {
-            paginaActual.cuerpo.removeChild(controles);
-            nuevaPagina();
-            paginaActual.cuerpo.appendChild(controles);
-        }
+
+        /* Eliminar páginas vacías creadas como continuación innecesaria. */
+        Array.from(contenedor.querySelectorAll('.pagina-informe')).forEach(p => {
+            const cuerpo = p.querySelector('.cuerpo-pagina-informe');
+            if (!cuerpo || !cuerpo.children.length) p.remove();
+        });
+
+        const paginasFinales = Array.from(contenedor.querySelectorAll('.pagina-informe'));
 
         hoja.innerHTML = '';
         hoja.appendChild(contenedor);
 
-        const paginas = Array.from(contenedor.querySelectorAll('.pagina-informe'));
-
         const indicadorPaginas = document.createElement('div');
         indicadorPaginas.className = 'indicador-total-paginas';
         indicadorPaginas.setAttribute('role', 'status');
-        indicadorPaginas.textContent = '📄 Informe generado: ' + paginas.length +
-            (paginas.length === 1 ? ' página' : ' páginas');
+        indicadorPaginas.textContent = '📄 Informe generado: ' + paginasFinales.length +
+            (paginasFinales.length === 1 ? ' página' : ' páginas');
         hoja.insertBefore(indicadorPaginas, contenedor);
 
-        paginas.forEach((pagina, indice) => {
+        paginasFinales.forEach((pagina, indice) => {
             const pie = document.createElement('div');
             pie.className = 'paginacion-informe';
-            pie.textContent = 'Página ' + (indice + 1) + ' de ' + paginas.length;
+            pie.textContent = 'Página ' + (indice + 1) + ' de ' + paginasFinales.length;
             pagina.appendChild(pie);
         });
     }
 
     function esperarImagenesYConstruir() {
         const imagenes = Array.from(document.images || []);
-
         const ejecutar = () => {
             requestAnimationFrame(() => {
                 requestAnimationFrame(inicializarInformePaginado);
             });
         };
-
         if (!imagenes.length || imagenes.every(img => img.complete)) {
             ejecutar();
             return;
         }
-
-        // La ventana ya espera al evento load; el pequeño retraso permite
-        // que el navegador termine de calcular las dimensiones de las fotos.
         setTimeout(ejecutar, 500);
     }
 
