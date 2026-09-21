@@ -9488,6 +9488,112 @@ matrizParaInforme.forEach((riesgo, indice) => {
                     padding-top:0 !important;
                 }
 
+                /* =====================================================
+                   OM-27.1 · PRESENTACIÓN PAGINADA DINÁMICA
+                   El documento se visualiza como páginas A4 reales.
+                   La cantidad de páginas depende del contenido.
+                   ===================================================== */
+                .contenedor-paginado-tecchnex {
+                    display:flex;
+                    flex-direction:column;
+                    align-items:center;
+                    gap:12mm;
+                    width:100%;
+                }
+
+                .pagina-informe {
+                    position:relative;
+                    width:210mm;
+                    min-height:297mm;
+                    box-sizing:border-box;
+                    padding:12mm 15mm 15mm 15mm;
+                    background:#fff;
+                    box-shadow:0 2px 14px rgba(0,0,0,.16);
+                    overflow:hidden;
+                    flex:0 0 auto;
+                }
+
+                .cuerpo-pagina-informe {
+                    width:180mm;
+                    box-sizing:border-box;
+                    padding-bottom:10mm;
+                }
+
+                .encabezado-pagina {
+                    width:180mm;
+                    box-sizing:border-box;
+                    margin-top:0 !important;
+                    margin-bottom:8mm !important;
+                }
+
+                .encabezado-pagina table {
+                    margin-top:0 !important;
+                }
+
+                .paginacion-informe {
+                    position:absolute;
+                    left:15mm;
+                    right:15mm;
+                    bottom:6mm;
+                    text-align:center;
+                    font-size:9px;
+                    color:#666;
+                    border-top:1px solid #d0d0d0;
+                    padding-top:2mm;
+                }
+
+                .controles-informe-paginado {
+                    margin-top:8mm;
+                    text-align:center;
+                }
+
+                .pie-informe-paginado button {
+                    padding:12px 22px;
+                    border:none;
+                    border-radius:6px;
+                    background:#123b5d;
+                    color:white;
+                    font-size:15px;
+                    cursor:pointer;
+                }
+
+                .pie-informe-paginado div {
+                    margin-top:8px;
+                    color:#777;
+                    font-size:11px;
+                }
+
+                .informe-paginado-activo {
+                    width:100% !important;
+                    max-width:none !important;
+                    margin:0 !important;
+                    padding:0 !important;
+                }
+
+                .informe-paginado-activo .bloque-pdf,
+                .informe-paginado-activo .seccion-pdf {
+                    break-inside:auto;
+                    page-break-inside:auto;
+                }
+
+                @media screen and (max-width: 900px) {
+                    body {
+                        background:#e9edf1;
+                    }
+
+                    .pagina-informe {
+                        transform-origin:top center;
+                        width:210mm;
+                    }
+
+                    .contenedor-paginado-tecchnex {
+                        align-items:flex-start;
+                        overflow-x:auto;
+                        padding:8px;
+                    }
+                }
+
+
                 /* CAMBIO PDF-PRESENTACION-5 — Compactar el encabezado para
                    eliminar el espacio superior excesivo y aprovechar el área útil A4. */
                 .encabezado {
@@ -11754,6 +11860,152 @@ ESTADO: EN DESARROLLO
 
             </div>
 
+
+<script>
+/* =========================================================
+   OM-27.1 · INFORME PAGINADO DINÁMICO — INTERVENCIÓN 1
+   OBJETIVO: Presentar el informe como un documento paginado
+   automáticamente según la cantidad real de contenido.
+   Esta etapa interviene únicamente la PRESENTACIÓN DEL INFORME.
+   No modifica datos, cálculos ni funciones de generación PDF.
+   ========================================================= */
+(function () {
+    function inicializarInformePaginado() {
+        const hoja = document.querySelector('.hoja');
+        if (!hoja || hoja.dataset.paginadoAplicado === 'true') return;
+
+        const encabezadoOriginal = hoja.querySelector(':scope > .encabezado');
+        if (!encabezadoOriginal) return;
+
+        const hijos = Array.from(hoja.children).filter(el =>
+            el !== encabezadoOriginal &&
+            !el.classList.contains('botones') &&
+            !el.classList.contains('pie')
+        );
+
+        if (!hijos.length) return;
+
+        hoja.dataset.paginadoAplicado = 'true';
+        hoja.classList.add('informe-paginado-activo');
+
+        const contenedor = document.createElement('div');
+        contenedor.className = 'contenedor-paginado-tecchnex';
+
+        // Agrupar cada H2 con el contenido que le pertenece para evitar
+        // que un título quede solo al final de una página.
+        const unidades = [];
+        let unidadActual = [];
+
+        hijos.forEach(el => {
+            if (el.nodeType === 1 && el.classList.contains('salto-pagina-pdf')) return;
+
+            if (el.tagName === 'H2' && unidadActual.length) {
+                unidades.push(unidadActual);
+                unidadActual = [];
+            }
+
+            unidadActual.push(el);
+        });
+
+        if (unidadActual.length) unidades.push(unidadActual);
+
+        const crearPagina = () => {
+            const pagina = document.createElement('section');
+            pagina.className = 'pagina-informe';
+
+            const encabezado = encabezadoOriginal.cloneNode(true);
+            encabezado.classList.add('encabezado-pagina');
+            pagina.appendChild(encabezado);
+
+            const cuerpo = document.createElement('div');
+            cuerpo.className = 'cuerpo-pagina-informe';
+            pagina.appendChild(cuerpo);
+
+            contenedor.appendChild(pagina);
+            return { pagina, cuerpo, encabezado };
+        };
+
+        let paginaActual = crearPagina();
+
+        const mmAPx = mm => mm * (96 / 25.4);
+
+        const alturaDisponible = () => {
+            const pagina = paginaActual.pagina;
+            const estilo = getComputedStyle(pagina);
+            const paddingSuperior = parseFloat(estilo.paddingTop) || 0;
+            const paddingInferior = parseFloat(estilo.paddingBottom) || 0;
+            const reservaPie = mmAPx(12);
+            return pagina.clientHeight - paddingSuperior - paddingInferior -
+                paginaActual.encabezado.offsetHeight - reservaPie;
+        };
+
+        const alturaContenido = () => paginaActual.cuerpo.scrollHeight;
+
+        const moverUnidad = (unidad) => {
+            const fragmento = document.createDocumentFragment();
+            unidad.forEach(el => fragmento.appendChild(el));
+            paginaActual.cuerpo.appendChild(fragmento);
+
+            if (
+                alturaContenido() > alturaDisponible() &&
+                paginaActual.cuerpo.children.length > unidad.length
+            ) {
+                unidad.forEach(el => paginaActual.cuerpo.removeChild(el));
+                paginaActual = crearPagina();
+                unidad.forEach(el => paginaActual.cuerpo.appendChild(el));
+            }
+        };
+
+        unidades.forEach(moverUnidad);
+
+        // El bloque de controles se conserva al final del informe.
+        const controles = document.createElement('div');
+        controles.className = 'controles-informe-paginado';
+        controles.innerHTML =
+            '<div class="pie pie-informe-paginado">' +
+                '<button onclick="window.opener.generarPDF(window)">📄 Generar PDF</button>' +
+                '<div>Informe generado por el Sistema de Inspecciones de Seguridad</div>' +
+            '</div>';
+        paginaActual.cuerpo.appendChild(controles);
+
+        hoja.innerHTML = '';
+        hoja.appendChild(contenedor);
+
+        const paginas = Array.from(contenedor.querySelectorAll('.pagina-informe'));
+        paginas.forEach((pagina, indice) => {
+            const pie = document.createElement('div');
+            pie.className = 'paginacion-informe';
+            pie.textContent = 'Página ' + (indice + 1) + ' de ' + paginas.length;
+            pagina.appendChild(pie);
+        });
+    }
+
+    function esperarImagenesYConstruir() {
+        const imagenes = Array.from(document.images || []);
+
+        const ejecutar = () => {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(inicializarInformePaginado);
+            });
+        };
+
+        if (!imagenes.length || imagenes.every(img => img.complete)) {
+            ejecutar();
+            return;
+        }
+
+        // La ventana ya espera al evento load; el pequeño retraso permite
+        // que el navegador termine de calcular las dimensiones de las fotos.
+        setTimeout(ejecutar, 500);
+    }
+
+    if (document.readyState === 'complete') {
+        esperarImagenesYConstruir();
+    } else {
+        window.addEventListener('load', esperarImagenesYConstruir, { once: true });
+    }
+})();
+</script>
         </body>
 
         </html>
