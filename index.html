@@ -2888,7 +2888,26 @@ if (Object.prototype.hasOwnProperty.call(datos, "bibliotecaRecomendaciones")) {
     );
 }
 
+// =====================================================
+// OM-23 — ACTUALIZACIÓN DE INFORMES RESTAURADOS
+// OBJETIVO: Cuando existe un listado de clientes abierto,
+// reconstruirlo después de restaurar el respaldo para que
+// las inspecciones recuperadas aparezcan inmediatamente
+// con sus índices/ID actuales y puedan editarse.
+// NO MODIFICA LOS DATOS RESTAURADOS.
+// =====================================================
+const clientesEstabaAbiertoOM23 =
+    !!document.getElementById("ventanaClientes");
+
+if (clientesEstabaAbiertoOM23) {
+    cerrarClientes();
+}
+
 actualizarContadores();
+
+if (clientesEstabaAbiertoOM23) {
+    abrirClientes();
+}
 
 alert(
     "¡Respaldo restaurado correctamente!\n\n" +
