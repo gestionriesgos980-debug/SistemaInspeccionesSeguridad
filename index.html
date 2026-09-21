@@ -9601,36 +9601,6 @@ matrizParaInforme.forEach((riesgo, indice) => {
                     overflow:visible;
                 }
 
-                /* OM-27.1 · INTERVENCIÓN 5B — FORMATO MAESTRO TECCHNEX
-                   Las secciones que necesitan mayor ancho se presentan en A4
-                   horizontal. La paginación física de 4D se conserva. */
-                .pagina-informe.pagina-horizontal {
-                    width:297mm;
-                    height:210mm;
-                    min-height:210mm;
-                    max-height:210mm;
-                    padding:10mm 12mm 13mm 12mm;
-                }
-
-                .pagina-informe.pagina-horizontal .cuerpo-pagina-informe {
-                    width:273mm;
-                    height:180mm;
-                    max-height:180mm;
-                }
-
-                .pagina-informe.pagina-horizontal .encabezado-pagina {
-                    width:273mm;
-                }
-
-                .pagina-informe.pagina-horizontal .paginacion-informe {
-                    left:12mm;
-                    right:12mm;
-                }
-
-                .pagina-informe.pagina-horizontal .tabla-continuacion-paginada {
-                    width:100%;
-                }
-
                 .encabezado-pagina {
                     width:180mm;
                     box-sizing:border-box;
@@ -12020,17 +11990,6 @@ ESTADO: EN DESARROLLO
             pagina.className = 'pagina-informe';
             pagina.dataset.tipoPagina = tipo || '';
 
-            if ([
-                'checklist-horizontal',
-                'matriz-horizontal',
-                'mapa-calor',
-                'hallazgos',
-                'hallazgos-continuacion',
-                'continuacion-horizontal'
-            ].includes(tipo)) {
-                pagina.classList.add('pagina-horizontal');
-            }
-
             const encabezado = encabezadoOriginal.cloneNode(true);
             encabezado.classList.add('encabezado-pagina');
             pagina.appendChild(encabezado);
@@ -12215,34 +12174,6 @@ ESTADO: EN DESARROLLO
             }
 
             if (el.tagName === 'TABLE') {
-                const textoTabla = (el.textContent || '');
-
-                /* Lista de chequeo: se presenta en hoja horizontal propia. */
-                const esChecklist = /Cumple/i.test(textoTabla) &&
-                    /No cumple/i.test(textoTabla) &&
-                    /No aplica/i.test(textoTabla);
-
-                /* Matriz: se presenta en hoja horizontal propia para evitar
-                   columnas excesivamente estrechas. */
-                const esMatriz = /Probabilidad/i.test(textoTabla) &&
-                    /Impacto/i.test(textoTabla) &&
-                    /Tratamiento/i.test(textoTabla);
-
-                if (esChecklist || esMatriz) {
-                    if (!vacia(paginaActual)) {
-                        paginaActual = crearPagina(esChecklist ? 'checklist-horizontal' : 'matriz-horizontal');
-                    } else {
-                        paginaActual.pagina.classList.add('pagina-horizontal');
-                        paginaActual.pagina.dataset.tipoPagina = esChecklist ? 'checklist-horizontal' : 'matriz-horizontal';
-                    }
-                    paginaActual = agregarTabla(
-                        el,
-                        paginaActual,
-                        esChecklist ? 'checklist-horizontal' : 'matriz-horizontal'
-                    );
-                    return;
-                }
-
                 paginaActual = agregarTabla(el, paginaActual);
                 return;
             }
