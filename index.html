@@ -11985,44 +11985,96 @@ ESTADO: EN DESARROLLO
         const encabezadoOriginal = hoja.querySelector(':scope > .encabezado');
         if (!encabezadoOriginal) return;
 
-        const hijos = Array.from(hoja.children).filter(el =>
-            el !== encabezadoOriginal &&
-            !el.classList.contains('botones') &&
-            !el.classList.contains('pie')
-        );
-
-        if (!hijos.length) return;
-
         hoja.dataset.paginadoAplicado = 'true';
         hoja.classList.add('informe-paginado-activo');
 
-        const contenedor = document.createElement('div');
-        contenedor.className = 'contenedor-paginado-tecchnex';
-
         /*
-         * OM-27.1 · INTERVENCIÓN 4A
-         * Segmentación real del contenido restante.
+         * OM-27.1 · INTERVENCIÓN 4B
+         * Paginación basada en bloques reales del documento.
          *
-         * La intervención anterior agrupaba un H2 con toda su sección.
-         * Cuando esa sección era más alta que una página, el navegador
-         * ocultaba el excedente por overflow:hidden. Aquí se trabaja por
-         * unidades físicas y las tablas se fragmentan por filas, repitiendo
-         * el encabezado de tabla en la página siguiente.
+         * La Intervención 4A trataba algunos contenedores extensos como
+         * una sola unidad. En el modelo institucional, en cambio, una
+         * sección puede ocupar varias páginas y debe continuar de forma
+         * natural. Por eso aquí se descompone el contenido por elementos
+         * visuales (títulos, tablas y bloques de texto) y las tablas se
+         * continúan por filas.
          */
         const unidades = [];
 
-        hijos.forEach(el => {
-            if (el.nodeType === 1 && el.classList.contains('salto-pagina-pdf')) {
-                unidades.push({ tipo: 'salto' });
-                return;
-            }
+        const esIgnorable = el => {
+            if (!el || el.nodeType !== 1) return true;
+            return el.classList.contains('botones') ||
+                   el.classList.contains('pie') ||
+                   el.classList.contains('controles-informe-paginado');
+        };
 
-            /*
-             * Cada elemento pasa a ser una unidad independiente. Así una
-             * sección extensa ya no queda encerrada dentro de una sola
-             * unidad que pueda desbordar la página completa.
-             */
-            unidades.push({ tipo: 'contenido', elementos: [el] });
+        const agregarUnidad = (elemento) => {
+            if (!elemento || esIgnorable(elemento)) return;
+            unidades.push({ tipo: 'contenido', elemento });
+        };
+
+        const recorrer = (contenedor) => {
+            Array.from(contenedor.children || []).forEach(el => {
+                if (esIgnorable(el)) return;
+
+                if (el.classList.contains('salto-pagina-pdf')) {
+                    unidades.push({ tipo: 'salto' });
+                    return;
+                }
+
+                if (el.tagName === 'TABLE') {
+                    agregarUnidad(el);
+                    return;
+                }
+
+                if (/^H[1-4]$/.test(el.tagName)) {
+                    agregarUnidad(el);
+                    return;
+                }
+
+                /* Bloques semánticos: se abren para que su contenido pueda
+                   repartirse entre páginas en lugar de quedar encerrado. */
+                if (el.classList.contains('bloque-pdf') ||
+                    el.classList.contains('seccion-pdf') ||
+                    el.classList.contains('resultado') ||
+                    el.classList.contains('firmas')) {
+                    if (el.classList.contains('firmas')) {
+                        agregarUnidad(el);
+                    } else {
+                        recorrer(el);
+                    }
+                    return;
+                }
+
+                /* Divs que contienen tablas/títulos se descomponen; los
+                   bloques simples de texto permanecen como una unidad. */
+                const tieneBloques = Array.from(el.children || []).some(hijo =>
+                    hijo.tagName === 'TABLE' ||
+                    /^H[1-4]$/.test(hijo.tagName) ||
+                    hijo.classList.contains('bloque-pdf') ||
+                    hijo.classList.contains('seccion-pdf') ||
+                    hijo.classList.contains('resultado') ||
+                    hijo.classList.contains('salto-pagina-pdf')
+                );
+
+                if (tieneBloques) {
+                    recorrer(el);
+                } else {
+                    agregarUnidad(el);
+                }
+            });
+        };
+
+        /* Todo lo que no sea el encabezado pasa al flujo paginado. */
+        Array.from(hoja.children).forEach(el => {
+            if (el === encabezadoOriginal || esIgnorable(el)) return;
+            if (el.classList.contains('salto-pagina-pdf')) {
+                unidades.push({ tipo: 'salto' });
+            } else if (el.tagName === 'TABLE' || /^H[1-4]$/.test(el.tagName)) {
+                agregarUnidad(el);
+            } else {
+                recorrer(el);
+            }
         });
 
         const crearPagina = () => {
@@ -12038,10 +12090,12 @@ ESTADO: EN DESARROLLO
             pagina.appendChild(cuerpo);
 
             contenedor.appendChild(pagina);
-            return { pagina, cuerpo, encabezado };
+            return { pagina, cuerpo };
         };
 
-        let paginaActual = crearPagina();
+        const contenedor = document.createElement('div');
+        contenedor.className = 'contenedor-paginado-tecchnex';
+        let paginaActual = null;
 
         const mmAPx = mm => mm * (96 / 25.4);
 
@@ -12053,36 +12107,35 @@ ESTADO: EN DESARROLLO
             return rect.top + pagina.clientHeight - paddingInferior - reservaPie;
         };
 
-        const elementoExcedePagina = elemento => {
-            if (!elemento) return false;
-            return elemento.getBoundingClientRect().bottom >
-                   limiteInferiorPagina(paginaActual.pagina) + 1;
-        };
-
         const cuerpoTieneContenido = () =>
-            paginaActual.cuerpo.children.length > 0;
+            !!paginaActual && paginaActual.cuerpo.children.length > 0;
+
+        const asegurarPagina = () => {
+            if (!paginaActual) paginaActual = crearPagina();
+        };
 
         const nuevaPagina = () => {
             paginaActual = crearPagina();
         };
 
+        const excede = elemento =>
+            elemento.getBoundingClientRect().bottom >
+            limiteInferiorPagina(paginaActual.pagina) + 1;
+
         const agregarElemento = elemento => {
+            asegurarPagina();
             paginaActual.cuerpo.appendChild(elemento);
 
-            if (elementoExcedePagina(elemento) && cuerpoTieneContenido()) {
+            if (excede(elemento) && paginaActual.cuerpo.children.length > 1) {
                 paginaActual.cuerpo.removeChild(elemento);
                 nuevaPagina();
                 paginaActual.cuerpo.appendChild(elemento);
             }
         };
 
-        /*
-         * Divide una tabla por filas. Se conserva thead para que cada
-         * continuación tenga sus títulos de columna visibles.
-         */
         const agregarTabla = tablaOriginal => {
-            const filas = Array.from(tablaOriginal.querySelectorAll('tbody > tr'));
-            const thead = tablaOriginal.querySelector('thead');
+            const filas = Array.from(tablaOriginal.querySelectorAll(':scope > tbody > tr'));
+            const thead = tablaOriginal.querySelector(':scope > thead');
 
             if (!filas.length) {
                 agregarElemento(tablaOriginal);
@@ -12092,13 +12145,11 @@ ESTADO: EN DESARROLLO
             let tablaPagina = null;
 
             const crearTablaPagina = () => {
+                asegurarPagina();
                 const tabla = tablaOriginal.cloneNode(false);
                 tabla.classList.add('tabla-continuacion-paginada');
 
-                if (thead) {
-                    tabla.appendChild(thead.cloneNode(true));
-                }
-
+                if (thead) tabla.appendChild(thead.cloneNode(true));
                 const tbody = document.createElement('tbody');
                 tabla.appendChild(tbody);
                 paginaActual.cuerpo.appendChild(tabla);
@@ -12111,41 +12162,57 @@ ESTADO: EN DESARROLLO
                 const filaClon = fila.cloneNode(true);
                 tablaPagina.tbody.appendChild(filaClon);
 
-                if (elementoExcedePagina(tablaPagina.tabla)) {
+                if (excede(tablaPagina.tabla)) {
                     tablaPagina.tbody.removeChild(filaClon);
 
                     if (tablaPagina.tbody.children.length) {
                         nuevaPagina();
                         crearTablaPagina();
-                        tablaPagina.tbody.appendChild(filaClon);
-                    } else {
-                        /* Una fila individual no se puede dividir sin
-                           perder la integridad visual de su información. */
-                        nuevaPagina();
-                        crearTablaPagina();
-                        tablaPagina.tbody.appendChild(filaClon);
                     }
+
+                    tablaPagina.tbody.appendChild(filaClon);
                 }
             });
         };
 
-        unidades.forEach(unidad => {
+        /* Agrupar cada título con el bloque inmediatamente siguiente. Esto
+           evita títulos huérfanos al final de una página y se aproxima al
+           flujo editorial del documento de referencia. */
+        const flujo = [];
+        for (let i = 0; i < unidades.length; i++) {
+            const actual = unidades[i];
+            if (actual.tipo === 'contenido' && /^H[1-4]$/.test(actual.elemento.tagName)) {
+                const siguiente = unidades[i + 1];
+                if (siguiente && siguiente.tipo === 'contenido') {
+                    flujo.push({ tipo: 'grupo', elementos: [actual.elemento, siguiente.elemento] });
+                    i++;
+                    continue;
+                }
+            }
+            flujo.push(actual);
+        }
+
+        flujo.forEach(unidad => {
             if (unidad.tipo === 'salto') {
                 if (cuerpoTieneContenido()) nuevaPagina();
                 return;
             }
 
-            const el = unidad.elementos[0];
-
-            if (el.tagName === 'TABLE') {
-                agregarTabla(el);
+            if (unidad.tipo === 'grupo') {
+                unidad.elementos.forEach(el => {
+                    if (el.tagName === 'TABLE') agregarTabla(el);
+                    else agregarElemento(el);
+                });
                 return;
             }
 
-            agregarElemento(el);
+            const el = unidad.elemento;
+            if (el.tagName === 'TABLE') agregarTabla(el);
+            else agregarElemento(el);
         });
 
-        /* El bloque de controles queda al final del último folio. */
+        /* Controles únicamente al final del último folio. */
+        asegurarPagina();
         const controles = document.createElement('div');
         controles.className = 'controles-informe-paginado';
         controles.innerHTML =
@@ -12154,12 +12221,10 @@ ESTADO: EN DESARROLLO
                 '<div>Informe generado por el Sistema de Inspecciones de Seguridad</div>' +
             '</div>';
 
-        /* Si los controles no caben, crear un último folio para ellos. */
         paginaActual.cuerpo.appendChild(controles);
-        if (controles.getBoundingClientRect().bottom > limiteInferiorPagina(paginaActual.pagina) + 1 &&
-            paginaActual.cuerpo.children.length > 1) {
+        if (excede(controles) && paginaActual.cuerpo.children.length > 1) {
             paginaActual.cuerpo.removeChild(controles);
-            paginaActual = crearPagina();
+            nuevaPagina();
             paginaActual.cuerpo.appendChild(controles);
         }
 
@@ -12168,7 +12233,6 @@ ESTADO: EN DESARROLLO
 
         const paginas = Array.from(contenedor.querySelectorAll('.pagina-informe'));
 
-        /* OM-27.1 · Intervención 3 — Indicador visible del total de páginas. */
         const indicadorPaginas = document.createElement('div');
         indicadorPaginas.className = 'indicador-total-paginas';
         indicadorPaginas.setAttribute('role', 'status');
