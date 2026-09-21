@@ -6162,26 +6162,51 @@ function obtenerRecomendacionesSugeridas() {
 
     const biblioteca = obtenerBibliotecaRecomendaciones();
 
-    return biblioteca
-        .map((item, indice) => {
-            let puntaje = 0;
+    const resultados = biblioteca.map((item, indice) => {
+        let coincidenciasClave = 0;
+        const palabrasCoincidentes = [];
 
-            if (area && normalizarTextoOM12(item.area) === normalizarTextoOM12(area)) {
-                puntaje += 5;
+        (item.palabrasClave || []).forEach(palabra => {
+            const clave = normalizarTextoOM12(palabra);
+            if (clave && textoConsulta.includes(clave)) {
+                coincidenciasClave += 1;
+                palabrasCoincidentes.push(clave);
             }
+        });
 
-            (item.palabrasClave || []).forEach(palabra => {
-                const clave = normalizarTextoOM12(palabra);
-                if (clave && textoConsulta.includes(clave)) {
-                    puntaje += 2;
-                }
-            });
+        const coincideArea =
+            area &&
+            normalizarTextoOM12(item.area) === normalizarTextoOM12(area);
 
-            return { item, indice, puntaje };
-        })
-        .filter(resultado => resultado.puntaje > 0)
-        .sort((a, b) => b.puntaje - a.puntaje)
-        .slice(0, 5);
+        return {
+            item,
+            indice,
+            coincidenciasClave,
+            palabrasCoincidentes,
+            coincideArea
+        };
+    });
+
+    // Si existe una coincidencia por palabra clave, mostrar únicamente
+    // la recomendación con mayor relación con la consulta.
+    const coincidenciasPorClave = resultados
+        .filter(resultado => resultado.coincidenciasClave > 0)
+        .sort((a, b) => {
+            if (b.coincidenciasClave !== a.coincidenciasClave) {
+                return b.coincidenciasClave - a.coincidenciasClave;
+            }
+            return a.indice - b.indice;
+        });
+
+    if (coincidenciasPorClave.length) {
+        return coincidenciasPorClave.slice(0, 1);
+    }
+
+    // Si no hay palabra clave coincidente, conservar la consulta por área
+    // como respaldo, mostrando solo una recomendación.
+    return resultados
+        .filter(resultado => resultado.coincideArea)
+        .slice(0, 1);
 }
 
 function mostrarRecomendacionesSugeridas() {
