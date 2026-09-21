@@ -6437,6 +6437,97 @@ function mostrarRecomendacionesSugeridas() {
     `;
 }
 
+function abrirBibliotecaRecomendacionesParaHallazgoOM20() {
+
+    inicializarBibliotecaRecomendaciones();
+
+    let ventana = document.getElementById("ventanaBibliotecaHallazgoOM20");
+    if (ventana) ventana.remove();
+
+    ventana = document.createElement("div");
+    ventana.id = "ventanaBibliotecaHallazgoOM20";
+    ventana.style.cssText = `
+        position:fixed;inset:0;z-index:3200;background:rgba(0,0,0,.6);
+        overflow-y:auto;padding:20px;box-sizing:border-box;
+    `;
+
+    ventana.innerHTML = `
+        <div style="max-width:1050px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 10px 35px rgba(0,0,0,.3);overflow:hidden;">
+            <div style="background:#123b5d;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                <div>
+                    <strong style="font-size:18px;">📚 Seleccionar recomendación</strong>
+                    <div style="font-size:13px;opacity:.9;margin-top:4px;">Biblioteca de recomendaciones · Hallazgos</div>
+                </div>
+                <button type="button" onclick="document.getElementById('ventanaBibliotecaHallazgoOM20')?.remove()" style="background:transparent;color:#fff;border:0;font-size:28px;cursor:pointer;">&times;</button>
+            </div>
+            <div style="padding:18px;">
+                <input id="buscadorBibliotecaHallazgoOM20" type="search" placeholder="Buscar por área, tema, palabra clave o recomendación..."
+                    oninput="renderizarBibliotecaHallazgoOM20()"
+                    style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:7px;box-sizing:border-box;margin-bottom:14px;">
+                <div id="contenidoBibliotecaHallazgoOM20"></div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(ventana);
+    renderizarBibliotecaHallazgoOM20();
+}
+
+function renderizarBibliotecaHallazgoOM20() {
+
+    const contenedor = document.getElementById("contenidoBibliotecaHallazgoOM20");
+    if (!contenedor) return;
+
+    const biblioteca = obtenerBibliotecaRecomendaciones();
+    const buscador = normalizarTextoOM12(
+        document.getElementById("buscadorBibliotecaHallazgoOM20")?.value || ""
+    );
+
+    const resultados = biblioteca.filter(item => {
+        if (!buscador) return true;
+        const texto = normalizarTextoOM12([
+            item.area,
+            item.tema,
+            ...(item.palabrasClave || []),
+            item.recomendacion,
+            item.fuente
+        ].join(" "));
+        return texto.includes(buscador);
+    });
+
+    contenedor.innerHTML = resultados.length ? resultados.map(item => {
+        const indice = biblioteca.indexOf(item);
+        return `
+            <div style="border:1px solid #d1d5db;border-radius:8px;padding:12px;margin-bottom:9px;background:#fff;">
+                <div style="font-weight:bold;color:#123b5d;font-size:13px;">${escaparTextoOM12(item.area || "")} · ${escaparTextoOM12(item.tema || item.elemento || "")}</div>
+                <div style="font-size:13px;line-height:1.45;margin:7px 0;">${escaparTextoOM12(item.recomendacion || "")}</div>
+                <button type="button" onclick="usarRecomendacionBibliotecaDesdeHallazgoOM20(${indice})"
+                    style="background:#1d70b7;color:#fff;border:0;padding:7px 11px;border-radius:5px;cursor:pointer;font-weight:bold;">
+                    Usar esta recomendación
+                </button>
+            </div>
+        `;
+    }).join("") : `
+        <div style="padding:15px;text-align:center;color:#64748b;border:1px solid #e5e7eb;border-radius:8px;">
+            No se encontraron recomendaciones con ese criterio.
+        </div>
+    `;
+}
+
+function usarRecomendacionBibliotecaDesdeHallazgoOM20(indice) {
+
+    const biblioteca = obtenerBibliotecaRecomendaciones();
+    const recomendacion = biblioteca[indice];
+    const campo = document.getElementById("hallazgoRecomendacion");
+
+    if (!recomendacion || !campo) return;
+
+    campo.value = recomendacion.recomendacion || "";
+    campo.focus();
+
+    document.getElementById("ventanaBibliotecaHallazgoOM20")?.remove();
+}
+
 function usarRecomendacionBiblioteca(indice) {
 
     const biblioteca = obtenerBibliotecaRecomendaciones();
@@ -7136,6 +7227,11 @@ actualizarContadores();
             id="hallazgoRecomendacion"
             rows="4"
             placeholder="Indique la medida preventiva recomendada"></textarea>
+
+        <button type="button" onclick="abrirBibliotecaRecomendacionesParaHallazgoOM20()"
+            style="margin-top:6px;background:#1d70b7;color:#fff;border:0;padding:8px 12px;border-radius:6px;cursor:pointer;font-weight:bold;">
+            📚 Buscar en biblioteca de recomendaciones
+        </button>
 
         <!-- =====================================================
              OM-12 — ASISTENTE DE RECOMENDACIONES
