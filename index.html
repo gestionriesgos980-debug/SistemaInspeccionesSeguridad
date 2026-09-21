@@ -1842,6 +1842,10 @@ function abrirBibliotecaRecomendacionesOM22() {
                         style="background:#1d70b7;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
                         ➕ Agregar recomendación
                     </button>
+                    <button type="button" onclick="abrirBibliotecaRiesgosOM20()"
+                        style="background:#475569;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
+                        ⚠️ Biblioteca de riesgos
+                    </button>
                 </div>
 
                 <div id="contenidoBibliotecaOM20"></div>
@@ -2051,6 +2055,208 @@ function eliminarRecomendacionBibliotecaOM20(indice) {
     biblioteca.splice(indice, 1);
     localStorage.setItem(CLAVE_BIBLIOTECA_RECOMENDACIONES, JSON.stringify(biblioteca));
     renderizarBibliotecaRecomendacionesOM20();
+}
+
+/* ======================================================
+   OM-20.4 · BIBLIOTECA INDEPENDIENTE DE RIESGOS
+   OBJETIVO: administrar riesgos reutilizables sin modificar
+   todavía la Matriz de Riesgos existente.
+   ====================================================== */
+
+const CLAVE_BIBLIOTECA_RIESGOS_OM20 = "bibliotecaRiesgos";
+
+function inicializarBibliotecaRiesgosOM20() {
+    if (localStorage.getItem(CLAVE_BIBLIOTECA_RIESGOS_OM20) !== null) return;
+    localStorage.setItem(CLAVE_BIBLIOTECA_RIESGOS_OM20, JSON.stringify([]));
+}
+
+function obtenerBibliotecaRiesgosOM20() {
+    inicializarBibliotecaRiesgosOM20();
+    try {
+        const datos = JSON.parse(localStorage.getItem(CLAVE_BIBLIOTECA_RIESGOS_OM20) || "[]");
+        return Array.isArray(datos) ? datos : [];
+    } catch (error) {
+        console.error("Error al leer la biblioteca de riesgos:", error);
+        return [];
+    }
+}
+
+function abrirBibliotecaRiesgosOM20() {
+    inicializarBibliotecaRiesgosOM20();
+
+    let ventana = document.getElementById("ventanaBibliotecaRiesgosOM20");
+    if (ventana) ventana.remove();
+
+    ventana = document.createElement("div");
+    ventana.id = "ventanaBibliotecaRiesgosOM20";
+    ventana.style.cssText = `
+        position:fixed;inset:0;z-index:3050;background:rgba(0,0,0,.55);
+        overflow-y:auto;padding:20px;box-sizing:border-box;
+    `;
+
+    ventana.innerHTML = `
+        <div style="max-width:1150px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25);overflow:hidden;">
+            <div style="background:#123b5d;color:#fff;padding:18px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                <div>
+                    <h2 style="margin:0;font-size:22px;">⚠️ Biblioteca de riesgos</h2>
+                    <div style="margin-top:5px;font-size:13px;opacity:.9;">OM-20.4 · Biblioteca independiente de riesgos</div>
+                </div>
+                <button type="button" onclick="document.getElementById('ventanaBibliotecaRiesgosOM20')?.remove()" style="background:transparent;color:#fff;border:0;font-size:28px;cursor:pointer;">&times;</button>
+            </div>
+            <div style="padding:20px;">
+                <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px;">
+                    <input id="buscadorBibliotecaRiesgosOM20" type="search" placeholder="Buscar por área, riesgo, causa, consecuencia o palabra clave..."
+                        oninput="renderizarBibliotecaRiesgosOM20()"
+                        style="flex:1;min-width:260px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:7px;box-sizing:border-box;">
+                    <button type="button" onclick="abrirEditorBibliotecaRiesgoOM20()"
+                        style="background:#1d70b7;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
+                        ➕ Agregar riesgo
+                    </button>
+                </div>
+                <div id="contenidoBibliotecaRiesgosOM20"></div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(ventana);
+    renderizarBibliotecaRiesgosOM20();
+}
+
+function renderizarBibliotecaRiesgosOM20() {
+    const contenedor = document.getElementById("contenidoBibliotecaRiesgosOM20");
+    if (!contenedor) return;
+
+    const biblioteca = obtenerBibliotecaRiesgosOM20();
+    const buscador = normalizarTextoOM12(document.getElementById("buscadorBibliotecaRiesgosOM20")?.value || "");
+    const resultados = biblioteca.filter(item => {
+        if (!buscador) return true;
+        return normalizarTextoOM12([
+            item.area, item.riesgo, item.descripcion, item.causas,
+            item.consecuencias, ...(item.palabrasClave || []), item.fuente
+        ].join(" ")).includes(buscador);
+    });
+
+    const filas = resultados.length ? resultados.map(item => {
+        const indice = biblioteca.indexOf(item);
+        return `
+            <tr>
+                <td style="padding:9px;border:1px solid #ddd;text-align:center;">${indice + 1}</td>
+                <td style="padding:9px;border:1px solid #ddd;">${escaparTextoOM12(item.area || "")}</td>
+                <td style="padding:9px;border:1px solid #ddd;line-height:1.4;">${escaparTextoOM12(item.riesgo || "")}</td>
+                <td style="padding:9px;border:1px solid #ddd;line-height:1.4;">${escaparTextoOM12(item.descripcion || "")}</td>
+                <td style="padding:9px;border:1px solid #ddd;text-align:center;white-space:nowrap;">
+                    <button type="button" onclick="abrirEditorBibliotecaRiesgoOM20(${indice})" style="background:#f59e0b;color:#fff;border:0;padding:6px 9px;border-radius:5px;cursor:pointer;margin-right:4px;">✏️ Editar</button>
+                    <button type="button" onclick="eliminarRiesgoBibliotecaOM20(${indice})" style="background:#b91c1c;color:#fff;border:0;padding:6px 9px;border-radius:5px;cursor:pointer;">🗑️ Eliminar</button>
+                </td>
+            </tr>`;
+    }).join("") : `
+        <tr><td colspan="5" style="padding:15px;text-align:center;border:1px solid #ddd;color:#6b7280;">
+            ${buscador ? "No se encontraron riesgos con ese criterio." : "No hay riesgos registrados en la biblioteca."}
+        </td></tr>`;
+
+    contenedor.innerHTML = `
+        <p style="margin:0 0 12px;color:#64748b;">Mostrando <strong>${resultados.length}</strong> de <strong>${biblioteca.length}</strong> riesgos.</p>
+        <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:14px;">
+            <thead><tr style="background:#f3f4f6;">
+                <th style="padding:9px;border:1px solid #ddd;text-align:center;">#</th>
+                <th style="padding:9px;border:1px solid #ddd;text-align:left;">Área</th>
+                <th style="padding:9px;border:1px solid #ddd;text-align:left;">Riesgo</th>
+                <th style="padding:9px;border:1px solid #ddd;text-align:left;">Descripción</th>
+                <th style="padding:9px;border:1px solid #ddd;text-align:center;">Acciones</th>
+            </tr></thead><tbody>${filas}</tbody>
+        </table></div>`;
+}
+
+function abrirEditorBibliotecaRiesgoOM20(indice = null) {
+    const biblioteca = obtenerBibliotecaRiesgosOM20();
+    const editar = Number.isInteger(indice) && biblioteca[indice];
+    const item = editar ? biblioteca[indice] : {};
+
+    let modal = document.getElementById("modalEditorBibliotecaRiesgoOM20");
+    if (modal) modal.remove();
+    modal = document.createElement("div");
+    modal.id = "modalEditorBibliotecaRiesgoOM20";
+    modal.style.cssText = `position:fixed;inset:0;z-index:3150;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;`;
+    modal.innerHTML = `
+        <div style="width:min(700px,100%);max-height:90vh;overflow-y:auto;background:#fff;border-radius:12px;box-shadow:0 10px 35px rgba(0,0,0,.3);">
+            <div style="background:#123b5d;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">
+                <strong style="font-size:18px;">${editar ? "✏️ Editar riesgo" : "➕ Nuevo riesgo"}</strong>
+                <button type="button" onclick="document.getElementById('modalEditorBibliotecaRiesgoOM20')?.remove()" style="background:transparent;color:#fff;border:0;font-size:26px;cursor:pointer;">&times;</button>
+            </div>
+            <div style="padding:20px;">
+                <label style="display:block;font-weight:bold;margin-bottom:5px;">Área</label>
+                <input id="editorRiesgoOM20Area" value="${escaparTextoOM12(item.area || "")}" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">
+                <label style="display:block;font-weight:bold;margin-bottom:5px;">Riesgo</label>
+                <input id="editorRiesgoOM20Riesgo" value="${escaparTextoOM12(item.riesgo || "")}" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">
+                <label style="display:block;font-weight:bold;margin-bottom:5px;">Descripción</label>
+                <textarea id="editorRiesgoOM20Descripcion" rows="4" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">${escaparTextoOM12(item.descripcion || "")}</textarea>
+                <label style="display:block;font-weight:bold;margin-bottom:5px;">Causas</label>
+                <textarea id="editorRiesgoOM20Causas" rows="3" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">${escaparTextoOM12(item.causas || "")}</textarea>
+                <label style="display:block;font-weight:bold;margin-bottom:5px;">Consecuencias</label>
+                <textarea id="editorRiesgoOM20Consecuencias" rows="3" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">${escaparTextoOM12(item.consecuencias || "")}</textarea>
+                <label style="display:block;font-weight:bold;margin-bottom:5px;">Palabras clave <span style="font-weight:normal;color:#64748b;">(separadas por coma)</span></label>
+                <input id="editorRiesgoOM20Palabras" value="${escaparTextoOM12((item.palabrasClave || []).join(", "))}" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">
+                <label style="display:block;font-weight:bold;margin-bottom:5px;">Fuente</label>
+                <input id="editorRiesgoOM20Fuente" value="${escaparTextoOM12(item.fuente || "")}" style="width:100%;padding:9px;margin-bottom:18px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">
+                <div style="display:flex;justify-content:flex-end;gap:8px;">
+                    <button type="button" onclick="document.getElementById('modalEditorBibliotecaRiesgoOM20')?.remove()" style="background:#64748b;color:#fff;border:0;padding:9px 14px;border-radius:6px;cursor:pointer;">Cancelar</button>
+                    <button type="button" onclick="guardarEdicionBibliotecaRiesgoOM20(${editar ? indice : "null"})" style="background:#1d70b7;color:#fff;border:0;padding:9px 14px;border-radius:6px;cursor:pointer;font-weight:bold;">💾 Guardar</button>
+                </div>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+}
+
+function guardarEdicionBibliotecaRiesgoOM20(indice = null) {
+    const area = document.getElementById("editorRiesgoOM20Area")?.value.trim() || "";
+    const riesgo = document.getElementById("editorRiesgoOM20Riesgo")?.value.trim() || "";
+    const descripcion = document.getElementById("editorRiesgoOM20Descripcion")?.value.trim() || "";
+    const causas = document.getElementById("editorRiesgoOM20Causas")?.value.trim() || "";
+    const consecuencias = document.getElementById("editorRiesgoOM20Consecuencias")?.value.trim() || "";
+    const palabrasTexto = document.getElementById("editorRiesgoOM20Palabras")?.value || "";
+    const fuente = document.getElementById("editorRiesgoOM20Fuente")?.value.trim() || "";
+
+    if (!area || !riesgo) {
+        alert("Indique el área y el riesgo antes de guardar.");
+        return;
+    }
+
+    const biblioteca = obtenerBibliotecaRiesgosOM20();
+    const editando = Number.isInteger(indice) && biblioteca[indice];
+    const duplicada = biblioteca.some((item, i) => i !== indice &&
+        normalizarTextoOM12(item.area) === normalizarTextoOM12(area) &&
+        normalizarTextoOM12(item.riesgo) === normalizarTextoOM12(riesgo));
+
+    if (duplicada) {
+        alert("Ya existe otro riesgo igual para el área seleccionada.");
+        return;
+    }
+
+    const palabrasClave = palabrasTexto.split(",").map(p => p.trim()).filter(Boolean);
+    if (riesgo && !palabrasClave.some(p => normalizarTextoOM12(p) === normalizarTextoOM12(riesgo))) {
+        palabrasClave.unshift(riesgo);
+    }
+
+    const registro = { area, riesgo, descripcion, causas, consecuencias, palabrasClave, fuente: fuente || "Administrada desde Biblioteca" };
+    if (editando) {
+        biblioteca[indice] = { ...biblioteca[indice], ...registro };
+    } else {
+        biblioteca.push({ id: "OM20-RIESGO-" + String(Date.now()), ...registro });
+    }
+
+    localStorage.setItem(CLAVE_BIBLIOTECA_RIESGOS_OM20, JSON.stringify(biblioteca));
+    document.getElementById("modalEditorBibliotecaRiesgoOM20")?.remove();
+    renderizarBibliotecaRiesgosOM20();
+}
+
+function eliminarRiesgoBibliotecaOM20(indice) {
+    const biblioteca = obtenerBibliotecaRiesgosOM20();
+    const item = biblioteca[indice];
+    if (!item) return;
+    if (!confirm(`¿Desea eliminar este riesgo de la biblioteca?\n\n${item.riesgo || item.area || "Riesgo"}`)) return;
+    biblioteca.splice(indice, 1);
+    localStorage.setItem(CLAVE_BIBLIOTECA_RIESGOS_OM20, JSON.stringify(biblioteca));
+    renderizarBibliotecaRiesgosOM20();
 }
 
 function abrirGestionRespaldoOM22() {
@@ -2935,6 +3141,13 @@ function crearRespaldo() {
                         localStorage.getItem(
                             CLAVE_BIBLIOTECA_RECOMENDACIONES
                         )
+                    ) || [],
+
+                bibliotecaRiesgos:
+                    JSON.parse(
+                        localStorage.getItem(
+                            CLAVE_BIBLIOTECA_RIESGOS_OM20
+                        )
                     ) || []
             }
         };
@@ -3097,6 +3310,14 @@ if (Object.prototype.hasOwnProperty.call(datos, "bibliotecaRecomendaciones")) {
     localStorage.setItem(
         CLAVE_BIBLIOTECA_RECOMENDACIONES,
         JSON.stringify(datos.bibliotecaRecomendaciones || [])
+    );
+}
+
+// OM-20.4 — Restaurar la biblioteca de riesgos solo cuando el respaldo la contiene.
+if (Object.prototype.hasOwnProperty.call(datos, "bibliotecaRiesgos")) {
+    localStorage.setItem(
+        CLAVE_BIBLIOTECA_RIESGOS_OM20,
+        JSON.stringify(datos.bibliotecaRiesgos || [])
     );
 }
 
@@ -6162,51 +6383,26 @@ function obtenerRecomendacionesSugeridas() {
 
     const biblioteca = obtenerBibliotecaRecomendaciones();
 
-    const resultados = biblioteca.map((item, indice) => {
-        let coincidenciasClave = 0;
-        const palabrasCoincidentes = [];
+    return biblioteca
+        .map((item, indice) => {
+            let puntaje = 0;
 
-        (item.palabrasClave || []).forEach(palabra => {
-            const clave = normalizarTextoOM12(palabra);
-            if (clave && textoConsulta.includes(clave)) {
-                coincidenciasClave += 1;
-                palabrasCoincidentes.push(clave);
+            if (area && normalizarTextoOM12(item.area) === normalizarTextoOM12(area)) {
+                puntaje += 5;
             }
-        });
 
-        const coincideArea =
-            area &&
-            normalizarTextoOM12(item.area) === normalizarTextoOM12(area);
+            (item.palabrasClave || []).forEach(palabra => {
+                const clave = normalizarTextoOM12(palabra);
+                if (clave && textoConsulta.includes(clave)) {
+                    puntaje += 2;
+                }
+            });
 
-        return {
-            item,
-            indice,
-            coincidenciasClave,
-            palabrasCoincidentes,
-            coincideArea
-        };
-    });
-
-    // Si existe una coincidencia por palabra clave, mostrar únicamente
-    // la recomendación con mayor relación con la consulta.
-    const coincidenciasPorClave = resultados
-        .filter(resultado => resultado.coincidenciasClave > 0)
-        .sort((a, b) => {
-            if (b.coincidenciasClave !== a.coincidenciasClave) {
-                return b.coincidenciasClave - a.coincidenciasClave;
-            }
-            return a.indice - b.indice;
-        });
-
-    if (coincidenciasPorClave.length) {
-        return coincidenciasPorClave.slice(0, 1);
-    }
-
-    // Si no hay palabra clave coincidente, conservar la consulta por área
-    // como respaldo, mostrando solo una recomendación.
-    return resultados
-        .filter(resultado => resultado.coincideArea)
-        .slice(0, 1);
+            return { item, indice, puntaje };
+        })
+        .filter(resultado => resultado.puntaje > 0)
+        .sort((a, b) => b.puntaje - a.puntaje)
+        .slice(0, 5);
 }
 
 function mostrarRecomendacionesSugeridas() {
