@@ -12000,34 +12000,30 @@ ESTADO: EN DESARROLLO
         contenedor.className = 'contenedor-paginado-tecchnex';
 
         /*
-         * Agrupar cada H2 con el contenido que le pertenece.
-         * Los saltos explícitos se conservan como instrucciones de
-         * comenzar una página nueva, en lugar de eliminarse.
+         * OM-27.1 · INTERVENCIÓN 4A
+         * Segmentación real del contenido restante.
+         *
+         * La intervención anterior agrupaba un H2 con toda su sección.
+         * Cuando esa sección era más alta que una página, el navegador
+         * ocultaba el excedente por overflow:hidden. Aquí se trabaja por
+         * unidades físicas y las tablas se fragmentan por filas, repitiendo
+         * el encabezado de tabla en la página siguiente.
          */
         const unidades = [];
-        let unidadActual = [];
-
-        const cerrarUnidad = () => {
-            if (unidadActual.length) {
-                unidades.push({ tipo: 'contenido', elementos: unidadActual });
-                unidadActual = [];
-            }
-        };
 
         hijos.forEach(el => {
             if (el.nodeType === 1 && el.classList.contains('salto-pagina-pdf')) {
-                cerrarUnidad();
                 unidades.push({ tipo: 'salto' });
                 return;
             }
 
-            if (el.tagName === 'H2' && unidadActual.length) {
-                cerrarUnidad();
-            }
-
-            unidadActual.push(el);
+            /*
+             * Cada elemento pasa a ser una unidad independiente. Así una
+             * sección extensa ya no queda encerrada dentro de una sola
+             * unidad que pueda desbordar la página completa.
+             */
+            unidades.push({ tipo: 'contenido', elementos: [el] });
         });
-        cerrarUnidad();
 
         const crearPagina = () => {
             const pagina = document.createElement('section');
@@ -12057,42 +12053,96 @@ ESTADO: EN DESARROLLO
             return rect.top + pagina.clientHeight - paddingInferior - reservaPie;
         };
 
-        const unidadSuperaPagina = unidad => {
-            if (!unidad.length) return false;
-
-            const ultimo = unidad[unidad.length - 1];
-            const rectUltimo = ultimo.getBoundingClientRect();
-            const limite = limiteInferiorPagina(paginaActual.pagina);
-
-            return rectUltimo.bottom > limite + 1;
+        const elementoExcedePagina = elemento => {
+            if (!elemento) return false;
+            return elemento.getBoundingClientRect().bottom >
+                   limiteInferiorPagina(paginaActual.pagina) + 1;
         };
 
-        const agregarUnidad = unidad => {
-            unidad.elementos.forEach(el => paginaActual.cuerpo.appendChild(el));
+        const cuerpoTieneContenido = () =>
+            paginaActual.cuerpo.children.length > 0;
 
-            /*
-             * El navegador necesita tener la unidad dentro del DOM para
-             * calcular su tamaño físico. getBoundingClientRect() permite
-             * medir la posición real, no solamente el scrollHeight del
-             * contenedor.
-             */
-            if (unidadSuperaPagina(unidad) && paginaActual.cuerpo.children.length > unidad.elementos.length) {
-                unidad.elementos.forEach(el => paginaActual.cuerpo.removeChild(el));
-                paginaActual = crearPagina();
-                unidad.elementos.forEach(el => paginaActual.cuerpo.appendChild(el));
+        const nuevaPagina = () => {
+            paginaActual = crearPagina();
+        };
+
+        const agregarElemento = elemento => {
+            paginaActual.cuerpo.appendChild(elemento);
+
+            if (elementoExcedePagina(elemento) && cuerpoTieneContenido()) {
+                paginaActual.cuerpo.removeChild(elemento);
+                nuevaPagina();
+                paginaActual.cuerpo.appendChild(elemento);
             }
+        };
+
+        /*
+         * Divide una tabla por filas. Se conserva thead para que cada
+         * continuación tenga sus títulos de columna visibles.
+         */
+        const agregarTabla = tablaOriginal => {
+            const filas = Array.from(tablaOriginal.querySelectorAll('tbody > tr'));
+            const thead = tablaOriginal.querySelector('thead');
+
+            if (!filas.length) {
+                agregarElemento(tablaOriginal);
+                return;
+            }
+
+            let tablaPagina = null;
+
+            const crearTablaPagina = () => {
+                const tabla = tablaOriginal.cloneNode(false);
+                tabla.classList.add('tabla-continuacion-paginada');
+
+                if (thead) {
+                    tabla.appendChild(thead.cloneNode(true));
+                }
+
+                const tbody = document.createElement('tbody');
+                tabla.appendChild(tbody);
+                paginaActual.cuerpo.appendChild(tabla);
+                tablaPagina = { tabla, tbody };
+            };
+
+            filas.forEach(fila => {
+                if (!tablaPagina) crearTablaPagina();
+
+                const filaClon = fila.cloneNode(true);
+                tablaPagina.tbody.appendChild(filaClon);
+
+                if (elementoExcedePagina(tablaPagina.tabla)) {
+                    tablaPagina.tbody.removeChild(filaClon);
+
+                    if (tablaPagina.tbody.children.length) {
+                        nuevaPagina();
+                        crearTablaPagina();
+                        tablaPagina.tbody.appendChild(filaClon);
+                    } else {
+                        /* Una fila individual no se puede dividir sin
+                           perder la integridad visual de su información. */
+                        nuevaPagina();
+                        crearTablaPagina();
+                        tablaPagina.tbody.appendChild(filaClon);
+                    }
+                }
+            });
         };
 
         unidades.forEach(unidad => {
             if (unidad.tipo === 'salto') {
-                /* Evitar crear una página vacía por un salto consecutivo. */
-                if (paginaActual.cuerpo.children.length) {
-                    paginaActual = crearPagina();
-                }
+                if (cuerpoTieneContenido()) nuevaPagina();
                 return;
             }
 
-            agregarUnidad(unidad);
+            const el = unidad.elementos[0];
+
+            if (el.tagName === 'TABLE') {
+                agregarTabla(el);
+                return;
+            }
+
+            agregarElemento(el);
         });
 
         /* El bloque de controles queda al final del último folio. */
