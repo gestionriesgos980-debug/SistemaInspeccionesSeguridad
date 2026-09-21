@@ -2723,6 +2723,16 @@ function crearRespaldo() {
                         localStorage.getItem(
                             CLAVE_BIBLIOTECA_RECOMENDACIONES
                         )
+                    ) || [],
+
+                // OM-23 — Incluir el Directorio de Clientes en el respaldo.
+                // Esto permite reconstruir la relación Cliente ↔ Inspecciones
+                // después de una restauración.
+                directorioClientesOM16:
+                    JSON.parse(
+                        localStorage.getItem(
+                            "directorioClientesOM16"
+                        )
                     ) || []
             }
         };
@@ -2886,6 +2896,60 @@ if (Object.prototype.hasOwnProperty.call(datos, "bibliotecaRecomendaciones")) {
         CLAVE_BIBLIOTECA_RECOMENDACIONES,
         JSON.stringify(datos.bibliotecaRecomendaciones || [])
     );
+}
+
+// =====================================================
+// OM-23 — RESTAURACIÓN DEL DIRECTORIO DE CLIENTES
+// OBJETIVO: recuperar clientes incluidos en el respaldo sin
+// borrar los clientes que ya existen actualmente.
+// Se evita duplicar clientes mediante idCliente, NIT, código
+// o nombre normalizado. Los respaldos antiguos que no tengan
+// este bloque conservan el directorio actual sin cambios.
+// =====================================================
+if (Object.prototype.hasOwnProperty.call(datos, "directorioClientesOM16")) {
+
+    const directorioActualOM23 =
+        inicializarDirectorioClientesOM16();
+
+    const clientesRespaldoOM23 =
+        Array.isArray(datos.directorioClientesOM16)
+            ? datos.directorioClientesOM16
+            : [];
+
+    const normalizarOM23 = valor =>
+        String(valor ?? "")
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, " ");
+
+    clientesRespaldoOM23.forEach(clienteRespaldo => {
+
+        const id = normalizarOM23(clienteRespaldo.idCliente);
+        const nit = normalizarOM23(clienteRespaldo.nit);
+        const codigo = normalizarOM23(clienteRespaldo.codigo);
+        const nombre = normalizarOM23(clienteRespaldo.cliente);
+
+        const existe = directorioActualOM23.some(clienteActual => {
+            return (
+                (id && normalizarOM23(clienteActual.idCliente) === id) ||
+                (nit && normalizarOM23(clienteActual.nit) === nit) ||
+                (codigo && normalizarOM23(clienteActual.codigo) === codigo) ||
+                (nombre && normalizarOM23(clienteActual.cliente) === nombre)
+            );
+        });
+
+        if (!existe && nombre) {
+            directorioActualOM23.push({
+                ...clienteRespaldo,
+                idCliente: clienteRespaldo.idCliente ||
+                    obtenerSiguienteIdClienteOM16(directorioActualOM23),
+                estado: clienteRespaldo.estado || "Activo",
+                origen: clienteRespaldo.origen || "Respaldo OM-23"
+            });
+        }
+    });
+
+    guardarDirectorioClientesOM16(directorioActualOM23);
 }
 
 // =====================================================
