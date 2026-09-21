@@ -1805,13 +1805,17 @@ function agregarServicioSeguridad(tipo) {
         }
 
         botones.forEach(boton => {
-            const accion = boton.dataset.om25Action;
-            // Las acciones asociadas a datos requieren una inspección ya guardada.
-            // Editar y eliminar solo tienen sentido cuando se está modificando una existente.
-            const requiereGuardado = ["checklist", "matriz", "hallazgos", "eliminar"].includes(accion);
-            boton.disabled = requiereGuardado ? !esEdicion : !esEdicion;
-            boton.style.opacity = boton.disabled ? "0.55" : "1";
-            boton.style.cursor = boton.disabled ? "not-allowed" : "pointer";
+            // OM-25 — Ninguna acción puede ejecutarse mientras la inspección
+            // sea nueva y todavía no exista en localStorage.
+            // Una vez abierta una inspección existente para edición, se habilitan
+            // las cinco acciones y se trabaja exclusivamente con su índice.
+            const habilitar = esEdicion;
+
+            boton.disabled = !habilitar;
+            boton.setAttribute("aria-disabled", habilitar ? "false" : "true");
+            boton.style.opacity = habilitar ? "1" : "0.55";
+            boton.style.cursor = habilitar ? "pointer" : "not-allowed";
+            boton.style.pointerEvents = habilitar ? "auto" : "none";
         });
     }
 
