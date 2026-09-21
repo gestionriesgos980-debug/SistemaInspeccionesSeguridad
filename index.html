@@ -409,61 +409,75 @@
     <div class="panel">
 
         <h2>Módulos del sistema</h2>
+
+        <!-- ======================================================
+             OM-22 · INTERVENCIÓN 2B
+             MENÚ MODULAR PRINCIPAL — RESPALDOS SEPARADOS
+             OBJETIVO: ordenar la navegación principal por módulos
+             sin eliminar ni reconstruir las funciones operativas
+             existentes. Los módulos especializados (checklist,
+             matriz y hallazgos) permanecen accesibles desde Nueva
+             Inspección / Clientes.
+             ====================================================== -->
         <div class="modulos">
 
-            <div class="modulo" onclick="abrirDashboard()">
-    <h3>📊 Dashboard</h3>
-    <p>
-        Consultar indicadores y estadísticas
-        de las inspecciones realizadas.
-    </p>
-</div>
             <div class="modulo" onclick="abrirNuevaInspeccion()">
                 <h3>📋 Nueva inspección</h3>
                 <p>
-                    Registrar la información del cliente y los datos
-                    generales de la inspección.
+                    Registrar y administrar la información general
+                    de una inspección de seguridad.
                 </p>
             </div>
 
-          <div class="modulo" onclick="abrirDirectorioClientesOM16()">
+            <div class="modulo" onclick="abrirDirectorioClientesOM16()">
                 <h3>👥 Clientes</h3>
                 <p>
-                    Administrar los clientes y consultar las inspecciones
-                    realizadas.
+                    Administrar clientes y consultar sus inspecciones,
+                    informes y herramientas asociadas.
                 </p>
             </div>
 
-           <div class="modulo" onclick="abrirListaChequeo(Number(localStorage.getItem('indiceInspeccionSeleccionadaInforme')))">
-                <h3>✅ Lista de chequeo</h3>
+            <div class="modulo" onclick="abrirBibliotecaRecomendacionesOM22()">
+                <h3>📚 Biblioteca</h3>
                 <p>
-                    Evaluar Control de Accesos, Seguridad Perimetral,
-                    Sistemas Electrónicos, Autocuidado y demás áreas.
+                    Consultar la biblioteca de recomendaciones
+                    disponible para los hallazgos.
                 </p>
             </div>
-<div class="modulo" onclick="abrirHallazgos(Number(localStorage.getItem('indiceInspeccionSeleccionadaInforme')))">
-    <h3>⚠️ Hallazgos</h3>
-    <p>
-        Registrar hallazgos, observaciones, evidencias
-        fotográficas y recomendaciones.
-    </p>
-</div>
 
-          <div class="modulo" onclick="abrirMatrizRiesgos()">
-    <h3>📊 Matriz de riesgos</h3>
-    <p>
-        Evaluar probabilidad, impacto, nivel de riesgo
-        y medidas de tratamiento.
-    </p>
-</div>
+            <div class="modulo" onclick="generarInformeDesdeModulo()">
+                <h3>📄 Generar informe</h3>
+                <p>
+                    Generar el informe de la inspección actualmente
+                    seleccionada.
+                </p>
+            </div>
 
-<div class="modulo" onclick="generarInformeDesdeModulo()">
-    <h3>📄 Generar informe</h3>
-    <p>
-        Crear el informe final para entregar al cliente
-        con la información de la inspección.
-    </p>
-</div>
+            <div class="modulo" onclick="abrirDashboard()">
+                <h3>📊 Dashboard</h3>
+                <p>
+                    Consultar indicadores y estadísticas
+                    de las inspecciones realizadas.
+                </p>
+            </div>
+
+            <div class="modulo" onclick="crearRespaldo()">
+                <h3>☁️ Crear Respaldo</h3>
+                <p>
+                    Generar una copia de seguridad de la información
+                    del sistema.
+                </p>
+            </div>
+
+            <div class="modulo" onclick="seleccionarRespaldo()">
+                <h3>📥 Guardar Respaldo</h3>
+                <p>
+                    Restaurar información del sistema desde un respaldo
+                    previamente guardado.
+                </p>
+            </div>
+
+        </div>
 
 <!-- VENTANA NUEVA INSPECCIÓN -->
 
@@ -481,6 +495,29 @@
 
         </div>
 
+        <!-- =====================================================
+             OM-22 · INTERVENCIÓN 2A
+             PANEL MODULAR DE LA INSPECCIÓN ACTIVA
+             OBJETIVO: centralizar las herramientas de la inspección
+             sin reconstruir sus funciones operativas existentes.
+             ===================================================== -->
+        <div id="panelModularInspeccionOM22" style="margin:0 0 18px 0;padding:16px;background:#f8fafc;border:1px solid #dbe3ea;border-radius:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+                <div>
+                    <div style="font-size:12px;font-weight:bold;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Inspección activa</div>
+                    <div id="idInspeccionActivoOM22" style="font-size:20px;font-weight:bold;color:#123b5d;">Pendiente de guardar</div>
+                </div>
+                <div id="estadoInspeccionOM22" style="font-size:13px;font-weight:bold;color:#64748b;">Nueva inspección</div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:9px;">
+                <button type="button" id="btnChecklistOM22" class="boton-principal" onclick="abrirListaChequeo(indiceInspeccionEditando)" disabled>📋 Lista de chequeo</button>
+                <button type="button" id="btnMatrizOM22" class="boton-principal" onclick="abrirMatrizRiesgosClienteOM22Activo()" disabled>📊 Matriz de riesgos</button>
+                <button type="button" id="btnHallazgosOM22" class="boton-principal" onclick="abrirHallazgos(indiceInspeccionEditando)" disabled>⚠️ Hallazgos</button>
+                <button type="button" id="btnEditarOM22" class="boton-principal" onclick="editarInspeccion(indiceInspeccionEditando)" disabled>✏️ Editar</button>
+                <button type="button" id="btnEliminarOM22" class="boton-principal" onclick="eliminarInspeccion(indiceInspeccionEditando)" disabled style="background:#b91c1c;">🗑️ Eliminar</button>
+            </div>
+        </div>
 
         <form id="formInspeccion">
 
@@ -1363,53 +1400,6 @@
     </button>
 
 </div>
-            <!-- =====================================================
-                 OM-25 — ACCIONES DE LA INSPECCIÓN ACTIVA
-                 Se centralizan aquí los accesos a Lista de chequeo,
-                 Matriz de riesgos, Hallazgos, Editar y Eliminar.
-                 Las acciones trabajan exclusivamente sobre la inspección
-                 activa para evitar referencias accidentales a índice 0.
-            ====================================================== -->
-            <div id="panelAccionesOM25" style="
-                margin:20px 0 8px;
-                padding:16px;
-                border:1px solid #d7dee7;
-                border-radius:12px;
-                background:#f8fafc;
-            ">
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
-                    <div>
-                        <h3 style="margin:0;color:#123b5d;font-size:18px;">Acciones de la inspección</h3>
-                        <small style="color:#64748b;">Trabaje sobre la inspección actualmente abierta.</small>
-                    </div>
-                    <div id="idInspeccionOM25" style="font-weight:bold;color:#123b5d;background:white;border:1px solid #d7dee7;border-radius:8px;padding:8px 12px;">
-                        ID: Pendiente de guardar
-                    </div>
-                </div>
-
-                <div id="accionesBotonesOM25" style="
-                    display:grid;
-                    grid-template-columns:repeat(auto-fit,minmax(145px,1fr));
-                    gap:10px;
-                ">
-                    <button type="button" data-om25-action="checklist" class="boton-guardar" onclick="accionOM25ListaChequeo()">
-                        📋 Lista de chequeo
-                    </button>
-                    <button type="button" data-om25-action="matriz" class="boton-guardar" onclick="accionOM25Matriz()">
-                        📊 Matriz de riesgos
-                    </button>
-                    <button type="button" data-om25-action="hallazgos" class="boton-guardar" onclick="accionOM25Hallazgos()">
-                        ⚠️ Hallazgos
-                    </button>
-                    <button type="button" data-om25-action="editar" class="boton-secundario" onclick="accionOM25Editar()">
-                        ✏️ Editar
-                    </button>
-                    <button type="button" data-om25-action="eliminar" class="boton-secundario" onclick="accionOM25Eliminar()" style="color:#991b1b;">
-                        🗑️ Eliminar
-                    </button>
-                </div>
-            </div>
-
             <div class="botones">
 
                 <button type="button"
@@ -1789,86 +1779,12 @@ function agregarServicioSeguridad(tipo) {
         formulario.dataset.codigoClienteOM17 = cliente.codigo || "";
     }
 
-    function actualizarAccionesOM25() {
-        const formulario = document.getElementById("formInspeccion");
-        const idElemento = document.getElementById("idInspeccionOM25");
-        const botones = document.querySelectorAll("#accionesBotonesOM25 [data-om25-action]");
-        const indice = Number.isInteger(indiceInspeccionEditando) ? indiceInspeccionEditando : null;
-        const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
-        const inspeccion = indice !== null ? inspecciones[indice] : null;
-        const esEdicion = !!inspeccion && !!formulario?.dataset.editando;
-
-        if (idElemento) {
-            idElemento.textContent = esEdicion
-                ? `ID: ${inspeccion.idControl || "SIN ID"}`
-                : "ID: Pendiente de guardar";
-        }
-
-        botones.forEach(boton => {
-            // OM-25 — Ninguna acción puede ejecutarse mientras la inspección
-            // sea nueva y todavía no exista en localStorage.
-            // Una vez abierta una inspección existente para edición, se habilitan
-            // las cinco acciones y se trabaja exclusivamente con su índice.
-            const habilitar = esEdicion;
-
-            boton.disabled = !habilitar;
-            boton.setAttribute("aria-disabled", habilitar ? "false" : "true");
-            boton.style.opacity = habilitar ? "1" : "0.55";
-            boton.style.cursor = habilitar ? "pointer" : "not-allowed";
-            boton.style.pointerEvents = habilitar ? "auto" : "none";
-        });
-    }
-
-    function obtenerIndiceActivoOM25() {
-        const formulario = document.getElementById("formInspeccion");
-        const indice = Number(formulario?.dataset.editando);
-        if (Number.isInteger(indice) && indice >= 0) return indice;
-        return Number.isInteger(indiceInspeccionEditando) && indiceInspeccionEditando >= 0
-            ? indiceInspeccionEditando
-            : null;
-    }
-
-    function validarInspeccionActivaOM25() {
-        const indice = obtenerIndiceActivoOM25();
-        const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
-        if (indice === null || !inspecciones[indice]) {
-            alert("Primero debe guardar la inspección para utilizar esta acción.");
-            return null;
-        }
-        localStorage.setItem("indiceInspeccionSeleccionadaInforme", String(indice));
-        return indice;
-    }
-
-    function accionOM25ListaChequeo() {
-        const indice = validarInspeccionActivaOM25();
-        if (indice !== null) abrirListaChequeo(indice);
-    }
-
-    function accionOM25Matriz() {
-        const indice = validarInspeccionActivaOM25();
-        if (indice !== null) abrirMatrizRiesgos();
-    }
-
-    function accionOM25Hallazgos() {
-        const indice = validarInspeccionActivaOM25();
-        if (indice !== null) abrirHallazgos(indice);
-    }
-
-    function accionOM25Editar() {
-        const indice = validarInspeccionActivaOM25();
-        if (indice !== null) editarInspeccion(indice);
-    }
-
-    function accionOM25Eliminar() {
-        const indice = validarInspeccionActivaOM25();
-        if (indice !== null) eliminarInspeccion(indice);
-    }
-
     function abrirNuevaInspeccion() {
         document.getElementById("formInspeccion").removeAttribute("data-editando");
         document.getElementById("formInspeccion").removeAttribute("data-id-cliente-om17");
         document.getElementById("formInspeccion").removeAttribute("data-codigo-cliente-om17");
         indiceInspeccionEditando = null;
+        actualizarPanelModularInspeccionOM22(null);
         prepararSelectorClienteOM17();
         const selector = document.getElementById("clienteDirectorioOM17");
         if (selector) selector.value = "";
@@ -1880,9 +1796,122 @@ function agregarServicioSeguridad(tipo) {
             const hoy = new Date();
             fecha.value = hoy.toISOString().split("T")[0];
         }
-
-        actualizarAccionesOM25();
     }
+
+/* ======================================================
+   OM-22 · INTERVENCIÓN 1
+   ACCESO MODULAR A BIBLIOTECA Y RESPALDO
+   OBJETIVO: dar acceso desde el menú principal a funciones
+   ya existentes, sin modificar su lógica operativa.
+   ====================================================== */
+
+function abrirBibliotecaRecomendacionesOM22() {
+
+    inicializarBibliotecaRecomendaciones();
+
+    const biblioteca = obtenerBibliotecaRecomendaciones();
+
+    let ventana = document.getElementById("ventanaBibliotecaOM22");
+
+    if (ventana) {
+        ventana.remove();
+    }
+
+    ventana = document.createElement("div");
+    ventana.id = "ventanaBibliotecaOM22";
+    ventana.style.cssText = `
+        position:fixed; inset:0; z-index:3000;
+        background:rgba(0,0,0,.55); overflow-y:auto;
+        padding:20px; box-sizing:border-box;
+    `;
+
+    const filas = biblioteca.length
+        ? biblioteca.map((item, indice) => `
+            <tr>
+                <td style="padding:9px;border:1px solid #ddd;">${indice + 1}</td>
+                <td style="padding:9px;border:1px solid #ddd;">${String(item.area || "")}</td>
+                <td style="padding:9px;border:1px solid #ddd;">${String(item.elemento || "")}</td>
+                <td style="padding:9px;border:1px solid #ddd;">${String(item.recomendacion || item.descripcion || "")}</td>
+            </tr>
+        `).join("")
+        : `
+            <tr>
+                <td colspan="4" style="padding:15px;text-align:center;border:1px solid #ddd;color:#6b7280;">
+                    No hay recomendaciones registradas en la biblioteca.
+                </td>
+            </tr>
+        `;
+
+    ventana.innerHTML = `
+        <div style="max-width:1100px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25);overflow:hidden;">
+            <div style="background:#123b5d;color:#fff;padding:18px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                <div>
+                    <h2 style="margin:0;font-size:22px;">📚 Biblioteca de recomendaciones</h2>
+                    <div style="margin-top:5px;font-size:13px;opacity:.9;">OM-22 · Consulta de la biblioteca viva</div>
+                </div>
+                <button type="button" onclick="document.getElementById('ventanaBibliotecaOM22')?.remove()" style="background:transparent;color:#fff;border:0;font-size:28px;cursor:pointer;">&times;</button>
+            </div>
+
+            <div style="padding:20px;">
+                <p style="margin-top:0;color:#64748b;">
+                    Total de recomendaciones disponibles: <strong>${biblioteca.length}</strong>
+                </p>
+
+                <div style="overflow-x:auto;">
+                    <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                        <thead>
+                            <tr style="background:#f3f4f6;">
+                                <th style="padding:9px;border:1px solid #ddd;text-align:center;">#</th>
+                                <th style="padding:9px;border:1px solid #ddd;text-align:left;">Área</th>
+                                <th style="padding:9px;border:1px solid #ddd;text-align:left;">Elemento</th>
+                                <th style="padding:9px;border:1px solid #ddd;text-align:left;">Recomendación</th>
+                            </tr>
+                        </thead>
+                        <tbody>${filas}</tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(ventana);
+}
+
+function abrirGestionRespaldoOM22() {
+
+    let ventana = document.getElementById("ventanaRespaldoOM22");
+
+    if (ventana) {
+        ventana.remove();
+    }
+
+    ventana = document.createElement("div");
+    ventana.id = "ventanaRespaldoOM22";
+    ventana.style.cssText = `
+        position:fixed; inset:0; z-index:3000;
+        background:rgba(0,0,0,.55);
+        display:flex; align-items:center; justify-content:center;
+        padding:20px; box-sizing:border-box;
+    `;
+
+    ventana.innerHTML = `
+        <div style="width:100%;max-width:560px;background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25);overflow:hidden;">
+            <div style="background:#123b5d;color:#fff;padding:18px 20px;display:flex;justify-content:space-between;align-items:center;">
+                <h2 style="margin:0;font-size:22px;">💾 Gestión de respaldo</h2>
+                <button type="button" onclick="document.getElementById('ventanaRespaldoOM22')?.remove()" style="background:transparent;color:#fff;border:0;font-size:28px;cursor:pointer;">&times;</button>
+            </div>
+            <div style="padding:25px;display:flex;flex-direction:column;gap:12px;">
+                <p style="margin:0 0 8px;color:#64748b;">
+                    Utilice estas opciones para proteger o recuperar la información del sistema.
+                </p>
+                <button type="button" class="boton-respaldo" onclick="crearRespaldo()">💾 Crear respaldo</button>
+                <button type="button" class="boton-restaurar" onclick="seleccionarRespaldo()">📥 Restaurar respaldo</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(ventana);
+}
 
        function abrirDashboard() {
 
@@ -2296,6 +2325,12 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
 
             actualizarContadores();
 
+            const indiceGuardadoOM22 = (indiceEdicion !== undefined && indiceEdicion !== "")
+                ? Number(indiceEdicion)
+                : inspecciones.length - 1;
+            indiceInspeccionEditando = indiceGuardadoOM22;
+            actualizarPanelModularInspeccionOM22(indiceGuardadoOM22);
+
             document.getElementById("mensaje").style.display = "block";
 
             setTimeout(function() {
@@ -2305,6 +2340,7 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
                 document.getElementById("formInspeccion").reset();
 
                 cerrarNuevaInspeccion();
+                actualizarPanelModularInspeccionOM22(null);
 
             }, 1200);
 
@@ -2723,16 +2759,6 @@ function crearRespaldo() {
                         localStorage.getItem(
                             CLAVE_BIBLIOTECA_RECOMENDACIONES
                         )
-                    ) || [],
-
-                // OM-23 — Incluir el Directorio de Clientes en el respaldo.
-                // Esto permite reconstruir la relación Cliente ↔ Inspecciones
-                // después de una restauración.
-                directorioClientesOM16:
-                    JSON.parse(
-                        localStorage.getItem(
-                            "directorioClientesOM16"
-                        )
                     ) || []
             }
         };
@@ -2898,80 +2924,7 @@ if (Object.prototype.hasOwnProperty.call(datos, "bibliotecaRecomendaciones")) {
     );
 }
 
-// =====================================================
-// OM-23 — RESTAURACIÓN DEL DIRECTORIO DE CLIENTES
-// OBJETIVO: recuperar clientes incluidos en el respaldo sin
-// borrar los clientes que ya existen actualmente.
-// Se evita duplicar clientes mediante idCliente, NIT, código
-// o nombre normalizado. Los respaldos antiguos que no tengan
-// este bloque conservan el directorio actual sin cambios.
-// =====================================================
-if (Object.prototype.hasOwnProperty.call(datos, "directorioClientesOM16")) {
-
-    const directorioActualOM23 =
-        inicializarDirectorioClientesOM16();
-
-    const clientesRespaldoOM23 =
-        Array.isArray(datos.directorioClientesOM16)
-            ? datos.directorioClientesOM16
-            : [];
-
-    const normalizarOM23 = valor =>
-        String(valor ?? "")
-            .trim()
-            .toLowerCase()
-            .replace(/\s+/g, " ");
-
-    clientesRespaldoOM23.forEach(clienteRespaldo => {
-
-        const id = normalizarOM23(clienteRespaldo.idCliente);
-        const nit = normalizarOM23(clienteRespaldo.nit);
-        const codigo = normalizarOM23(clienteRespaldo.codigo);
-        const nombre = normalizarOM23(clienteRespaldo.cliente);
-
-        const existe = directorioActualOM23.some(clienteActual => {
-            return (
-                (id && normalizarOM23(clienteActual.idCliente) === id) ||
-                (nit && normalizarOM23(clienteActual.nit) === nit) ||
-                (codigo && normalizarOM23(clienteActual.codigo) === codigo) ||
-                (nombre && normalizarOM23(clienteActual.cliente) === nombre)
-            );
-        });
-
-        if (!existe && nombre) {
-            directorioActualOM23.push({
-                ...clienteRespaldo,
-                idCliente: clienteRespaldo.idCliente ||
-                    obtenerSiguienteIdClienteOM16(directorioActualOM23),
-                estado: clienteRespaldo.estado || "Activo",
-                origen: clienteRespaldo.origen || "Respaldo OM-23"
-            });
-        }
-    });
-
-    guardarDirectorioClientesOM16(directorioActualOM23);
-}
-
-// =====================================================
-// OM-23 — ACTUALIZACIÓN DE INFORMES RESTAURADOS
-// OBJETIVO: Cuando existe un listado de clientes abierto,
-// reconstruirlo después de restaurar el respaldo para que
-// las inspecciones recuperadas aparezcan inmediatamente
-// con sus índices/ID actuales y puedan editarse.
-// NO MODIFICA LOS DATOS RESTAURADOS.
-// =====================================================
-const clientesEstabaAbiertoOM23 =
-    !!document.getElementById("ventanaClientes");
-
-if (clientesEstabaAbiertoOM23) {
-    cerrarClientes();
-}
-
 actualizarContadores();
-
-if (clientesEstabaAbiertoOM23) {
-    abrirClientes();
-}
 
 alert(
     "¡Respaldo restaurado correctamente!\n\n" +
@@ -3435,8 +3388,8 @@ function coincideClienteConInspeccionOM16(cliente, inspeccion) {
         // Permite registros históricos que conservan el código u otro texto
         // después del nombre principal del cliente.
         if (nombreCliente.length >= 8 && nombreInspeccion.length >= 8 &&
-            (nombreInspeccion.includes(nombreCliente) ||
-             nombreCliente.includes(nombreInspeccion))) {
+            (nombreInspeccion.startsWith(nombreCliente) ||
+             nombreCliente.startsWith(nombreInspeccion))) {
             return true;
         }
     }
@@ -4632,6 +4585,74 @@ ${caracteristicasInstalacionHTML}
 }
 let indiceInspeccionEditando = null;
 
+/* =====================================================
+   OM-22 · INTERVENCIÓN 2A
+   FUNCIÓN: actualizarPanelModularInspeccionOM22
+   OBJETIVO: mantener sincronizado el panel visual con la
+   inspección activa, sin modificar las estructuras existentes.
+===================================================== */
+function actualizarPanelModularInspeccionOM22(indice) {
+    const idElemento = document.getElementById("idInspeccionActivoOM22");
+    const estadoElemento = document.getElementById("estadoInspeccionOM22");
+    const botones = [
+        "btnChecklistOM22",
+        "btnMatrizOM22",
+        "btnHallazgosOM22",
+        "btnEditarOM22",
+        "btnEliminarOM22"
+    ];
+
+    const inspecciones =
+        JSON.parse(localStorage.getItem("inspecciones")) || [];
+    const inspeccion =
+        (indice !== null && indice !== undefined && indice !== "")
+            ? inspecciones[Number(indice)]
+            : null;
+
+    const disponible = !!inspeccion;
+
+    if (idElemento) {
+        idElemento.textContent =
+            disponible ? (inspeccion.idControl || "SIN ID") : "Pendiente de guardar";
+    }
+
+    if (estadoElemento) {
+        estadoElemento.textContent =
+            disponible ? "Inspección guardada" : "Nueva inspección";
+        estadoElemento.style.color = disponible ? "#15803d" : "#64748b";
+    }
+
+    botones.forEach(id => {
+        const boton = document.getElementById(id);
+        if (boton) boton.disabled = !disponible;
+    });
+
+    const btnEditar = document.getElementById("btnEditarOM22");
+    if (btnEditar) {
+        btnEditar.disabled = !disponible || !!document.getElementById("formInspeccion")?.dataset.editando;
+        btnEditar.title = btnEditar.disabled && disponible
+            ? "La inspección ya está en modo edición"
+            : "Editar la inspección";
+    }
+}
+
+function abrirMatrizRiesgosClienteOM22Activo() {
+    const indice = indiceInspeccionEditando;
+    const inspecciones =
+        JSON.parse(localStorage.getItem("inspecciones")) || [];
+    const inspeccion =
+        (indice !== null && indice !== undefined && indice !== "")
+            ? inspecciones[Number(indice)]
+            : null;
+
+    if (!inspeccion) {
+        alert("Primero debe guardar la inspección para abrir la matriz de riesgos.");
+        return;
+    }
+
+    abrirMatrizRiesgosCliente(inspeccion.cliente || "");
+}
+
 function editarInspeccion(indice) {
 
     const inspecciones =
@@ -4645,6 +4666,7 @@ function editarInspeccion(indice) {
     }
 
     indiceInspeccionEditando = indice;
+    actualizarPanelModularInspeccionOM22(indice);
     localStorage.setItem(
     "indiceInspeccionSeleccionadaInforme",
     String(indice)
@@ -4652,6 +4674,7 @@ function editarInspeccion(indice) {
 
     
     document.getElementById("formInspeccion").dataset.editando = indice;
+    actualizarPanelModularInspeccionOM22(indice);
 
     const modal =
         document.getElementById("modalInspeccion");
@@ -4967,7 +4990,6 @@ document.getElementById("objetivo").value =
     });
 
     modal.style.display = "block";
-    actualizarAccionesOM25();
 }
   function eliminarInspeccion(indice) {
 
