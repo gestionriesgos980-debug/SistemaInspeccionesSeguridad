@@ -1420,8 +1420,8 @@
 
     <div class="formulario">
         <div class="campo">
-            <label>Riesgo identificado</label>
-            <input type="text" id="om26RiesgoIdentificado" placeholder="Describa el riesgo identificado">
+            <label>Riesgo identificado *</label>
+            <textarea id="om26RiesgoIdentificado" rows="3" required placeholder="Describa detalladamente el riesgo identificado"></textarea>
         </div>
 
         <div class="campo">
@@ -2432,6 +2432,28 @@ function cerrarDashboard() {
     .addEventListener("submit", async function(event) {
 
             event.preventDefault();
+
+            // OM-26.1-A — Validación mínima del análisis extraordinario.
+            // Evita guardar una inspección extraordinaria sin riesgo identificado
+            // o sin una calificación explícita, sin afectar otros tipos de inspección.
+            const tipoInspeccionOM26 = document.getElementById("tipo")?.value || "";
+            if (tipoInspeccionOM26 === "Inspección extraordinaria") {
+                const riesgoOM26 = document.getElementById("om26RiesgoIdentificado")?.value.trim() || "";
+                const nivelOM26 = document.getElementById("om26NivelRiesgo")?.value || "";
+
+                if (!riesgoOM26) {
+                    alert("Para una Inspección Extraordinaria debe registrar el riesgo identificado.");
+                    document.getElementById("om26RiesgoIdentificado")?.focus();
+                    return;
+                }
+
+                if (!nivelOM26) {
+                    alert("Para una Inspección Extraordinaria debe seleccionar el nivel de riesgo.");
+                    document.getElementById("om26NivelRiesgo")?.focus();
+                    return;
+                }
+            }
+
             /* =========================
                ID ÚNICO DE INSPECCIÓN
             ========================= */
