@@ -514,6 +514,7 @@
                 <button type="button" id="btnChecklistOM22" class="boton-principal" onclick="abrirListaChequeo(indiceInspeccionEditando)" disabled>📋 Lista de chequeo</button>
                 <button type="button" id="btnMatrizOM22" class="boton-principal" onclick="abrirMatrizRiesgosClienteOM22Activo()" disabled>📊 Matriz de riesgos</button>
                 <button type="button" id="btnHallazgosOM22" class="boton-principal" onclick="abrirHallazgos(indiceInspeccionEditando)" disabled>⚠️ Hallazgos</button>
+                <button type="button" id="btnContinuarOM26" class="boton-principal" onclick="continuarInspeccionSeguridadOM26()" disabled style="background:#0f766e;">➡️ Continuar Inspección de Seguridad</button>
                 <button type="button" id="btnEditarOM22" class="boton-principal" onclick="editarInspeccion(indiceInspeccionEditando)" disabled>✏️ Editar</button>
                 <button type="button" id="btnEliminarOM22" class="boton-principal" onclick="eliminarInspeccion(indiceInspeccionEditando)" disabled style="background:#b91c1c;">🗑️ Eliminar</button>
             </div>
@@ -1968,6 +1969,10 @@ function agregarServicioSeguridad(tipo) {
         document.getElementById("formInspeccion").removeAttribute("data-editando");
         document.getElementById("formInspeccion").removeAttribute("data-id-cliente-om17");
         document.getElementById("formInspeccion").removeAttribute("data-codigo-cliente-om17");
+        document.getElementById("formInspeccion").removeAttribute("data-om26-origen-extraordinaria");
+        document.getElementById("formInspeccion").removeAttribute("data-om26-id-origen-extraordinaria");
+        document.getElementById("formInspeccion").removeAttribute("data-om26-imagen-google-maps-origen");
+        document.getElementById("formInspeccion").removeAttribute("data-om26-imagen-google-earth-origen");
         indiceInspeccionEditando = null;
         limpiarDatosOM26();
         actualizarPanelModularInspeccionOM22(null);
@@ -2704,11 +2709,13 @@ const imagenGoogleEarthNueva =
 const imagenGoogleMapsFinal =
     imagenGoogleMapsNueva ||
     inspeccionAnteriorImagenes?.imagenGoogleMaps ||
+    document.getElementById("formInspeccion")?.dataset.om26ImagenGoogleMapsOrigen ||
     "";
 
 const imagenGoogleEarthFinal =
     imagenGoogleEarthNueva ||
     inspeccionAnteriorImagenes?.imagenGoogleEarth ||
+    document.getElementById("formInspeccion")?.dataset.om26ImagenGoogleEarthOrigen ||
     "";
 
 
@@ -2832,6 +2839,18 @@ inspeccion.om26 = {
     observaciones: document.getElementById("om26Observaciones")?.value || ""
 };
 
+// OM-26.3 — Trazabilidad de continuidad. Solo se registra cuando
+// la inspección fue creada a partir de una Inspección Extraordinaria.
+const origenExtraordinariaParaGuardar = formulario.dataset.om26OrigenExtraordinaria;
+if (origenExtraordinariaParaGuardar !== undefined && origenExtraordinariaParaGuardar !== "") {
+    const indiceOrigen = Number(origenExtraordinariaParaGuardar);
+    const inspeccionesOrigen = JSON.parse(localStorage.getItem("inspecciones")) || [];
+    const inspeccionOrigen = inspeccionesOrigen[indiceOrigen];
+    inspeccion.origenInspeccionExtraordinaria = inspeccionOrigen?.idControl || formulario.dataset.om26IdOrigenExtraordinaria || "";
+    inspeccion.indiceOrigenInspeccionExtraordinaria = indiceOrigen;
+    inspeccion.continuacionOM26 = true;
+}
+
 
         inspeccion.seguridadActual = Array.from(
     document.querySelectorAll("#cuerpoSeguridadActual tr")
@@ -2906,6 +2925,30 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
                 JSON.stringify(inspecciones)
             );
 
+            // OM-26.3 — Si esta inspección nació de una Extraordinaria,
+            // copiar sus hallazgos como base de trabajo para la nueva inspección.
+            // La Extraordinaria original y sus hallazgos permanecen intactos.
+            const origenExtraordinariaOM26 = formulario.dataset.om26OrigenExtraordinaria;
+            const esNuevaInspeccionOM26 = indiceEdicion === undefined || indiceEdicion === "";
+            if (esNuevaInspeccionOM26 && origenExtraordinariaOM26 !== undefined && origenExtraordinariaOM26 !== "") {
+                const indiceOrigenOM26 = Number(origenExtraordinariaOM26);
+                const indiceDestinoOM26 = inspecciones.length - 1;
+                const hallazgosActualesOM26 = JSON.parse(localStorage.getItem("hallazgos")) || [];
+                const hallazgosOrigenOM26 = hallazgosActualesOM26.filter(item => Number(item?.inspeccion) === indiceOrigenOM26);
+                const copiasHallazgosOM26 = hallazgosOrigenOM26.map(item => ({
+                    ...item,
+                    inspeccion: indiceDestinoOM26,
+                    origenInspeccionExtraordinaria: inspecciones[indiceOrigenOM26]?.idControl || "",
+                    idOrigenHallazgoExtraordinario: item.id || item.idHallazgo || ""
+                }));
+                if (copiasHallazgosOM26.length) {
+                    localStorage.setItem(
+                        "hallazgos",
+                        JSON.stringify(hallazgosActualesOM26.concat(copiasHallazgosOM26))
+                    );
+                }
+            }
+
             // CAMBIO TIMESTAMP ETAPA 1 — Registrar creación o modificación de la inspección
             // después de guardar correctamente, sin alterar la estructura existente de inspecciones.
             registrarEventoTrazabilidad({
@@ -2938,6 +2981,10 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
                 document.getElementById("mensaje").style.display = "none";
 
                 document.getElementById("formInspeccion").reset();
+                document.getElementById("formInspeccion").removeAttribute("data-om26-origen-extraordinaria");
+                document.getElementById("formInspeccion").removeAttribute("data-om26-id-origen-extraordinaria");
+                document.getElementById("formInspeccion").removeAttribute("data-om26-imagen-google-maps-origen");
+                document.getElementById("formInspeccion").removeAttribute("data-om26-imagen-google-earth-origen");
 
                 cerrarNuevaInspeccion();
                 actualizarPanelModularInspeccionOM22(null);
@@ -5290,6 +5337,7 @@ function actualizarPanelModularInspeccionOM22(indice) {
         "btnChecklistOM22",
         "btnMatrizOM22",
         "btnHallazgosOM22",
+        "btnContinuarOM26",
         "btnEditarOM22",
         "btnEliminarOM22"
     ];
@@ -5319,6 +5367,16 @@ function actualizarPanelModularInspeccionOM22(indice) {
         if (boton) boton.disabled = !disponible;
     });
 
+    const btnContinuar = document.getElementById("btnContinuarOM26");
+    if (btnContinuar) {
+        const esExtraordinaria = disponible && inspeccion.tipo === "Inspección extraordinaria";
+        btnContinuar.disabled = !esExtraordinaria;
+        btnContinuar.style.display = esExtraordinaria ? "inline-block" : "none";
+        btnContinuar.title = esExtraordinaria
+            ? "Crear una nueva Inspección de Seguridad utilizando esta Inspección Extraordinaria como base"
+            : "Disponible únicamente para Inspecciones Extraordinarias";
+    }
+
     const btnEditar = document.getElementById("btnEditarOM22");
     if (btnEditar) {
         btnEditar.disabled = !disponible || !!document.getElementById("formInspeccion")?.dataset.editando;
@@ -5343,6 +5401,135 @@ function abrirMatrizRiesgosClienteOM22Activo() {
     }
 
     abrirMatrizRiesgosCliente(inspeccion.cliente || "");
+}
+
+/* =====================================================
+   OM-26.3 — CONTINUIDAD DE LA INSPECCIÓN
+   Objetivo: utilizar una Inspección Extraordinaria guardada
+   como base para una nueva Inspección de Seguridad, sin
+   modificar ni reemplazar el registro original.
+===================================================== */
+function continuarInspeccionSeguridadOM26() {
+    const indiceOrigen = indiceInspeccionEditando;
+    const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
+    const origen = Number.isInteger(Number(indiceOrigen)) ? inspecciones[Number(indiceOrigen)] : null;
+
+    if (!origen) {
+        alert("No se encontró la Inspección Extraordinaria seleccionada.");
+        return;
+    }
+
+    if (origen.tipo !== "Inspección extraordinaria") {
+        alert("La continuidad hacia una Inspección de Seguridad solo está disponible para una Inspección Extraordinaria.");
+        return;
+    }
+
+    const confirmar = confirm(
+        "Se creará una NUEVA Inspección de Seguridad utilizando como base la información de esta Inspección Extraordinaria.\n\n" +
+        "La Inspección Extraordinaria original permanecerá intacta.\n\n" +
+        "¿Desea continuar?"
+    );
+
+    if (!confirmar) return;
+
+    abrirNuevaInspeccion();
+
+    const formulario = document.getElementById("formInspeccion");
+    formulario.dataset.om26OrigenExtraordinaria = String(indiceOrigen);
+    formulario.dataset.om26IdOrigenExtraordinaria = origen.idControl || "";
+
+    const campos = {
+        cliente: "cliente", nit: "nit", direccion: "direccion", ciudad: "ciudad",
+        contacto: "contacto", telefono: "telefono", correo: "correo", fecha: "fecha",
+        inspector: "inspector", director: "director", sectorInspeccion: "sectorInspeccion",
+        objetivo: "objetivo", latitud: "latitud", longitud: "longitud", entorno: "entorno",
+        tipoInstalacion: "tipoInstalacion", cantidadTorres: "cantidadTorres",
+        cantidadNiveles: "cantidadNiveles", cantidadSotanos: "cantidadSotanos",
+        cantidadViviendas: "cantidadViviendas", parqueaderosPrivados: "parqueaderosPrivados",
+        parqueaderosVisitantes: "parqueaderosVisitantes", parqueaderosMotos: "parqueaderosMotos",
+        parqueaderosComunes: "parqueaderosComunes", bicicleteros: "bicicleteros",
+        tipoCCTV: "tipoCCTV", cantidadCamaras: "cantidadCamaras",
+        cantidadEquiposGrabacionCCTV: "cantidadEquiposGrabacionCCTV",
+        observacionesCCTV: "observacionesCCTV", videoAnalitica: "videoAnalitica",
+        ubicacionRack: "ubicacionRack", diasAlmacenamiento: "diasAlmacenamiento",
+        upsCCTV: "upsCCTV", manejoContrasenasCCTV: "manejoContrasenasCCTV",
+        tipoInstalacionIndustrial: "tipoInstalacionIndustrial",
+        actividadPrincipalIndustrial: "actividadPrincipalIndustrial",
+        cantidadBodegas: "cantidadBodegas", areaIndustrial: "areaIndustrial",
+        numeroLotesParcelacion: "numeroLotesParcelacion",
+        viviendasConstruidasParcelacion: "viviendasConstruidasParcelacion",
+        viviendasConstruccionParcelacion: "viviendasConstruccionParcelacion",
+        tipoEstablecimientoComercial: "tipoEstablecimientoComercial",
+        actividadComercial: "actividadComercial", areaComercial: "areaComercial",
+        numeroLocalesComercial: "numeroLocalesComercial", nivelesComercial: "nivelesComercial",
+        parqueaderosComercial: "parqueaderosComercial", otraInformacionComercial: "otraInformacionComercial"
+    };
+
+    Object.entries(campos).forEach(([prop, id]) => {
+        const elemento = document.getElementById(id);
+        if (elemento && origen[prop] !== undefined && origen[prop] !== null) {
+            elemento.value = origen[prop];
+        }
+    });
+
+    // La nueva inspección será una Inspección de Seguridad, no una copia editable del evento original.
+    const tipo = document.getElementById("tipo");
+    if (tipo) tipo.value = "Inspección preventiva de seguridad integral";
+
+    // Heredar antecedentes y análisis del evento.
+    const riesgo = document.getElementById("om26RiesgoIdentificado");
+    const nivel = document.getElementById("om26NivelRiesgo");
+    const observaciones = document.getElementById("om26Observaciones");
+    if (riesgo) riesgo.value = origen.om26?.riesgoIdentificado || "";
+    if (nivel) nivel.value = origen.om26?.nivelRiesgo || "";
+    if (observaciones) observaciones.value = origen.om26?.observaciones || "";
+
+    // Conservar antecedentes del histórico como base de trabajo.
+    const cuerpo = document.getElementById("cuerpoIncidentes");
+    if (cuerpo) {
+        cuerpo.innerHTML = "";
+        const historico = Array.isArray(origen.historicoIncidentes) ? origen.historicoIncidentes : [];
+        if (historico.length) {
+            historico.forEach(incidente => {
+                agregarIncidente();
+                const filas = cuerpo.querySelectorAll("tr");
+                const fila = filas[filas.length - 1];
+                if (!fila) return;
+                fila.querySelector(".riesgo-incidente").value = incidente.riesgo || "";
+                fila.querySelector(".detalle-incidente").value = incidente.incidente || "";
+                fila.querySelector(".consecuencia-incidente").value = incidente.consecuencias || "";
+            });
+        } else {
+            agregarIncidente();
+        }
+    }
+
+    const sinIncidentes = document.getElementById("sinIncidentes");
+    if (sinIncidentes) sinIncidentes.checked = !!origen.sinIncidentes;
+
+    // Guardar referencias de las imágenes para que una nueva inspección no las pierda.
+    formulario.dataset.om26ImagenGoogleMapsOrigen = origen.imagenGoogleMaps || "";
+    formulario.dataset.om26ImagenGoogleEarthOrigen = origen.imagenGoogleEarth || "";
+
+    [
+        ["vistaPreviaGoogleMaps", origen.imagenGoogleMaps],
+        ["vistaPreviaGoogleEarth", origen.imagenGoogleEarth]
+    ].forEach(([id, src]) => {
+        const vista = document.getElementById(id);
+        if (!vista) return;
+        vista.src = src || "";
+        vista.style.display = src ? "block" : "none";
+    });
+
+    actualizarVisibilidadOM26();
+    actualizarIndicadorRiesgoOM26();
+
+    // En una continuación, los datos del evento se conservan como antecedente.
+    const estado = document.getElementById("estadoInspeccionOM22");
+    if (estado) {
+        estado.textContent = "Nueva inspección basada en " + (origen.idControl || "Inspección Extraordinaria");
+        estado.style.color = "#0f766e";
+    }
 }
 
 function editarInspeccion(indice) {
