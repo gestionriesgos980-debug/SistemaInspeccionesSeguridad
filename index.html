@@ -3435,8 +3435,8 @@ function coincideClienteConInspeccionOM16(cliente, inspeccion) {
         // Permite registros históricos que conservan el código u otro texto
         // después del nombre principal del cliente.
         if (nombreCliente.length >= 8 && nombreInspeccion.length >= 8 &&
-            (nombreInspeccion.startsWith(nombreCliente) ||
-             nombreCliente.startsWith(nombreInspeccion))) {
+            (nombreInspeccion.includes(nombreCliente) ||
+             nombreCliente.includes(nombreInspeccion))) {
             return true;
         }
     }
