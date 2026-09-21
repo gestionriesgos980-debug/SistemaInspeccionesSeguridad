@@ -9581,9 +9581,7 @@ matrizParaInforme.forEach((riesgo, indice) => {
                 .pagina-informe {
                     position:relative;
                     width:210mm;
-                    height:297mm;
                     min-height:297mm;
-                    max-height:297mm;
                     box-sizing:border-box;
                     padding:12mm 15mm 15mm 15mm;
                     background:#fff;
@@ -9594,11 +9592,8 @@ matrizParaInforme.forEach((riesgo, indice) => {
 
                 .cuerpo-pagina-informe {
                     width:180mm;
-                    height:270mm;
-                    max-height:270mm;
                     box-sizing:border-box;
                     padding-bottom:10mm;
-                    overflow:visible;
                 }
 
                 .encabezado-pagina {
@@ -9622,22 +9617,6 @@ matrizParaInforme.forEach((riesgo, indice) => {
                     color:#666;
                     border-top:1px solid #d0d0d0;
                     padding-top:2mm;
-                }
-
-                /* OM-27.1 · Intervención 3 — Indicador total de páginas.
-                   Visible al generar el informe y calculado dinámicamente. */
-                .indicador-total-paginas {
-                    width: min(180mm, calc(100% - 12mm));
-                    margin: 0 auto 4mm;
-                    padding: 2.5mm 4mm;
-                    box-sizing: border-box;
-                    border: 1px solid #cbd5df;
-                    border-radius: 4px;
-                    background: #f4f7fa;
-                    color: #123b5d;
-                    font-weight: 700;
-                    text-align: center;
-                    font-size: 12px;
                 }
 
                 .controles-informe-paginado {
@@ -9924,12 +9903,19 @@ matrizParaInforme.forEach((riesgo, indice) => {
 
 .tabla-fotos-hallazgo img {
     display:block !important;
-    width:100% !important;
-    max-width:100% !important;
-    height:auto !important;
-    max-height:105px !important;
+    width:3.8cm !important;
+    height:2.6cm !important;
+    max-width:3.8cm !important;
+    max-height:2.6cm !important;
     object-fit:contain !important;
     margin:0 auto !important;
+}
+
+/* OM-27.1 · INTERVENCIÓN 2 — Las filas del cuadro de hallazgos se
+   conservan completas al paginar y el encabezado de la tabla se repite. */
+.tabla-hallazgos tbody tr {
+    break-inside:avoid !important;
+    page-break-inside:avoid !important;
 }
 
 .tabla-hallazgos .fotos {
@@ -11961,10 +11947,11 @@ ESTADO: EN DESARROLLO
 
 <script>
 /* =========================================================
-   OM-27 · INTERVENCIÓN 6
-   TRANSICIÓN CONTROLADA DE LA PRIMERA PÁGINA
-   Base funcional: Intervención 5C / 4D
-   PAGINACIÓN REAL POR FOLIOS A4
+   OM-27.1 · INFORME PAGINADO DINÁMICO — INTERVENCIÓN 1
+   OBJETIVO: Presentar el informe como un documento paginado
+   automáticamente según la cantidad real de contenido.
+   Esta etapa interviene únicamente la PRESENTACIÓN DEL INFORME.
+   No modifica datos, cálculos ni funciones de generación PDF.
    ========================================================= */
 (function () {
     function inicializarInformePaginado() {
@@ -11974,23 +11961,41 @@ ESTADO: EN DESARROLLO
         const encabezadoOriginal = hoja.querySelector(':scope > .encabezado');
         if (!encabezadoOriginal) return;
 
+        const hijos = Array.from(hoja.children).filter(el =>
+            el !== encabezadoOriginal &&
+            !el.classList.contains('botones') &&
+            !el.classList.contains('pie')
+        );
+
+        if (!hijos.length) return;
+
         hoja.dataset.paginadoAplicado = 'true';
         hoja.classList.add('informe-paginado-activo');
 
-        const hijos = Array.from(hoja.children);
-        const ignorar = el => !el || el === encabezadoOriginal ||
-            el.classList.contains('botones') ||
-            el.classList.contains('pie') ||
-            el.classList.contains('controles-informe-paginado');
-
         const contenedor = document.createElement('div');
         contenedor.className = 'contenedor-paginado-tecchnex';
-        const paginas = [];
 
-        const crearPagina = tipo => {
+        // Agrupar cada H2 con el contenido que le pertenece para evitar
+        // que un título quede solo al final de una página.
+        const unidades = [];
+        let unidadActual = [];
+
+        hijos.forEach(el => {
+            if (el.nodeType === 1 && el.classList.contains('salto-pagina-pdf')) return;
+
+            if (el.tagName === 'H2' && unidadActual.length) {
+                unidades.push(unidadActual);
+                unidadActual = [];
+            }
+
+            unidadActual.push(el);
+        });
+
+        if (unidadActual.length) unidades.push(unidadActual);
+
+        const crearPagina = () => {
             const pagina = document.createElement('section');
             pagina.className = 'pagina-informe';
-            pagina.dataset.tipoPagina = tipo || '';
 
             const encabezado = encabezadoOriginal.cloneNode(true);
             encabezado.classList.add('encabezado-pagina');
@@ -12001,243 +12006,98 @@ ESTADO: EN DESARROLLO
             pagina.appendChild(cuerpo);
 
             contenedor.appendChild(pagina);
-            const registro = { pagina, cuerpo };
-            paginas.push(registro);
-            return registro;
+            return { pagina, cuerpo, encabezado };
         };
 
-        /* La altura del cuerpo es fija (270 mm). Por eso una página no puede
-           crecer: si un bloque rebasa este límite, se pasa al folio siguiente. */
-        const limite = p => {
-            const r = p.cuerpo.getBoundingClientRect();
-            return r.top + p.cuerpo.clientHeight - 2;
-        };
-        const excede = (p, nodo) => nodo.getBoundingClientRect().bottom > limite(p);
-        const vacia = p => !p || p.cuerpo.children.length === 0;
+        let paginaActual = crearPagina();
 
-        const agregarConSalto = (p, nodo, tipo='continuacion') => {
-            if (!nodo) return p;
-            p.cuerpo.appendChild(nodo);
-            if (excede(p, nodo)) {
-                p.cuerpo.removeChild(nodo);
-                if (!vacia(p)) p = crearPagina(tipo);
-                p.cuerpo.appendChild(nodo);
+        const mmAPx = mm => mm * (96 / 25.4);
+
+        const alturaDisponible = () => {
+            const pagina = paginaActual.pagina;
+            const estilo = getComputedStyle(pagina);
+            const paddingSuperior = parseFloat(estilo.paddingTop) || 0;
+            const paddingInferior = parseFloat(estilo.paddingBottom) || 0;
+            const reservaPie = mmAPx(12);
+            return pagina.clientHeight - paddingSuperior - paddingInferior -
+                paginaActual.encabezado.offsetHeight - reservaPie;
+        };
+
+        const alturaContenido = () => paginaActual.cuerpo.scrollHeight;
+
+        const crearTablaContinuacion = (tabla) => {
+            const nuevaTabla = tabla.cloneNode(false);
+            const thead = tabla.querySelector('thead');
+            if (thead) nuevaTabla.appendChild(thead.cloneNode(true));
+            const tbody = document.createElement('tbody');
+            nuevaTabla.appendChild(tbody);
+            return { tabla: nuevaTabla, tbody };
+        };
+
+        const moverTablaHallazgosPorFilas = (unidad, tabla) => {
+            const encabezado = unidad.find(el => el.tagName === 'H2');
+            const filas = Array.from(tabla.querySelectorAll(':scope > tbody > tr'));
+            if (!filas.length) return;
+
+            if (encabezado) {
+                paginaActual.cuerpo.appendChild(encabezado.cloneNode(true));
             }
-            return p;
-        };
 
-        /* Tabla paginable por filas. El encabezado se repite en cada folio. */
-        const agregarTabla = (tablaOriginal, pInicial, tipo='continuacion-tabla') => {
-            if (!tablaOriginal) return pInicial;
-            const filas = Array.from(tablaOriginal.querySelectorAll(':scope > tbody > tr'));
-            const thead = tablaOriginal.querySelector(':scope > thead');
+            let bloque = crearTablaContinuacion(tabla);
+            paginaActual.cuerpo.appendChild(bloque.tabla);
 
-            if (!filas.length) return agregarConSalto(pInicial, tablaOriginal, tipo);
-
-            let p = pInicial;
-            let tablaPagina = null;
-            let tbody = null;
-
-            const nuevaTabla = () => {
-                tablaPagina = tablaOriginal.cloneNode(false);
-                tablaPagina.classList.add('tabla-continuacion-paginada');
-                if (thead) tablaPagina.appendChild(thead.cloneNode(true));
-                tbody = document.createElement('tbody');
-                tablaPagina.appendChild(tbody);
-                p.cuerpo.appendChild(tablaPagina);
-            };
-
-            nuevaTabla();
-
-            for (const fila of filas) {
-                const clon = fila.cloneNode(true);
-                tbody.appendChild(clon);
-
-                if (excede(p, tablaPagina) && tbody.children.length > 1) {
-                    tbody.removeChild(clon);
-                    p = crearPagina(tipo);
-                    nuevaTabla();
-                    tbody.appendChild(clon);
-                }
-            }
-            return p;
-        };
-
-        /* =====================================================
-           HOJA 1 — INFORMACIÓN DEL CLIENTE + INSPECCIÓN
-           ===================================================== */
-        const infoGeneral = hijos.find(el =>
-            el.classList.contains('bloque-pdf') &&
-            /Información general de la inspección/i.test(el.textContent || '')
-        );
-
-        const page1 = crearPagina('informacion-general');
-        if (infoGeneral) {
-            const filaEntorno = Array.from(infoGeneral.querySelectorAll('tr')).find(tr =>
-                /Descripción del entorno/i.test(tr.cells?.[0]?.textContent || '')
-            );
-            if (filaEntorno) filaEntorno.remove();
-            page1.cuerpo.appendChild(infoGeneral);
-        }
-
-        /* =====================================================
-           HOJA(S) ESTÁTICA(S) — UBICACIÓN / CARACTERÍSTICAS /
-           CCTV / GEOREFERENCIACIÓN
-           ===================================================== */
-       
-        const movidos = new Set([encabezadoOriginal, infoGeneral]);
-        let paginaEstatica = crearPagina('ubicacion-caracteristicas');
-
-        const ubicacion = document.createElement('div');
-        ubicacion.className = 'bloque-pdf ubicacion-entorno-estatico';
-        ubicacion.innerHTML =
-            '<h3 style="color:#123b5d;border-bottom:2px solid #123b5d;padding-bottom:6px;margin:0 0 12px 0;">UBICACIÓN Y ENTORNO</h3>' +
-            '<table style="width:100%;border-collapse:collapse;margin-bottom:18px;">' +
-                '<tr>' +
-                    '<td style="padding:8px;border:1px solid #999;background:#f1f4f7;font-weight:bold;width:25%;">DIRECCIÓN</td>' +
-                    '<td style="padding:8px;border:1px solid #999;width:25%;">' + escapar(inspeccion.direccion || '') + '</td>' +
-                    '<td style="padding:8px;border:1px solid #999;background:#f1f4f7;font-weight:bold;width:25%;">CIUDAD</td>' +
-                    '<td style="padding:8px;border:1px solid #999;width:25%;">' + escapar(inspeccion.ciudad || '') + '</td>' +
-                '</tr>' +
-                '<tr>' +
-                    '<td style="padding:8px;border:1px solid #999;background:#f1f4f7;font-weight:bold;">ENTORNO</td>' +
-                    '<td colspan="3" style="padding:8px;border:1px solid #999;white-space:pre-wrap;">' + escapar(inspeccion.entorno || '') + '</td>' +
-                '</tr>' +
-            '</table>';
-        paginaEstatica.cuerpo.appendChild(ubicacion);
-
-        const esCaracteristicas = el => /Características de la instalación/i.test(el.textContent || '');
-        const esCCTV = el => /Sistema CCTV/i.test(el.textContent || '');
-        const esGeo = el => /GEOREFERENCIACIÓN/i.test(el.textContent || '');
-        const esHerramientas = el => /HERRAMIENTAS DE SEGURIDAD/i.test(el.textContent || '');
-
-        const agregarEstatica = el => {
-            if (!el) return;
-            paginaEstatica.cuerpo.appendChild(el);
-            if (excede(paginaEstatica, el) && paginaEstatica.cuerpo.children.length > 1) {
-                paginaEstatica.cuerpo.removeChild(el);
-                paginaEstatica = crearPagina('continuacion-estatica');
-                paginaEstatica.cuerpo.appendChild(el);
-            }
-            movidos.add(el);
-        };
-
-        let despuesInfo = false;
-        for (let i = 0; i < hijos.length; i++) {
-            const el = hijos[i];
-            if (el === infoGeneral) { despuesInfo = true; continue; }
-            if (!despuesInfo || ignorar(el) || movidos.has(el)) continue;
-
-            if (esCaracteristicas(el)) {
-                agregarEstatica(el);
-                const siguiente = hijos[i + 1];
-                if (siguiente && siguiente.tagName === 'TABLE') {
-                    agregarEstatica(siguiente);
+            const grupos = [];
+            for (let i = 0; i < filas.length; i++) {
+                const fila = filas[i];
+                if (fila.classList.contains('fila-area') && filas[i + 1]) {
+                    grupos.push([fila, filas[i + 1]]);
                     i++;
+                } else {
+                    grupos.push([fila]);
                 }
-                continue;
-            }
-            if (esCCTV(el) || esGeo(el)) {
-                agregarEstatica(el);
-                continue;
-            }
-            if (esHerramientas(el)) break;
-        }
-
-        /* =====================================================
-           RESTO DINÁMICO
-           ===================================================== */
-        const restantes = hijos.filter(el => !movidos.has(el) && !ignorar(el));
-        const heatmapH2 = restantes.find(el => el.tagName === 'H2' && /Mapa de calor de riesgos/i.test(el.textContent || ''));
-        const heatmapIndex = heatmapH2 ? restantes.indexOf(heatmapH2) : -1;
-        const heatmapContenido = heatmapIndex >= 0 ? restantes[heatmapIndex + 1] : null;
-        const heatmapMovidos = new Set([heatmapH2, heatmapContenido]);
-
-        let paginaActual = crearPagina('desarrollo');
-
-        const agregarElemento = el => {
-            if (!el || heatmapMovidos.has(el)) return;
-
-            if (el.classList.contains('salto-pagina-pdf')) {
-                if (!vacia(paginaActual)) paginaActual = crearPagina('salto-controlado');
-                return;
-            }
-            if (el.classList.contains('salto-hallazgos-pdf')) {
-                if (!vacia(paginaActual)) paginaActual = crearPagina('hallazgos');
-                return;
             }
 
-            if (el.classList.contains('seccion-hallazgos-pdf')) {
-                if (!vacia(paginaActual)) paginaActual = crearPagina('hallazgos');
-                const titulo = el.querySelector('h2');
-                const tabla = el.querySelector('table');
-                if (titulo) paginaActual = agregarConSalto(paginaActual, titulo, 'hallazgos');
-                if (tabla) paginaActual = agregarTabla(tabla, paginaActual, 'hallazgos-continuacion');
-                return;
-            }
+            grupos.forEach(grupo => {
+                const clones = grupo.map(fila => fila.cloneNode(true));
+                clones.forEach(clon => bloque.tbody.appendChild(clon));
 
-            if (el.tagName === 'TABLE') {
-                paginaActual = agregarTabla(el, paginaActual);
-                return;
-            }
-
-            /* Intento 1: conservar el bloque completo. */
-            paginaActual.cuerpo.appendChild(el);
-            if (!excede(paginaActual, el)) return;
-            paginaActual.cuerpo.removeChild(el);
-
-            /* Intento 2: si es un contenedor con varios hijos, distribuirlos
-               en orden para aprovechar el espacio restante de cada folio. */
-            if (el.tagName === 'DIV' && el.children.length > 1) {
-                const internos = Array.from(el.children);
-                let wrapper = el.cloneNode(false);
-                paginaActual.cuerpo.appendChild(wrapper);
-
-                for (const interno of internos) {
-                    if (interno.tagName === 'TABLE') {
-                        if (wrapper.children.length === 0) wrapper.remove();
-                        else wrapper = null;
-                        paginaActual = agregarTabla(interno, paginaActual, 'continuacion-tabla');
-                        wrapper = el.cloneNode(false);
-                        paginaActual.cuerpo.appendChild(wrapper);
-                        continue;
-                    }
-
-                    wrapper.appendChild(interno);
-                    if (excede(paginaActual, wrapper)) {
-                        wrapper.removeChild(interno);
-                        if (!wrapper.children.length) wrapper.remove();
-                        paginaActual = crearPagina('continuacion');
-                        wrapper = el.cloneNode(false);
-                        paginaActual.cuerpo.appendChild(wrapper);
-                        wrapper.appendChild(interno);
-                    }
+                if (alturaContenido() > alturaDisponible()) {
+                    clones.forEach(clon => bloque.tbody.removeChild(clon));
+                    paginaActual = crearPagina();
+                    bloque = crearTablaContinuacion(tabla);
+                    paginaActual.cuerpo.appendChild(bloque.tabla);
+                    clones.forEach(clon => bloque.tbody.appendChild(clon));
                 }
-
-                if (wrapper && !wrapper.children.length) wrapper.remove();
-                return;
-            }
-
-            /* Elemento indivisible: pasa completo al siguiente folio. */
-            if (!vacia(paginaActual)) paginaActual = crearPagina('continuacion');
-            paginaActual.cuerpo.appendChild(el);
+            });
         };
 
-        for (const el of restantes) {
-            if (el === heatmapH2 || el === heatmapContenido) continue;
-            agregarElemento(el);
+        const moverUnidad = (unidad) => {
+            const tablaHallazgos = unidad.find(el =>
+                el.tagName === 'TABLE' && el.classList.contains('tabla-hallazgos')
+            );
 
-            /* La matriz termina y el mapa de calor pasa a su hoja propia. */
-            if (el.tagName === 'TABLE' && /Probabilidad|Impacto|Puntuación|Tratamiento/i.test(el.textContent || '') && heatmapH2) {
-                paginaActual = crearPagina('mapa-calor');
-                paginaActual.cuerpo.appendChild(heatmapH2);
-                if (heatmapContenido) paginaActual.cuerpo.appendChild(heatmapContenido);
-                paginaActual = crearPagina('continuacion');
+            if (tablaHallazgos) {
+                moverTablaHallazgosPorFilas(unidad, tablaHallazgos);
+                return;
             }
-        }
 
-        if (!paginaActual || vacia(paginaActual)) paginaActual = crearPagina('final');
+            const fragmento = document.createDocumentFragment();
+            unidad.forEach(el => fragmento.appendChild(el));
+            paginaActual.cuerpo.appendChild(fragmento);
 
+            if (
+                alturaContenido() > alturaDisponible() &&
+                paginaActual.cuerpo.children.length > unidad.length
+            ) {
+                unidad.forEach(el => paginaActual.cuerpo.removeChild(el));
+                paginaActual = crearPagina();
+                unidad.forEach(el => paginaActual.cuerpo.appendChild(el));
+            }
+        };
+
+        unidades.forEach(moverUnidad);
+
+        // El bloque de controles se conserva al final del informe.
         const controles = document.createElement('div');
         controles.className = 'controles-informe-paginado';
         controles.innerHTML =
@@ -12247,40 +12107,145 @@ ESTADO: EN DESARROLLO
             '</div>';
         paginaActual.cuerpo.appendChild(controles);
 
-        Array.from(contenedor.querySelectorAll('.pagina-informe')).forEach(p => {
-            const cuerpo = p.querySelector('.cuerpo-pagina-informe');
-            if (!cuerpo || !cuerpo.children.length) p.remove();
-        });
-
-        const paginasFinales = Array.from(contenedor.querySelectorAll('.pagina-informe'));
         hoja.innerHTML = '';
         hoja.appendChild(contenedor);
 
-        const indicador = document.createElement('div');
-        indicador.className = 'indicador-total-paginas';
-        indicador.setAttribute('role','status');
-        indicador.textContent = '📄 Informe generado: ' + paginasFinales.length +
-            (paginasFinales.length === 1 ? ' página' : ' páginas');
-        hoja.insertBefore(indicador, contenedor);
-
-        paginasFinales.forEach((pagina, i) => {
+        const paginas = Array.from(contenedor.querySelectorAll('.pagina-informe'));
+        paginas.forEach((pagina, indice) => {
             const pie = document.createElement('div');
             pie.className = 'paginacion-informe';
-            pie.textContent = 'Página ' + (i + 1) + ' de ' + paginasFinales.length;
+            pie.textContent = 'Página ' + (indice + 1) + ' de ' + paginas.length;
             pagina.appendChild(pie);
         });
     }
 
     function esperarImagenesYConstruir() {
-        const imgs = Array.from(document.images || []);
-        const ejecutar = () => requestAnimationFrame(() => requestAnimationFrame(inicializarInformePaginado));
-        if (!imgs.length || imgs.every(img => img.complete)) ejecutar();
-        else setTimeout(ejecutar, 700);
+        const imagenes = Array.from(document.images || []);
+
+        const ejecutar = () => {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(inicializarInformePaginado);
+            });
+        };
+
+        if (!imagenes.length || imagenes.every(img => img.complete)) {
+            ejecutar();
+            return;
+        }
+
+        // La ventana ya espera al evento load; el pequeño retraso permite
+        // que el navegador termine de calcular las dimensiones de las fotos.
+        setTimeout(ejecutar, 500);
     }
 
-    if (document.readyState === 'complete') esperarImagenesYConstruir();
-    else window.addEventListener('load', esperarImagenesYConstruir, {once:true});
+    if (document.readyState === 'complete') {
+        esperarImagenesYConstruir();
+    } else {
+        window.addEventListener('load', esperarImagenesYConstruir, { once: true });
+    }
 })();
+<\/script>
+        </body>
+
+        </html>
+
+    `);
+
+    ventana.document.close();
+
+
+    /* Registrar informe generado */
+
+    const informes =
+        Number(
+            localStorage.getItem("informesGenerados") || 0
+        ) + 1;
+
+    localStorage.setItem(
+        "informesGenerados",
+        String(informes)
+    );
+
+    const contador =
+        document.getElementById("totalInformes");
+
+    if (contador) {
+
+        contador.textContent =
+            informes;
+    }
+
+}
+    
+// =====================================================
+// FUNCIÓN: VISIBILIDAD SEGÚN TIPO DE SERVICIO
+// OBJETIVO: Mostrar únicamente las características
+// correspondientes al sector seleccionado.
+// =====================================================
+document.addEventListener("DOMContentLoaded", function () {
+
+    const sectorSelect = document.getElementById("sectorInspeccion");
+    const industrial = document.getElementById("caracteristicasIndustrial");
+    const residencial = document.getElementById("caracteristicasResidencial");
+    const parcelacion = document.getElementById("caracteristicasParcelacion");
+    const comercial = document.getElementById("caracteristicasComercial");
+
+    if (sectorSelect) {
+
+        function actualizarSector() {
+
+    // CAMBIO SECTOR-PARCELACION-COMERCIAL: Oculta todas las secciones
+    // sectoriales y muestra únicamente la correspondiente a la selección.
+    if (industrial) {
+        industrial.style.display = "none";
+    }
+
+    if (residencial) {
+        residencial.style.display = "none";
+    }
+
+    if (parcelacion) {
+        parcelacion.style.display = "none";
+    }
+
+    if (comercial) {
+        comercial.style.display = "none";
+    }
+
+    if (sectorSelect.value === "Industrial") {
+
+        if (industrial) {
+            industrial.style.display = "block";
+        }
+
+    } else if (sectorSelect.value === "Residencial") {
+
+        if (residencial) {
+            residencial.style.display = "block";
+        }
+
+    } else if (sectorSelect.value === "Parcelación") {
+
+        if (parcelacion) {
+            parcelacion.style.display = "block";
+        }
+
+    } else if (sectorSelect.value === "Comercial") {
+
+        if (comercial) {
+            comercial.style.display = "block";
+        }
+    }
+}
+
+        sectorSelect.addEventListener("change", actualizarSector);
+
+        // Ejecutar al cargar la pantalla
+        actualizarSector();
+    }
+
+});
+    
 </script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
