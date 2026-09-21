@@ -9945,6 +9945,177 @@ matrizParaInforme.forEach((riesgo, indice) => {
    No se modifica el contenido ni los cálculos.
 ====================================================== */
 
+/* OM-13 · Intervención 1 · Adaptación móvil global
+   Solo presentación: no modifica lógica ni almacenamiento. */
+@media (max-width: 600px) {
+    html, body {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    header {
+        padding: 16px 15px;
+    }
+
+    header h1 {
+        font-size: 21px;
+        line-height: 1.25;
+    }
+
+    .contenedor {
+        width: 100%;
+        max-width: 100%;
+        margin: 18px auto;
+        padding: 0 10px;
+    }
+
+    .panel {
+        padding: 15px;
+    }
+
+    .barra-superior {
+        align-items: stretch;
+    }
+
+    .barra-superior > * {
+        max-width: 100%;
+    }
+
+    .boton-principal,
+    .botones button,
+    .botones-modal button {
+        min-height: 44px;
+    }
+
+    .modal {
+        padding: 0;
+    }
+
+    .modal-contenido,
+    #modalInspeccion .modal-contenido,
+    #dashboard .modal-contenido,
+    #ventanaHallazgos .modal-contenido {
+        width: calc(100% - 12px);
+        max-width: none;
+        margin: 8px auto;
+        padding: 15px;
+        border-radius: 9px;
+    }
+
+    .modal-cabecera,
+    #ventanaHallazgos .modal-encabezado {
+        gap: 10px;
+        align-items: flex-start;
+    }
+
+    .modal-cabecera h2,
+    #ventanaHallazgos .modal-encabezado h2 {
+        font-size: 19px;
+        line-height: 1.25;
+    }
+
+    .formulario {
+        grid-template-columns: 1fr;
+        gap: 13px;
+    }
+
+    .campo.completo {
+        grid-column: auto;
+    }
+
+    .campo input,
+    .campo select,
+    .campo textarea,
+    #ventanaHallazgos input,
+    #ventanaHallazgos select,
+    #ventanaHallazgos textarea {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .botones,
+    .botones-modal {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .botones button,
+    .botones-modal button {
+        flex: 1 1 150px;
+    }
+
+    /* Las tablas conservan su estructura; en móvil se desplazan dentro de su contenedor. */
+    table {
+        max-width: 100%;
+    }
+
+    .tabla-responsive,
+    .tabla-contenedor,
+    .contenedor-tabla,
+    .table-responsive {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Ventanas dinámicas de OM-20 y ventanas futuras: ancho adaptable y scroll interno. */
+    #ventanaBibliotecaOM22,
+    #modalEditorBibliotecaOM20,
+    #ventanaBibliotecaRiesgosOM20,
+    #modalEditorBibliotecaRiesgoOM20,
+    #ventanaRespaldoOM22 {
+        padding: 8px !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+
+    #ventanaBibliotecaOM22 > div,
+    #modalEditorBibliotecaOM20 > div,
+    #ventanaBibliotecaRiesgosOM20 > div,
+    #modalEditorBibliotecaRiesgoOM20 > div,
+    #ventanaRespaldoOM22 > div {
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: calc(100vh - 16px) !important;
+        overflow-y: auto !important;
+        box-sizing: border-box !important;
+    }
+
+    #ventanaBibliotecaOM22 table,
+    #ventanaBibliotecaRiesgosOM20 table {
+        min-width: 680px;
+    }
+
+    #ventanaBibliotecaOM22 > div > div,
+    #ventanaBibliotecaRiesgosOM20 > div > div {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    #ventanaBibliotecaOM22 input,
+    #ventanaBibliotecaRiesgosOM20 input {
+        min-width: 0 !important;
+    }
+
+    /* Formularios dinámicos de edición: una columna en pantallas pequeñas. */
+    #modalEditorBibliotecaOM20 form,
+    #modalEditorBibliotecaRiesgoOM20 form {
+        width: 100%;
+    }
+
+    /* Evita que imágenes o contenido embebido desborden la pantalla. */
+    img,
+    canvas,
+    iframe,
+    video {
+        max-width: 100%;
+        height: auto;
+    }
+}
+
 @media print {
 
     h2,
