@@ -603,7 +603,7 @@
                         <select id="tipo">
     <option>Inspección preventiva de seguridad integral</option>
     <option>Inspección de seguimiento</option>
-    <option>Inspección extraordinaria</option>
+    <option value="Inspección extraordinaria">Diagnóstico de seguridad</option>
     <option>Reinspección</option>
 </select>
 </div>
@@ -1401,6 +1401,20 @@
     </button>
 
 </div>
+<script>
+/* =====================================================
+   OM-26.3-A — DENOMINACIÓN PROFESIONAL
+   Objetivo: mostrar "Diagnóstico de seguridad" al usuario
+   sin modificar el valor interno "Inspección extraordinaria",
+   preservando la compatibilidad con la lógica existente.
+===================================================== */
+function nombreTipoInspeccionVisible(tipo) {
+    return tipo === "Inspección extraordinaria"
+        ? "Diagnóstico de seguridad"
+        : (tipo || "—");
+}
+</script>
+
 <!-- =====================================================
      OM-26 · INTERVENCIÓN 1 — INSPECCIÓN EXTRAORDINARIA
      Objetivo: registrar el análisis inicial del evento sin
@@ -1410,12 +1424,12 @@
 ====================================================== -->
 <div class="seccion" id="seccionOM26Extraordinaria" style="display:none;">
 
-    <h3>OM-26 · Análisis de Inspección Extraordinaria</h3>
+    <h3>OM-26 · Diagnóstico de Seguridad</h3>
 
     <div style="padding:12px;margin-bottom:15px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;">
         <strong>Registro inicial del evento</strong>
         <p style="margin:6px 0 0;color:#475569;">
-            Esta información permanecerá asociada a la Inspección Extraordinaria y podrá utilizarse posteriormente como base para completar una Inspección de Seguridad.
+            Esta información permanecerá asociada al Diagnóstico de Seguridad y podrá utilizarse posteriormente como base para completar una Inspección de Seguridad.
         </p>
     </div>
 
@@ -1445,7 +1459,7 @@
 
     <!-- =====================================================
          OM-26 · INTERVENCIÓN 2 — HISTÓRICO Y HALLAZGOS
-         Objetivo: concentrar en la Inspección Extraordinaria
+         Objetivo: concentrar en el Diagnóstico de Seguridad
          el acceso a los antecedentes y hallazgos ya asociados
          a la inspección, sin duplicar el almacenamiento existente.
          ===================================================== -->
@@ -1942,7 +1956,7 @@ function agregarServicioSeguridad(tipo) {
             : null;
 
         if (!inspeccion) {
-            alert("Primero debe guardar la Inspección Extraordinaria para registrar sus hallazgos.");
+            alert("Primero debe guardar el Diagnóstico de Seguridad para registrar sus hallazgos.");
             return;
         }
 
@@ -2535,13 +2549,13 @@ function cerrarDashboard() {
                 const nivelOM26 = document.getElementById("om26NivelRiesgo")?.value || "";
 
                 if (!riesgoOM26) {
-                    alert("Para una Inspección Extraordinaria debe registrar el riesgo identificado.");
+                    alert("Para un Diagnóstico de Seguridad debe registrar el riesgo identificado.");
                     document.getElementById("om26RiesgoIdentificado")?.focus();
                     return;
                 }
 
                 if (!nivelOM26) {
-                    alert("Para una Inspección Extraordinaria debe seleccionar el nivel de riesgo.");
+                    alert("Para un Diagnóstico de Seguridad debe seleccionar el nivel de riesgo.");
                     document.getElementById("om26NivelRiesgo")?.focus();
                     return;
                 }
@@ -4258,7 +4272,7 @@ function mostrarInspeccionesClienteOM16(indiceCliente) {
                                 <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">${escaparClienteOM16(inspeccion.idControl || `INS-${String(item.indiceOriginal + 1).padStart(4, "0")}`)}</td>
                                 <td style="padding:8px;border:1px solid #ddd;">${escaparClienteOM16(inspeccion.fecha || "—")}</td>
                                 <td style="padding:8px;border:1px solid #ddd;">${escaparClienteOM16(inspeccion.inspector || "—")}</td>
-                                <td style="padding:8px;border:1px solid #ddd;">${escaparClienteOM16(inspeccion.tipo || "—")}</td>
+                                <td style="padding:8px;border:1px solid #ddd;">${escaparClienteOM16(nombreTipoInspeccionVisible(inspeccion.tipo))}</td>
                                 <td style="padding:8px;border:1px solid #ddd;text-align:center;">${escaparClienteOM16(estado.texto || "—")}</td>
                                 <td style="padding:8px;border:1px solid #ddd;text-align:center;white-space:nowrap;">
                                     <button type="button" onclick="editarInspeccion(${item.indiceOriginal})" style="margin:2px;padding:7px 10px;border:0;border-radius:6px;background:#e5e7eb;cursor:pointer;">✏️ Editar</button>
@@ -5256,7 +5270,7 @@ ${caracteristicasInstalacionHTML}
                         <strong>Tipo de inspección</strong>
                     </td>
                     <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.tipo || ""}
+                        ${nombreTipoInspeccionVisible(inspeccion.tipo)}
                     </td>
                 </tr>
 
@@ -5373,8 +5387,8 @@ function actualizarPanelModularInspeccionOM22(indice) {
         btnContinuar.disabled = !esExtraordinaria;
         btnContinuar.style.display = esExtraordinaria ? "inline-block" : "none";
         btnContinuar.title = esExtraordinaria
-            ? "Crear una nueva Inspección de Seguridad utilizando esta Inspección Extraordinaria como base"
-            : "Disponible únicamente para Inspecciones Extraordinarias";
+            ? "Crear una nueva Inspección de Seguridad utilizando este Diagnóstico de Seguridad como base"
+            : "Disponible únicamente para Diagnósticos de Seguridad";
     }
 
     const btnEditar = document.getElementById("btnEditarOM22");
@@ -5405,7 +5419,7 @@ function abrirMatrizRiesgosClienteOM22Activo() {
 
 /* =====================================================
    OM-26.3 — CONTINUIDAD DE LA INSPECCIÓN
-   Objetivo: utilizar una Inspección Extraordinaria guardada
+   Objetivo: utilizar un Diagnóstico de Seguridad guardado
    como base para una nueva Inspección de Seguridad, sin
    modificar ni reemplazar el registro original.
 ===================================================== */
@@ -5415,18 +5429,18 @@ function continuarInspeccionSeguridadOM26() {
     const origen = Number.isInteger(Number(indiceOrigen)) ? inspecciones[Number(indiceOrigen)] : null;
 
     if (!origen) {
-        alert("No se encontró la Inspección Extraordinaria seleccionada.");
+        alert("No se encontró el Diagnóstico de Seguridad seleccionado.");
         return;
     }
 
     if (origen.tipo !== "Inspección extraordinaria") {
-        alert("La continuidad hacia una Inspección de Seguridad solo está disponible para una Inspección Extraordinaria.");
+        alert("La continuidad hacia una Inspección de Seguridad solo está disponible para un Diagnóstico de Seguridad.");
         return;
     }
 
     const confirmar = confirm(
-        "Se creará una NUEVA Inspección de Seguridad utilizando como base la información de esta Inspección Extraordinaria.\n\n" +
-        "La Inspección Extraordinaria original permanecerá intacta.\n\n" +
+        "Se creará una NUEVA Inspección de Seguridad utilizando como base la información de este Diagnóstico de Seguridad.\n\n" +
+        "El Diagnóstico de Seguridad original permanecerá intacto.\n\n" +
         "¿Desea continuar?"
     );
 
@@ -5527,7 +5541,7 @@ function continuarInspeccionSeguridadOM26() {
     // En una continuación, los datos del evento se conservan como antecedente.
     const estado = document.getElementById("estadoInspeccionOM22");
     if (estado) {
-        estado.textContent = "Nueva inspección basada en " + (origen.idControl || "Inspección Extraordinaria");
+        estado.textContent = "Nueva inspección basada en " + (origen.idControl || "Diagnóstico de Seguridad");
         estado.style.color = "#0f766e";
     }
 }
@@ -9132,6 +9146,21 @@ console.log("INSPECCIÓN SELECCIONADA:", inspecciones[indiceSeleccionado]);
 const inspeccion =
     inspecciones[indiceSeleccionado];
 
+// =====================================================
+// OM-26.3-A — DENOMINACIÓN PROFESIONAL
+// Objetivo: mostrar "INFORME DE DIAGNÓSTICO DE SEGURIDAD"
+// para el flujo de diagnóstico, conservando el título
+// corporativo actual para los demás tipos de inspección.
+// =====================================================
+const esDiagnosticoSeguridadOM26 =
+    inspeccion.tipo === "Inspección extraordinaria";
+
+const tituloInformeOM26 = esDiagnosticoSeguridadOM26
+    ? `INFORME DE DIAGNÓSTICO DE<br>
+       <span class="titulo-seguridad-integral" style="font-size:18px;">SEGURIDAD</span>`
+    : `INFORME PREVENTIVO DE<br>
+       <span class="titulo-seguridad-integral" style="font-size:18px;">SEGURIDAD INTEGRAL</span>`;
+
     // =====================================================
 // FUNCIÓN: CARGAR MATRIZ DE RIESGOS DEL CLIENTE EN INFORME
 // OBJETIVO: Permitir que el informe consulte la matriz
@@ -10927,8 +10956,7 @@ matrizParaInforme.forEach((riesgo, indice) => {
     line-height:1.35;
     color:#123b5d;
 ">
-   INFORME PREVENTIVO DE<br>
-<span class="titulo-seguridad-integral" style="font-size:18px;">SEGURIDAD INTEGRAL</span>
+   ${tituloInformeOM26}
 </td>
 
             <td style="
