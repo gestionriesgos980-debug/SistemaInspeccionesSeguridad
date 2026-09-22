@@ -12312,6 +12312,32 @@ ESTADO: EN DESARROLLO
 
         unidades.forEach(moverUnidad);
 
+        /* =========================================================
+           OM-27.2 · INTERVENCIÓN 9
+           ELIMINACIÓN CONTROLADA DE PÁGINAS VACÍAS
+           Una página creada por la lógica de paginación nunca debe
+           quedar únicamente con el encabezado corporativo. Si el cuerpo
+           no contiene contenido real, se elimina antes de numerar las
+           páginas. Esto evita páginas en blanco o páginas que muestran
+           solo el encabezado y consumen una página del informe.
+           No se modifica ningún contenido de las páginas que sí tienen
+           información.
+           ========================================================= */
+        Array.from(contenedor.querySelectorAll('.pagina-informe')).forEach(pagina => {
+            const cuerpo = pagina.querySelector('.cuerpo-pagina-informe');
+            if (!cuerpo) return;
+
+            const tieneContenidoReal = Array.from(cuerpo.children).some(el => {
+                if (el.classList.contains('controles-informe-paginado')) return true;
+                return el.textContent.trim() !== '' ||
+                    el.querySelector('img, table, canvas, svg') !== null;
+            });
+
+            if (!tieneContenidoReal) {
+                pagina.remove();
+            }
+        });
+
         // El bloque de controles se conserva al final del informe.
         const controles = document.createElement('div');
         controles.className = 'controles-informe-paginado';
