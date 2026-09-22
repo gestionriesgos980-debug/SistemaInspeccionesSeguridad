@@ -8706,7 +8706,9 @@ async function generarWord(ventana) {
             if (
                 elemento.classList.contains("salto-pagina-pdf") ||
                 elemento.classList.contains("botones") ||
-                elemento.classList.contains("pie")
+                elemento.classList.contains("pie") ||
+                elemento.classList.contains("encabezado-pagina") ||
+                elemento.classList.contains("encabezado")
             ) return;
 
             const clon = elemento.cloneNode(true);
@@ -8931,8 +8933,24 @@ async function generarWord(ventana) {
         margin: 0 auto;
     }
 
+    /* =========================================================
+       OM-27.2-DOC · INTERVENCIÓN 6
+       ENCABEZADO DE PORTADA Y APROVECHAMIENTO DEL ESPACIO
+       El encabezado corporativo se conserva una sola vez al inicio
+       del documento. Se evita que cualquier clon del encabezado
+       vuelva a entrar como contenido de las páginas siguientes.
+       Se reduce únicamente el espacio inferior del encabezado.
+       ========================================================= */
     .encabezado-word {
-        margin-bottom: 12pt;
+        margin-bottom: 6pt;
+    }
+
+    .encabezado-word table {
+        margin-bottom: 6px !important;
+    }
+
+    .encabezado-word img {
+        max-height: 58px !important;
     }
 
     .mso-footer {
@@ -8951,6 +8969,12 @@ async function generarWord(ventana) {
        Esta capa solo afecta presentación; no modifica datos,
        cálculos, contenido ni la generación del PDF actual.
        ========================================================= */
+       /* =========================================================
+          OM-27.2-DOC · INTERVENCIÓN 6
+          El documento editable utiliza el encabezado corporativo
+          únicamente al inicio. Cualquier encabezado residual dentro
+          de las páginas paginadas se excluye al construir el DOC.
+          ========================================================= */
     body {
         font-family: "Century Gothic", Arial, sans-serif;
         font-size: 9pt;
