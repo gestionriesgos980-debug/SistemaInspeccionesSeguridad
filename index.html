@@ -8987,14 +8987,55 @@ async function generarWordPlantillaMaestra() {
         }
 
         /*
-         * altChunk es el mecanismo estándar de Word para insertar HTML como
-         * contenido de un DOCX. La plantilla sigue siendo el documento base.
+         * CAM-WORD-01 — FOTOGRAFÍAS EMBEBIDAS EN WORD
+         *
+         * Word puede importar el contenido HTML de altChunk, pero no siempre
+         * resuelve correctamente imágenes que apuntan a archivos internos de
+         * word/media/. Para evitar la X roja que aparece en el documento,
+         * empaquetamos el HTML como MHTML (multipart/related) y cada fotografía
+         * se referencia por Content-ID (cid:...). De esta forma las imágenes
+         * viajan dentro del propio fragmento que Word importa.
+         *
+         * No se modifican datos, cálculos, paginación ni generación del informe.
          */
-        const altChunkPart = "word/afchunk-tecchnex.html";
+        const altChunkPart = "word/afchunk-tecchnex.mht";
         const relationshipId = "rIdTecchnexInformeCompleto";
-        const contenidoHtmlCompleto = `<!DOCTYPE html>\n<html lang="es"><head><meta charset="UTF-8">${estilos}</head><body>${contenidoHtml}</body></html>`;
 
-        zip.file(altChunkPart, contenidoHtmlCompleto);
+        const escaparMht = valor => String(valor ?? "")
+            .replace(/\r?\n/g, "\r\n");
+
+        let cuerpoMhtml = `<!DOCTYPE html>\r\n<html lang="es"><head><meta charset="UTF-8">${estilos}</head><body>${contenidoHtml}</body></html>`;
+
+        const fronteraMhtml = "----=_TECCHNEX_MHTML_" + Date.now();
+        const partesMhtml = [];
+
+        imagenesParaWord.forEach((imagen, indiceImagen) => {
+            const cid = `tecchnex-img-${indiceImagen + 1}@informe`;
+            cuerpoMhtml = cuerpoMhtml.replaceAll(`media/${imagen.nombre}`, `cid:${cid}`);
+            partesMhtml.push(
+                `--${fronteraMhtml}\r\n` +
+                `Content-Type: ${imagen.mime}; name="${imagen.nombre}"\r\n` +
+                `Content-Transfer-Encoding: base64\r\n` +
+                `Content-Location: ${imagen.nombre}\r\n` +
+                `Content-ID: <${cid}>\r\n\r\n` +
+                imagen.base64 + `\r\n`
+            );
+        });
+
+        const contenidoMhtml =
+            `MIME-Version: 1.0\r\n` +
+            `Content-Type: multipart/related; boundary="${fronteraMhtml}"; type="text/html"; start="<tecchnex-root@informe>"\r\n` +
+            `\r\n` +
+            `--${fronteraMhtml}\r\n` +
+            `Content-Type: text/html; charset="utf-8"\r\n` +
+            `Content-Transfer-Encoding: 8bit\r\n` +
+            `Content-Location: informe-tecchnex.html\r\n` +
+            `Content-ID: <tecchnex-root@informe>\r\n\r\n` +
+            escaparMht(cuerpoMhtml) + `\r\n` +
+            partesMhtml.join("") +
+            `--${fronteraMhtml}--\r\n`;
+
+        zip.file(altChunkPart, contenidoMhtml);
         documentXml = documentXml.replace(
             marcadorRegex,
             `<w:altChunk r:id="${relationshipId}"/>`
@@ -9007,7 +9048,7 @@ async function generarWordPlantillaMaestra() {
         if (!relsXml.includes(`Id="${relationshipId}"`)) {
             relsXml = relsXml.replace(
                 "</Relationships>",
-                `<Relationship Id="${relationshipId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk" Target="afchunk-tecchnex.html"/></Relationships>`
+                `<Relationship Id="${relationshipId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk" Target="afchunk-tecchnex.mht"/></Relationships>`
             );
         }
         zip.file("word/_rels/document.xml.rels", relsXml);
@@ -9015,34 +9056,13 @@ async function generarWordPlantillaMaestra() {
         const contentTypesEntry = zip.file("[Content_Types].xml");
         if (!contentTypesEntry) throw new Error("La plantilla no contiene [Content_Types].xml.");
         let contentTypesXml = await contentTypesEntry.async("string");
-        if (!contentTypesXml.includes('PartName="/word/afchunk-tecchnex.html"')) {
+        if (!contentTypesXml.includes('PartName="/word/afchunk-tecchnex.mht"')) {
             contentTypesXml = contentTypesXml.replace(
                 "</Types>",
-                `<Override PartName="/word/afchunk-tecchnex.html" ContentType="text/html"/></Types>`
+                `<Override PartName="/word/afchunk-tecchnex.mht" ContentType="message/rfc822"/></Types>`
             );
         }
-
-        /* Declarar extensiones de imágenes incorporadas por el informe. */
-        const extensiones = [...new Set(imagenesParaWord.map(i => i.nombre.split(".").pop()))];
-        const tipos = {
-            jpg: "image/jpeg",
-            png: "image/png",
-            gif: "image/gif",
-            webp: "image/webp"
-        };
-        extensiones.forEach(ext => {
-            if (!contentTypesXml.includes(`Extension="${ext}"`)) {
-                contentTypesXml = contentTypesXml.replace(
-                    "</Types>",
-                    `<Default Extension="${ext}" ContentType="${tipos[ext]}"/></Types>`
-                );
-            }
-        });
         zip.file("[Content_Types].xml", contentTypesXml);
-
-        imagenesParaWord.forEach(imagen => {
-            zip.file(`word/media/${imagen.nombre}`, imagen.base64, { base64: true });
-        });
 
         /* El encabezado de la Hoja Maestra permanece intacto salvo sus marcadores. */
         const headerEntry = zip.file("word/header1.xml");
