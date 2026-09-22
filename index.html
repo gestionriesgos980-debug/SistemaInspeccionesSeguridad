@@ -8827,13 +8827,7 @@ MARCADORES UTILIZADOS:
 ESTADO: INTEGRACIÓN APROBADA — MEMBRETE COTRASER
 ========================================================
 */
-async function generarWordPlantillaMaestra(ventanaInformeExistente = null) {
-    /* =========================================================
-       TECCHNEX — GENERACIÓN WORD COMPLETA DESDE EL INFORME EXISTENTE
-       OBJETIVO: reutilizar el informe que ya construye generarInforme()
-       y transferir su contenido completo a la plantilla maestra Word.
-       NO se reconstruyen checklist, hallazgos, matriz ni cálculos.
-       ========================================================= */
+async function generarWordPlantillaMaestra() {
 
     const indiceGuardado =
         localStorage.getItem("indiceInspeccionSeleccionadaInforme");
@@ -8861,42 +8855,8 @@ async function generarWordPlantillaMaestra(ventanaInformeExistente = null) {
     const plantillaUrl = "./PLANTILLA_MAESTRA_INFORME_TECCHNEX.docx";
 
     try {
-        /*
-         * PASO 1 — reutilizar la ventana del informe que ya está abierta.
-         * Cuando el usuario pulsa el botón desde el informe, usamos esa misma
-         * ventana para evitar un segundo window.open que Chrome puede bloquear.
-         * Si se llama desde la aplicación principal, se conserva el flujo
-         * anterior mediante generarInforme().
-         */
-        let ventanaInforme = ventanaInformeExistente;
-
-        if (!ventanaInforme) {
-            ventanaInforme = generarInforme();
-        }
-
-        if (!ventanaInforme) {
-            throw new Error("No fue posible abrir el informe completo para transferirlo a Word.");
-        }
-
-        /* Esperar a que el informe termine su paginación y deje disponible
-           el contenido completo para Word. */
-        const obtenerContenido = () => ventanaInforme.__tecchnexWordHtml || "";
-
-        let contenidoInformeHtml = obtenerContenido();
-        let intentos = 0;
-
-        while (!contenidoInformeHtml && intentos < 30) {
-            await new Promise(resolve => setTimeout(resolve, 200));
-            contenidoInformeHtml = obtenerContenido();
-            intentos++;
-        }
-
-        if (!contenidoInformeHtml) {
-            try { ventanaInforme.close(); } catch (_) {}
-            throw new Error("El informe se generó, pero no fue posible capturar su contenido completo.");
-        }
-
         const respuesta = await fetch(plantillaUrl, { cache: "no-store" });
+
         if (!respuesta.ok) {
             throw new Error("No se pudo localizar la plantilla maestra Word.");
         }
@@ -8928,6 +8888,134 @@ async function generarWordPlantillaMaestra(ventanaInformeExistente = null) {
             "{{REVISADO_POR}}": escaparXml(revisadoPor)
         };
 
+        // CAM-PLANTILLA-05: primera alimentación de la Hoja Maestra.
+        // Se utiliza exclusivamente información general ya almacenada en la inspección.
+        const filasGenerales = [
+            ["ID de inspección", inspeccion.idControl],
+            ["Cliente", inspeccion.cliente],
+            ["NIT", inspeccion.nit],
+            ["Dirección", inspeccion.direccion],
+            ["Ciudad / Municipio", inspeccion.ciudad],
+            ["Persona de contacto", inspeccion.contacto],
+            ["Teléfono", inspeccion.telefono],
+            ["Correo electrónico", inspeccion.correo],
+            ["Fecha de inspección", fecha],
+            ["Inspector", inspeccion.inspector],
+            ["Revisado por", revisadoPor],
+            ["Tipo de inspección", inspeccion.tipo],
+            ["Sector de inspección", inspeccion.sectorInspeccion],
+            ["Objetivo", inspeccion.objetivo],
+            ["Latitud", inspeccion.latitud],
+            ["Longitud", inspeccion.longitud],
+            ["Entorno", inspeccion.entorno]
+        ].filter(fila => fila[1] !== undefined && fila[1] !== null && String(fila[1]).trim() !== "");
+
+        const esc = escaparXml;
+
+        // CAM-PLANTILLA-07: segunda alimentación de la Hoja Maestra.
+        // Primera prueba controlada: incorporar las fotografías de los hallazgos
+        // que ya están almacenadas en la inspección seleccionada.
+        // No se modifica el almacenamiento ni la lógica existente de fotografías.
+        const fotosInforme = [];
+        hallazgosDeInspeccionParaWord: {
+            const hallazgosGuardados = JSON.parse(localStorage.getItem("hallazgos")) || [];
+            hallazgosGuardados
+                .filter(h => Number(h.inspeccion) === indice)
+                .forEach(hallazgo => {
+                    if (!Array.isArray(hallazgo.fotos)) return;
+                    hallazgo.fotos.forEach(foto => {
+                        const src = obtenerImagenDeFoto(foto);
+                        if (src) fotosInforme.push({
+                            area: hallazgo.area || "",
+                            elemento: hallazgo.elemento || "",
+                            src
+                        });
+                    });
+                });
+        }
+
+        let contenidoFotosXml = "";
+        if (fotosInforme.length) {
+            contenidoFotosXml += `
+<w:p>
+  <w:pPr><w:spacing w:before="180" w:after="120"/></w:pPr>
+  <w:r><w:rPr><w:b/><w:sz w:val="24"/></w:rPr><w:t>REGISTRO FOTOGRÁFICO</w:t></w:r>
+</w:p>`;
+
+            fotosInforme.forEach((foto, fotoIndex) => {
+                const esDataUrl = /^data:image\//i.test(foto.src);
+                if (!esDataUrl) return;
+                const mimeMatch = foto.src.match(/^data:(image\/[^;]+);base64,/i);
+                if (!mimeMatch) return;
+                const mime = mimeMatch[1].toLowerCase();
+                const extension = mime.includes("png") ? "png" : "jpg";
+                const nombreMedia = `cam07-foto-${fotoIndex + 1}.${extension}`;
+                const relationshipId = `rIdCam07Foto${fotoIndex + 1}`;
+                const base64 = foto.src.split(",", 2)[1];
+                zip.file(`word/media/${nombreMedia}`, base64, { base64: true });
+
+                if (!contenidoFotosXml.includes(`<!--${nombreMedia}-->`)) {
+                    contenidoFotosXml += `
+<w:p>
+  <w:pPr><w:jc w:val="center"/><w:spacing w:after="60"/></w:pPr>
+  <w:r><w:t>${esc(foto.area)}${foto.elemento ? " — " + esc(foto.elemento) : ""}</w:t></w:r>
+</w:p>
+<w:p>
+  <w:pPr><w:jc w:val="center"/></w:pPr>
+  <w:r>
+    <w:drawing>
+      <wp:inline distT="0" distB="0" distL="0" distR="0">
+        <wp:extent cx="4572000" cy="3048000"/>
+        <wp:effectExtent l="0" t="0" r="0" b="0"/>
+        <wp:docPr id="${1000 + fotoIndex}" name="CAM-PLANTILLA-07-Foto-${fotoIndex + 1}"/>
+        <a:graphic>
+          <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+            <pic:pic>
+              <pic:nvPicPr>
+                <pic:cNvPr id="${1000 + fotoIndex}" name="${nombreMedia}"/>
+                <pic:cNvPicPr/>
+              </pic:nvPicPr>
+              <pic:blipFill>
+                <a:blip r:embed="${relationshipId}"/>
+                <a:stretch><a:fillRect/></a:stretch>
+              </pic:blipFill>
+              <pic:spPr>
+                <a:xfrm><a:off x="0" y="0"/><a:ext cx="4572000" cy="3048000"/></a:xfrm>
+                <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+              </pic:spPr>
+            </pic:pic>
+          </a:graphicData>
+        </a:graphic>
+      </wp:inline>
+    </w:drawing>
+  </w:r>
+</w:p>
+<!--${nombreMedia}-->`;
+                }
+            });
+        }
+
+        const contenidoInformeXml = `
+<w:p>
+  <w:pPr><w:spacing w:after="120"/></w:pPr>
+  <w:r><w:rPr><w:b/><w:sz w:val="24"/></w:rPr><w:t>INFORMACIÓN GENERAL DE LA INSPECCIÓN</w:t></w:r>
+</w:p>
+<w:tbl>
+  <w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders>
+    <w:top w:val="single" w:sz="4" w:space="0"/><w:left w:val="single" w:sz="4" w:space="0"/>
+    <w:bottom w:val="single" w:sz="4" w:space="0"/><w:right w:val="single" w:sz="4" w:space="0"/>
+    <w:insideH w:val="single" w:sz="4" w:space="0"/><w:insideV w:val="single" w:sz="4" w:space="0"/>
+  </w:tblBorders></w:tblPr>
+  <w:tblGrid><w:gridCol w:w="3500"/><w:gridCol w:w="6000"/></w:tblGrid>
+  ${filasGenerales.map(([etiqueta, valor]) => `
+  <w:tr>
+    <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="20"/></w:rPr><w:t>${esc(etiqueta)}</w:t></w:r></w:p></w:tc>
+    <w:tc><w:tcPr><w:tcW w:w="6000" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="20"/></w:rPr><w:t>${esc(valor)}</w:t></w:r></w:p></w:tc>
+  </w:tr>`).join("")}
+</w:tbl>
+${contenidoFotosXml}
+<w:p><w:r><w:t xml:space="preserve"> </w:t></w:r></w:p>`;
+
         const documentEntry = zip.file("word/document.xml");
         if (!documentEntry) {
             throw new Error("La plantilla no contiene word/document.xml.");
@@ -8941,75 +9029,70 @@ async function generarWordPlantillaMaestra(ventanaInformeExistente = null) {
             }
         });
 
-        /*
-         * PASO 2 — insertar el informe completo mediante altChunk.
-         * Word conserva la plantilla maestra y procesa este bloque HTML
-         * como contenido del documento. La paginación queda a cargo de Word.
-         */
-        const altChunkPart = "word/afchunk-tecchnex.html";
-        const altChunkRelationshipId = "rIdTecchnexInformeCompleto";
-
-        const contenidoHtmlCompleto = `<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-${contenidoInformeHtml.match(/<style[\s\S]*?<\/style>/gi)?.join("\\n") || ""}
-</head>
-<body>
-${contenidoInformeHtml.replace(/<script[\s\S]*?<\x2Fscript>/gi, "")}
-</body>
-</html>`;
-
-        zip.file(altChunkPart, contenidoHtmlCompleto);
-
+        // CAM-PLANTILLA-05: reemplazar el párrafo marcador completo,
+        // no reconstruir el documento. La estructura restante de la plantilla queda intacta.
         const marcadorRegex = /<w:p(?=[ >])[^>]*>.*?<w:t[^>]*>\{\{CONTENIDO_INFORME\}\}<\/w:t>.*?<\/w:p>/s;
-        const altChunkXml = `<w:altChunk r:id="${altChunkRelationshipId}"/>`;
-
         if (marcadorRegex.test(documentXml)) {
-            documentXml = documentXml.replace(marcadorRegex, altChunkXml);
+            documentXml = documentXml.replace(marcadorRegex, contenidoInformeXml);
         } else {
-            throw new Error("No se encontró {{CONTENIDO_INFORME}} en la plantilla maestra.");
+            console.warn("CAM-PLANTILLA-05: no se encontró {{CONTENIDO_INFORME}} en la plantilla.");
         }
 
-        const relsEntry = zip.file("word/_rels/document.xml.rels");
-        if (!relsEntry) {
-            throw new Error("La plantilla no contiene las relaciones de document.xml.");
+        // CAM-PLANTILLA-07: registrar únicamente las imágenes nuevas en las relaciones
+        // del documento y en [Content_Types].xml. Se conservan las relaciones existentes.
+        if (fotosInforme.length) {
+            const relsEntry = zip.file("word/_rels/document.xml.rels");
+            if (relsEntry) {
+                let relsXml = await relsEntry.async("string");
+                fotosInforme.forEach((foto, fotoIndex) => {
+                    const mimeMatch = foto.src.match(/^data:(image\/[^;]+);base64,/i);
+                    if (!mimeMatch) return;
+                    const extension = mimeMatch[1].toLowerCase().includes("png") ? "png" : "jpg";
+                    const nombreMedia = `media/cam07-foto-${fotoIndex + 1}.${extension}`;
+                    const relationshipId = `rIdCam07Foto${fotoIndex + 1}`;
+                    if (!relsXml.includes(`Id="${relationshipId}"`)) {
+                        relsXml = relsXml.replace(
+                            "</Relationships>",
+                            `<Relationship Id="${relationshipId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${nombreMedia}"/></Relationships>`
+                        );
+                    }
+                });
+                zip.file("word/_rels/document.xml.rels", relsXml);
+            }
+
+            const contentTypesEntry = zip.file("[Content_Types].xml");
+            if (contentTypesEntry) {
+                let contentTypesXml = await contentTypesEntry.async("string");
+                if (!contentTypesXml.includes('Extension="jpg"')) {
+                    contentTypesXml = contentTypesXml.replace(
+                        "</Types>",
+                        '<Default Extension="jpg" ContentType="image/jpeg"/></Types>'
+                    );
+                }
+                if (!contentTypesXml.includes('Extension="png"')) {
+                    contentTypesXml = contentTypesXml.replace(
+                        "</Types>",
+                        '<Default Extension="png" ContentType="image/png"/></Types>'
+                    );
+                }
+                zip.file("[Content_Types].xml", contentTypesXml);
+            }
         }
 
-        let relsXml = await relsEntry.async("string");
-        if (!relsXml.includes(`Id="${altChunkRelationshipId}"`)) {
-            relsXml = relsXml.replace(
-                "</Relationships>",
-                `<Relationship Id="${altChunkRelationshipId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk" Target="afchunk-tecchnex.html"/></Relationships>`
-            );
-        }
-        zip.file("word/_rels/document.xml.rels", relsXml);
-
-        const contentTypesEntry = zip.file("[Content_Types].xml");
-        if (!contentTypesEntry) {
-            throw new Error("La plantilla no contiene [Content_Types].xml.");
-        }
-
-        let contentTypesXml = await contentTypesEntry.async("string");
-        if (!contentTypesXml.includes('/word/afchunk-tecchnex.html')) {
-            contentTypesXml = contentTypesXml.replace(
-                "</Types>",
-                `<Override PartName="/word/afchunk-tecchnex.html" ContentType="text/html"/></Types>`
-            );
-        }
-        zip.file("[Content_Types].xml", contentTypesXml);
         zip.file("word/document.xml", documentXml);
 
-        /* El encabezado maestro se conserva y solo se alimentan sus marcadores. */
+        // Solo se modifica header1.xml para los marcadores existentes.
         const headerEntry = zip.file("word/header1.xml");
         if (headerEntry) {
             let headerXml = await headerEntry.async("string");
+            let headerModificado = false;
             Object.entries(reemplazos).forEach(([marcador, valor]) => {
                 if (headerXml.includes(marcador)) {
                     headerXml = headerXml.split(marcador).join(valor);
+                    headerModificado = true;
                 }
             });
-            zip.file("word/header1.xml", headerXml);
+            if (headerModificado) zip.file("word/header1.xml", headerXml);
         }
 
         const salida = await zip.generateAsync({
@@ -9037,23 +9120,21 @@ ${contenidoInformeHtml.replace(/<script[\s\S]*?<\x2Fscript>/gi, "")}
         enlace.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1500);
 
-        try { ventanaInforme.close(); } catch (_) {}
-
         alert(
-            "Documento Word completo generado correctamente con la Hoja Maestra TECCHNEX.\n\n" +
-            "La información proviene del informe completo que ya genera la aplicación."
+            "Documento generado correctamente con la Hoja Maestra TECCHNEX + membrete COTRASER.\n\n" +
+            "CAM-PLANTILLA-07: se incorporó la información general y, si existen, las fotografías de los hallazgos en la Hoja Maestra."
         );
 
     } catch (error) {
-        console.error("TECCHNEX — Error al generar Word completo:", error);
+        console.error("CAM-PLANTILLA-07 — Error al generar Word:", error);
         alert(
-            "No fue posible generar el Word completo con la plantilla maestra.\n\n" +
+            "No fue posible generar el Word con la plantilla maestra.\n\n" +
             "Detalle: " + error.message
         );
     }
 }
 
-function generarInforme() {
+function generarInforme(ventana) {
 
     const inspecciones =
         JSON.parse(localStorage.getItem("inspecciones")) || [];
@@ -9898,16 +9979,6 @@ matrizParaInforme.forEach((riesgo, indice) => {
     /* =========================
        DOCUMENTO
     ========================= */
-
-    const ventana = window.open("", "_blank");
-
-    if (!ventana) {
-        alert(
-            "El navegador bloqueó la ventana del informe. " +
-            "Permita las ventanas emergentes para este sitio."
-        );
-        return;
-    }
 
     ventana.document.write(`
 
@@ -12351,7 +12422,7 @@ ESTADO: EN DESARROLLO
                 únicamente alimenta datos básicos y el bloque de cierre.
                 ========================================================
                 -->
-                <button onclick="window.opener.generarWordPlantillaMaestra(window)">
+                <button onclick="window.opener.generarWordPlantillaMaestra()">
     📝 Generar Word con Hoja Maestra + membrete COTRASER
 </button>
 
@@ -12390,12 +12461,6 @@ ESTADO: EN DESARROLLO
         );
 
         if (!hijos.length) return;
-
-        /* TECCHNEX — puente de salida Word: conservar el contenido completo
-           del informe antes de que la paginación visual lo transforme en páginas. */
-        window.__tecchnexWordHtml =
-            Array.from(document.querySelectorAll('style')).map(style => style.outerHTML).join("\n") +
-            hijos.map(el => el.outerHTML).join("\n");
 
         hoja.dataset.paginadoAplicado = 'true';
         hoja.classList.add('informe-paginado-activo');
@@ -12603,8 +12668,6 @@ ESTADO: EN DESARROLLO
             informes;
     }
 
-    /* TECCHNEX — permite reutilizar la misma salida completa desde Word. */
-    return ventana;
 }
     
 // =====================================================
