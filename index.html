@@ -12415,14 +12415,108 @@ ESTADO: EN DESARROLLO
             </div>
 
 
-<!--
-CAM-INTERVENCIÓN-OM27.1-TEST
-OBJETIVO: Aislar temporalmente OM-27.1 para prueba controlada de presentación.
-IMPORTANTE: Esta versión experimental NO elimina el código de la versión base;
-únicamente evita su ejecución en esta copia de trabajo.
-NO se modifican datos, cálculos, almacenamiento ni funciones funcionales.
-ESTADO: PRUEBA AISLADA / REVERSIBLE
--->
+        </body>
+
+        </html>
+
+    `);
+
+    ventana.document.close();
+
+
+    /* Registrar informe generado */
+
+    const informes =
+        Number(
+            localStorage.getItem("informesGenerados") || 0
+        ) + 1;
+
+    localStorage.setItem(
+        "informesGenerados",
+        String(informes)
+    );
+
+    const contador =
+        document.getElementById("totalInformes");
+
+    if (contador) {
+
+        contador.textContent =
+            informes;
+    }
+
+}
+    
+// =====================================================
+// FUNCIÓN: VISIBILIDAD SEGÚN TIPO DE SERVICIO
+// OBJETIVO: Mostrar únicamente las características
+// correspondientes al sector seleccionado.
+// =====================================================
+document.addEventListener("DOMContentLoaded", function () {
+
+    const sectorSelect = document.getElementById("sectorInspeccion");
+    const industrial = document.getElementById("caracteristicasIndustrial");
+    const residencial = document.getElementById("caracteristicasResidencial");
+    const parcelacion = document.getElementById("caracteristicasParcelacion");
+    const comercial = document.getElementById("caracteristicasComercial");
+
+    if (sectorSelect) {
+
+        function actualizarSector() {
+
+    // CAMBIO SECTOR-PARCELACION-COMERCIAL: Oculta todas las secciones
+    // sectoriales y muestra únicamente la correspondiente a la selección.
+    if (industrial) {
+        industrial.style.display = "none";
+    }
+
+    if (residencial) {
+        residencial.style.display = "none";
+    }
+
+    if (parcelacion) {
+        parcelacion.style.display = "none";
+    }
+
+    if (comercial) {
+        comercial.style.display = "none";
+    }
+
+    if (sectorSelect.value === "Industrial") {
+
+        if (industrial) {
+            industrial.style.display = "block";
+        }
+
+    } else if (sectorSelect.value === "Residencial") {
+
+        if (residencial) {
+            residencial.style.display = "block";
+        }
+
+    } else if (sectorSelect.value === "Parcelación") {
+
+        if (parcelacion) {
+            parcelacion.style.display = "block";
+        }
+
+    } else if (sectorSelect.value === "Comercial") {
+
+        if (comercial) {
+            comercial.style.display = "block";
+        }
+    }
+}
+
+        sectorSelect.addEventListener("change", actualizarSector);
+
+        // Ejecutar al cargar la pantalla
+        actualizarSector();
+    }
+
+});
+    
+</script>
 
 <!-- CAM-PLANTILLA-02: Librería mínima para abrir y guardar la plantilla DOCX
      sin reconstruir su contenido ni su diseño. -->
