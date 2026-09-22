@@ -8881,10 +8881,15 @@ async function generarExcelTecchnex(ventana) {
                 .replace(/\/\s*$/, "")
                 .trim();
 
-            const contenido = `<c${atributos} t="inlineStr"><is><t xml:space="preserve">${texto}</t></is></c>`;
+            // OM-27.3 · INTERVENCIÓN 9: conservar el espacio entre <c y los
+            // atributos. El uso de trim() dejaba <cr="A9" ...>, produciendo
+            // XML inválido y provocando que Excel mostrara la hoja en blanco.
+            // También se usa una función de reemplazo para evitar que el texto
+            // del usuario sea interpretado como tokens ($&, $', etc.).
+            const contenido = `<c ${atributos} t="inlineStr"><is><t xml:space="preserve">${texto}</t></is></c>`;
             xml = encontradoCompleto
-                ? xml.replace(patronCompleto, contenido)
-                : xml.replace(patronVacio, contenido);
+                ? xml.replace(patronCompleto, () => contenido)
+                : xml.replace(patronVacio, () => contenido);
         }
 
         // Mapa mínimo de integración validado en OM-27.3.
