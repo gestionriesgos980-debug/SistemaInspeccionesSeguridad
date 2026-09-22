@@ -11771,7 +11771,7 @@ ESTADO: EN DESARROLLO
 </div>                   
             
                <div class="salto-pagina-pdf"></div>
-               <h2>
+               <h2 class="orientacion-horizontal" data-orientacion="horizontal">
     4. Matriz de riesgos
 </h2>
 
@@ -12115,8 +12115,9 @@ ESTADO: EN DESARROLLO
         /* =========================================================
            OM-27.2 · INTERVENCIÓN 3
            PRIMERA ASIGNACIÓN REAL DE ORIENTACIÓN
-           La sección "4. Matriz de riesgos" se presenta en A4 horizontal
-           por su estructura tabular. Las demás secciones conservan vertical.
+           La sección "4. Matriz de riesgos" se marca explícitamente como A4 horizontal
+           mediante class/data-orientacion para evitar depender del texto del título.
+           Las demás secciones conservan vertical.
            La regla sigue siendo: una sola orientación por página.
            ========================================================= */
         const obtenerOrientacionUnidad = unidad => {
