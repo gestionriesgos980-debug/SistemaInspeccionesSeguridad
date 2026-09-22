@@ -1,22 +1,10 @@
-# CAM-PLANTILLA-08 — CIERRE / GENERACIÓN WORD COMPLETO
+# CAM-PLANTILLA-08 — CORRECCIÓN DE VENTANA DEL INFORME
 
 ## Objetivo
-Conectar el botón **Generar Word con Hoja Maestra + membrete COTRASER** con el informe completo que ya construye `generarInforme()`.
+Evitar que Chrome bloquee la generación Word cuando el usuario pulsa el botón desde la ventana del informe ya abierta.
 
-## Intervención
-- Se reutiliza `generarInforme()` como fuente única de información.
-- `generarInforme()` devuelve la ventana del informe sin alterar sus cálculos.
-- Antes de la paginación visual se conserva el contenido completo para la salida Word.
-- La plantilla maestra conserva encabezado, membrete, versión y textos fijos.
-- Los marcadores `{{FECHA}}`, `{{CLIENTE}}`, `{{PUESTO}}`, `{{REALIZADO_POR}}` y `{{REVISADO_POR}}` continúan alimentándose desde la inspección.
-- El contenido completo se inserta en Word mediante `altChunk` HTML para que Word procese el contenido y su paginación.
-- No se modifica el almacenamiento de inspecciones, checklist, hallazgos, matriz ni cálculos.
-
-## Validación técnica realizada
-- `generarWordPlantillaMaestra()` existe una sola vez.
-- El puente `window.__tecchnexWordHtml` existe una sola vez.
-- `generarInforme()` retorna la ventana generada.
-- La salida DOCX incorpora relación `aFChunk` y parte HTML `word/afchunk-tecchnex.html`.
+## Corrección
+El botón del informe reutiliza la ventana actual y la entrega a `generarWordPlantillaMaestra(window)`. Así se evita abrir una segunda ventana mediante `window.open()`.
 
 ## Principio
-**MEJORAR SIN ROMPER — reutilizar lo que ya funciona.**
+Se conserva la generación del informe existente y no se modifican sus datos, cálculos, checklist, hallazgos, matriz ni fotografías.

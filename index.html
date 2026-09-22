@@ -8827,7 +8827,7 @@ MARCADORES UTILIZADOS:
 ESTADO: INTEGRACIÓN APROBADA — MEMBRETE COTRASER
 ========================================================
 */
-async function generarWordPlantillaMaestra() {
+async function generarWordPlantillaMaestra(ventanaInformeExistente = null) {
     /* =========================================================
        TECCHNEX — GENERACIÓN WORD COMPLETA DESDE EL INFORME EXISTENTE
        OBJETIVO: reutilizar el informe que ya construye generarInforme()
@@ -8862,11 +8862,17 @@ async function generarWordPlantillaMaestra() {
 
     try {
         /*
-         * PASO 1 — generar el informe con la misma función que ya funciona.
-         * La función se modifica únicamente para devolver la ventana creada;
-         * no se cambia su contenido ni sus cálculos.
+         * PASO 1 — reutilizar la ventana del informe que ya está abierta.
+         * Cuando el usuario pulsa el botón desde el informe, usamos esa misma
+         * ventana para evitar un segundo window.open que Chrome puede bloquear.
+         * Si se llama desde la aplicación principal, se conserva el flujo
+         * anterior mediante generarInforme().
          */
-        const ventanaInforme = generarInforme();
+        let ventanaInforme = ventanaInformeExistente;
+
+        if (!ventanaInforme) {
+            ventanaInforme = generarInforme();
+        }
 
         if (!ventanaInforme) {
             throw new Error("No fue posible abrir el informe completo para transferirlo a Word.");
@@ -12345,7 +12351,7 @@ ESTADO: EN DESARROLLO
                 únicamente alimenta datos básicos y el bloque de cierre.
                 ========================================================
                 -->
-                <button onclick="window.opener.generarWordPlantillaMaestra()">
+                <button onclick="window.opener.generarWordPlantillaMaestra(window)">
     📝 Generar Word con Hoja Maestra + membrete COTRASER
 </button>
 
