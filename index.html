@@ -11895,7 +11895,7 @@ ESTADO: EN DESARROLLO
 <div class="salto-pagina-pdf salto-hallazgos-pdf"></div>
 
 <div class="seccion-pdf seccion-hallazgos-pdf">
-<h2>
+<h2 class="orientacion-vertical" data-orientacion="vertical">
     5. Hallazgos identificados
 </h2>
 
@@ -12128,6 +12128,15 @@ ESTADO: EN DESARROLLO
            No se modifican datos ni cálculos de la matriz.
            La sección "Mapa de calor de riesgos" también se marca como A4 horizontal,
            manteniendo la continuidad visual del bloque de riesgos.
+           ========================================================= */
+        /* =========================================================
+           OM-27.2 · INTERVENCIÓN 6
+           RETORNO CONTROLADO A A4 VERTICAL
+           "5. Hallazgos identificados" se marca explícitamente como
+           vertical. Al cambiar desde el bloque horizontal de riesgos,
+           asegurarOrientacion() crea una nueva página para evitar mezclar
+           orientaciones dentro de una misma página.
+           No se modifican contenido, datos ni cálculos.
            ========================================================= */
         const moverTablaMatrizPorFilas = (unidad, tabla) => {
             const encabezado = unidad.find(el => el.tagName === 'H2');
