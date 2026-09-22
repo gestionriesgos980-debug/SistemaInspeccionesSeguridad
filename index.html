@@ -8710,41 +8710,6 @@ async function generarWord(ventana) {
             ) return;
 
             const clon = elemento.cloneNode(true);
-
-            /* OM-27.2-DOC · INTERVENCIÓN 3 — Normalización Word de Hallazgos.
-               Las columnas se fijan explícitamente y cada fotografía recibe
-               atributos físicos además del CSS para que Word respete 3,8 x 2,6 cm. */
-            if (clon.matches && clon.matches('.seccion-hallazgos-pdf')) {
-                const tablaHallazgosWord = clon.querySelector('.tabla-hallazgos');
-                if (tablaHallazgosWord) {
-                    tablaHallazgosWord.style.tableLayout = 'fixed';
-                    tablaHallazgosWord.style.width = '511pt';
-
-                    const colgroup = tablaHallazgosWord.querySelector('colgroup');
-                    if (colgroup) {
-                        colgroup.innerHTML = `
-                            <col class="col-hallazgo-word" style="width:170pt;">
-                            <col class="col-recomendacion-word" style="width:170pt;">
-                            <col class="col-fotografias-word" style="width:171pt;">
-                        `;
-                    }
-
-                    tablaHallazgosWord.querySelectorAll('img').forEach(img => {
-                        img.setAttribute('width', '108');
-                        img.setAttribute('height', '74');
-                        img.style.width = '108pt';
-                        img.style.height = '74pt';
-                        img.style.maxWidth = '108pt';
-                        img.style.maxHeight = '74pt';
-                        img.style.minWidth = '108pt';
-                        img.style.minHeight = '74pt';
-                        img.style.objectFit = 'contain';
-                        img.style.display = 'block';
-                        img.style.margin = '0 auto';
-                    });
-                }
-            }
-
             seccionActual.contenidos.push(clon);
         });
     });
@@ -8866,7 +8831,7 @@ async function generarWord(ventana) {
     div.SectionHorizontal8 { page: SectionHorizontal8; }
 
     body {
-        font-family: Arial, sans-serif;
+        font-family: "Century Gothic", Arial, sans-serif;
         font-size: 9pt;
         color: #111;
     }
@@ -8904,19 +8869,11 @@ async function generarWord(ventana) {
        las fotografías a 3,8 cm x 2,6 cm, sin deformación.
        No modifica datos, cálculos ni el motor PDF.
        ========================================================= */
-    /* OM-27.2-DOC · INTERVENCIÓN 3 — AJUSTE DE COMPOSICIÓN DE HALLAZGOS
-       Se fija la distribución de columnas en puntos para que Word no
-       sobredimensione la columna fotográfica. El objetivo es conservar
-       texto + acción + evidencia en una composición compacta y estable. */
     .tabla-hallazgos {
         table-layout: fixed;
         width: 100%;
         page-break-inside: auto;
     }
-
-    .tabla-hallazgos col.col-hallazgo-word { width: 170pt; }
-    .tabla-hallazgos col.col-recomendacion-word { width: 170pt; }
-    .tabla-hallazgos col.col-fotografias-word { width: 171pt; }
 
     .tabla-hallazgos thead {
         display: table-header-group;
@@ -8982,6 +8939,70 @@ async function generarWord(ventana) {
         text-align: center;
         font-size: 8pt;
         color: #666;
+    }
+
+    /* =========================================================
+       OM-27.2-DOC · INTERVENCIÓN 4 — REFERENCIA VISUAL MAESTRA
+       Base: Informe_Inspeccion_INS-2026-0024.doc
+       Intervención 5: Century Gothic como tipografía base.
+       Objetivo: conservar en el documento editable el lenguaje
+       visual del informe de origen: tipografía Century Gothic, jerarquía
+       azul corporativa, títulos con separación y tablas compactas.
+       Esta capa solo afecta presentación; no modifica datos,
+       cálculos, contenido ni la generación del PDF actual.
+       ========================================================= */
+    body {
+        font-family: "Century Gothic", Arial, sans-serif;
+        font-size: 9pt;
+        color: #111;
+        line-height: 1.35;
+    }
+
+    h2 {
+        color: #123b5d;
+        font-size: 16pt;
+        font-weight: bold;
+        margin-top: 16pt;
+        margin-bottom: 12pt;
+        padding-bottom: 6pt;
+        border-bottom: 2px solid #123b5d;
+        page-break-after: avoid;
+    }
+
+    h3 {
+        color: #123b5d;
+        font-size: 12pt;
+        font-weight: bold;
+        margin-top: 10pt;
+        margin-bottom: 8pt;
+        page-break-after: avoid;
+    }
+
+    .bloque-pdf {
+        margin-bottom: 14pt;
+    }
+
+    .bloque-pdf.inicio-seccion-pdf {
+        margin-top: 12pt;
+    }
+
+    .bloque-pdf table {
+        font-size: 9pt;
+    }
+
+    .bloque-pdf th {
+        background: #123b5d;
+        color: #fff;
+        font-weight: bold;
+    }
+
+    .bloque-pdf td,
+    .bloque-pdf th {
+        border: 1px solid #777;
+    }
+
+    .tabla-hallazgos {
+        font-size: 9pt;
     }
 </style>
 <!--[if gte mso 9]>
@@ -9566,7 +9587,7 @@ function riesgosEnCelda(probabilidad, impacto) {
             }
 
             fotosHTML = `
-                <table class="tabla-fotos-hallazgo" style="width:171pt; table-layout:fixed;">
+                <table class="tabla-fotos-hallazgo">
                     <tbody>
                         ${filasFotos.join("")}
                     </tbody>
