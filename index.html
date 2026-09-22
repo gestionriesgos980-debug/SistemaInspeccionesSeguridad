@@ -8987,7 +8987,7 @@ async function generarWordPlantillaMaestra() {
         }
 
         /*
-         * CAM-WORD-01 — FOTOGRAFÍAS EMBEBIDAS EN WORD
+         * CAM-WORD-01.1 — FOTOGRAFÍAS EMBEBIDAS Y DIMENSIONADAS EN WORD
          *
          * Word puede importar el contenido HTML de altChunk, pero no siempre
          * resuelve correctamente imágenes que apuntan a archivos internos de
@@ -9616,6 +9616,8 @@ function riesgosEnCelda(probabilidad, impacto) {
                         <td>
                             <img
                                 src="${obtenerImagenDeFoto(foto1)}"
+                                width="126" height="88"
+                                style="width:126px;height:88px;max-width:126px;max-height:88px;object-fit:contain;display:block;margin:0 auto;"
                                 alt="Registro fotográfico"
                             >
                         </td>
@@ -9623,6 +9625,8 @@ function riesgosEnCelda(probabilidad, impacto) {
                             ${foto2 ? `
                                 <img
                                     src="${obtenerImagenDeFoto(foto2)}"
+                                    width="126" height="88"
+                                    style="width:126px;height:88px;max-width:126px;max-height:88px;object-fit:contain;display:block;margin:0 auto;"
                                     alt="Registro fotográfico"
                                 >
                             ` : ""}
@@ -9632,7 +9636,7 @@ function riesgosEnCelda(probabilidad, impacto) {
             }
 
             fotosHTML = `
-                <table class="tabla-fotos-hallazgo">
+                <table class="tabla-fotos-hallazgo" width="100%" style="width:100%;table-layout:fixed;border-collapse:collapse;">
                     <tbody>
                         ${filasFotos.join("")}
                     </tbody>
@@ -9652,15 +9656,15 @@ function riesgosEnCelda(probabilidad, impacto) {
 
         filasHallazgos += `
             <tr class="fila-hallazgo">
-                <td class="col-hallazgo">
+                <td class="col-hallazgo" width="30%" style="width:30%;">
                     <div class="dato-elemento">${escapar(hallazgo.elemento || "")}</div>
                     <div>${escapar(hallazgo.descripcion || "Sin descripción")}</div>
                     ${nivelHallazgo ? `<div class="dato-estado"><strong>Estado:</strong> ${escapar(nivelHallazgo)}</div>` : ""}
                 </td>
-                <td class="col-recomendacion">
+                <td class="col-recomendacion" width="30%" style="width:30%;">
                     ${escapar(hallazgo.recomendacion || "Sin recomendación registrada")}
                 </td>
-                <td class="col-fotografias">
+                <td class="col-fotografias" width="40%" style="width:40%;">
                     ${fotosHTML || '<span class="sin-foto">Sin evidencia fotográfica</span>'}
                 </td>
             </tr>
@@ -12335,15 +12339,15 @@ ESTADO: EN DESARROLLO
      REGISTRO FOTOGRÁFICO. El thead permite repetir el encabezado al paginar. -->
 <table class="tabla-hallazgos">
     <colgroup>
-        <col style="width:30%;">
-        <col style="width:30%;">
-        <col style="width:40%;">
+        <col width="30%" style="width:30%;">
+        <col width="30%" style="width:30%;">
+        <col width="40%" style="width:40%;">
     </colgroup>
     <thead>
         <tr>
-            <th>HALLAZGOS</th>
-            <th>ACCIÓN PREVENTIVA</th>
-            <th>REGISTRO FOTOGRÁFICO</th>
+            <th width="30%" style="width:30%;">HALLAZGOS</th>
+            <th width="30%" style="width:30%;">ACCIÓN PREVENTIVA</th>
+            <th width="40%" style="width:40%;">REGISTRO FOTOGRÁFICO</th>
         </tr>
     </thead>
     <tbody>
