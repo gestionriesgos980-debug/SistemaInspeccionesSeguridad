@@ -10024,6 +10024,50 @@ matrizParaInforme.forEach((riesgo, indice) => {
                 }
 
                 /* =====================================================
+                   INTERVENCIÓN PRESENTACIÓN-01 · PRUEBA CONTROLADA
+                   Objetivo: presentar el informe en pantalla como un
+                   documento continuo, sin reconstrucción artificial de
+                   páginas A4.
+                   IMPORTANTE: estas reglas son SOLO para pantalla.
+                   La salida Word no se modifica.
+                   ===================================================== */
+                @media screen {
+                    body {
+                        background:#eef2f5;
+                    }
+
+                    .hoja {
+                        width:min(1100px, calc(100vw - 32px)) !important;
+                        max-width:none !important;
+                        margin:16px auto !important;
+                        padding:24px !important;
+                        box-sizing:border-box !important;
+                        background:#fff;
+                        box-shadow:0 2px 16px rgba(0,0,0,.10);
+                    }
+
+                    /* Los saltos creados exclusivamente para paginación/PDF
+                       dejan de intervenir en la vista de pantalla. */
+                    .salto-pagina-pdf,
+                    .salto-hallazgos-pdf {
+                        display:none !important;
+                    }
+
+                    .botones {
+                        display:block;
+                    }
+
+                    /* PDF no forma parte de esta etapa; ocultarlo solo en pantalla. */
+                    .botones button[onclick*="generarPDF"] {
+                        display:none !important;
+                    }
+
+                    .tabla-hallazgos {
+                        width:100%;
+                    }
+                }
+
+                /* =====================================================
                    OM-27.1 · PRESENTACIÓN PAGINADA DINÁMICA
                    El documento se visualiza como páginas A4 reales.
                    La cantidad de páginas depende del contenido.
