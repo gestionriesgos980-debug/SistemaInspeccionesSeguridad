@@ -8805,7 +8805,7 @@ function generarPDF(ventana) {
 
 /*
 ========================================================
-TECCHNEX - CAM-PLANTILLA-01 · INTEGRACIÓN WORD
+TECCHNEX - CAM-PLANTILLA-02 · INTEGRACIÓN WORD + MEMBRETE COTRASER
 MÓDULO: Sistema de Inspecciones de Seguridad
 OBJETIVO: Primera prueba de concepto para utilizar la plantilla
 maestra Word como documento base del informe.
@@ -8824,7 +8824,7 @@ MARCADORES UTILIZADOS:
 {{REALIZADO_POR}}
 {{REVISADO_POR}}
 
-ESTADO: PRUEBA DE CONCEPTO 1
+ESTADO: INTEGRACIÓN APROBADA — MEMBRETE COTRASER
 ========================================================
 */
 async function generarWordPlantillaMaestra() {
@@ -8940,13 +8940,12 @@ async function generarWordPlantillaMaestra() {
         setTimeout(() => URL.revokeObjectURL(url), 1500);
 
         alert(
-            "Prueba de plantilla maestra generada correctamente.\n\n" +
-            "Se conservaron el documento base y su texto fijo; " +
-            "solo se alimentaron los datos preparados para esta primera intervención."
+            "Documento generado correctamente con la Hoja Maestra TECCHNEX + membrete COTRASER.\n\n" +
+            "Se conservaron el diseño y el texto fijo; solo se alimentaron los datos preparados por la aplicación."
         );
 
     } catch (error) {
-        console.error("CAM-PLANTILLA-01 — Error al generar Word:", error);
+        console.error("CAM-PLANTILLA-02 — Error al generar Word:", error);
         alert(
             "No fue posible generar el Word con la plantilla maestra.\n\n" +
             "Detalle: " + error.message
@@ -12243,7 +12242,7 @@ ESTADO: EN DESARROLLO
                 ========================================================
                 -->
                 <button onclick="window.opener.generarWordPlantillaMaestra()">
-    📝 Generar Word con plantilla maestra
+    📝 Generar Word con Hoja Maestra + membrete COTRASER
 </button>
 
                 <button onclick="window.opener.generarPDF(window)">
@@ -12561,7 +12560,7 @@ document.addEventListener("DOMContentLoaded", function () {
     
 </script>
 
-<!-- CAM-PLANTILLA-01: Librería mínima para abrir y guardar la plantilla DOCX
+<!-- CAM-PLANTILLA-02: Librería mínima para abrir y guardar la plantilla DOCX
      sin reconstruir su contenido ni su diseño. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
