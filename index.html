@@ -8691,6 +8691,20 @@ function generarWord(ventana) {
 
     try {
         /* =========================================================
+           OM-27.2-DOC · INTERVENCIÓN 11
+           CORRECCIÓN: generarWord() no puede depender de escapar(),
+           porque la función existente pertenece al ámbito interno de
+           generarInforme(). Se define aquí un escape local para evitar
+           el ReferenceError que impedía descargar el documento.
+           ========================================================= */
+        const escaparWord = valor => String(valor ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+
+        /* =========================================================
            OM-27.2-DOC · INTERVENCIÓN 10
            FUENTE MAESTRA EMBEBIDA
            La plantilla original se incorpora al código para que la
@@ -8728,7 +8742,7 @@ function generarWord(ventana) {
                         .trim()
                         .match(/Fecha:\s*(.*)$/i);
                     celdasP[2].innerHTML =
-                        `<strong>PSOF004</strong><br>Versión No. 003<br>Fecha: ${escapar(fecha ? fecha[1] : "")}`;
+                        `<strong>PSOF004</strong><br>Versión No. 003<br>Fecha: ${escaparWord(fecha ? fecha[1] : "")}`;
                 }
 
                 const clienteDatos = Array.from(celdasD).find(td =>
@@ -8744,7 +8758,7 @@ function generarWord(ventana) {
                     const cliente = coincidencia ? coincidencia[1].trim() : texto;
                     const id = coincidencia ? coincidencia[2].trim() : "SIN ID";
                     clientePlantilla.innerHTML =
-                        `${escapar(cliente)}<br><strong>ID DE INSPECCIÓN: ${escapar(id)}</strong>`;
+                        `${escaparWord(cliente)}<br><strong>ID DE INSPECCIÓN: ${escaparWord(id)}</strong>`;
                 }
             }
 
@@ -8785,8 +8799,10 @@ function generarWord(ventana) {
             const recorrer = nodo => {
                 Array.from(nodo.children || []).forEach(el => {
                     if (el.classList.contains("encabezado") ||
+                        el.classList.contains("encabezado-pagina") ||
                         el.classList.contains("botones") ||
                         el.classList.contains("pie") ||
+                        el.classList.contains("pie-informe-paginado") ||
                         el.classList.contains("controles-informe-paginado") ||
                         el.classList.contains("paginacion-informe") ||
                         el.classList.contains("salto-pagina-pdf")) return;
@@ -8837,7 +8853,7 @@ function generarWord(ventana) {
         setTimeout(() => URL.revokeObjectURL(enlace.href), 5000);
 
     } catch (error) {
-        console.error("OM-27.2-DOC · INTERVENCIÓN 10:", error);
+        console.error("OM-27.2-DOC · INTERVENCIÓN 11:", error);
         alert("No fue posible generar el documento editable usando la plantilla maestra. Revise la consola del navegador para el detalle técnico.");
     }
 }
