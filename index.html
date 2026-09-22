@@ -11971,7 +11971,7 @@ ESTADO: EN DESARROLLO
 <script>
 /* =========================================================
    OM-27.1 · INFORME PAGINADO DINÁMICO — INTERVENCIÓN 1
-   OM-27.2 · INTERVENCIÓN 2 — CAMBIO CONTROLADO DE ORIENTACIÓN
+   OM-27.2 · INTERVENCIÓN 3 — PRIMERA ASIGNACIÓN REAL DE ORIENTACIÓN
    OBJETIVO: Presentar el informe como un documento paginado
    automáticamente según la cantidad real de contenido.
    Esta etapa interviene únicamente la PRESENTACIÓN DEL INFORME.
@@ -12109,8 +12109,15 @@ ESTADO: EN DESARROLLO
            data-orientacion="horizontal" o class="orientacion-horizontal".
            Si la orientación solicitada es diferente a la página actual,
            se crea una nueva página antes de insertar el contenido.
-           En esta intervención no se asigna ninguna sección existente
-           a horizontal: solamente se incorpora el mecanismo.
+           La primera sección asignada de forma explícita es
+           "4. Matriz de riesgos".
+           ========================================================= */
+        /* =========================================================
+           OM-27.2 · INTERVENCIÓN 3
+           PRIMERA ASIGNACIÓN REAL DE ORIENTACIÓN
+           La sección "4. Matriz de riesgos" se presenta en A4 horizontal
+           por su estructura tabular. Las demás secciones conservan vertical.
+           La regla sigue siendo: una sola orientación por página.
            ========================================================= */
         const obtenerOrientacionUnidad = unidad => {
             const elementoHorizontal = unidad.find(el =>
@@ -12118,7 +12125,17 @@ ESTADO: EN DESARROLLO
                 (el.dataset.orientacion === 'horizontal' ||
                  el.classList.contains('orientacion-horizontal'))
             );
-            return elementoHorizontal ? 'horizontal' : 'vertical';
+
+            if (elementoHorizontal) return 'horizontal';
+
+            const titulo = unidad.find(el => el.nodeType === 1 && el.tagName === 'H2');
+            const textoTitulo = titulo ? titulo.textContent.trim().toLowerCase() : '';
+
+            if (textoTitulo.includes('4. matriz de riesgos')) {
+                return 'horizontal';
+            }
+
+            return 'vertical';
         };
 
         const asegurarOrientacion = orientacion => {
