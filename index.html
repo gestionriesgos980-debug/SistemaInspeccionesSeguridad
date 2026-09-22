@@ -11101,7 +11101,7 @@ ${caracteristicasInstalacionHTML}
         Dispositivo de Seguridad sugerido
     </h4>
 
-    <table style="
+    <table class="tabla-checklist-detallado" style="
         width:100%;
         border-collapse:collapse;
         font-size:10px;
@@ -12174,6 +12174,66 @@ ESTADO: EN DESARROLLO
             });
         };
 
+        /* =========================================================
+           OM-27.2 · INTERVENCIÓN 8
+           PAGINACIÓN REAL DEL RESULTADO DETALLADO DEL CHECKLIST
+           La tabla extensa del checklist estaba contenida dentro de un
+           bloque <div>, por lo que la paginación por unidades no podía
+           dividir sus filas. Se identifica únicamente esta tabla mediante
+           .tabla-checklist-detallado y se continúa por filas, repitiendo
+           el encabezado y conservando el contenido.
+           ========================================================= */
+        const moverTablaChecklistPorFilas = (unidad, tabla) => {
+            const indiceTabla = unidad.findIndex(el =>
+                el.nodeType === 1 && el.contains(tabla)
+            );
+            if (indiceTabla === -1) return false;
+
+            const encabezado = unidad.find(el => el.tagName === 'H2');
+            if (encabezado) {
+                paginaActual.cuerpo.appendChild(encabezado);
+            }
+
+            const contenedorTabla = unidad[indiceTabla];
+            const elementosAntes = Array.from(contenedorTabla.children)
+                .filter(el => el !== tabla);
+
+            const wrapper = contenedorTabla.cloneNode(false);
+            elementosAntes.forEach(el => wrapper.appendChild(el.cloneNode(true)));
+
+            let bloque = crearTablaContinuacion(tabla);
+            wrapper.appendChild(bloque.tabla);
+            paginaActual.cuerpo.appendChild(wrapper);
+
+            const filas = Array.from(tabla.querySelectorAll(':scope > tbody > tr'));
+            filas.forEach(fila => {
+                const clon = fila.cloneNode(true);
+                bloque.tbody.appendChild(clon);
+
+                if (alturaContenido() > alturaDisponible()) {
+                    bloque.tbody.removeChild(clon);
+                    paginaActual = crearPagina(paginaActual.pagina.dataset.orientacion || 'vertical');
+                    bloque = crearTablaContinuacion(tabla);
+                    paginaActual.cuerpo.appendChild(bloque.tabla);
+                    bloque.tbody.appendChild(clon);
+                }
+            });
+
+            unidad.slice(indiceTabla + 1).forEach(el => {
+                const clon = el.cloneNode(true);
+                const cantidadAntes = paginaActual.cuerpo.children.length;
+                paginaActual.cuerpo.appendChild(clon);
+
+                if (alturaContenido() > alturaDisponible() && cantidadAntes > 0) {
+                    paginaActual.cuerpo.removeChild(clon);
+                    paginaActual = crearPagina(paginaActual.pagina.dataset.orientacion || 'vertical');
+                    paginaActual.cuerpo.appendChild(clon);
+                }
+            });
+
+            return true;
+        };
+
         const obtenerOrientacionUnidad = unidad => {
             const elementoHorizontal = unidad.find(el =>
                 el.nodeType === 1 &&
@@ -12207,6 +12267,15 @@ ESTADO: EN DESARROLLO
 
         const moverUnidad = (unidad) => {
             asegurarOrientacion(obtenerOrientacionUnidad(unidad));
+
+            const tablaChecklist = unidad
+                .map(el => el.nodeType === 1 ? el.querySelector('.tabla-checklist-detallado') : null)
+                .find(Boolean);
+
+            if (tablaChecklist) {
+                moverTablaChecklistPorFilas(unidad, tablaChecklist);
+                return;
+            }
 
             const tablaHallazgos = unidad.find(el =>
                 el.tagName === 'TABLE' && el.classList.contains('tabla-hallazgos')
