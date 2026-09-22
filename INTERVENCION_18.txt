@@ -1,0 +1,2 @@
+OM-27.2-DOC · INTERVENCIÓN 18
+Se embebe JSZip directamente en index.html para eliminar la dependencia de jszip.min.js en la raíz de GitHub Pages. La plantilla maestra DOCX se mantiene como archivo externo. No se modifica PDF ni contenido de la inspección.
