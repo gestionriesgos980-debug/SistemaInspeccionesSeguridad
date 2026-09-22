@@ -8911,6 +8911,90 @@ async function generarWordPlantillaMaestra() {
         ].filter(fila => fila[1] !== undefined && fila[1] !== null && String(fila[1]).trim() !== "");
 
         const esc = escaparXml;
+
+        // CAM-PLANTILLA-07: segunda alimentación de la Hoja Maestra.
+        // Primera prueba controlada: incorporar las fotografías de los hallazgos
+        // que ya están almacenadas en la inspección seleccionada.
+        // No se modifica el almacenamiento ni la lógica existente de fotografías.
+        const fotosInforme = [];
+        hallazgosDeInspeccionParaWord: {
+            const hallazgosGuardados = JSON.parse(localStorage.getItem("hallazgos")) || [];
+            hallazgosGuardados
+                .filter(h => Number(h.inspeccion) === indice)
+                .forEach(hallazgo => {
+                    if (!Array.isArray(hallazgo.fotos)) return;
+                    hallazgo.fotos.forEach(foto => {
+                        const src = obtenerImagenDeFoto(foto);
+                        if (src) fotosInforme.push({
+                            area: hallazgo.area || "",
+                            elemento: hallazgo.elemento || "",
+                            src
+                        });
+                    });
+                });
+        }
+
+        let contenidoFotosXml = "";
+        if (fotosInforme.length) {
+            contenidoFotosXml += `
+<w:p>
+  <w:pPr><w:spacing w:before="180" w:after="120"/></w:pPr>
+  <w:r><w:rPr><w:b/><w:sz w:val="24"/></w:rPr><w:t>REGISTRO FOTOGRÁFICO</w:t></w:r>
+</w:p>`;
+
+            fotosInforme.forEach((foto, fotoIndex) => {
+                const esDataUrl = /^data:image\//i.test(foto.src);
+                if (!esDataUrl) return;
+                const mimeMatch = foto.src.match(/^data:(image\/[^;]+);base64,/i);
+                if (!mimeMatch) return;
+                const mime = mimeMatch[1].toLowerCase();
+                const extension = mime.includes("png") ? "png" : "jpg";
+                const nombreMedia = `cam07-foto-${fotoIndex + 1}.${extension}`;
+                const relationshipId = `rIdCam07Foto${fotoIndex + 1}`;
+                const base64 = foto.src.split(",", 2)[1];
+                zip.file(`word/media/${nombreMedia}`, base64, { base64: true });
+
+                if (!contenidoFotosXml.includes(`<!--${nombreMedia}-->`)) {
+                    contenidoFotosXml += `
+<w:p>
+  <w:pPr><w:jc w:val="center"/><w:spacing w:after="60"/></w:pPr>
+  <w:r><w:t>${esc(foto.area)}${foto.elemento ? " — " + esc(foto.elemento) : ""}</w:t></w:r>
+</w:p>
+<w:p>
+  <w:pPr><w:jc w:val="center"/></w:pPr>
+  <w:r>
+    <w:drawing>
+      <wp:inline distT="0" distB="0" distL="0" distR="0">
+        <wp:extent cx="4572000" cy="3048000"/>
+        <wp:effectExtent l="0" t="0" r="0" b="0"/>
+        <wp:docPr id="${1000 + fotoIndex}" name="CAM-PLANTILLA-07-Foto-${fotoIndex + 1}"/>
+        <a:graphic>
+          <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+            <pic:pic>
+              <pic:nvPicPr>
+                <pic:cNvPr id="${1000 + fotoIndex}" name="${nombreMedia}"/>
+                <pic:cNvPicPr/>
+              </pic:nvPicPr>
+              <pic:blipFill>
+                <a:blip r:embed="${relationshipId}"/>
+                <a:stretch><a:fillRect/></a:stretch>
+              </pic:blipFill>
+              <pic:spPr>
+                <a:xfrm><a:off x="0" y="0"/><a:ext cx="4572000" cy="3048000"/></a:xfrm>
+                <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+              </pic:spPr>
+            </pic:pic>
+          </a:graphicData>
+        </a:graphic>
+      </wp:inline>
+    </w:drawing>
+  </w:r>
+</w:p>
+<!--${nombreMedia}-->`;
+                }
+            });
+        }
+
         const contenidoInformeXml = `
 <w:p>
   <w:pPr><w:spacing w:after="120"/></w:pPr>
@@ -8929,6 +9013,7 @@ async function generarWordPlantillaMaestra() {
     <w:tc><w:tcPr><w:tcW w:w="6000" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="20"/></w:rPr><w:t>${esc(valor)}</w:t></w:r></w:p></w:tc>
   </w:tr>`).join("")}
 </w:tbl>
+${contenidoFotosXml}
 <w:p><w:r><w:t xml:space="preserve"> </w:t></w:r></w:p>`;
 
         const documentEntry = zip.file("word/document.xml");
@@ -8951,6 +9036,47 @@ async function generarWordPlantillaMaestra() {
             documentXml = documentXml.replace(marcadorRegex, contenidoInformeXml);
         } else {
             console.warn("CAM-PLANTILLA-05: no se encontró {{CONTENIDO_INFORME}} en la plantilla.");
+        }
+
+        // CAM-PLANTILLA-07: registrar únicamente las imágenes nuevas en las relaciones
+        // del documento y en [Content_Types].xml. Se conservan las relaciones existentes.
+        if (fotosInforme.length) {
+            const relsEntry = zip.file("word/_rels/document.xml.rels");
+            if (relsEntry) {
+                let relsXml = await relsEntry.async("string");
+                fotosInforme.forEach((foto, fotoIndex) => {
+                    const mimeMatch = foto.src.match(/^data:(image\/[^;]+);base64,/i);
+                    if (!mimeMatch) return;
+                    const extension = mimeMatch[1].toLowerCase().includes("png") ? "png" : "jpg";
+                    const nombreMedia = `media/cam07-foto-${fotoIndex + 1}.${extension}`;
+                    const relationshipId = `rIdCam07Foto${fotoIndex + 1}`;
+                    if (!relsXml.includes(`Id="${relationshipId}"`)) {
+                        relsXml = relsXml.replace(
+                            "</Relationships>",
+                            `<Relationship Id="${relationshipId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${nombreMedia}"/></Relationships>`
+                        );
+                    }
+                });
+                zip.file("word/_rels/document.xml.rels", relsXml);
+            }
+
+            const contentTypesEntry = zip.file("[Content_Types].xml");
+            if (contentTypesEntry) {
+                let contentTypesXml = await contentTypesEntry.async("string");
+                if (!contentTypesXml.includes('Extension="jpg"')) {
+                    contentTypesXml = contentTypesXml.replace(
+                        "</Types>",
+                        '<Default Extension="jpg" ContentType="image/jpeg"/></Types>'
+                    );
+                }
+                if (!contentTypesXml.includes('Extension="png"')) {
+                    contentTypesXml = contentTypesXml.replace(
+                        "</Types>",
+                        '<Default Extension="png" ContentType="image/png"/></Types>'
+                    );
+                }
+                zip.file("[Content_Types].xml", contentTypesXml);
+            }
         }
 
         zip.file("word/document.xml", documentXml);
@@ -8996,11 +9122,11 @@ async function generarWordPlantillaMaestra() {
 
         alert(
             "Documento generado correctamente con la Hoja Maestra TECCHNEX + membrete COTRASER.\n\n" +
-            "CAM-PLANTILLA-05: se incorporó la información general de la inspección en la Hoja Maestra."
+            "CAM-PLANTILLA-07: se incorporó la información general y, si existen, las fotografías de los hallazgos en la Hoja Maestra."
         );
 
     } catch (error) {
-        console.error("CAM-PLANTILLA-05 — Error al generar Word:", error);
+        console.error("CAM-PLANTILLA-07 — Error al generar Word:", error);
         alert(
             "No fue posible generar el Word con la plantilla maestra.\n\n" +
             "Detalle: " + error.message
