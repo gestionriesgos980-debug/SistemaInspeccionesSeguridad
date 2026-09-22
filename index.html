@@ -8995,6 +8995,62 @@ async function generarWordPlantillaMaestra() {
             });
         }
 
+        // CAM-PLANTILLA-08: tercera alimentación de la Hoja Maestra.
+        // Se incorpora el checklist ya guardado para la inspección seleccionada.
+        // No se modifica el almacenamiento ni la lógica de captura/cálculo existente.
+        const checklistInforme = (() => {
+            const registros = JSON.parse(localStorage.getItem("checklists")) || [];
+            const coincidencias = registros.filter(
+                registro => Number(registro.inspeccion) === indice
+            );
+            return coincidencias.length
+                ? coincidencias[coincidencias.length - 1]
+                : null;
+        })();
+
+        const datosChecklistInforme = checklistInforme?.datos || {};
+        const respuestasChecklistInforme = checklistInforme?.respuestas || {};
+
+        let contenidoChecklistXml = "";
+        if (Object.keys(datosChecklistInforme).length) {
+            contenidoChecklistXml += `
+<w:p>
+  <w:pPr><w:spacing w:before="180" w:after="120"/></w:pPr>
+  <w:r><w:rPr><w:b/><w:sz w:val="24"/></w:rPr><w:t>LISTA DE CHEQUEO</w:t></w:r>
+</w:p>
+<w:tbl>
+  <w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders>
+    <w:top w:val="single" w:sz="4"/><w:left w:val="single" w:sz="4"/>
+    <w:bottom w:val="single" w:sz="4"/><w:right w:val="single" w:sz="4"/>
+    <w:insideH w:val="single" w:sz="4"/><w:insideV w:val="single" w:sz="4"/>
+  </w:tblBorders></w:tblPr>
+  <w:tblGrid><w:gridCol w:w="2600"/><w:gridCol w:w="6100"/><w:gridCol w:w="1400"/></w:tblGrid>
+  <w:tr>
+    <w:tc><w:tcPr><w:tcW w:w="2600" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Categoría</w:t></w:r></w:p></w:tc>
+    <w:tc><w:tcPr><w:tcW w:w="6100" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Ítem</w:t></w:r></w:p></w:tc>
+    <w:tc><w:tcPr><w:tcW w:w="1400" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Resultado</w:t></w:r></w:p></w:tc>
+  </w:tr>`;
+
+            Object.entries(datosChecklistInforme).forEach(([categoria, items]) => {
+                if (!Array.isArray(items)) return;
+                items.forEach(item => {
+                    const respuesta = respuestasChecklistInforme?.[categoria]?.[item];
+                    const resultadoItem = respuesta === undefined || respuesta === null || respuesta === ""
+                        ? "No respondido"
+                        : String(respuesta);
+                    contenidoChecklistXml += `
+  <w:tr>
+    <w:tc><w:tcPr><w:tcW w:w="2600" w:type="dxa"/></w:tcPr><w:p><w:r><w:t>${esc(categoria)}</w:t></w:r></w:p></w:tc>
+    <w:tc><w:tcPr><w:tcW w:w="6100" w:type="dxa"/></w:tcPr><w:p><w:r><w:t>${esc(item)}</w:t></w:r></w:p></w:tc>
+    <w:tc><w:tcPr><w:tcW w:w="1400" w:type="dxa"/></w:tcPr><w:p><w:r><w:t>${esc(resultadoItem)}</w:t></w:r></w:p></w:tc>
+  </w:tr>`;
+                });
+            });
+
+            contenidoChecklistXml += `
+</w:tbl>`;
+        }
+
         const contenidoInformeXml = `
 <w:p>
   <w:pPr><w:spacing w:after="120"/></w:pPr>
@@ -9014,6 +9070,7 @@ async function generarWordPlantillaMaestra() {
   </w:tr>`).join("")}
 </w:tbl>
 ${contenidoFotosXml}
+${contenidoChecklistXml}
 <w:p><w:r><w:t xml:space="preserve"> </w:t></w:r></w:p>`;
 
         const documentEntry = zip.file("word/document.xml");
@@ -9122,11 +9179,11 @@ ${contenidoFotosXml}
 
         alert(
             "Documento generado correctamente con la Hoja Maestra TECCHNEX + membrete COTRASER.\n\n" +
-            "CAM-PLANTILLA-07: se incorporó la información general y, si existen, las fotografías de los hallazgos en la Hoja Maestra."
+            "CAM-PLANTILLA-08: se incorporó la información general, las fotografías disponibles y el checklist guardado en la Hoja Maestra."
         );
 
     } catch (error) {
-        console.error("CAM-PLANTILLA-07 — Error al generar Word:", error);
+        console.error("CAM-PLANTILLA-08 — Error al generar Word:", error);
         alert(
             "No fue posible generar el Word con la plantilla maestra.\n\n" +
             "Detalle: " + error.message
