@@ -8809,6 +8809,134 @@ async function generarWord(ventana) {
     }catch(error){console.error('OM-27.2-DOC · INTERVENCIÓN 17:',error);alert(`No fue posible generar el documento editable.\n\n${error.message}`);}
 }
 
+/* =========================================================
+   TECCHNEX · OM-27.3 · INTERVENCIÓN 5
+   FUNCIÓN: generarExcelTecchnex
+   OBJETIVO: Primera integración controlada entre la aplicación
+   y la plantilla maestra Excel. La aplicación alimenta únicamente
+   campos identificados; no modifica la plantilla maestra en origen.
+   PRINCIPIO: MEJORAR SIN ROMPER.
+   ESTADO: PRUEBA DE INTEGRACIÓN
+   ========================================================= */
+async function generarExcelTecchnex(ventana) {
+    try {
+        const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
+        const indiceGuardado = localStorage.getItem("indiceInspeccionSeleccionadaInforme");
+        const indice = indiceGuardado !== null ? Number(indiceGuardado) : inspecciones.length - 1;
+
+        if (!Number.isInteger(indice) || !inspecciones[indice]) {
+            alert("No se pudo identificar la inspección seleccionada.");
+            return;
+        }
+
+        if (typeof JSZip === "undefined") {
+            alert("No se encontró el motor ZIP requerido para la plantilla Excel.");
+            return;
+        }
+
+        const inspeccion = inspecciones[indice];
+        const respuesta = await fetch("PLANTILLA_MAESTRA_INFORME_ORIGINAL_TECCHNEX.xlsx", { cache: "no-store" });
+        if (!respuesta.ok) throw new Error("No se pudo cargar la plantilla maestra Excel.");
+
+        const buffer = await respuesta.arrayBuffer();
+        const zip = await JSZip.loadAsync(buffer);
+        const rutaHoja = "xl/worksheets/sheet2.xml"; // ANALISIS DE RIESGOS
+        const archivoHoja = zip.file(rutaHoja);
+        if (!archivoHoja) throw new Error("No se encontró la hoja ANALISIS DE RIESGOS en la plantilla.");
+
+        let xml = await archivoHoja.async("string");
+
+        function escaparXml(valor) {
+            return String(valor ?? "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&apos;");
+        }
+
+        function ponerCelda(ref, valor) {
+            const texto = escaparXml(valor);
+            const patron = new RegExp(`<c([^>]*\\br="${ref}"[^>]*)>([\\s\\S]*?)<\\/c>`);
+            const encontrado = xml.match(patron);
+            if (!encontrado) throw new Error(`No se encontró la celda ${ref} en la plantilla.`);
+
+            let atributos = encontrado[1]
+                .replace(/\s+t="[^"]*"/g, "")
+                .trim();
+
+            const contenido = `<c${atributos} t="inlineStr"><is><t xml:space="preserve">${texto}</t></is></c>`;
+            xml = xml.replace(patron, contenido);
+        }
+
+        // Mapa mínimo de integración validado en OM-27.3.
+        ponerCelda("A9", inspeccion.fecha ? String(inspeccion.fecha).slice(0, 4) : "");
+        ponerCelda("A11", inspeccion.cliente || "");
+        ponerCelda("P11", inspeccion.nit || "");
+        ponerCelda("Y11", inspeccion.director || inspeccion.contacto || "");
+        ponerCelda("F13", inspeccion.direccion || "");
+        ponerCelda("T13", inspeccion.contacto || "");
+        ponerCelda("F14", inspeccion.telefono || "");
+        ponerCelda("T14", inspeccion.email || "");
+
+        const georef = [
+            inspeccion.latitud ? `Latitud: ${inspeccion.latitud}` : "",
+            inspeccion.longitud ? `Longitud: ${inspeccion.longitud}` : ""
+        ].filter(Boolean).join(" | ");
+        if (georef) ponerCelda("A15", georef);
+
+        // Caracterización básica según sector; no se inventan datos faltantes.
+        let entorno = `Sector: ${inspeccion.sectorInspeccion || "POR VALIDAR"}`;
+        if (inspeccion.sectorInspeccion === "Residencial") {
+            entorno += ` | Torres: ${inspeccion.cantidadTorres || "POR VALIDAR"}`;
+            entorno += ` | Viviendas: ${inspeccion.cantidadViviendas || "POR VALIDAR"}`;
+            entorno += ` | Parqueaderos: ${inspeccion.parqueaderosPrivados || "POR VALIDAR"}`;
+        } else if (inspeccion.sectorInspeccion === "Industrial") {
+            entorno += ` | Bodegas: ${inspeccion.cantidadBodegas || "POR VALIDAR"}`;
+            entorno += ` | Área m²: ${inspeccion.areaIndustrial || "POR VALIDAR"}`;
+        }
+        ponerCelda("A24", entorno);
+
+        const cctv = [
+            inspeccion.tipoCCTV ? `Tipo: ${inspeccion.tipoCCTV}` : "",
+            inspeccion.cantidadCamaras ? `Cámaras: ${inspeccion.cantidadCamaras}` : "",
+            inspeccion.cantidadEquiposGrabacionCCTV ? `Equipos grabación: ${inspeccion.cantidadEquiposGrabacionCCTV}` : "",
+            inspeccion.observacionesCCTV ? `Observaciones: ${inspeccion.observacionesCCTV}` : ""
+        ].filter(Boolean).join(" | ");
+        ponerCelda("A45", cctv || "POR VALIDAR");
+
+        const observaciones = inspeccion.observaciones || inspeccion.observacionesGenerales || "";
+        if (observaciones) ponerCelda("A48", observaciones);
+
+        // Fuerza recálculo al abrir Excel.
+        let workbookXml = await zip.file("xl/workbook.xml").async("string");
+        if (!/fullCalcOnLoad/.test(workbookXml)) {
+            workbookXml = workbookXml.replace(
+                /<calcPr([^>]*)\/>/,
+                '<calcPr$1 fullCalcOnLoad="1" forceFullCalc="1" calcMode="auto"/>'
+            );
+        }
+        zip.file("xl/workbook.xml", workbookXml);
+        zip.file(rutaHoja, xml);
+
+        const salida = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
+        const url = URL.createObjectURL(salida);
+        const a = document.createElement("a");
+        const cliente = String(inspeccion.cliente || "INSPECCION").replace(/[^a-z0-9áéíóúñ _-]/gi, "").trim().replace(/\s+/g, "_");
+        const control = String(inspeccion.idControl || indice + 1).replace(/[^a-z0-9_-]/gi, "");
+        a.href = url;
+        a.download = `Informe_TECCHNEX_${control}_${cliente || "INSPECCION"}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 3000);
+
+    } catch (error) {
+        console.error("OM-27.3 Intervención 5:", error);
+        alert("No fue posible generar el Excel TECCHNEX: " + error.message);
+    }
+}
+
 function generarInforme(ventana) {
 
     const inspecciones =
@@ -12133,133 +12261,7 @@ ESTADO: EN DESARROLLO
 
 
 <script>
-/* =========================================================
-   TECCHNEX · OM-27.3 · INTERVENCIÓN 5
-   FUNCIÓN: generarExcelTecchnex
-   OBJETIVO: Primera integración controlada entre la aplicación
-   y la plantilla maestra Excel. La aplicación alimenta únicamente
-   campos identificados; no modifica la plantilla maestra en origen.
-   PRINCIPIO: MEJORAR SIN ROMPER.
-   ESTADO: PRUEBA DE INTEGRACIÓN
-   ========================================================= */
-async function generarExcelTecchnex(ventana) {
-    try {
-        const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
-        const indiceGuardado = localStorage.getItem("indiceInspeccionSeleccionadaInforme");
-        const indice = indiceGuardado !== null ? Number(indiceGuardado) : inspecciones.length - 1;
 
-        if (!Number.isInteger(indice) || !inspecciones[indice]) {
-            alert("No se pudo identificar la inspección seleccionada.");
-            return;
-        }
-
-        if (typeof JSZip === "undefined") {
-            alert("No se encontró el motor ZIP requerido para la plantilla Excel.");
-            return;
-        }
-
-        const inspeccion = inspecciones[indice];
-        const respuesta = await fetch("PLANTILLA_MAESTRA_INFORME_ORIGINAL_TECCHNEX.xlsx", { cache: "no-store" });
-        if (!respuesta.ok) throw new Error("No se pudo cargar la plantilla maestra Excel.");
-
-        const buffer = await respuesta.arrayBuffer();
-        const zip = await JSZip.loadAsync(buffer);
-        const rutaHoja = "xl/worksheets/sheet2.xml"; // ANALISIS DE RIESGOS
-        const archivoHoja = zip.file(rutaHoja);
-        if (!archivoHoja) throw new Error("No se encontró la hoja ANALISIS DE RIESGOS en la plantilla.");
-
-        let xml = await archivoHoja.async("string");
-
-        function escaparXml(valor) {
-            return String(valor ?? "")
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&apos;");
-        }
-
-        function ponerCelda(ref, valor) {
-            const texto = escaparXml(valor);
-            const patron = new RegExp(`<c([^>]*\\br="${ref}"[^>]*)>([\\s\\S]*?)<\\/c>`);
-            const encontrado = xml.match(patron);
-            if (!encontrado) throw new Error(`No se encontró la celda ${ref} en la plantilla.`);
-
-            let atributos = encontrado[1]
-                .replace(/\s+t="[^"]*"/g, "")
-                .trim();
-
-            const contenido = `<c${atributos} t="inlineStr"><is><t xml:space="preserve">${texto}</t></is></c>`;
-            xml = xml.replace(patron, contenido);
-        }
-
-        // Mapa mínimo de integración validado en OM-27.3.
-        ponerCelda("A9", inspeccion.fecha ? String(inspeccion.fecha).slice(0, 4) : "");
-        ponerCelda("A11", inspeccion.cliente || "");
-        ponerCelda("P11", inspeccion.nit || "");
-        ponerCelda("Y11", inspeccion.director || inspeccion.contacto || "");
-        ponerCelda("F13", inspeccion.direccion || "");
-        ponerCelda("T13", inspeccion.contacto || "");
-        ponerCelda("F14", inspeccion.telefono || "");
-        ponerCelda("T14", inspeccion.email || "");
-
-        const georef = [
-            inspeccion.latitud ? `Latitud: ${inspeccion.latitud}` : "",
-            inspeccion.longitud ? `Longitud: ${inspeccion.longitud}` : ""
-        ].filter(Boolean).join(" | ");
-        if (georef) ponerCelda("A15", georef);
-
-        // Caracterización básica según sector; no se inventan datos faltantes.
-        let entorno = `Sector: ${inspeccion.sectorInspeccion || "POR VALIDAR"}`;
-        if (inspeccion.sectorInspeccion === "Residencial") {
-            entorno += ` | Torres: ${inspeccion.cantidadTorres || "POR VALIDAR"}`;
-            entorno += ` | Viviendas: ${inspeccion.cantidadViviendas || "POR VALIDAR"}`;
-            entorno += ` | Parqueaderos: ${inspeccion.parqueaderosPrivados || "POR VALIDAR"}`;
-        } else if (inspeccion.sectorInspeccion === "Industrial") {
-            entorno += ` | Bodegas: ${inspeccion.cantidadBodegas || "POR VALIDAR"}`;
-            entorno += ` | Área m²: ${inspeccion.areaIndustrial || "POR VALIDAR"}`;
-        }
-        ponerCelda("A24", entorno);
-
-        const cctv = [
-            inspeccion.tipoCCTV ? `Tipo: ${inspeccion.tipoCCTV}` : "",
-            inspeccion.cantidadCamaras ? `Cámaras: ${inspeccion.cantidadCamaras}` : "",
-            inspeccion.cantidadEquiposGrabacionCCTV ? `Equipos grabación: ${inspeccion.cantidadEquiposGrabacionCCTV}` : "",
-            inspeccion.observacionesCCTV ? `Observaciones: ${inspeccion.observacionesCCTV}` : ""
-        ].filter(Boolean).join(" | ");
-        ponerCelda("A45", cctv || "POR VALIDAR");
-
-        const observaciones = inspeccion.observaciones || inspeccion.observacionesGenerales || "";
-        if (observaciones) ponerCelda("A48", observaciones);
-
-        // Fuerza recálculo al abrir Excel.
-        let workbookXml = await zip.file("xl/workbook.xml").async("string");
-        if (!/fullCalcOnLoad/.test(workbookXml)) {
-            workbookXml = workbookXml.replace(
-                /<calcPr([^>]*)\/>/,
-                '<calcPr$1 fullCalcOnLoad="1" forceFullCalc="1" calcMode="auto"/>'
-            );
-        }
-        zip.file("xl/workbook.xml", workbookXml);
-        zip.file(rutaHoja, xml);
-
-        const salida = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
-        const url = URL.createObjectURL(salida);
-        const a = document.createElement("a");
-        const cliente = String(inspeccion.cliente || "INSPECCION").replace(/[^a-z0-9áéíóúñ _-]/gi, "").trim().replace(/\s+/g, "_");
-        const control = String(inspeccion.idControl || indice + 1).replace(/[^a-z0-9_-]/gi, "");
-        a.href = url;
-        a.download = `Informe_TECCHNEX_${control}_${cliente || "INSPECCION"}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 3000);
-
-    } catch (error) {
-        console.error("OM-27.3 Intervención 5:", error);
-        alert("No fue posible generar el Excel TECCHNEX: " + error.message);
-    }
-}
 
 /* =========================================================
    OM-27.1 · INFORME PAGINADO DINÁMICO — INTERVENCIÓN 1
