@@ -12138,6 +12138,16 @@ ESTADO: EN DESARROLLO
            orientaciones dentro de una misma página.
            No se modifican contenido, datos ni cálculos.
            ========================================================= */
+        /* =========================================================
+           OM-27.2 · INTERVENCIÓN 7
+           PAGINACIÓN CONTROLADA DE UNIDADES COMPLETAS
+           Se registra cuántos elementos tenía la página antes de insertar
+           una unidad. Si la unidad hace superar la altura disponible y la
+           página ya tenía contenido, la unidad completa pasa a una nueva
+           página conservando la orientación actual.
+           Esto permite probar informes de varias páginas sin alterar el
+           contenido ni exigir un número fijo de páginas.
+           ========================================================= */
         const moverTablaMatrizPorFilas = (unidad, tabla) => {
             const encabezado = unidad.find(el => el.tagName === 'H2');
             const filas = Array.from(tabla.querySelectorAll(':scope > tbody > tr'));
@@ -12216,13 +12226,14 @@ ESTADO: EN DESARROLLO
                 return;
             }
 
+            const cantidadHijosAntes = paginaActual.cuerpo.children.length;
             const fragmento = document.createDocumentFragment();
             unidad.forEach(el => fragmento.appendChild(el));
             paginaActual.cuerpo.appendChild(fragmento);
 
             if (
                 alturaContenido() > alturaDisponible() &&
-                paginaActual.cuerpo.children.length > unidad.length
+                cantidadHijosAntes > 0
             ) {
                 unidad.forEach(el => paginaActual.cuerpo.removeChild(el));
                 paginaActual = crearPagina(paginaActual.pagina.dataset.orientacion || 'vertical');
