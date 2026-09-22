@@ -8710,6 +8710,41 @@ async function generarWord(ventana) {
             ) return;
 
             const clon = elemento.cloneNode(true);
+
+            /* OM-27.2-DOC · INTERVENCIÓN 3 — Normalización Word de Hallazgos.
+               Las columnas se fijan explícitamente y cada fotografía recibe
+               atributos físicos además del CSS para que Word respete 3,8 x 2,6 cm. */
+            if (clon.matches && clon.matches('.seccion-hallazgos-pdf')) {
+                const tablaHallazgosWord = clon.querySelector('.tabla-hallazgos');
+                if (tablaHallazgosWord) {
+                    tablaHallazgosWord.style.tableLayout = 'fixed';
+                    tablaHallazgosWord.style.width = '511pt';
+
+                    const colgroup = tablaHallazgosWord.querySelector('colgroup');
+                    if (colgroup) {
+                        colgroup.innerHTML = `
+                            <col class="col-hallazgo-word" style="width:170pt;">
+                            <col class="col-recomendacion-word" style="width:170pt;">
+                            <col class="col-fotografias-word" style="width:171pt;">
+                        `;
+                    }
+
+                    tablaHallazgosWord.querySelectorAll('img').forEach(img => {
+                        img.setAttribute('width', '108');
+                        img.setAttribute('height', '74');
+                        img.style.width = '108pt';
+                        img.style.height = '74pt';
+                        img.style.maxWidth = '108pt';
+                        img.style.maxHeight = '74pt';
+                        img.style.minWidth = '108pt';
+                        img.style.minHeight = '74pt';
+                        img.style.objectFit = 'contain';
+                        img.style.display = 'block';
+                        img.style.margin = '0 auto';
+                    });
+                }
+            }
+
             seccionActual.contenidos.push(clon);
         });
     });
@@ -8869,11 +8904,19 @@ async function generarWord(ventana) {
        las fotografías a 3,8 cm x 2,6 cm, sin deformación.
        No modifica datos, cálculos ni el motor PDF.
        ========================================================= */
+    /* OM-27.2-DOC · INTERVENCIÓN 3 — AJUSTE DE COMPOSICIÓN DE HALLAZGOS
+       Se fija la distribución de columnas en puntos para que Word no
+       sobredimensione la columna fotográfica. El objetivo es conservar
+       texto + acción + evidencia en una composición compacta y estable. */
     .tabla-hallazgos {
         table-layout: fixed;
         width: 100%;
         page-break-inside: auto;
     }
+
+    .tabla-hallazgos col.col-hallazgo-word { width: 170pt; }
+    .tabla-hallazgos col.col-recomendacion-word { width: 170pt; }
+    .tabla-hallazgos col.col-fotografias-word { width: 171pt; }
 
     .tabla-hallazgos thead {
         display: table-header-group;
@@ -9523,7 +9566,7 @@ function riesgosEnCelda(probabilidad, impacto) {
             }
 
             fotosHTML = `
-                <table class="tabla-fotos-hallazgo">
+                <table class="tabla-fotos-hallazgo" style="width:171pt; table-layout:fixed;">
                     <tbody>
                         ${filasFotos.join("")}
                     </tbody>
