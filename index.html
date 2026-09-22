@@ -11971,6 +11971,7 @@ ESTADO: EN DESARROLLO
 <script>
 /* =========================================================
    OM-27.1 · INFORME PAGINADO DINÁMICO — INTERVENCIÓN 1
+   OM-27.2 · INTERVENCIÓN 2 — CAMBIO CONTROLADO DE ORIENTACIÓN
    OBJETIVO: Presentar el informe como un documento paginado
    automáticamente según la cantidad real de contenido.
    Esta etapa interviene únicamente la PRESENTACIÓN DEL INFORME.
@@ -12093,7 +12094,7 @@ ESTADO: EN DESARROLLO
 
                 if (alturaContenido() > alturaDisponible()) {
                     clones.forEach(clon => bloque.tbody.removeChild(clon));
-                    paginaActual = crearPagina();
+                    paginaActual = crearPagina(paginaActual.pagina.dataset.orientacion || 'vertical');
                     bloque = crearTablaContinuacion(tabla);
                     paginaActual.cuerpo.appendChild(bloque.tabla);
                     clones.forEach(clon => bloque.tbody.appendChild(clon));
@@ -12101,7 +12102,40 @@ ESTADO: EN DESARROLLO
             });
         };
 
+        /* =========================================================
+           OM-27.2 · INTERVENCIÓN 2
+           CAMBIO CONTROLADO DE ORIENTACIÓN ENTRE UNIDADES
+           Una unidad puede solicitar orientación horizontal mediante
+           data-orientacion="horizontal" o class="orientacion-horizontal".
+           Si la orientación solicitada es diferente a la página actual,
+           se crea una nueva página antes de insertar el contenido.
+           En esta intervención no se asigna ninguna sección existente
+           a horizontal: solamente se incorpora el mecanismo.
+           ========================================================= */
+        const obtenerOrientacionUnidad = unidad => {
+            const elementoHorizontal = unidad.find(el =>
+                el.nodeType === 1 &&
+                (el.dataset.orientacion === 'horizontal' ||
+                 el.classList.contains('orientacion-horizontal'))
+            );
+            return elementoHorizontal ? 'horizontal' : 'vertical';
+        };
+
+        const asegurarOrientacion = orientacion => {
+            const actual = paginaActual.pagina.dataset.orientacion || 'vertical';
+            if (actual === orientacion) return;
+
+            // Regla: nunca mezclar orientaciones dentro de una misma página.
+            if (paginaActual.cuerpo.children.length) {
+                paginaActual = crearPagina(orientacion);
+            } else {
+                paginaActual.pagina.dataset.orientacion = orientacion;
+            }
+        };
+
         const moverUnidad = (unidad) => {
+            asegurarOrientacion(obtenerOrientacionUnidad(unidad));
+
             const tablaHallazgos = unidad.find(el =>
                 el.tagName === 'TABLE' && el.classList.contains('tabla-hallazgos')
             );
@@ -12120,7 +12154,7 @@ ESTADO: EN DESARROLLO
                 paginaActual.cuerpo.children.length > unidad.length
             ) {
                 unidad.forEach(el => paginaActual.cuerpo.removeChild(el));
-                paginaActual = crearPagina();
+                paginaActual = crearPagina(paginaActual.pagina.dataset.orientacion || 'vertical');
                 unidad.forEach(el => paginaActual.cuerpo.appendChild(el));
             }
         };
