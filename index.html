@@ -11794,7 +11794,7 @@ ESTADO: EN DESARROLLO
     </tbody>
 </table>
 
-<h2>
+<h2 class="orientacion-horizontal" data-orientacion="horizontal">
     Mapa de calor de riesgos
 </h2>
 
@@ -12126,6 +12126,8 @@ ESTADO: EN DESARROLLO
            La matriz se divide por filas cuando supera la altura disponible.
            Las páginas de continuación conservan la orientación horizontal.
            No se modifican datos ni cálculos de la matriz.
+           La sección "Mapa de calor de riesgos" también se marca como A4 horizontal,
+           manteniendo la continuidad visual del bloque de riesgos.
            ========================================================= */
         const moverTablaMatrizPorFilas = (unidad, tabla) => {
             const encabezado = unidad.find(el => el.tagName === 'H2');
