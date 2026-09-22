@@ -9047,7 +9047,7 @@ ${contenidoInformeHtml.replace(/<script[\s\S]*?<\x2Fscript>/gi, "")}
     }
 }
 
-function generarInforme(ventana) {
+function generarInforme() {
 
     const inspecciones =
         JSON.parse(localStorage.getItem("inspecciones")) || [];
@@ -9892,6 +9892,16 @@ matrizParaInforme.forEach((riesgo, indice) => {
     /* =========================
        DOCUMENTO
     ========================= */
+
+    const ventana = window.open("", "_blank");
+
+    if (!ventana) {
+        alert(
+            "El navegador bloqueó la ventana del informe. " +
+            "Permita las ventanas emergentes para este sitio."
+        );
+        return;
+    }
 
     ventana.document.write(`
 
