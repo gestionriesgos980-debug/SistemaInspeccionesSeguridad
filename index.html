@@ -367,185 +367,6 @@
     cursor: pointer;
     font-weight: bold;
 }
-
-
-/* =========================================================
-   OM-03 / OM-17 · INTERVENCIÓN MÓVIL UNIFICADA
-   Objetivo: todas las ventanas/modales deben comportarse
-   de forma consistente en celulares y tablets, sin alterar
-   la lógica de almacenamiento ni las funciones existentes.
-========================================================= */
-
-/* Regla común para ventanas modales existentes y dinámicas */
-.modal,
-[id^="modalEditor"],
-[id^="modalSelector"],
-[id^="ventanaBiblioteca"] {
-    box-sizing: border-box;
-}
-
-.modal-contenido {
-    box-sizing: border-box;
-    max-width: min(900px, 94vw);
-    max-height: calc(100vh - 40px);
-    overflow-y: auto;
-}
-
-/* Modales creados dinámicamente mediante style inline */
-[id^="modalEditor"] > div,
-[id^="modalSelector"] > div,
-[id^="ventanaBiblioteca"] > div {
-    box-sizing: border-box;
-    max-width: calc(100vw - 40px);
-    max-height: calc(100vh - 40px);
-    overflow-y: auto;
-}
-
-/* Evita que contenido largo fuerce el ancho de la ventana */
-.modal table,
-[id^="modalEditor"] table,
-[id^="modalSelector"] table,
-[id^="ventanaBiblioteca"] table {
-    max-width: 100%;
-}
-
-@media (max-width: 800px) {
-    /* Todas las ventanas principales pasan a una columna */
-    .modal-contenido {
-        width: calc(100vw - 20px) !important;
-        max-width: calc(100vw - 20px) !important;
-        margin: 10px auto !important;
-        padding: 18px !important;
-        border-radius: 10px;
-        max-height: calc(100vh - 20px);
-        overflow-y: auto;
-    }
-
-    .modal-cabecera,
-    .modal-encabezado {
-        gap: 10px;
-        flex-wrap: wrap;
-    }
-
-    .modal-cabecera h2,
-    .modal-encabezado h2 {
-        font-size: 20px;
-        line-height: 1.25;
-    }
-
-    .formulario {
-        grid-template-columns: 1fr !important;
-    }
-
-    .campo.completo {
-        grid-column: auto !important;
-    }
-
-    .botones,
-    .botones-modal {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .botones button,
-    .botones-modal button {
-        width: 100%;
-        min-height: 44px;
-    }
-
-    /* Hallazgos y matriz: mismo comportamiento que la ventana principal */
-    #ventanaHallazgos,
-    #ventanaMatrizRiesgos {
-        padding: 10px !important;
-    }
-
-    #ventanaHallazgos .modal-contenido,
-    #ventanaMatrizRiesgos .modal-contenido {
-        width: calc(100vw - 20px) !important;
-        max-width: calc(100vw - 20px) !important;
-        padding: 18px !important;
-        max-height: calc(100vh - 20px);
-        overflow-y: auto;
-    }
-
-    /* Ventanas dinámicas: ancho y alto uniformes */
-    [id^="modalEditor"],
-    [id^="modalSelector"],
-    [id^="ventanaBiblioteca"] {
-        padding: 10px !important;
-    }
-
-    [id^="modalEditor"] > div,
-    [id^="modalSelector"] > div,
-    [id^="ventanaBiblioteca"] > div {
-        width: calc(100vw - 20px) !important;
-        max-width: calc(100vw - 20px) !important;
-        max-height: calc(100vh - 20px) !important;
-        margin: 0 auto !important;
-        overflow-y: auto;
-        border-radius: 10px;
-    }
-
-    /* Formularios embebidos dentro de ventanas dinámicas */
-    [id^="modalEditor"] input,
-    [id^="modalEditor"] select,
-    [id^="modalEditor"] textarea,
-    [id^="modalSelector"] input,
-    [id^="modalSelector"] select,
-    [id^="modalSelector"] textarea,
-    [id^="ventanaBiblioteca"] input,
-    [id^="ventanaBiblioteca"] select,
-    [id^="ventanaBiblioteca"] textarea {
-        max-width: 100% !important;
-        box-sizing: border-box !important;
-    }
-
-    /* Tablas anchas: se desplazan dentro de la ventana, no rompen la pantalla */
-    [id^="modalEditor"] table,
-    [id^="modalSelector"] table,
-    [id^="ventanaBiblioteca"] table,
-    #ventanaHallazgos table,
-    #ventanaMatrizRiesgos table {
-        display: block;
-        width: 100%;
-        overflow-x: auto;
-    }
-}
-
-@media (max-width: 500px) {
-    .modal-contenido {
-        padding: 14px !important;
-    }
-
-    .seccion {
-        margin-bottom: 20px;
-    }
-
-    .seccion h3 {
-        font-size: 17px;
-    }
-
-    .campo input,
-    .campo select,
-    .campo textarea {
-        font-size: 16px;
-        min-height: 44px;
-    }
-
-    .campo textarea {
-        min-height: 110px;
-    }
-
-    #ventanaHallazgos input,
-    #ventanaHallazgos select,
-    #ventanaHallazgos textarea,
-    #ventanaMatrizRiesgos input,
-    #ventanaMatrizRiesgos select,
-    #ventanaMatrizRiesgos textarea {
-        font-size: 16px;
-    }
-}
-
 </style>
 </head>
 
@@ -693,7 +514,6 @@
                 <button type="button" id="btnChecklistOM22" class="boton-principal" onclick="abrirListaChequeo(indiceInspeccionEditando)" disabled>📋 Lista de chequeo</button>
                 <button type="button" id="btnMatrizOM22" class="boton-principal" onclick="abrirMatrizRiesgosClienteOM22Activo()" disabled>📊 Matriz de riesgos</button>
                 <button type="button" id="btnHallazgosOM22" class="boton-principal" onclick="abrirHallazgos(indiceInspeccionEditando)" disabled>⚠️ Hallazgos</button>
-                <button type="button" id="btnContinuarOM26" class="boton-principal" onclick="continuarInspeccionSeguridadOM26()" disabled style="background:#0f766e;">➡️ Continuar Inspección de Seguridad</button>
                 <button type="button" id="btnEditarOM22" class="boton-principal" onclick="editarInspeccion(indiceInspeccionEditando)" disabled>✏️ Editar</button>
                 <button type="button" id="btnEliminarOM22" class="boton-principal" onclick="eliminarInspeccion(indiceInspeccionEditando)" disabled style="background:#b91c1c;">🗑️ Eliminar</button>
             </div>
@@ -782,7 +602,7 @@
                         <select id="tipo">
     <option>Inspección preventiva de seguridad integral</option>
     <option>Inspección de seguimiento</option>
-    <option value="Inspección extraordinaria">Diagnóstico de seguridad</option>
+    <option>Inspección extraordinaria</option>
     <option>Reinspección</option>
 </select>
 </div>
@@ -1580,90 +1400,6 @@
     </button>
 
 </div>
-<script>
-/* =====================================================
-   OM-26.3-A — DENOMINACIÓN PROFESIONAL
-   Objetivo: mostrar "Diagnóstico de seguridad" al usuario
-   sin modificar el valor interno "Inspección extraordinaria",
-   preservando la compatibilidad con la lógica existente.
-===================================================== */
-function nombreTipoInspeccionVisible(tipo) {
-    return tipo === "Inspección extraordinaria"
-        ? "Diagnóstico de seguridad"
-        : (tipo || "—");
-}
-</script>
-
-<!-- =====================================================
-     OM-26 · INTERVENCIÓN 1 — INSPECCIÓN EXTRAORDINARIA
-     Objetivo: registrar el análisis inicial del evento sin
-     alterar la estructura de la inspección normal.
-     La información quedará almacenada para posteriormente
-     crear una Inspección de Seguridad completa vinculada.
-====================================================== -->
-<div class="seccion" id="seccionOM26Extraordinaria" style="display:none;">
-
-    <h3>OM-26 · Diagnóstico de Seguridad</h3>
-
-    <div style="padding:12px;margin-bottom:15px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;">
-        <strong>Registro inicial del evento</strong>
-        <p style="margin:6px 0 0;color:#475569;">
-            Esta información permanecerá asociada al Diagnóstico de Seguridad y podrá utilizarse posteriormente como base para completar una Inspección de Seguridad.
-        </p>
-    </div>
-
-    <div class="formulario">
-        <div class="campo">
-            <label>Riesgo identificado *</label>
-            <textarea id="om26RiesgoIdentificado" rows="3" required placeholder="Describa detalladamente el riesgo identificado"></textarea>
-        </div>
-
-        <div class="campo">
-            <label>Nivel de riesgo</label>
-            <select id="om26NivelRiesgo">
-                <option value="">Seleccione...</option>
-                <option value="Bajo">Bajo</option>
-                <option value="Medio">Medio</option>
-                <option value="Alto">Alto</option>
-                <option value="Crítico">Crítico</option>
-            </select>
-            <div id="om26IndicadorRiesgo" style="margin-top:8px;padding:8px;border-radius:6px;text-align:center;font-weight:700;background:#f1f5f9;color:#475569;">Sin calificar</div>
-        </div>
-
-        <div class="campo completo">
-            <label>Observaciones / análisis del evento</label>
-            <textarea id="om26Observaciones" rows="5" placeholder="Registre el análisis, condiciones encontradas, antecedentes relevantes y observaciones del evento."></textarea>
-        </div>
-    </div>
-
-    <!-- =====================================================
-         OM-26 · INTERVENCIÓN 2 — HISTÓRICO Y HALLAZGOS
-         Objetivo: concentrar en el Diagnóstico de Seguridad
-         el acceso a los antecedentes y hallazgos ya asociados
-         a la inspección, sin duplicar el almacenamiento existente.
-         ===================================================== -->
-    <div style="margin-top:16px;padding:14px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;">
-        <div style="font-weight:700;color:#123b5d;margin-bottom:6px;">Histórico y hallazgos del evento</div>
-        <div id="om26ResumenHistoricoHallazgos" style="color:#475569;margin-bottom:10px;">
-            Histórico: 0 registros · Hallazgos: 0
-        </div>
-        <div style="font-size:13px;color:#64748b;margin-bottom:10px;">
-            El histórico de incidentes corresponde a la sección de antecedentes de esta inspección. Los hallazgos se almacenan vinculados a la inspección para conservar su trazabilidad y podrán reutilizarse posteriormente en la Inspección de Seguridad.
-        </div>
-        <button
-            type="button"
-            id="btnHallazgosOM26"
-            class="boton-principal"
-            onclick="abrirHallazgosDesdeOM26()"
-            disabled
-        >
-            ⚠️ Registrar / editar hallazgos
-        </button>
-        <span id="om26EstadoHallazgos" style="margin-left:10px;font-size:13px;color:#64748b;">Guardar la inspección para habilitar los hallazgos.</span>
-    </div>
-
-</div>
-
             <div class="botones">
 
                 <button type="button"
@@ -1861,12 +1597,6 @@ function nombreTipoInspeccionVisible(tipo) {
 <script>
 
     const modal = document.getElementById("modalInspeccion");
-
-// OM-26 · INTERVENCIÓN 1 — Inicializar visibilidad del bloque extraordinario.
-actualizarVisibilidadOM26();
-actualizarIndicadorRiesgoOM26();
-actualizarResumenOM26HistoricoHallazgos(null);
-
 function agregarIncidente() {
     const cuerpo = document.getElementById("cuerpoIncidentes");
 
@@ -2049,125 +1779,11 @@ function agregarServicioSeguridad(tipo) {
         formulario.dataset.codigoClienteOM17 = cliente.codigo || "";
     }
 
-    // OM-26 · INTERVENCIÓN 1 — Control visual del flujo extraordinario.
-    function actualizarVisibilidadOM26() {
-        const tipo = document.getElementById("tipo")?.value || "";
-        const seccion = document.getElementById("seccionOM26Extraordinaria");
-        if (seccion) {
-            seccion.style.display = tipo === "Inspección extraordinaria" ? "block" : "none";
-        }
-    }
-
-    function actualizarIndicadorRiesgoOM26() {
-        const nivel = document.getElementById("om26NivelRiesgo")?.value || "";
-        const indicador = document.getElementById("om26IndicadorRiesgo");
-        if (!indicador) return;
-
-        const estilos = {
-            "Bajo": ["#dcfce7", "#166534"],
-            "Medio": ["#fef9c3", "#854d0e"],
-            "Alto": ["#ffedd5", "#9a3412"],
-            "Crítico": ["#fee2e2", "#991b1b"]
-        };
-
-        if (!estilos[nivel]) {
-            indicador.textContent = "Sin calificar";
-            indicador.style.background = "#f1f5f9";
-            indicador.style.color = "#475569";
-            return;
-        }
-
-        indicador.textContent = "● " + nivel.toUpperCase();
-        indicador.style.background = estilos[nivel][0];
-        indicador.style.color = estilos[nivel][1];
-    }
-
-    // OM-26 · INTERVENCIÓN 2 — Resumen de histórico y hallazgos vinculados.
-    function actualizarResumenOM26HistoricoHallazgos(indice) {
-        const resumen = document.getElementById("om26ResumenHistoricoHallazgos");
-        const boton = document.getElementById("btnHallazgosOM26");
-        const estado = document.getElementById("om26EstadoHallazgos");
-
-        const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
-        const hallazgos = JSON.parse(localStorage.getItem("hallazgos")) || [];
-        const numeroIndice = (indice !== null && indice !== undefined && indice !== "")
-            ? Number(indice)
-            : null;
-
-        const inspeccion = Number.isInteger(numeroIndice)
-            ? inspecciones[numeroIndice]
-            : null;
-
-        const cantidadHistorico = inspeccion
-            ? (inspeccion.historicoIncidentes || []).filter(item =>
-                item && (item.riesgo || item.incidente || item.consecuencias)
-            ).length
-            : 0;
-
-        const cantidadHallazgos = Number.isInteger(numeroIndice)
-            ? hallazgos.filter(item => Number(item?.inspeccion) === numeroIndice).length
-            : 0;
-
-        if (resumen) {
-            resumen.textContent =
-                `Histórico: ${cantidadHistorico} registro(s) · Hallazgos: ${cantidadHallazgos}`;
-        }
-
-        const disponible = !!inspeccion;
-
-        if (boton) {
-            boton.disabled = !disponible;
-        }
-
-        if (estado) {
-            estado.textContent = disponible
-                ? "Inspección guardada · puede registrar o editar hallazgos."
-                : "Guardar la inspección para habilitar los hallazgos.";
-            estado.style.color = disponible ? "#15803d" : "#64748b";
-        }
-    }
-
-    function abrirHallazgosDesdeOM26() {
-        const indice = indiceInspeccionEditando;
-        const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
-        const inspeccion = (indice !== null && indice !== undefined && indice !== "")
-            ? inspecciones[Number(indice)]
-            : null;
-
-        if (!inspeccion) {
-            alert("Primero debe guardar el Diagnóstico de Seguridad para registrar sus hallazgos.");
-            return;
-        }
-
-        abrirHallazgos(Number(indice));
-        actualizarResumenOM26HistoricoHallazgos(Number(indice));
-    }
-
-    document.getElementById("tipo")?.addEventListener("change", actualizarVisibilidadOM26);
-    document.getElementById("om26NivelRiesgo")?.addEventListener("change", actualizarIndicadorRiesgoOM26);
-
-    // OM-26 · INTERVENCIÓN 1 — Limpiar el bloque extraordinario al iniciar una nueva inspección.
-    function limpiarDatosOM26() {
-        const riesgo = document.getElementById("om26RiesgoIdentificado");
-        const nivel = document.getElementById("om26NivelRiesgo");
-        const observaciones = document.getElementById("om26Observaciones");
-        if (riesgo) riesgo.value = "";
-        if (nivel) nivel.value = "";
-        if (observaciones) observaciones.value = "";
-        actualizarIndicadorRiesgoOM26();
-        actualizarVisibilidadOM26();
-    }
-
     function abrirNuevaInspeccion() {
         document.getElementById("formInspeccion").removeAttribute("data-editando");
         document.getElementById("formInspeccion").removeAttribute("data-id-cliente-om17");
         document.getElementById("formInspeccion").removeAttribute("data-codigo-cliente-om17");
-        document.getElementById("formInspeccion").removeAttribute("data-om26-origen-extraordinaria");
-        document.getElementById("formInspeccion").removeAttribute("data-om26-id-origen-extraordinaria");
-        document.getElementById("formInspeccion").removeAttribute("data-om26-imagen-google-maps-origen");
-        document.getElementById("formInspeccion").removeAttribute("data-om26-imagen-google-earth-origen");
         indiceInspeccionEditando = null;
-        limpiarDatosOM26();
         actualizarPanelModularInspeccionOM22(null);
         prepararSelectorClienteOM17();
         const selector = document.getElementById("clienteDirectorioOM17");
@@ -2718,28 +2334,6 @@ function cerrarDashboard() {
     .addEventListener("submit", async function(event) {
 
             event.preventDefault();
-
-            // OM-26.1-A — Validación mínima del análisis extraordinario.
-            // Evita guardar una inspección extraordinaria sin riesgo identificado
-            // o sin una calificación explícita, sin afectar otros tipos de inspección.
-            const tipoInspeccionOM26 = document.getElementById("tipo")?.value || "";
-            if (tipoInspeccionOM26 === "Inspección extraordinaria") {
-                const riesgoOM26 = document.getElementById("om26RiesgoIdentificado")?.value.trim() || "";
-                const nivelOM26 = document.getElementById("om26NivelRiesgo")?.value || "";
-
-                if (!riesgoOM26) {
-                    alert("Para un Diagnóstico de Seguridad debe registrar el riesgo identificado.");
-                    document.getElementById("om26RiesgoIdentificado")?.focus();
-                    return;
-                }
-
-                if (!nivelOM26) {
-                    alert("Para un Diagnóstico de Seguridad debe seleccionar el nivel de riesgo.");
-                    document.getElementById("om26NivelRiesgo")?.focus();
-                    return;
-                }
-            }
-
             /* =========================
                ID ÚNICO DE INSPECCIÓN
             ========================= */
@@ -2902,13 +2496,11 @@ const imagenGoogleEarthNueva =
 const imagenGoogleMapsFinal =
     imagenGoogleMapsNueva ||
     inspeccionAnteriorImagenes?.imagenGoogleMaps ||
-    document.getElementById("formInspeccion")?.dataset.om26ImagenGoogleMapsOrigen ||
     "";
 
 const imagenGoogleEarthFinal =
     imagenGoogleEarthNueva ||
     inspeccionAnteriorImagenes?.imagenGoogleEarth ||
-    document.getElementById("formInspeccion")?.dataset.om26ImagenGoogleEarthOrigen ||
     "";
 
 
@@ -3023,27 +2615,6 @@ inspeccion.historicoIncidentes = Array.from(
 inspeccion.sinIncidentes =
     document.getElementById("sinIncidentes")?.checked || false;
 
-// OM-26 · INTERVENCIÓN 1 — Datos exclusivos de Inspección Extraordinaria.
-// Se guardan dentro de la misma inspección para conservar trazabilidad y
-// permitir que posteriormente sirvan como base de una Inspección de Seguridad.
-inspeccion.om26 = {
-    riesgoIdentificado: document.getElementById("om26RiesgoIdentificado")?.value || "",
-    nivelRiesgo: document.getElementById("om26NivelRiesgo")?.value || "",
-    observaciones: document.getElementById("om26Observaciones")?.value || ""
-};
-
-// OM-26.3 — Trazabilidad de continuidad. Solo se registra cuando
-// la inspección fue creada a partir de una Inspección Extraordinaria.
-const origenExtraordinariaParaGuardar = formulario.dataset.om26OrigenExtraordinaria;
-if (origenExtraordinariaParaGuardar !== undefined && origenExtraordinariaParaGuardar !== "") {
-    const indiceOrigen = Number(origenExtraordinariaParaGuardar);
-    const inspeccionesOrigen = JSON.parse(localStorage.getItem("inspecciones")) || [];
-    const inspeccionOrigen = inspeccionesOrigen[indiceOrigen];
-    inspeccion.origenInspeccionExtraordinaria = inspeccionOrigen?.idControl || formulario.dataset.om26IdOrigenExtraordinaria || "";
-    inspeccion.indiceOrigenInspeccionExtraordinaria = indiceOrigen;
-    inspeccion.continuacionOM26 = true;
-}
-
 
         inspeccion.seguridadActual = Array.from(
     document.querySelectorAll("#cuerpoSeguridadActual tr")
@@ -3118,30 +2689,6 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
                 JSON.stringify(inspecciones)
             );
 
-            // OM-26.3 — Si esta inspección nació de una Extraordinaria,
-            // copiar sus hallazgos como base de trabajo para la nueva inspección.
-            // La Extraordinaria original y sus hallazgos permanecen intactos.
-            const origenExtraordinariaOM26 = formulario.dataset.om26OrigenExtraordinaria;
-            const esNuevaInspeccionOM26 = indiceEdicion === undefined || indiceEdicion === "";
-            if (esNuevaInspeccionOM26 && origenExtraordinariaOM26 !== undefined && origenExtraordinariaOM26 !== "") {
-                const indiceOrigenOM26 = Number(origenExtraordinariaOM26);
-                const indiceDestinoOM26 = inspecciones.length - 1;
-                const hallazgosActualesOM26 = JSON.parse(localStorage.getItem("hallazgos")) || [];
-                const hallazgosOrigenOM26 = hallazgosActualesOM26.filter(item => Number(item?.inspeccion) === indiceOrigenOM26);
-                const copiasHallazgosOM26 = hallazgosOrigenOM26.map(item => ({
-                    ...item,
-                    inspeccion: indiceDestinoOM26,
-                    origenInspeccionExtraordinaria: inspecciones[indiceOrigenOM26]?.idControl || "",
-                    idOrigenHallazgoExtraordinario: item.id || item.idHallazgo || ""
-                }));
-                if (copiasHallazgosOM26.length) {
-                    localStorage.setItem(
-                        "hallazgos",
-                        JSON.stringify(hallazgosActualesOM26.concat(copiasHallazgosOM26))
-                    );
-                }
-            }
-
             // CAMBIO TIMESTAMP ETAPA 1 — Registrar creación o modificación de la inspección
             // después de guardar correctamente, sin alterar la estructura existente de inspecciones.
             registrarEventoTrazabilidad({
@@ -3165,7 +2712,6 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
                 : inspecciones.length - 1;
             indiceInspeccionEditando = indiceGuardadoOM22;
             actualizarPanelModularInspeccionOM22(indiceGuardadoOM22);
-            actualizarResumenOM26HistoricoHallazgos(indiceGuardadoOM22);
 
             document.getElementById("mensaje").style.display = "block";
 
@@ -3174,10 +2720,6 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
                 document.getElementById("mensaje").style.display = "none";
 
                 document.getElementById("formInspeccion").reset();
-                document.getElementById("formInspeccion").removeAttribute("data-om26-origen-extraordinaria");
-                document.getElementById("formInspeccion").removeAttribute("data-om26-id-origen-extraordinaria");
-                document.getElementById("formInspeccion").removeAttribute("data-om26-imagen-google-maps-origen");
-                document.getElementById("formInspeccion").removeAttribute("data-om26-imagen-google-earth-origen");
 
                 cerrarNuevaInspeccion();
                 actualizarPanelModularInspeccionOM22(null);
@@ -4451,7 +3993,7 @@ function mostrarInspeccionesClienteOM16(indiceCliente) {
                                 <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">${escaparClienteOM16(inspeccion.idControl || `INS-${String(item.indiceOriginal + 1).padStart(4, "0")}`)}</td>
                                 <td style="padding:8px;border:1px solid #ddd;">${escaparClienteOM16(inspeccion.fecha || "—")}</td>
                                 <td style="padding:8px;border:1px solid #ddd;">${escaparClienteOM16(inspeccion.inspector || "—")}</td>
-                                <td style="padding:8px;border:1px solid #ddd;">${escaparClienteOM16(nombreTipoInspeccionVisible(inspeccion.tipo))}</td>
+                                <td style="padding:8px;border:1px solid #ddd;">${escaparClienteOM16(inspeccion.tipo || "—")}</td>
                                 <td style="padding:8px;border:1px solid #ddd;text-align:center;">${escaparClienteOM16(estado.texto || "—")}</td>
                                 <td style="padding:8px;border:1px solid #ddd;text-align:center;white-space:nowrap;">
                                     <button type="button" onclick="editarInspeccion(${item.indiceOriginal})" style="margin:2px;padding:7px 10px;border:0;border-radius:6px;background:#e5e7eb;cursor:pointer;">✏️ Editar</button>
@@ -5449,7 +4991,7 @@ ${caracteristicasInstalacionHTML}
                         <strong>Tipo de inspección</strong>
                     </td>
                     <td style="padding:8px;border:1px solid #999;">
-                        ${nombreTipoInspeccionVisible(inspeccion.tipo)}
+                        ${inspeccion.tipo || ""}
                     </td>
                 </tr>
 
@@ -5530,7 +5072,6 @@ function actualizarPanelModularInspeccionOM22(indice) {
         "btnChecklistOM22",
         "btnMatrizOM22",
         "btnHallazgosOM22",
-        "btnContinuarOM26",
         "btnEditarOM22",
         "btnEliminarOM22"
     ];
@@ -5560,16 +5101,6 @@ function actualizarPanelModularInspeccionOM22(indice) {
         if (boton) boton.disabled = !disponible;
     });
 
-    const btnContinuar = document.getElementById("btnContinuarOM26");
-    if (btnContinuar) {
-        const esExtraordinaria = disponible && inspeccion.tipo === "Inspección extraordinaria";
-        btnContinuar.disabled = !esExtraordinaria;
-        btnContinuar.style.display = esExtraordinaria ? "inline-block" : "none";
-        btnContinuar.title = esExtraordinaria
-            ? "Crear una nueva Inspección de Seguridad utilizando este Diagnóstico de Seguridad como base"
-            : "Disponible únicamente para Diagnósticos de Seguridad";
-    }
-
     const btnEditar = document.getElementById("btnEditarOM22");
     if (btnEditar) {
         btnEditar.disabled = !disponible || !!document.getElementById("formInspeccion")?.dataset.editando;
@@ -5594,135 +5125,6 @@ function abrirMatrizRiesgosClienteOM22Activo() {
     }
 
     abrirMatrizRiesgosCliente(inspeccion.cliente || "");
-}
-
-/* =====================================================
-   OM-26.3 — CONTINUIDAD DE LA INSPECCIÓN
-   Objetivo: utilizar un Diagnóstico de Seguridad guardado
-   como base para una nueva Inspección de Seguridad, sin
-   modificar ni reemplazar el registro original.
-===================================================== */
-function continuarInspeccionSeguridadOM26() {
-    const indiceOrigen = indiceInspeccionEditando;
-    const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
-    const origen = Number.isInteger(Number(indiceOrigen)) ? inspecciones[Number(indiceOrigen)] : null;
-
-    if (!origen) {
-        alert("No se encontró el Diagnóstico de Seguridad seleccionado.");
-        return;
-    }
-
-    if (origen.tipo !== "Inspección extraordinaria") {
-        alert("La continuidad hacia una Inspección de Seguridad solo está disponible para un Diagnóstico de Seguridad.");
-        return;
-    }
-
-    const confirmar = confirm(
-        "Se creará una NUEVA Inspección de Seguridad utilizando como base la información de este Diagnóstico de Seguridad.\n\n" +
-        "El Diagnóstico de Seguridad original permanecerá intacto.\n\n" +
-        "¿Desea continuar?"
-    );
-
-    if (!confirmar) return;
-
-    abrirNuevaInspeccion();
-
-    const formulario = document.getElementById("formInspeccion");
-    formulario.dataset.om26OrigenExtraordinaria = String(indiceOrigen);
-    formulario.dataset.om26IdOrigenExtraordinaria = origen.idControl || "";
-
-    const campos = {
-        cliente: "cliente", nit: "nit", direccion: "direccion", ciudad: "ciudad",
-        contacto: "contacto", telefono: "telefono", correo: "correo", fecha: "fecha",
-        inspector: "inspector", director: "director", sectorInspeccion: "sectorInspeccion",
-        objetivo: "objetivo", latitud: "latitud", longitud: "longitud", entorno: "entorno",
-        tipoInstalacion: "tipoInstalacion", cantidadTorres: "cantidadTorres",
-        cantidadNiveles: "cantidadNiveles", cantidadSotanos: "cantidadSotanos",
-        cantidadViviendas: "cantidadViviendas", parqueaderosPrivados: "parqueaderosPrivados",
-        parqueaderosVisitantes: "parqueaderosVisitantes", parqueaderosMotos: "parqueaderosMotos",
-        parqueaderosComunes: "parqueaderosComunes", bicicleteros: "bicicleteros",
-        tipoCCTV: "tipoCCTV", cantidadCamaras: "cantidadCamaras",
-        cantidadEquiposGrabacionCCTV: "cantidadEquiposGrabacionCCTV",
-        observacionesCCTV: "observacionesCCTV", videoAnalitica: "videoAnalitica",
-        ubicacionRack: "ubicacionRack", diasAlmacenamiento: "diasAlmacenamiento",
-        upsCCTV: "upsCCTV", manejoContrasenasCCTV: "manejoContrasenasCCTV",
-        tipoInstalacionIndustrial: "tipoInstalacionIndustrial",
-        actividadPrincipalIndustrial: "actividadPrincipalIndustrial",
-        cantidadBodegas: "cantidadBodegas", areaIndustrial: "areaIndustrial",
-        numeroLotesParcelacion: "numeroLotesParcelacion",
-        viviendasConstruidasParcelacion: "viviendasConstruidasParcelacion",
-        viviendasConstruccionParcelacion: "viviendasConstruccionParcelacion",
-        tipoEstablecimientoComercial: "tipoEstablecimientoComercial",
-        actividadComercial: "actividadComercial", areaComercial: "areaComercial",
-        numeroLocalesComercial: "numeroLocalesComercial", nivelesComercial: "nivelesComercial",
-        parqueaderosComercial: "parqueaderosComercial", otraInformacionComercial: "otraInformacionComercial"
-    };
-
-    Object.entries(campos).forEach(([prop, id]) => {
-        const elemento = document.getElementById(id);
-        if (elemento && origen[prop] !== undefined && origen[prop] !== null) {
-            elemento.value = origen[prop];
-        }
-    });
-
-    // La nueva inspección será una Inspección de Seguridad, no una copia editable del evento original.
-    const tipo = document.getElementById("tipo");
-    if (tipo) tipo.value = "Inspección preventiva de seguridad integral";
-
-    // Heredar antecedentes y análisis del evento.
-    const riesgo = document.getElementById("om26RiesgoIdentificado");
-    const nivel = document.getElementById("om26NivelRiesgo");
-    const observaciones = document.getElementById("om26Observaciones");
-    if (riesgo) riesgo.value = origen.om26?.riesgoIdentificado || "";
-    if (nivel) nivel.value = origen.om26?.nivelRiesgo || "";
-    if (observaciones) observaciones.value = origen.om26?.observaciones || "";
-
-    // Conservar antecedentes del histórico como base de trabajo.
-    const cuerpo = document.getElementById("cuerpoIncidentes");
-    if (cuerpo) {
-        cuerpo.innerHTML = "";
-        const historico = Array.isArray(origen.historicoIncidentes) ? origen.historicoIncidentes : [];
-        if (historico.length) {
-            historico.forEach(incidente => {
-                agregarIncidente();
-                const filas = cuerpo.querySelectorAll("tr");
-                const fila = filas[filas.length - 1];
-                if (!fila) return;
-                fila.querySelector(".riesgo-incidente").value = incidente.riesgo || "";
-                fila.querySelector(".detalle-incidente").value = incidente.incidente || "";
-                fila.querySelector(".consecuencia-incidente").value = incidente.consecuencias || "";
-            });
-        } else {
-            agregarIncidente();
-        }
-    }
-
-    const sinIncidentes = document.getElementById("sinIncidentes");
-    if (sinIncidentes) sinIncidentes.checked = !!origen.sinIncidentes;
-
-    // Guardar referencias de las imágenes para que una nueva inspección no las pierda.
-    formulario.dataset.om26ImagenGoogleMapsOrigen = origen.imagenGoogleMaps || "";
-    formulario.dataset.om26ImagenGoogleEarthOrigen = origen.imagenGoogleEarth || "";
-
-    [
-        ["vistaPreviaGoogleMaps", origen.imagenGoogleMaps],
-        ["vistaPreviaGoogleEarth", origen.imagenGoogleEarth]
-    ].forEach(([id, src]) => {
-        const vista = document.getElementById(id);
-        if (!vista) return;
-        vista.src = src || "";
-        vista.style.display = src ? "block" : "none";
-    });
-
-    actualizarVisibilidadOM26();
-    actualizarIndicadorRiesgoOM26();
-
-    // En una continuación, los datos del evento se conservan como antecedente.
-    const estado = document.getElementById("estadoInspeccionOM22");
-    if (estado) {
-        estado.textContent = "Nueva inspección basada en " + (origen.idControl || "Diagnóstico de Seguridad");
-        estado.style.color = "#0f766e";
-    }
 }
 
 function editarInspeccion(indice) {
@@ -5867,17 +5269,6 @@ document.getElementById("bicicleteros").value =
 
     document.getElementById("tipo").value =
         inspeccion.tipo || "";
-
-    // OM-26 · INTERVENCIÓN 1 — Recuperar datos del análisis extraordinario.
-    document.getElementById("om26RiesgoIdentificado").value =
-        inspeccion.om26?.riesgoIdentificado || "";
-    document.getElementById("om26NivelRiesgo").value =
-        inspeccion.om26?.nivelRiesgo || "";
-    document.getElementById("om26Observaciones").value =
-        inspeccion.om26?.observaciones || "";
-    actualizarIndicadorRiesgoOM26();
-    actualizarVisibilidadOM26();
-    actualizarResumenOM26HistoricoHallazgos(indice);
 
     
    document.getElementById("sectorInspeccion").value =
@@ -9325,21 +8716,6 @@ console.log("INSPECCIÓN SELECCIONADA:", inspecciones[indiceSeleccionado]);
 const inspeccion =
     inspecciones[indiceSeleccionado];
 
-// =====================================================
-// OM-26.3-A — DENOMINACIÓN PROFESIONAL
-// Objetivo: mostrar "INFORME DE DIAGNÓSTICO DE SEGURIDAD"
-// para el flujo de diagnóstico, conservando el título
-// corporativo actual para los demás tipos de inspección.
-// =====================================================
-const esDiagnosticoSeguridadOM26 =
-    inspeccion.tipo === "Inspección extraordinaria";
-
-const tituloInformeOM26 = esDiagnosticoSeguridadOM26
-    ? `INFORME DE DIAGNÓSTICO DE<br>
-       <span class="titulo-seguridad-integral" style="font-size:18px;">SEGURIDAD</span>`
-    : `INFORME PREVENTIVO DE<br>
-       <span class="titulo-seguridad-integral" style="font-size:18px;">SEGURIDAD INTEGRAL</span>`;
-
     // =====================================================
 // FUNCIÓN: CARGAR MATRIZ DE RIESGOS DEL CLIENTE EN INFORME
 // OBJETIVO: Permitir que el informe consulte la matriz
@@ -10212,6 +9588,29 @@ matrizParaInforme.forEach((riesgo, indice) => {
                     box-shadow:0 2px 14px rgba(0,0,0,.16);
                     overflow:hidden;
                     flex:0 0 auto;
+                }
+
+                /* =====================================================
+                   OM-27.2 · INTERVENCIÓN 1
+                   INFRAESTRUCTURA DE ORIENTACIÓN POR PÁGINA
+                  
+                   La página vertical continúa siendo el comportamiento
+                   actual. Se incorpora únicamente la geometría horizontal
+                   para permitir que una sección futura pueda solicitar
+                   orientación horizontal sin modificar todavía el contenido.
+                   NO se cambia la generación del PDF en esta intervención.
+                   ===================================================== */
+                .pagina-informe[data-orientacion="horizontal"] {
+                    width:297mm;
+                    min-height:210mm;
+                }
+
+                .pagina-informe[data-orientacion="horizontal"] .cuerpo-pagina-informe {
+                    width:267mm;
+                }
+
+                .pagina-informe[data-orientacion="horizontal"] .encabezado-pagina {
+                    width:267mm;
                 }
 
                 .cuerpo-pagina-informe {
@@ -11135,7 +10534,8 @@ matrizParaInforme.forEach((riesgo, indice) => {
     line-height:1.35;
     color:#123b5d;
 ">
-   ${tituloInformeOM26}
+   INFORME PREVENTIVO DE<br>
+<span class="titulo-seguridad-integral" style="font-size:18px;">SEGURIDAD INTEGRAL</span>
 </td>
 
             <td style="
@@ -12616,9 +12016,16 @@ ESTADO: EN DESARROLLO
 
         if (unidadActual.length) unidades.push(unidadActual);
 
-        const crearPagina = () => {
+        /* =========================================================
+           OM-27.2 · INTERVENCIÓN 1
+           INFRAESTRUCTURA DE ORIENTACIÓN POR PÁGINA
+           La orientación vertical sigue siendo el valor por defecto.
+           En esta intervención todavía no se asignan secciones horizontales.
+           ========================================================= */
+        const crearPagina = (orientacion = 'vertical') => {
             const pagina = document.createElement('section');
             pagina.className = 'pagina-informe';
+            pagina.dataset.orientacion = orientacion;
 
             const encabezado = encabezadoOriginal.cloneNode(true);
             encabezado.classList.add('encabezado-pagina');
