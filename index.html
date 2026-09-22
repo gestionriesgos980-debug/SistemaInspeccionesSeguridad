@@ -8810,13 +8810,13 @@ async function generarWord(ventana) {
 }
 
 /* =========================================================
-   TECCHNEX · OM-27.3 · INTERVENCIÓN 5
+   TECCHNEX · OM-27.3 · INTERVENCIÓN 7
    FUNCIÓN: generarExcelTecchnex
    OBJETIVO: Primera integración controlada entre la aplicación
    y la plantilla maestra Excel. La aplicación alimenta únicamente
    campos identificados; no modifica la plantilla maestra en origen.
    PRINCIPIO: MEJORAR SIN ROMPER.
-   ESTADO: PRUEBA DE INTEGRACIÓN
+   ESTADO: CORRECCIÓN CELDAS AUTOCERRADAS
    ========================================================= */
 async function generarExcelTecchnex(ventana) {
     try {
@@ -8857,16 +8857,34 @@ async function generarExcelTecchnex(ventana) {
 
         function ponerCelda(ref, valor) {
             const texto = escaparXml(valor);
-            const patron = new RegExp(`<c([^>]*\\br="${ref}"[^>]*)>([\\s\\S]*?)<\\/c>`);
-            const encontrado = xml.match(patron);
+
+            // OM-27.3 · INTERVENCIÓN 7: la plantilla contiene celdas normales
+            // y celdas auto-cerradas (<c .../>). El patrón anterior podía
+            // interpretar una celda auto-cerrada como si fuera una celda de
+            // apertura y consumir todas las celdas siguientes hasta encontrar
+            // </c>; eso eliminaba Y11 después de procesar P11.
+            const patronCompleto = new RegExp(`<c([^>]*\br="${ref}"[^>]*)>([\s\S]*?)<\/c>`);
+            const patronVacio = new RegExp(`<c([^>]*\br="${ref}"[^>]*)\/>`);
+            const candidatoCompleto = xml.match(patronCompleto);
+            // Si el supuesto "atributo" termina en /, en realidad el primer
+            // <c .../> era auto-cerrado y NO debe consumirse hasta otro </c>.
+            const encontradoCompleto = candidatoCompleto && !/\/\s*$/.test(candidatoCompleto[1])
+                ? candidatoCompleto
+                : null;
+            const encontradoVacio = xml.match(patronVacio);
+            const encontrado = encontradoCompleto || encontradoVacio;
+
             if (!encontrado) throw new Error(`No se encontró la celda ${ref} en la plantilla.`);
 
             let atributos = encontrado[1]
                 .replace(/\s+t="[^"]*"/g, "")
+                .replace(/\/\s*$/, "")
                 .trim();
 
             const contenido = `<c${atributos} t="inlineStr"><is><t xml:space="preserve">${texto}</t></is></c>`;
-            xml = xml.replace(patron, contenido);
+            xml = encontradoCompleto
+                ? xml.replace(patronCompleto, contenido)
+                : xml.replace(patronVacio, contenido);
         }
 
         // Mapa mínimo de integración validado en OM-27.3.
