@@ -8653,6 +8653,287 @@ function generarPDF(ventana) {
         .save();
 }
 
+
+/* =========================================================
+   OM-27.2-DOC · PROTOTIPO 1 — DOCUMENTO EDITABLE WORD
+   OBJETIVO: Generar una copia editable del informe como documento
+   compatible con Microsoft Word (.doc), dejando que Word administre
+   la paginación y los saltos de sección.
+   No modifica datos, cálculos ni la generación PDF existente.
+   ========================================================= */
+async function generarWord(ventana) {
+    if (!ventana || ventana.closed) {
+        alert("No se encontró la ventana del informe.");
+        return;
+    }
+
+    const documentoInforme = ventana.document;
+    const paginas = Array.from(
+        documentoInforme.querySelectorAll(".pagina-informe")
+    );
+
+    if (!paginas.length) {
+        alert("No se encontró el contenido paginado del informe.");
+        return;
+    }
+
+    const encabezado = paginas[0].querySelector(".encabezado-pagina");
+    const encabezadoHTML = encabezado ? encabezado.cloneNode(true) : null;
+
+    // Construimos el documento a partir del contenido real de las páginas,
+    // no de sus dimensiones A4 simuladas. Word podrá volver a paginarlo.
+    const secciones = [];
+    let seccionActual = null;
+
+    paginas.forEach(pagina => {
+        const orientacion =
+            pagina.dataset.orientacion === "horizontal"
+                ? "horizontal"
+                : "vertical";
+
+        if (!seccionActual || seccionActual.orientacion !== orientacion) {
+            seccionActual = {
+                orientacion,
+                contenidos: []
+            };
+            secciones.push(seccionActual);
+        }
+
+        const cuerpo = pagina.querySelector(".cuerpo-pagina-informe");
+        if (!cuerpo) return;
+
+        Array.from(cuerpo.children).forEach(elemento => {
+            if (
+                elemento.classList.contains("salto-pagina-pdf") ||
+                elemento.classList.contains("botones") ||
+                elemento.classList.contains("pie")
+            ) return;
+
+            const clon = elemento.cloneNode(true);
+            seccionActual.contenidos.push(clon);
+        });
+    });
+
+    const inlinearImagenes = async raiz => {
+        const imagenes = Array.from(raiz.querySelectorAll("img"));
+
+        await Promise.all(imagenes.map(async img => {
+            const src = img.getAttribute("src");
+            if (!src || src.startsWith("data:")) return;
+
+            try {
+                const url = new URL(src, documentoInforme.baseURI).href;
+                const respuesta = await fetch(url);
+                if (!respuesta.ok) return;
+
+                const blob = await respuesta.blob();
+                const lector = new FileReader();
+
+                await new Promise(resolve => {
+                    lector.onload = () => {
+                        img.setAttribute("src", lector.result);
+                        resolve();
+                    };
+                    lector.onerror = resolve;
+                    lector.readAsDataURL(blob);
+                });
+            } catch (error) {
+                console.warn("No fue posible incrustar imagen:", src, error);
+            }
+        }));
+    };
+
+    if (encabezadoHTML) {
+        await inlinearImagenes(encabezadoHTML);
+    }
+
+    for (const seccion of secciones) {
+        const contenedorTemporal = documentoInforme.createElement("div");
+        seccion.contenidos.forEach(elemento =>
+            contenedorTemporal.appendChild(elemento)
+        );
+        await inlinearImagenes(contenedorTemporal);
+        seccion.html = contenedorTemporal.innerHTML;
+    }
+
+    const encabezadoFinal = encabezadoHTML
+        ? encabezadoHTML.outerHTML
+        : "";
+
+    const bloquesSeccion = secciones.map((seccion, indice) => {
+        const clase =
+            seccion.orientacion === "horizontal"
+                ? `SectionHorizontal${indice + 1}`
+                : `SectionVertical${indice + 1}`;
+
+        const salto = indice === 0
+            ? ""
+            : "<br clear=all style='page-break-before:always; mso-break-type:section-break'>";
+
+        return `${salto}<div class="${clase}">${seccion.html}</div>`;
+    }).join("\n");
+
+    const htmlWord = `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="ProgId" content="Word.Document">
+<meta name="Generator" content="TECCHNEX - Sistema de Inspecciones de Seguridad">
+<title>Informe de Inspección de Seguridad</title>
+<style>
+    @page SectionBase {
+        size: 595.3pt 841.9pt;
+        margin: 36pt 42pt 42pt 42pt;
+        mso-header-margin: 20pt;
+        mso-footer-margin: 24pt;
+        mso-paper-source: 0;
+    }
+
+    @page SectionVertical1, @page SectionVertical2, @page SectionVertical3,
+    @page SectionVertical4, @page SectionVertical5, @page SectionVertical6,
+    @page SectionVertical7, @page SectionVertical8 {
+        size: 595.3pt 841.9pt;
+        margin: 36pt 42pt 42pt 42pt;
+        mso-header-margin: 20pt;
+        mso-footer-margin: 24pt;
+        mso-paper-source: 0;
+    }
+
+    @page SectionHorizontal1, @page SectionHorizontal2, @page SectionHorizontal3,
+    @page SectionHorizontal4, @page SectionHorizontal5, @page SectionHorizontal6,
+    @page SectionHorizontal7, @page SectionHorizontal8 {
+        size: 841.9pt 595.3pt;
+        mso-page-orientation: landscape;
+        margin: 36pt 42pt 42pt 42pt;
+        mso-header-margin: 20pt;
+        mso-footer-margin: 24pt;
+        mso-paper-source: 0;
+    }
+
+    div.SectionVertical1 { page: SectionVertical1; }
+    div.SectionVertical2 { page: SectionVertical2; }
+    div.SectionVertical3 { page: SectionVertical3; }
+    div.SectionVertical4 { page: SectionVertical4; }
+    div.SectionVertical5 { page: SectionVertical5; }
+    div.SectionVertical6 { page: SectionVertical6; }
+    div.SectionVertical7 { page: SectionVertical7; }
+    div.SectionVertical8 { page: SectionVertical8; }
+
+    div.SectionHorizontal1 { page: SectionHorizontal1; }
+    div.SectionHorizontal2 { page: SectionHorizontal2; }
+    div.SectionHorizontal3 { page: SectionHorizontal3; }
+    div.SectionHorizontal4 { page: SectionHorizontal4; }
+    div.SectionHorizontal5 { page: SectionHorizontal5; }
+    div.SectionHorizontal6 { page: SectionHorizontal6; }
+    div.SectionHorizontal7 { page: SectionHorizontal7; }
+    div.SectionHorizontal8 { page: SectionHorizontal8; }
+
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 9pt;
+        color: #111;
+    }
+
+    table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+    th, td {
+        border: 1px solid #777;
+        padding: 4pt;
+        vertical-align: middle;
+    }
+
+    th {
+        background: #123b5d;
+        color: #fff;
+        font-weight: bold;
+    }
+
+    h2, h3 {
+        color: #123b5d;
+        page-break-after: avoid;
+    }
+
+    img {
+        max-width: 100%;
+    }
+
+    .tabla-hallazgos tr,
+    .fila-hallazgo {
+        page-break-inside: avoid;
+    }
+
+    .encabezado-word {
+        margin-bottom: 12pt;
+    }
+
+    .mso-footer {
+        text-align: center;
+        font-size: 8pt;
+        color: #666;
+    }
+</style>
+<!--[if gte mso 9]>
+<xml>
+<w:WordDocument>
+    <w:View>Print</w:View>
+    <w:Zoom>90</w:Zoom>
+    <w:DoNotOptimizeForBrowser/>
+</w:WordDocument>
+</xml>
+<![endif]-->
+</head>
+<body>
+
+<div class="encabezado-word">
+${encabezadoFinal}
+</div>
+
+${bloquesSeccion}
+
+<div style="mso-element:footer" id="f1">
+    <p class="mso-footer">
+        Informe generado por el Sistema de Inspecciones de Seguridad &nbsp;|&nbsp;
+        Página <span style="mso-field-code:' PAGE '"></span>
+        de <span style="mso-field-code:' NUMPAGES '"></span>
+    </p>
+</div>
+
+</body>
+</html>`;
+
+    const inspecciones =
+        JSON.parse(localStorage.getItem("inspecciones")) || [];
+    const indiceGuardado =
+        localStorage.getItem("indiceInspeccionSeleccionadaInforme");
+    const indice = indiceGuardado !== null
+        ? Number(indiceGuardado)
+        : inspecciones.length - 1;
+    const inspeccion = inspecciones[indice] || {};
+
+    const identificador = String(
+        inspeccion.idControl ||
+        inspeccion.numeroInspeccion ||
+        indice + 1
+    ).replace(/[^a-zA-Z0-9_-]/g, "_");
+
+    const blob = new Blob([htmlWord], {
+        type: "application/msword;charset=utf-8"
+    });
+
+    const enlace = document.createElement("a");
+    enlace.href = URL.createObjectURL(blob);
+    enlace.download = `Informe_Inspeccion_${identificador}.doc`;
+    document.body.appendChild(enlace);
+    enlace.click();
+    enlace.remove();
+    setTimeout(() => URL.revokeObjectURL(enlace.href), 1000);
+}
+
 function generarInforme(ventana) {
 
     const inspecciones =
@@ -11956,6 +12237,10 @@ ESTADO: EN DESARROLLO
 -->
                 <div class="pie">
 
+                <button onclick="window.opener.generarWord(window)" style="margin-right:8px;">
+    📝 Generar documento editable
+</button>
+
                 <button onclick="window.opener.generarPDF(window)">
     📄 Generar PDF
 </button>
@@ -12148,6 +12433,11 @@ ESTADO: EN DESARROLLO
            Esto permite probar informes de varias páginas sin alterar el
            contenido ni exigir un número fijo de páginas.
            ========================================================= */
+        /* =========================================================
+           OM-27.2 · INTERVENCIÓN 8
+           La tabla detallada del checklist se pagina por filas cuando su
+           contenido supera el alto útil de la página.
+           ========================================================= */
         const moverTablaMatrizPorFilas = (unidad, tabla) => {
             const encabezado = unidad.find(el => el.tagName === 'H2');
             const filas = Array.from(tabla.querySelectorAll(':scope > tbody > tr'));
@@ -12219,6 +12509,8 @@ ESTADO: EN DESARROLLO
                 }
             });
 
+            // Los elementos posteriores a la tabla continúan desde la última
+            // página utilizada por el checklist, sin alterar su contenido.
             unidad.slice(indiceTabla + 1).forEach(el => {
                 const clon = el.cloneNode(true);
                 const cantidadAntes = paginaActual.cuerpo.children.length;
@@ -12311,32 +12603,6 @@ ESTADO: EN DESARROLLO
         };
 
         unidades.forEach(moverUnidad);
-
-        /* =========================================================
-           OM-27.2 · INTERVENCIÓN 9
-           ELIMINACIÓN CONTROLADA DE PÁGINAS VACÍAS
-           Una página creada por la lógica de paginación nunca debe
-           quedar únicamente con el encabezado corporativo. Si el cuerpo
-           no contiene contenido real, se elimina antes de numerar las
-           páginas. Esto evita páginas en blanco o páginas que muestran
-           solo el encabezado y consumen una página del informe.
-           No se modifica ningún contenido de las páginas que sí tienen
-           información.
-           ========================================================= */
-        Array.from(contenedor.querySelectorAll('.pagina-informe')).forEach(pagina => {
-            const cuerpo = pagina.querySelector('.cuerpo-pagina-informe');
-            if (!cuerpo) return;
-
-            const tieneContenidoReal = Array.from(cuerpo.children).some(el => {
-                if (el.classList.contains('controles-informe-paginado')) return true;
-                return el.textContent.trim() !== '' ||
-                    el.querySelector('img, table, canvas, svg') !== null;
-            });
-
-            if (!tieneContenidoReal) {
-                pagina.remove();
-            }
-        });
 
         // El bloque de controles se conserva al final del informe.
         const controles = document.createElement('div');
