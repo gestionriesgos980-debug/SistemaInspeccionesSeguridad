@@ -8679,182 +8679,230 @@ function generarWord(ventana) {
         return;
     }
 
-    const documentoInforme = ventana.document;
-    const fuenteDatos = ventana.__tecchnexInformeFuenteWord
-        ? ventana.__tecchnexInformeFuenteWord.cloneNode(true)
-        : documentoInforme.querySelector('.hoja')?.cloneNode(true);
-
-    if (!fuenteDatos) {
-        alert("No se encontró la fuente de datos del informe para generar el documento editable.");
-        return;
-    }
-
     try {
         /* =========================================================
-           OM-27.2-DOC · INTERVENCIÓN 11
-           CORRECCIÓN: generarWord() no puede depender de escapar(),
-           porque la función existente pertenece al ámbito interno de
-           generarInforme(). Se define aquí un escape local para evitar
-           el ReferenceError que impedía descargar el documento.
-           ========================================================= */
-        const escaparWord = valor => String(valor ?? "")
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
+           OM-27.2-DOC · INTERVENCIÓN 13
+           PLANTILLA MAESTRA REAL — INTEGRACIÓN POR BLOQUES
 
-        /* =========================================================
-           OM-27.2-DOC · INTERVENCIÓN 10
-           FUENTE MAESTRA EMBEBIDA
-           La plantilla original se incorpora al código para que la
-           generación no dependa de un fetch posterior al clic del usuario.
-           Esto evita que el navegador bloquee la descarga del .doc por
-           haberse perdido la activación del botón durante una espera.
+           Regla principal:
+           - La plantilla original NO se reconstruye.
+           - Se conserva su estructura, estilos, encabezado, pie,
+             tablas y secciones.
+           - La información variable de la inspección se inserta
+             dentro de los recipientes existentes del maestro.
+           - NO se reemplaza la SectionVertical1 completa.
+           - Se eliminan solamente los tres bloques de servicio
+             residuales que estaban fuera del contenido principal.
            ========================================================= */
+
+        const documentoInforme = ventana.document;
+        const fuenteDatos = ventana.__tecchnexInformeFuenteWord
+            ? ventana.__tecchnexInformeFuenteWord.cloneNode(true)
+            : documentoInforme.querySelector('.hoja')?.cloneNode(true);
+
+        if (!fuenteDatos) {
+            throw new Error("No se encontró la fuente de datos del informe.");
+        }
+
         const htmlPlantilla = atob(PLANTILLA_MAESTRA_DOC_BASE64);
         const parser = new DOMParser();
         const plantilla = parser.parseFromString(htmlPlantilla, "text/html");
+        if (!plantilla.body) throw new Error("La plantilla maestra no contiene un body válido.");
 
-        if (!plantilla.body) {
-            throw new Error("La plantilla maestra no contiene un cuerpo HTML válido.");
-        }
+        const normalizar = valor => String(valor ?? "").replace(/\s+/g, " ").trim();
+        const escapar = valor => String(valor ?? "")
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
 
-        /* =========================================================
-           1. ENCABEZADO MAESTRO
-           Conservamos la estructura original y actualizamos únicamente
-           los datos variables de la inspección actual.
-           ========================================================= */
-        const encabezadoPlantilla = plantilla.querySelector(".encabezado-word");
-        const encabezadoDatos = fuenteDatos.querySelector(":scope > .encabezado");
-
-        if (encabezadoPlantilla && encabezadoDatos) {
-            const tablasPlantilla = encabezadoPlantilla.querySelectorAll("table");
-            const tablasDatos = encabezadoDatos.querySelectorAll("table");
-
-            if (tablasPlantilla[0] && tablasDatos[0]) {
-                const celdasP = tablasPlantilla[0].querySelectorAll("tr td, tr th");
-                const celdasD = tablasDatos[0].querySelectorAll("tr td, tr th");
-
-                if (celdasP[2] && celdasD[2]) {
-                    const fecha = celdasD[2].textContent
-                        .replace(/\s+/g, " ")
-                        .trim()
-                        .match(/Fecha:\s*(.*)$/i);
-                    celdasP[2].innerHTML =
-                        `<strong>PSOF004</strong><br>Versión No. 003<br>Fecha: ${escaparWord(fecha ? fecha[1] : "")}`;
-                }
-
-                const clienteDatos = Array.from(celdasD).find(td =>
-                    /ID DE INSPECCIÓN/i.test(td.textContent || "")
-                );
-                const clientePlantilla = Array.from(celdasP).find(td =>
-                    /ID DE INSPECCIÓN/i.test(td.textContent || "")
-                );
-
-                if (clienteDatos && clientePlantilla) {
-                    const texto = clienteDatos.textContent.replace(/\s+/g, " ").trim();
-                    const coincidencia = texto.match(/^(.*?)\s*ID DE INSPECCIÓN:\s*(.*)$/i);
-                    const cliente = coincidencia ? coincidencia[1].trim() : texto;
-                    const id = coincidencia ? coincidencia[2].trim() : "SIN ID";
-                    clientePlantilla.innerHTML =
-                        `${escaparWord(cliente)}<br><strong>ID DE INSPECCIÓN: ${escaparWord(id)}</strong>`;
-                }
+        const tablas = raiz => Array.from(raiz.querySelectorAll('table'));
+        const buscarTabla = (raiz, texto) => {
+            const objetivo = normalizar(texto).toUpperCase();
+            return tablas(raiz).find(t => normalizar(t.textContent).toUpperCase().includes(objetivo));
+        };
+        const buscarTablaCabecera = (raiz, texto) => {
+            const objetivo = normalizar(texto).toUpperCase();
+            return tablas(raiz).find(t =>
+                Array.from(t.querySelectorAll('th')).some(th => normalizar(th.textContent).toUpperCase().includes(objetivo))
+            );
+        };
+        const copiarTbody = (destino, origen) => {
+            if (!destino || !origen) return false;
+            const tbodyOrigen = origen.querySelector('tbody');
+            if (!tbodyOrigen) return false;
+            let tbodyDestino = destino.querySelector('tbody');
+            if (!tbodyDestino) {
+                tbodyDestino = document.createElement('tbody');
+                destino.appendChild(tbodyDestino);
             }
-
-            if (tablasPlantilla[1] && tablasDatos[1]) {
-                const p = tablasPlantilla[1].querySelectorAll("td, th");
-                const d = tablasDatos[1].querySelectorAll("td, th");
-                if (p[1] && d[1]) p[1].textContent = d[1].textContent.trim();
-                if (p[3] && d[3]) p[3].textContent = d[3].textContent.trim();
-            }
-        }
-
-        /* =========================================================
-           2. CONTENIDO: EL DOCUMENTO ORIGINAL ES EL RECIPIENTE
-           No usamos las páginas creadas por el paginador HTML.
-           Tampoco creamos nuevas páginas artificiales.
-           Word recibe el contenido continuo y administra la paginación.
-           ========================================================= */
-        const seccionOriginal = plantilla.querySelector(".SectionVertical1");
-        if (!seccionOriginal) {
-            throw new Error("La plantilla maestra no contiene SectionVertical1.");
-        }
-
-        const quitarSaltosArtificiales = raiz => {
-            raiz.querySelectorAll(".salto-pagina-pdf, .paginacion-informe, .controles-informe-paginado, .botones").forEach(el => el.remove());
-
-            raiz.querySelectorAll("[style]").forEach(el => {
-                const estilo = el.getAttribute("style") || "";
-                const limpio = estilo
-                    .replace(/(?:^|;)\s*page-break-(?:before|after)\s*:[^;]+;?/gi, "")
-                    .replace(/(?:^|;)\s*break-(?:before|after)\s*:[^;]+;?/gi, "");
-                if (limpio.trim()) el.setAttribute("style", limpio);
-                else el.removeAttribute("style");
-            });
+            tbodyDestino.innerHTML = tbodyOrigen.innerHTML;
+            return true;
+        };
+        const copiarCuerpoTabla = (destino, origen) => {
+            if (!destino || !origen) return false;
+            destino.innerHTML = origen.innerHTML;
+            return true;
         };
 
-        const extraerContenidoContinuo = raiz => {
-            const resultado = [];
-            const recorrer = nodo => {
-                Array.from(nodo.children || []).forEach(el => {
-                    if (el.classList.contains("encabezado") ||
-                        el.classList.contains("encabezado-pagina") ||
-                        el.classList.contains("botones") ||
-                        el.classList.contains("pie") ||
-                        el.classList.contains("pie-informe-paginado") ||
-                        el.classList.contains("controles-informe-paginado") ||
-                        el.classList.contains("paginacion-informe") ||
-                        el.classList.contains("salto-pagina-pdf")) return;
-
-                    if (el.classList.contains("pagina-informe")) {
-                        recorrer(el);
-                    } else {
-                        resultado.push(el.cloneNode(true));
+        /* =========================================================
+           1. ENCABEZADO — se conserva el diseño del maestro.
+           ========================================================= */
+        const hp = plantilla.querySelector('.encabezado-word');
+        const hs = fuenteDatos.querySelector(':scope > .encabezado');
+        if (hp && hs) {
+            const tp = hp.querySelector('table');
+            const ts = hs.querySelector('table');
+            if (tp && ts) {
+                const rp = tp.querySelectorAll('tr');
+                const rs = ts.querySelectorAll('tr');
+                if (rp[0] && rs[0]) {
+                    const cp = rp[0].querySelectorAll('td,th');
+                    const cs = rs[0].querySelectorAll('td,th');
+                    if (cp[2] && cs[2]) {
+                        const fecha = normalizar(cs[2].textContent).match(/Fecha:\s*(.*)$/i);
+                        cp[2].innerHTML = `<strong>PSOF004</strong><br>Versión No. 003<br>Fecha: ${escapar(fecha ? fecha[1] : '')}`;
                     }
-                });
-            };
-            recorrer(raiz);
-            return resultado;
-        };
+                }
+                if (rp[2] && rs[2]) {
+                    const cp = rp[2].querySelector('td,th');
+                    const cs = rs[2].querySelector('td,th');
+                    if (cp && cs) {
+                        const txt = normalizar(cs.textContent);
+                        const m = txt.match(/^(.*?)ID DE INSPECCIÓN:\s*(.*)$/i);
+                        cp.innerHTML = `${escapar(m ? m[1].trim() : txt)}<br><strong>ID DE INSPECCIÓN: ${escapar(m ? m[2].trim() : '')}</strong>`;
+                    }
+                }
+            }
+            const tp2 = hp.querySelectorAll('table')[1];
+            const ts2 = hs.querySelectorAll('table')[1];
+            if (tp2 && ts2) {
+                const cp = tp2.querySelectorAll('td,th');
+                const cs = ts2.querySelectorAll('td,th');
+                if (cp[1] && cs[1]) cp[1].textContent = normalizar(cs[1].textContent);
+                if (cp[3] && cs[3]) cp[3].textContent = normalizar(cs[3].textContent);
+            }
+        }
 
-        const contenidos = extraerContenidoContinuo(fuenteDatos);
-        seccionOriginal.innerHTML = "";
+        /* =========================================================
+           2. RECIPIENTE PRINCIPAL — NO SE BORRA.
+           ========================================================= */
+        const sec = plantilla.querySelector(':scope > body > .SectionVertical1') || plantilla.querySelector('.SectionVertical1');
+        if (!sec) throw new Error("No se encontró SectionVertical1 en la plantilla maestra.");
+        const maestro = sec.querySelector(':scope > .bloque-pdf');
+        if (!maestro) throw new Error("No se encontró el bloque principal del maestro.");
 
-        contenidos.forEach(elemento => {
-            quitarSaltosArtificiales(elemento);
-            seccionOriginal.appendChild(elemento);
+        /* 2.1 Georreferenciación */
+        const tg = buscarTabla(maestro, 'GOOGLE MAPS');
+        const sg = buscarTabla(fuenteDatos, 'GOOGLE MAPS');
+        if (tg && sg) copiarCuerpoTabla(tg, sg);
+
+        const tc = buscarTabla(maestro, 'LATITUD');
+        const sc = buscarTabla(fuenteDatos, 'LATITUD');
+        if (tc && sc) copiarCuerpoTabla(tc, sc);
+
+        /* 2.2 Herramientas de seguridad: se copian solo los cuerpos,
+              conservando títulos y cabeceras del maestro. */
+        const maestroActual = Array.from(maestro.querySelectorAll('h4'));
+        const fuenteActual = Array.from(fuenteDatos.querySelectorAll('h4'));
+        maestroActual.forEach(h4 => {
+            const titulo = normalizar(h4.textContent).toUpperCase();
+            if (!titulo.includes('DISPOSITIVO DE SEGURIDAD')) return;
+            const origenH4 = fuenteActual.find(x => normalizar(x.textContent).toUpperCase() === titulo);
+            const destinoTabla = h4.nextElementSibling?.tagName === 'TABLE' ? h4.nextElementSibling : null;
+            const origenTabla = origenH4?.nextElementSibling?.tagName === 'TABLE' ? origenH4.nextElementSibling : null;
+            if (destinoTabla && origenTabla) copiarTbody(destinoTabla, origenTabla);
         });
 
         /* =========================================================
-           3. LIMPIEZA FINAL
-           Los controles de la ventana de informe nunca forman parte del
-           documento editable. El pie original de la plantilla se conserva.
+           3. TABLAS DINÁMICAS — mantienen el recipiente visual del maestro.
            ========================================================= */
-        plantilla.querySelectorAll(".botones, .controles-informe-paginado, button, .paginacion-informe").forEach(el => el.remove());
+        const pares = [
+            ['ITEMS EVALUADOS', 'ITEMS EVALUADOS'],
+            ['Área de evaluación', 'Área de evaluación'],
+            ['PERFIL', 'PERFIL'],
+            ['Puntuación', 'Puntuación'],
+            ['MAPA DE CALOR DE RIESGOS', 'MAPA DE CALOR DE RIESGOS'],
+            ['HALLAZGOS', 'HALLAZGOS']
+        ];
 
-        const htmlWord = "<!DOCTYPE html>\n" + plantilla.documentElement.outerHTML;
-        const textoIdentificador = fuenteDatos.textContent.match(/ID DE INSPECCIÓN:\s*([A-Z0-9_-]+)/i);
-        const identificador = (textoIdentificador?.[1] || "inspeccion")
-            .replace(/[^a-zA-Z0-9_-]/g, "_");
+        pares.forEach(([claveMaestro, claveFuente]) => {
+            const destino = buscarTablaCabecera(maestro, claveMaestro) || buscarTabla(maestro, claveMaestro);
+            const origen = buscarTablaCabecera(fuenteDatos, claveFuente) || buscarTabla(fuenteDatos, claveFuente);
+            if (!destino || !origen) return;
 
-        const blob = new Blob([htmlWord], {
-            type: "application/msword;charset=utf-8"
+            if (claveMaestro === 'MAPA DE CALOR DE RIESGOS') {
+                // El mapa es una tabla completa, sin tbody convencional.
+                copiarCuerpoTabla(destino, origen);
+            } else {
+                copiarTbody(destino, origen);
+            }
         });
 
-        const enlace = document.createElement("a");
+        /* =========================================================
+           4. RESULTADO GENERAL — actualiza solo el porcentaje,
+              conservando la caja y el estilo del maestro.
+           ========================================================= */
+        const resultadoMaestro = maestro.querySelector('.resultado');
+        const resultadoFuente = fuenteDatos.querySelector('.resultado');
+        if (resultadoMaestro && resultadoFuente) {
+            const porcentajeFuente = normalizar(resultadoFuente.textContent).match(/RESULTADO GENERAL DE LA LISTA DE CHEQUEO\s*(\d+(?:\.\d+)?%)/i);
+            const valor = porcentajeFuente ? porcentajeFuente[1] : null;
+            if (valor) {
+                const candidatos = Array.from(resultadoMaestro.querySelectorAll('*')).filter(el =>
+                    el.children.length === 0 && /^\d+(?:\.\d+)?%$/.test(normalizar(el.textContent))
+                );
+                if (candidatos[0]) candidatos[0].textContent = valor;
+            }
+        }
+
+        /* =========================================================
+           5. FIRMAS — conserva la presentación original.
+           ========================================================= */
+        const firmasFuente = fuenteDatos.querySelector('.firmas');
+        const firmasMaestro = plantilla.querySelector('.firmas');
+        if (firmasFuente && firmasMaestro) {
+            const sf = firmasFuente.querySelectorAll('.firma');
+            const sm = firmasMaestro.querySelectorAll('.firma');
+            sf.forEach((f, i) => {
+                if (sm[i]) {
+                    const br = sm[i].querySelector('br');
+                    const nombre = normalizar(f.textContent).replace(/^(Realizado por:|Responsable del cliente:)\s*/i, '');
+                    if (br) {
+                        br.nextSibling && (br.nextSibling.textContent = nombre);
+                    } else {
+                        sm[i].innerHTML = f.innerHTML;
+                    }
+                }
+            });
+        }
+
+        /* =========================================================
+           6. LIMPIEZA DE RESIDUOS
+           Se eliminan únicamente controles y las tres tablas de servicio
+           que estaban FUERA del bloque principal y generaban páginas extra.
+           ========================================================= */
+        sec.querySelectorAll(':scope > table.tabla-checklist-detallado').forEach(t => t.remove());
+        sec.querySelectorAll(':scope > .controles-informe-paginado, :scope > .botones').forEach(el => el.remove());
+        plantilla.querySelectorAll('button, .controles-informe-paginado, .paginacion-informe').forEach(el => el.remove());
+        plantilla.querySelectorAll('script').forEach(el => el.remove());
+
+        const htmlWord = '<!DOCTYPE html>\n' + plantilla.documentElement.outerHTML;
+        const idMatch = normalizar(fuenteDatos.textContent).match(/ID DE INSPECCIÓN:\s*([A-Z0-9_-]+)/i);
+        const identificador = (idMatch?.[1] || 'inspeccion').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const blob = new Blob([htmlWord], {type:'application/msword;charset=utf-8'});
+        const enlace = document.createElement('a');
         enlace.href = URL.createObjectURL(blob);
         enlace.download = `Informe_Inspeccion_${identificador}.doc`;
-        enlace.style.display = "none";
+        enlace.style.display = 'none';
         document.body.appendChild(enlace);
         enlace.click();
+        const urlBlob = enlace.href;
         enlace.remove();
-
-        setTimeout(() => URL.revokeObjectURL(enlace.href), 5000);
+        setTimeout(() => URL.revokeObjectURL(urlBlob), 5000);
 
     } catch (error) {
-        console.error("OM-27.2-DOC · INTERVENCIÓN 11:", error);
-        alert("No fue posible generar el documento editable usando la plantilla maestra. Revise la consola del navegador para el detalle técnico.");
+        console.error('OM-27.2-DOC · INTERVENCIÓN 13:', error);
+        alert('No fue posible generar el documento editable. Revise la consola del navegador para el detalle técnico.');
     }
 }
 
