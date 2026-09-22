@@ -8828,18 +8828,24 @@ ESTADO: INTEGRACIÓN APROBADA — MEMBRETE COTRASER
 ========================================================
 */
 async function generarWordPlantillaMaestra() {
+    /* =========================================================
+       TECCHNEX — CAM-PLANTILLA-09 / BASE CAM-06
+       GENERACIÓN WORD COMPLETA SIN VENTANA EMERGENTE
+       ---------------------------------------------------------
+       PRINCIPIO: reutilizar generarInforme() como fuente única
+       del contenido. No se modifican sus cálculos ni su
+       almacenamiento. Se utiliza un documento capturador en
+       memoria para recoger el HTML que ya genera la aplicación.
+       ========================================================= */
 
-    const indiceGuardado =
-        localStorage.getItem("indiceInspeccionSeleccionadaInforme");
-
+    const indiceGuardado = localStorage.getItem("indiceInspeccionSeleccionadaInforme");
     if (indiceGuardado === null) {
         alert("Seleccione una inspección antes de generar el Word con la plantilla maestra.");
         return;
     }
 
     const indice = Number(indiceGuardado);
-    const inspecciones =
-        JSON.parse(localStorage.getItem("inspecciones")) || [];
+    const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
     const inspeccion = inspecciones[indice];
 
     if (!inspeccion) {
@@ -8855,8 +8861,88 @@ async function generarWordPlantillaMaestra() {
     const plantillaUrl = "./PLANTILLA_MAESTRA_INFORME_TECCHNEX.docx";
 
     try {
-        const respuesta = await fetch(plantillaUrl, { cache: "no-store" });
+        /*
+         * PUNTO CLAVE:
+         * generarInforme() ya contiene toda la lógica comprobada del informe.
+         * No abrimos una ventana del navegador. Le entregamos un objeto mínimo
+         * que solamente implementa document.write/document.close y captura el
+         * HTML producido. Así evitamos el bloqueo de pop-ups y no duplicamos
+         * la lógica de checklist, matriz, hallazgos, fotos ni cálculos.
+         */
+        let informeHtmlCapturado = "";
+        const ventanaCaptura = {
+            closed: false,
+            document: {
+                write(html) {
+                    informeHtmlCapturado += String(html || "");
+                },
+                close() {}
+            }
+        };
 
+        const resultadoInforme = generarInforme(ventanaCaptura);
+        if (resultadoInforme && typeof resultadoInforme.then === "function") {
+            await resultadoInforme;
+        }
+
+        if (!informeHtmlCapturado.trim()) {
+            throw new Error("No fue posible capturar el informe completo generado por la aplicación.");
+        }
+
+        /*
+         * Extraemos exclusivamente el cuerpo del informe.
+         * Se elimina el encabezado HTML del informe antiguo porque la plantilla
+         * maestra ya conserva su propio encabezado corporativo.
+         */
+        const parser = new DOMParser();
+        const informeDoc = parser.parseFromString(informeHtmlCapturado, "text/html");
+        const hoja = informeDoc.querySelector(".hoja");
+
+        if (!hoja) {
+            throw new Error("El informe generado no contiene la estructura .hoja esperada.");
+        }
+
+        const encabezado = hoja.querySelector(":scope > .encabezado");
+        if (encabezado) encabezado.remove();
+
+        hoja.querySelectorAll(".botones, .controles-informe-paginado, .pie, .paginacion-informe").forEach(el => el.remove());
+
+        /*
+         * Conservamos los estilos originales del informe para que las tablas,
+         * títulos y fotografías mantengan su presentación al ser importados
+         * por Word.
+         */
+        const estilos = Array.from(informeDoc.querySelectorAll("head style"))
+            .map(style => style.outerHTML)
+            .join("\n");
+
+        let contenidoHtml = hoja.innerHTML;
+
+        /*
+         * Las fotografías del informe se almacenan como data:image/...;
+         * Convertimos cada una en un recurso real dentro de word/media y
+         * sustituimos el src por una ruta relativa desde word/document.xml.
+         * Esto evita depender de data-URI dentro del importador HTML de Word.
+         */
+        const imagenes = Array.from(hoja.querySelectorAll("img"));
+        const imagenesParaWord = [];
+
+        imagenes.forEach((img, i) => {
+            const src = img.getAttribute("src") || "";
+            const match = src.match(/^data:(image\/(?:png|jpeg|jpg|gif|webp));base64,([A-Za-z0-9+/=]+)$/i);
+            if (!match) return;
+
+            const mime = match[1].toLowerCase();
+            const extension = mime.includes("png") ? "png" : (mime.includes("gif") ? "gif" : (mime.includes("webp") ? "webp" : "jpg"));
+            const nombre = `tecchnex-informe-${i + 1}.${extension}`;
+            imagenesParaWord.push({ nombre, base64: match[2], mime });
+            img.setAttribute("src", `media/${nombre}`);
+        });
+
+        /* El DOM actualizado contiene las rutas relativas nuevas. */
+        contenidoHtml = hoja.innerHTML;
+
+        const respuesta = await fetch(plantillaUrl, { cache: "no-store" });
         if (!respuesta.ok) {
             throw new Error("No se pudo localizar la plantilla maestra Word.");
         }
@@ -8867,7 +8953,6 @@ async function generarWordPlantillaMaestra() {
         const fecha = inspeccion.fecha
             ? inspeccion.fecha.split("-").reverse().join("/")
             : "";
-
         const cliente = inspeccion.cliente || "";
         const puesto = inspeccion.nombrePuesto || "";
         const realizadoPor = inspeccion.inspector || "";
@@ -8888,211 +8973,85 @@ async function generarWordPlantillaMaestra() {
             "{{REVISADO_POR}}": escaparXml(revisadoPor)
         };
 
-        // CAM-PLANTILLA-05: primera alimentación de la Hoja Maestra.
-        // Se utiliza exclusivamente información general ya almacenada en la inspección.
-        const filasGenerales = [
-            ["ID de inspección", inspeccion.idControl],
-            ["Cliente", inspeccion.cliente],
-            ["NIT", inspeccion.nit],
-            ["Dirección", inspeccion.direccion],
-            ["Ciudad / Municipio", inspeccion.ciudad],
-            ["Persona de contacto", inspeccion.contacto],
-            ["Teléfono", inspeccion.telefono],
-            ["Correo electrónico", inspeccion.correo],
-            ["Fecha de inspección", fecha],
-            ["Inspector", inspeccion.inspector],
-            ["Revisado por", revisadoPor],
-            ["Tipo de inspección", inspeccion.tipo],
-            ["Sector de inspección", inspeccion.sectorInspeccion],
-            ["Objetivo", inspeccion.objetivo],
-            ["Latitud", inspeccion.latitud],
-            ["Longitud", inspeccion.longitud],
-            ["Entorno", inspeccion.entorno]
-        ].filter(fila => fila[1] !== undefined && fila[1] !== null && String(fila[1]).trim() !== "");
-
-        const esc = escaparXml;
-
-        // CAM-PLANTILLA-07: segunda alimentación de la Hoja Maestra.
-        // Primera prueba controlada: incorporar las fotografías de los hallazgos
-        // que ya están almacenadas en la inspección seleccionada.
-        // No se modifica el almacenamiento ni la lógica existente de fotografías.
-        const fotosInforme = [];
-        hallazgosDeInspeccionParaWord: {
-            const hallazgosGuardados = JSON.parse(localStorage.getItem("hallazgos")) || [];
-            hallazgosGuardados
-                .filter(h => Number(h.inspeccion) === indice)
-                .forEach(hallazgo => {
-                    if (!Array.isArray(hallazgo.fotos)) return;
-                    hallazgo.fotos.forEach(foto => {
-                        const src = obtenerImagenDeFoto(foto);
-                        if (src) fotosInforme.push({
-                            area: hallazgo.area || "",
-                            elemento: hallazgo.elemento || "",
-                            src
-                        });
-                    });
-                });
-        }
-
-        let contenidoFotosXml = "";
-        if (fotosInforme.length) {
-            contenidoFotosXml += `
-<w:p>
-  <w:pPr><w:spacing w:before="180" w:after="120"/></w:pPr>
-  <w:r><w:rPr><w:b/><w:sz w:val="24"/></w:rPr><w:t>REGISTRO FOTOGRÁFICO</w:t></w:r>
-</w:p>`;
-
-            fotosInforme.forEach((foto, fotoIndex) => {
-                const esDataUrl = /^data:image\//i.test(foto.src);
-                if (!esDataUrl) return;
-                const mimeMatch = foto.src.match(/^data:(image\/[^;]+);base64,/i);
-                if (!mimeMatch) return;
-                const mime = mimeMatch[1].toLowerCase();
-                const extension = mime.includes("png") ? "png" : "jpg";
-                const nombreMedia = `cam07-foto-${fotoIndex + 1}.${extension}`;
-                const relationshipId = `rIdCam07Foto${fotoIndex + 1}`;
-                const base64 = foto.src.split(",", 2)[1];
-                zip.file(`word/media/${nombreMedia}`, base64, { base64: true });
-
-                if (!contenidoFotosXml.includes(`<!--${nombreMedia}-->`)) {
-                    contenidoFotosXml += `
-<w:p>
-  <w:pPr><w:jc w:val="center"/><w:spacing w:after="60"/></w:pPr>
-  <w:r><w:t>${esc(foto.area)}${foto.elemento ? " — " + esc(foto.elemento) : ""}</w:t></w:r>
-</w:p>
-<w:p>
-  <w:pPr><w:jc w:val="center"/></w:pPr>
-  <w:r>
-    <w:drawing>
-      <wp:inline distT="0" distB="0" distL="0" distR="0">
-        <wp:extent cx="4572000" cy="3048000"/>
-        <wp:effectExtent l="0" t="0" r="0" b="0"/>
-        <wp:docPr id="${1000 + fotoIndex}" name="CAM-PLANTILLA-07-Foto-${fotoIndex + 1}"/>
-        <a:graphic>
-          <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
-            <pic:pic>
-              <pic:nvPicPr>
-                <pic:cNvPr id="${1000 + fotoIndex}" name="${nombreMedia}"/>
-                <pic:cNvPicPr/>
-              </pic:nvPicPr>
-              <pic:blipFill>
-                <a:blip r:embed="${relationshipId}"/>
-                <a:stretch><a:fillRect/></a:stretch>
-              </pic:blipFill>
-              <pic:spPr>
-                <a:xfrm><a:off x="0" y="0"/><a:ext cx="4572000" cy="3048000"/></a:xfrm>
-                <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
-              </pic:spPr>
-            </pic:pic>
-          </a:graphicData>
-        </a:graphic>
-      </wp:inline>
-    </w:drawing>
-  </w:r>
-</w:p>
-<!--${nombreMedia}-->`;
-                }
-            });
-        }
-
-        const contenidoInformeXml = `
-<w:p>
-  <w:pPr><w:spacing w:after="120"/></w:pPr>
-  <w:r><w:rPr><w:b/><w:sz w:val="24"/></w:rPr><w:t>INFORMACIÓN GENERAL DE LA INSPECCIÓN</w:t></w:r>
-</w:p>
-<w:tbl>
-  <w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders>
-    <w:top w:val="single" w:sz="4" w:space="0"/><w:left w:val="single" w:sz="4" w:space="0"/>
-    <w:bottom w:val="single" w:sz="4" w:space="0"/><w:right w:val="single" w:sz="4" w:space="0"/>
-    <w:insideH w:val="single" w:sz="4" w:space="0"/><w:insideV w:val="single" w:sz="4" w:space="0"/>
-  </w:tblBorders></w:tblPr>
-  <w:tblGrid><w:gridCol w:w="3500"/><w:gridCol w:w="6000"/></w:tblGrid>
-  ${filasGenerales.map(([etiqueta, valor]) => `
-  <w:tr>
-    <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="20"/></w:rPr><w:t>${esc(etiqueta)}</w:t></w:r></w:p></w:tc>
-    <w:tc><w:tcPr><w:tcW w:w="6000" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="20"/></w:rPr><w:t>${esc(valor)}</w:t></w:r></w:p></w:tc>
-  </w:tr>`).join("")}
-</w:tbl>
-${contenidoFotosXml}
-<w:p><w:r><w:t xml:space="preserve"> </w:t></w:r></w:p>`;
-
         const documentEntry = zip.file("word/document.xml");
-        if (!documentEntry) {
-            throw new Error("La plantilla no contiene word/document.xml.");
-        }
-
+        if (!documentEntry) throw new Error("La plantilla no contiene word/document.xml.");
         let documentXml = await documentEntry.async("string");
 
         Object.entries(reemplazos).forEach(([marcador, valor]) => {
-            if (documentXml.includes(marcador)) {
-                documentXml = documentXml.split(marcador).join(valor);
-            }
+            documentXml = documentXml.split(marcador).join(valor);
         });
 
-        // CAM-PLANTILLA-05: reemplazar el párrafo marcador completo,
-        // no reconstruir el documento. La estructura restante de la plantilla queda intacta.
         const marcadorRegex = /<w:p(?=[ >])[^>]*>.*?<w:t[^>]*>\{\{CONTENIDO_INFORME\}\}<\/w:t>.*?<\/w:p>/s;
-        if (marcadorRegex.test(documentXml)) {
-            documentXml = documentXml.replace(marcadorRegex, contenidoInformeXml);
-        } else {
-            console.warn("CAM-PLANTILLA-05: no se encontró {{CONTENIDO_INFORME}} en la plantilla.");
+        if (!marcadorRegex.test(documentXml)) {
+            throw new Error("No se encontró {{CONTENIDO_INFORME}} en la plantilla maestra.");
         }
 
-        // CAM-PLANTILLA-07: registrar únicamente las imágenes nuevas en las relaciones
-        // del documento y en [Content_Types].xml. Se conservan las relaciones existentes.
-        if (fotosInforme.length) {
-            const relsEntry = zip.file("word/_rels/document.xml.rels");
-            if (relsEntry) {
-                let relsXml = await relsEntry.async("string");
-                fotosInforme.forEach((foto, fotoIndex) => {
-                    const mimeMatch = foto.src.match(/^data:(image\/[^;]+);base64,/i);
-                    if (!mimeMatch) return;
-                    const extension = mimeMatch[1].toLowerCase().includes("png") ? "png" : "jpg";
-                    const nombreMedia = `media/cam07-foto-${fotoIndex + 1}.${extension}`;
-                    const relationshipId = `rIdCam07Foto${fotoIndex + 1}`;
-                    if (!relsXml.includes(`Id="${relationshipId}"`)) {
-                        relsXml = relsXml.replace(
-                            "</Relationships>",
-                            `<Relationship Id="${relationshipId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${nombreMedia}"/></Relationships>`
-                        );
-                    }
-                });
-                zip.file("word/_rels/document.xml.rels", relsXml);
-            }
+        /*
+         * altChunk es el mecanismo estándar de Word para insertar HTML como
+         * contenido de un DOCX. La plantilla sigue siendo el documento base.
+         */
+        const altChunkPart = "word/afchunk-tecchnex.html";
+        const relationshipId = "rIdTecchnexInformeCompleto";
+        const contenidoHtmlCompleto = `<!DOCTYPE html>\n<html lang="es"><head><meta charset="UTF-8">${estilos}</head><body>${contenidoHtml}</body></html>`;
 
-            const contentTypesEntry = zip.file("[Content_Types].xml");
-            if (contentTypesEntry) {
-                let contentTypesXml = await contentTypesEntry.async("string");
-                if (!contentTypesXml.includes('Extension="jpg"')) {
-                    contentTypesXml = contentTypesXml.replace(
-                        "</Types>",
-                        '<Default Extension="jpg" ContentType="image/jpeg"/></Types>'
-                    );
-                }
-                if (!contentTypesXml.includes('Extension="png"')) {
-                    contentTypesXml = contentTypesXml.replace(
-                        "</Types>",
-                        '<Default Extension="png" ContentType="image/png"/></Types>'
-                    );
-                }
-                zip.file("[Content_Types].xml", contentTypesXml);
-            }
-        }
-
+        zip.file(altChunkPart, contenidoHtmlCompleto);
+        documentXml = documentXml.replace(
+            marcadorRegex,
+            `<w:altChunk r:id="${relationshipId}"/>`
+        );
         zip.file("word/document.xml", documentXml);
 
-        // Solo se modifica header1.xml para los marcadores existentes.
+        const relsEntry = zip.file("word/_rels/document.xml.rels");
+        if (!relsEntry) throw new Error("La plantilla no contiene las relaciones de document.xml.");
+        let relsXml = await relsEntry.async("string");
+        if (!relsXml.includes(`Id="${relationshipId}"`)) {
+            relsXml = relsXml.replace(
+                "</Relationships>",
+                `<Relationship Id="${relationshipId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk" Target="afchunk-tecchnex.html"/></Relationships>`
+            );
+        }
+        zip.file("word/_rels/document.xml.rels", relsXml);
+
+        const contentTypesEntry = zip.file("[Content_Types].xml");
+        if (!contentTypesEntry) throw new Error("La plantilla no contiene [Content_Types].xml.");
+        let contentTypesXml = await contentTypesEntry.async("string");
+        if (!contentTypesXml.includes('PartName="/word/afchunk-tecchnex.html"')) {
+            contentTypesXml = contentTypesXml.replace(
+                "</Types>",
+                `<Override PartName="/word/afchunk-tecchnex.html" ContentType="text/html"/></Types>`
+            );
+        }
+
+        /* Declarar extensiones de imágenes incorporadas por el informe. */
+        const extensiones = [...new Set(imagenesParaWord.map(i => i.nombre.split(".").pop()))];
+        const tipos = {
+            jpg: "image/jpeg",
+            png: "image/png",
+            gif: "image/gif",
+            webp: "image/webp"
+        };
+        extensiones.forEach(ext => {
+            if (!contentTypesXml.includes(`Extension="${ext}"`)) {
+                contentTypesXml = contentTypesXml.replace(
+                    "</Types>",
+                    `<Default Extension="${ext}" ContentType="${tipos[ext]}"/></Types>`
+                );
+            }
+        });
+        zip.file("[Content_Types].xml", contentTypesXml);
+
+        imagenesParaWord.forEach(imagen => {
+            zip.file(`word/media/${imagen.nombre}`, imagen.base64, { base64: true });
+        });
+
+        /* El encabezado de la Hoja Maestra permanece intacto salvo sus marcadores. */
         const headerEntry = zip.file("word/header1.xml");
         if (headerEntry) {
             let headerXml = await headerEntry.async("string");
-            let headerModificado = false;
             Object.entries(reemplazos).forEach(([marcador, valor]) => {
-                if (headerXml.includes(marcador)) {
-                    headerXml = headerXml.split(marcador).join(valor);
-                    headerModificado = true;
-                }
+                headerXml = headerXml.split(marcador).join(valor);
             });
-            if (headerModificado) zip.file("word/header1.xml", headerXml);
+            zip.file("word/header1.xml", headerXml);
         }
 
         const salida = await zip.generateAsync({
@@ -9106,10 +9065,7 @@ ${contenidoFotosXml}
             .replace(/[\u0300-\u036f]/g, "")
             .replace(/[^a-zA-Z0-9_-]+/g, "_")
             .replace(/^_+|_+$/g, "") || "Inspeccion";
-
-        const idControl = (inspeccion.idControl || "SIN_ID")
-            .toString()
-            .replace(/[^a-zA-Z0-9_-]+/g, "_");
+        const idControl = (inspeccion.idControl || "SIN_ID").toString().replace(/[^a-zA-Z0-9_-]+/g, "_");
 
         const enlace = document.createElement("a");
         const url = URL.createObjectURL(salida);
@@ -9122,15 +9078,12 @@ ${contenidoFotosXml}
 
         alert(
             "Documento generado correctamente con la Hoja Maestra TECCHNEX + membrete COTRASER.\n\n" +
-            "CAM-PLANTILLA-07: se incorporó la información general y, si existen, las fotografías de los hallazgos en la Hoja Maestra."
+            "El contenido proviene directamente del informe completo que ya genera la aplicación."
         );
 
     } catch (error) {
-        console.error("CAM-PLANTILLA-07 — Error al generar Word:", error);
-        alert(
-            "No fue posible generar el Word con la plantilla maestra.\n\n" +
-            "Detalle: " + error.message
-        );
+        console.error("CAM-PLANTILLA-09 — Error al generar Word:", error);
+        alert("No fue posible generar el Word con la plantilla maestra.\n\nDetalle: " + error.message);
     }
 }
 
