@@ -8862,9 +8862,73 @@ async function generarWord(ventana) {
         max-width: 100%;
     }
 
+    /* =========================================================
+       OM-27.2-DOC · INTERVENCIÓN 2 — HALLAZGOS + FOTOGRAFÍAS
+       Objetivo: mantener cada hallazgo como una unidad visual en Word,
+       evitando separar la fila de su evidencia fotográfica y fijando
+       las fotografías a 3,8 cm x 2,6 cm, sin deformación.
+       No modifica datos, cálculos ni el motor PDF.
+       ========================================================= */
+    .tabla-hallazgos {
+        table-layout: fixed;
+        width: 100%;
+        page-break-inside: auto;
+    }
+
+    .tabla-hallazgos thead {
+        display: table-header-group;
+    }
+
     .tabla-hallazgos tr,
-    .fila-hallazgo {
+    .tabla-hallazgos .fila-hallazgo,
+    .tabla-hallazgos .fila-area {
         page-break-inside: avoid;
+        break-inside: avoid;
+        mso-row-break-across: avoid;
+    }
+
+    .tabla-hallazgos td,
+    .tabla-hallazgos th {
+        vertical-align: top;
+    }
+
+    .tabla-hallazgos .col-hallazgo {
+        width: 35%;
+    }
+
+    .tabla-hallazgos .col-recomendacion {
+        width: 30%;
+    }
+
+    .tabla-hallazgos .col-fotografias {
+        width: 35%;
+        vertical-align: top;
+    }
+
+    .tabla-fotos-hallazgo {
+        width: 100%;
+        table-layout: fixed;
+        border-collapse: collapse;
+    }
+
+    .tabla-fotos-hallazgo td {
+        width: 50%;
+        padding: 2pt;
+        vertical-align: top;
+        text-align: center;
+        border: 0;
+    }
+
+    .tabla-fotos-hallazgo img {
+        display: block;
+        width: 3.8cm !important;
+        height: 2.6cm !important;
+        max-width: 3.8cm !important;
+        max-height: 2.6cm !important;
+        min-width: 3.8cm !important;
+        min-height: 2.6cm !important;
+        object-fit: contain;
+        margin: 0 auto;
     }
 
     .encabezado-word {
