@@ -12120,6 +12120,39 @@ ESTADO: EN DESARROLLO
            Las demás secciones conservan vertical.
            La regla sigue siendo: una sola orientación por página.
            ========================================================= */
+        /* =========================================================
+           OM-27.2 · INTERVENCIÓN 4
+           CONTINUIDAD DE MATRIZ DE RIESGOS EN A4 HORIZONTAL
+           La matriz se divide por filas cuando supera la altura disponible.
+           Las páginas de continuación conservan la orientación horizontal.
+           No se modifican datos ni cálculos de la matriz.
+           ========================================================= */
+        const moverTablaMatrizPorFilas = (unidad, tabla) => {
+            const encabezado = unidad.find(el => el.tagName === 'H2');
+            const filas = Array.from(tabla.querySelectorAll(':scope > tbody > tr'));
+            if (!filas.length) return;
+
+            if (encabezado) {
+                paginaActual.cuerpo.appendChild(encabezado.cloneNode(true));
+            }
+
+            let bloque = crearTablaContinuacion(tabla);
+            paginaActual.cuerpo.appendChild(bloque.tabla);
+
+            filas.forEach(fila => {
+                const clon = fila.cloneNode(true);
+                bloque.tbody.appendChild(clon);
+
+                if (alturaContenido() > alturaDisponible()) {
+                    bloque.tbody.removeChild(clon);
+                    paginaActual = crearPagina('horizontal');
+                    bloque = crearTablaContinuacion(tabla);
+                    paginaActual.cuerpo.appendChild(bloque.tabla);
+                    bloque.tbody.appendChild(clon);
+                }
+            });
+        };
+
         const obtenerOrientacionUnidad = unidad => {
             const elementoHorizontal = unidad.find(el =>
                 el.nodeType === 1 &&
@@ -12160,6 +12193,15 @@ ESTADO: EN DESARROLLO
 
             if (tablaHallazgos) {
                 moverTablaHallazgosPorFilas(unidad, tablaHallazgos);
+                return;
+            }
+
+            const tablaMatriz = unidad.find(el => el.tagName === 'TABLE' &&
+                obtenerOrientacionUnidad(unidad) === 'horizontal'
+            );
+
+            if (tablaMatriz) {
+                moverTablaMatrizPorFilas(unidad, tablaMatriz);
                 return;
             }
 
