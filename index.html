@@ -8871,11 +8871,9 @@ async function generarWordPlantillaMaestra() {
         const cliente = inspeccion.cliente || "";
         const puesto = inspeccion.nombrePuesto || "";
         const realizadoPor = inspeccion.inspector || "";
-        // Compatibilidad con inspecciones antiguas: si aún no existe
-        // revisadoPor, se conserva temporalmente el director/responsable.
         const revisadoPor = inspeccion.revisadoPor || inspeccion.director || "";
 
-        const escaparXml = valor => String(valor)
+        const escaparXml = valor => String(valor ?? "")
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
@@ -8890,35 +8888,87 @@ async function generarWordPlantillaMaestra() {
             "{{REVISADO_POR}}": escaparXml(revisadoPor)
         };
 
-        // CAM-PLANTILLA-03: intervención quirúrgica.
-        // Solo se modifican los XML que contienen los marcadores de la plantilla.
-        // El resto de la estructura DOCX permanece intacta.
-        const archivosXml = [
-            "word/document.xml",
-            "word/header1.xml"
-        ].filter(ruta => !!zip.file(ruta));
+        // CAM-PLANTILLA-05: primera alimentación de la Hoja Maestra.
+        // Se utiliza exclusivamente información general ya almacenada en la inspección.
+        const filasGenerales = [
+            ["ID de inspección", inspeccion.idControl],
+            ["Cliente", inspeccion.cliente],
+            ["NIT", inspeccion.nit],
+            ["Dirección", inspeccion.direccion],
+            ["Ciudad / Municipio", inspeccion.ciudad],
+            ["Persona de contacto", inspeccion.contacto],
+            ["Teléfono", inspeccion.telefono],
+            ["Correo electrónico", inspeccion.correo],
+            ["Fecha de inspección", fecha],
+            ["Inspector", inspeccion.inspector],
+            ["Revisado por", revisadoPor],
+            ["Tipo de inspección", inspeccion.tipo],
+            ["Sector de inspección", inspeccion.sectorInspeccion],
+            ["Objetivo", inspeccion.objetivo],
+            ["Latitud", inspeccion.latitud],
+            ["Longitud", inspeccion.longitud],
+            ["Entorno", inspeccion.entorno]
+        ].filter(fila => fila[1] !== undefined && fila[1] !== null && String(fila[1]).trim() !== "");
 
-        for (const ruta of archivosXml) {
-            const entrada = zip.file(ruta);
-            if (!entrada) continue;
+        const esc = escaparXml;
+        const contenidoInformeXml = `
+<w:p>
+  <w:pPr><w:spacing w:after="120"/></w:pPr>
+  <w:r><w:rPr><w:b/><w:sz w:val="24"/></w:rPr><w:t>INFORMACIÓN GENERAL DE LA INSPECCIÓN</w:t></w:r>
+</w:p>
+<w:tbl>
+  <w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders>
+    <w:top w:val="single" w:sz="4" w:space="0"/><w:left w:val="single" w:sz="4" w:space="0"/>
+    <w:bottom w:val="single" w:sz="4" w:space="0"/><w:right w:val="single" w:sz="4" w:space="0"/>
+    <w:insideH w:val="single" w:sz="4" w:space="0"/><w:insideV w:val="single" w:sz="4" w:space="0"/>
+  </w:tblBorders></w:tblPr>
+  <w:tblGrid><w:gridCol w:w="3500"/><w:gridCol w:w="6000"/></w:tblGrid>
+  ${filasGenerales.map(([etiqueta, valor]) => `
+  <w:tr>
+    <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="20"/></w:rPr><w:t>${esc(etiqueta)}</w:t></w:r></w:p></w:tc>
+    <w:tc><w:tcPr><w:tcW w:w="6000" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="20"/></w:rPr><w:t>${esc(valor)}</w:t></w:r></w:p></w:tc>
+  </w:tr>`).join("")}
+</w:tbl>
+<w:p><w:r><w:t xml:space="preserve"> </w:t></w:r></w:p>`;
 
-            let xml = await entrada.async("string");
-            let modificado = false;
-
-            Object.entries(reemplazos).forEach(([marcador, valor]) => {
-                if (xml.includes(marcador)) {
-                    xml = xml.split(marcador).join(valor);
-                    modificado = true;
-                }
-            });
-
-            if (modificado) {
-                zip.file(ruta, xml);
-            }
+        const documentEntry = zip.file("word/document.xml");
+        if (!documentEntry) {
+            throw new Error("La plantilla no contiene word/document.xml.");
         }
 
-        // CAM-PLANTILLA-03: generar sin recomprimir para máxima compatibilidad
-        // con Microsoft Word y reducir al mínimo la transformación del DOCX.
+        let documentXml = await documentEntry.async("string");
+
+        Object.entries(reemplazos).forEach(([marcador, valor]) => {
+            if (documentXml.includes(marcador)) {
+                documentXml = documentXml.split(marcador).join(valor);
+            }
+        });
+
+        // CAM-PLANTILLA-05: reemplazar el párrafo marcador completo,
+        // no reconstruir el documento. La estructura restante de la plantilla queda intacta.
+        const marcadorRegex = /<w:p(?=[ >])[^>]*>.*?<w:t[^>]*>\{\{CONTENIDO_INFORME\}\}<\/w:t>.*?<\/w:p>/s;
+        if (marcadorRegex.test(documentXml)) {
+            documentXml = documentXml.replace(marcadorRegex, contenidoInformeXml);
+        } else {
+            console.warn("CAM-PLANTILLA-05: no se encontró {{CONTENIDO_INFORME}} en la plantilla.");
+        }
+
+        zip.file("word/document.xml", documentXml);
+
+        // Solo se modifica header1.xml para los marcadores existentes.
+        const headerEntry = zip.file("word/header1.xml");
+        if (headerEntry) {
+            let headerXml = await headerEntry.async("string");
+            let headerModificado = false;
+            Object.entries(reemplazos).forEach(([marcador, valor]) => {
+                if (headerXml.includes(marcador)) {
+                    headerXml = headerXml.split(marcador).join(valor);
+                    headerModificado = true;
+                }
+            });
+            if (headerModificado) zip.file("word/header1.xml", headerXml);
+        }
+
         const salida = await zip.generateAsync({
             type: "blob",
             mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -8946,11 +8996,11 @@ async function generarWordPlantillaMaestra() {
 
         alert(
             "Documento generado correctamente con la Hoja Maestra TECCHNEX + membrete COTRASER.\n\n" +
-            "Se conservaron el diseño y el texto fijo; solo se alimentaron los datos preparados por la aplicación."
+            "CAM-PLANTILLA-05: se incorporó la información general de la inspección en la Hoja Maestra."
         );
 
     } catch (error) {
-        console.error("CAM-PLANTILLA-03 — Error al generar Word:", error);
+        console.error("CAM-PLANTILLA-05 — Error al generar Word:", error);
         alert(
             "No fue posible generar el Word con la plantilla maestra.\n\n" +
             "Detalle: " + error.message
