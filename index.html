@@ -8890,10 +8890,13 @@ async function generarWordPlantillaMaestra() {
             "{{REVISADO_POR}}": escaparXml(revisadoPor)
         };
 
-        // CAM-PLANTILLA-01: solo se intervienen archivos XML de Word.
-        // No se reconstruye el documento ni se alteran imágenes/estilos.
-        const archivosXml = Object.keys(zip.files)
-            .filter(ruta => /^word\/.*\.xml$/i.test(ruta));
+        // CAM-PLANTILLA-03: intervención quirúrgica.
+        // Solo se modifican los XML que contienen los marcadores de la plantilla.
+        // El resto de la estructura DOCX permanece intacta.
+        const archivosXml = [
+            "word/document.xml",
+            "word/header1.xml"
+        ].filter(ruta => !!zip.file(ruta));
 
         for (const ruta of archivosXml) {
             const entrada = zip.file(ruta);
@@ -8914,10 +8917,12 @@ async function generarWordPlantillaMaestra() {
             }
         }
 
+        // CAM-PLANTILLA-03: generar sin recomprimir para máxima compatibilidad
+        // con Microsoft Word y reducir al mínimo la transformación del DOCX.
         const salida = await zip.generateAsync({
             type: "blob",
             mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            compression: "DEFLATE"
+            compression: "STORE"
         });
 
         const nombreBase = (cliente || "Inspeccion")
@@ -8945,7 +8950,7 @@ async function generarWordPlantillaMaestra() {
         );
 
     } catch (error) {
-        console.error("CAM-PLANTILLA-02 — Error al generar Word:", error);
+        console.error("CAM-PLANTILLA-03 — Error al generar Word:", error);
         alert(
             "No fue posible generar el Word con la plantilla maestra.\n\n" +
             "Detalle: " + error.message
