@@ -8863,8 +8863,8 @@ async function generarExcelTecchnex(ventana) {
             // interpretar una celda auto-cerrada como si fuera una celda de
             // apertura y consumir todas las celdas siguientes hasta encontrar
             // </c>; eso eliminaba Y11 después de procesar P11.
-            const patronCompleto = new RegExp(`<c([^>]*\br="${ref}"[^>]*)>([\s\S]*?)<\/c>`);
-            const patronVacio = new RegExp(`<c([^>]*\br="${ref}"[^>]*)\/>`);
+            const patronCompleto = new RegExp(`<c([^>]*\\br="${ref}"[^>]*)>([\\s\\S]*?)<\\/c>`);
+            const patronVacio = new RegExp(`<c([^>]*\\br="${ref}"[^>]*)\\/>`);
             const candidatoCompleto = xml.match(patronCompleto);
             // Si el supuesto "atributo" termina en /, en realidad el primer
             // <c .../> era auto-cerrado y NO debe consumirse hasta otro </c>.
