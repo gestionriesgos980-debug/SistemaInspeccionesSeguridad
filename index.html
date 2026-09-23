@@ -8838,8 +8838,9 @@ async function generarWordPlantillaMaestra() {
        La captura, almacenamiento y cálculo de la inspección no
        se modifican.
 
-       BLOQUE IMPLEMENTADO EN ESTA ETAPA:
+       BLOQUES IMPLEMENTADOS EN ESTA ETAPA:
        01. Información general de la inspección.
+       02. Objetivo y metodología.
 
        NO se generan todavía checklist, hallazgos, matriz,
        fotografías ni los demás bloques. Se incorporarán uno
@@ -9038,11 +9039,111 @@ async function generarWordPlantillaMaestra() {
             tablaInformacionGeneralWord(datosInformacionGeneral) +
             parrafoWord("", { after: 80 });
 
+        /* ---------------------------------------------------------
+           CAM-WORD-02 — BLOQUE 02
+           Objetivo y metodología.
+
+           Se toma como fuente el contenido que ya existe en
+           generarInforme(). Aquí solo se transforma su presentación
+           a WordprocessingML nativo. No se modifican datos ni cálculos.
+           --------------------------------------------------------- */
+        const objetivosEspecificos = [
+            "Identificar los aspectos positivos y los puntos críticos para la seguridad de la copropiedad mediante la aplicación de la lista de verificación.",
+            "Evaluar las condiciones de los accesos y cerramientos, identificando posibles vulnerabilidades frente a ingresos no autorizados.",
+            "Revisar las condiciones de los sistemas tecnológicos de seguridad, incluyendo CCTV, alarmas e iluminación.",
+            "Identificar condiciones que puedan favorecer la materialización de riesgos y establecer medidas preventivas y de mitigación.",
+            "Formular recomendaciones orientadas al fortalecimiento de las condiciones de seguridad de la copropiedad."
+        ];
+
+        function listaNumeradaWord(items) {
+            return items.map((item, indiceItem) =>
+                parrafoWord(`${indiceItem + 1}. ${item}`, {
+                    font: "Arial",
+                    size: "20",
+                    color: "000000",
+                    after: 80,
+                    line: 276
+                })
+            ).join("");
+        }
+
+        function bloqueTextoWord(contenido) {
+            return `<w:tbl>
+                <w:tblPr>
+                    <w:tblW w:w="8838" w:type="dxa"/>
+                    <w:tblLayout w:type="fixed"/>
+                    <w:tblBorders>
+                        <w:top w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:left w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:bottom w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:right w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                    </w:tblBorders>
+                </w:tblPr>
+                <w:tblGrid><w:gridCol w:w="8838"/></w:tblGrid>
+                <w:tr>
+                    <w:trPr><w:cantSplit/></w:trPr>
+                    <w:tc>
+                        <w:tcPr>
+                            <w:tcW w:w="8838" w:type="dxa"/>
+                            <w:shd w:fill="FAFAFA"/>
+                            <w:tcMar>
+                                <w:top w:w="180" w:type="dxa"/><w:left w:w="180" w:type="dxa"/>
+                                <w:bottom w:w="180" w:type="dxa"/><w:right w:w="180" w:type="dxa"/>
+                            </w:tcMar>
+                        </w:tcPr>
+                        ${contenido}
+                    </w:tc>
+                </w:tr>
+            </w:tbl>`;
+        }
+
+        const objetivoGeneralWord = inspeccion.objetivo ||
+            "Realizar un diagnóstico integral de las condiciones de seguridad de la copropiedad.";
+
+        const metodologia1 =
+            "Para la realización del presente estudio de seguridad se empleó una visita a la copropiedad, con toma de fotografías, entrevistas y aplicación de lista de chequeo.";
+
+        const metodologia2 =
+            "Los parámetros de observación comprenden Control de Accesos, Seguridad Perimetral, Sistemas Electrónicos de Seguridad, Gestión de Autocuidado, Planeación Estratégica y SG-SST, Medio Ambiente y otros aspectos.";
+
+        const contenidoBloque02 =
+            parrafoWord("2. Objetivo y metodología", {
+                font: "Arial",
+                size: "24",
+                bold: true,
+                color: "123B5D",
+                before: 160,
+                after: 140,
+                line: 260,
+                keepNext: true
+            }) +
+            bloqueTextoWord(
+                parrafoWord("Objetivo General", {
+                    font: "Arial", size: "21", bold: true, color: "123B5D", after: 100, line: 260, keepNext: true
+                }) +
+                parrafoWord(objetivoGeneralWord, {
+                    font: "Arial", size: "20", color: "000000", after: 180, line: 276
+                }) +
+                parrafoWord("Objetivos Específicos", {
+                    font: "Arial", size: "21", bold: true, color: "123B5D", after: 100, line: 260, keepNext: true
+                }) +
+                listaNumeradaWord(objetivosEspecificos) +
+                parrafoWord("Metodología", {
+                    font: "Arial", size: "21", bold: true, color: "123B5D", before: 80, after: 100, line: 260, keepNext: true
+                }) +
+                parrafoWord(metodologia1, {
+                    font: "Arial", size: "20", color: "000000", after: 100, line: 276
+                }) +
+                parrafoWord(metodologia2, {
+                    font: "Arial", size: "20", color: "000000", after: 0, line: 276
+                })
+            ) +
+            parrafoWord("", { after: 100 });
+
         /*
          * La plantilla maestra limpia contiene el cuerpo vacío y deja
-         * w:sectPr como último elemento de w:body. Insertamos el bloque
-         * nativo justo antes de w:sectPr. Esto elimina por completo la
-         * dependencia de un marcador textual o de una frase legal.
+         * w:sectPr como último elemento de w:body. Insertamos los bloques
+         * nativos justo antes de w:sectPr.
          */
         const posicionSeccion = documentXml.search(/<w:sectPr(?=[ >])/);
         if (posicionSeccion < 0) {
@@ -9052,6 +9153,7 @@ async function generarWordPlantillaMaestra() {
         documentXml =
             documentXml.slice(0, posicionSeccion) +
             bloque01 +
+            contenidoBloque02 +
             documentXml.slice(posicionSeccion);
 
         zip.file("word/document.xml", documentXml);
