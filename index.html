@@ -9015,20 +9015,24 @@ async function generarWordPlantillaMaestra() {
            nativos. No se utiliza HTML, MHTML ni altChunk.
            --------------------------------------------------------- */
         const datosInformacionGeneral = [
-            ["Cliente", inspeccion.cliente || ""],
-            ["NIT", inspeccion.nit || ""],
-            ["Dirección", inspeccion.direccion || ""],
-            ["Ciudad", inspeccion.ciudad || ""],
-            ["Contacto", inspeccion.contacto || ""],
-            ["Teléfono", inspeccion.telefono || ""],
-            ["Correo", inspeccion.correo || ""],
-            ["Fecha", inspeccion.fecha || ""],
-            ["Inspector", inspeccion.inspector || ""],
-            ["Director", inspeccion.director || ""],
-            ["Tipo de inspección", inspeccion.tipo || ""],
-            ["Objetivo", inspeccion.objetivo || ""],
-            ["Descripción del entorno", inspeccion.entorno || ""]
-        ];
+            ["Cliente", inspeccion.cliente],
+            ["NIT", inspeccion.nit],
+            ["Dirección", inspeccion.direccion],
+            ["Ciudad", inspeccion.ciudad],
+            ["Contacto", inspeccion.contacto],
+            ["Teléfono", inspeccion.telefono],
+            ["Correo", inspeccion.correo],
+            ["Fecha", inspeccion.fecha],
+            ["Inspector", inspeccion.inspector],
+            ["Director", inspeccion.director],
+            ["Tipo de inspección", inspeccion.tipo],
+            ["Objetivo", inspeccion.objetivo],
+            ["Descripción del entorno", inspeccion.entorno]
+        ].filter(([, value]) =>
+            value !== undefined &&
+            value !== null &&
+            String(value).trim() !== ""
+        );
 
         const bloque01 =
             parrafoWord("1. Información general de la inspección", {
@@ -9164,62 +9168,23 @@ async function generarWordPlantillaMaestra() {
             parrafoWord("", { after: 40 });
 
         /* ---------------------------------------------------------
-           CAM-WORD-02 — INTERVENCIÓN 05
-           TABLA CONTENEDORA ÚNICA DE FLUJO CONTINUO
+           CAMPO VISUAL 03 — INTERVENCIÓN 01
+           FLUJO DIRECTO SOBRE LA PLANTILLA MAESTRA
 
-           Todo el cuerpo variable del informe se aloja dentro de una
-           única tabla Word nativa. Cada sección ocupa una fila
-           independiente y Word puede continuar la tabla entre páginas.
-           No se fuerzan saltos de página entre bloques.
+           Corrección quirúrgica: se elimina la tabla contenedora única
+           que envolvía todo el cuerpo variable. Esa envoltura provocaba
+           que Word pudiera desplazar el primer bloque completo a la
+           página siguiente, dejando la página 1 del documento vacía.
+
+           El contenido variable se inserta directamente en el cuerpo de
+           la plantilla, antes de w:sectPr. Así Word puede paginar los
+           párrafos y tablas de forma natural, conservando el encabezado,
+           pie, márgenes y configuración de la Hoja Maestra.
            --------------------------------------------------------- */
-        function celdaContenedoraInformeWord(contenido) {
-            return `<w:tc>
-                <w:tcPr>
-                    <w:tcW w:w="8838" w:type="dxa"/>
-                    <w:tcMar>
-                        <w:top w:w="0" w:type="dxa"/><w:left w:w="0" w:type="dxa"/>
-                        <w:bottom w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/>
-                    </w:tcMar>
-                </w:tcPr>
-                ${contenido}
-            </w:tc>`;
-        }
+        const cuerpoInformeWord =
+            bloque01 +
+            contenidoBloque02;
 
-        function filaContenedoraInformeWord(contenido) {
-            /* Sin w:cantSplit: Word puede continuar esta fila entre páginas
-               si el contenido no cabe en el espacio disponible. */
-            return `<w:tr>${celdaContenedoraInformeWord(contenido)}</w:tr>`;
-        }
-
-        function tablaContenedoraInformeWord(bloques) {
-            return `<w:tbl>
-                <w:tblPr>
-                    <w:tblW w:w="8838" w:type="dxa"/>
-                    <w:tblLayout w:type="fixed"/>
-                    <w:tblCellMar>
-                        <w:top w:w="0" w:type="dxa"/><w:left w:w="0" w:type="dxa"/>
-                        <w:bottom w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/>
-                    </w:tblCellMar>
-                    <w:tblBorders>
-                        <w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/>
-                        <w:insideH w:val="nil"/><w:insideV w:val="nil"/>
-                    </w:tblBorders>
-                </w:tblPr>
-                <w:tblGrid><w:gridCol w:w="8838"/></w:tblGrid>
-                ${bloques.map(filaContenedoraInformeWord).join("")}
-            </w:tbl>`;
-        }
-
-        const cuerpoInformeWord = tablaContenedoraInformeWord([
-            bloque01,
-            contenidoBloque02
-        ]);
-
-        /*
-         * La plantilla maestra limpia contiene el cuerpo vacío y deja
-         * w:sectPr como último elemento de w:body. Insertamos UNA SOLA
-         * tabla contenedora justo antes de w:sectPr.
-         */
         const posicionSeccion = documentXml.search(/<w:sectPr(?=[ >])/);
         if (posicionSeccion < 0) {
             throw new Error("La plantilla maestra no contiene la configuración de sección esperada.");
@@ -9255,13 +9220,13 @@ async function generarWordPlantillaMaestra() {
         setTimeout(() => URL.revokeObjectURL(url), 1500);
 
         alert(
-            "Documento generado correctamente — CAM-WORD-02 / BLOQUE 02.\n\n" +
-            "Se generaron de forma nativa en Word los bloques Información general y Objetivo y metodología.\n" +
-            "La paginación entre bloques queda continua y automática."
+            "Documento generado correctamente — CAMPO VISUAL 03 / INTERVENCIÓN 01.\n\n" +
+            "La información general y el objetivo/metodología se insertaron directamente en la plantilla maestra Word.\n" +
+            "Se corrigió el desplazamiento que dejaba la página 1 vacía."
         );
 
     } catch (error) {
-        console.error("CAM-WORD-02 / BLOQUE 02 — Error al generar Word:", error);
+        console.error("CAMPO VISUAL 03 / INTERVENCIÓN 01 — Error al generar Word:", error);
         alert("No fue posible generar el Word con el motor nativo.\n\nDetalle: " + error.message);
     }
 }
