@@ -8903,11 +8903,48 @@ async function generarWordPlantillaMaestra() {
             const borders=`<w:tcBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/></w:tcBorders>`;
             return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${span}${shade}${valign}${margins}${borders}</w:tcPr>${parrafoWord(valor,{font:'Arial',size:opciones.size||'18',bold:!!opciones.bold,color:opciones.color||'000000',align:opciones.align||'left',line:240})}</w:tc>`;
         }
+
+        // CAMPO VISUAL 03 — INTERVENCIÓN 04
+        // Contenedor de celda para insertar imágenes Word sin alterar las demás tablas.
+        function celdaWordContenido(contenido, opciones={}) {
+            const width=opciones.width||2200;
+            const shade=opciones.shading ? `<w:shd w:fill="${opciones.shading}"/>` : "";
+            const span=opciones.colspan ? `<w:gridSpan w:val="${opciones.colspan}"/>` : "";
+            const valign=opciones.vAlign ? `<w:vAlign w:val="${opciones.vAlign}"/>` : "";
+            const margins=`<w:tcMar><w:top w:w="80" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tcMar>`;
+            const borders=`<w:tcBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/></w:tcBorders>`;
+            return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${span}${shade}${valign}${margins}${borders}</w:tcPr>${contenido}</w:tc>`;
+        }
+
+        function datosImagenWord(dataUrl) {
+            const match=String(dataUrl||"").match(/^data:image\/(jpeg|jpg|png);base64,(.+)$/i);
+            if(!match) return null;
+            const extension=match[1].toLowerCase()==='jpg' ? 'jpeg' : match[1].toLowerCase();
+            const mime=extension==='png' ? 'image/png' : 'image/jpeg';
+            const bin=atob(match[2]);
+            const bytes=new Uint8Array(bin.length);
+            for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+            return {extension,mime,bytes};
+        }
+
+        function imagenWordXML(rId,docPrId,nombre) {
+            const cx=Math.round((3.8/2.54)*914400);
+            const cy=Math.round((2.6/2.54)*914400);
+            return `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="0" w:line="240"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${docPrId}" name="${escaparXmlWord(nombre)}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="${escaparXmlWord(nombre)}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1" noChangeArrowheads="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+        }
+        // CAMPO VISUAL 03 — INTERVENCIÓN 03A
+        // El encabezado maestro utiliza 10774 twips y una sangría de -998 twips.
+        // Las tablas del contenido adoptan exactamente esa misma huella visual.
+        const ANCHO_TABLA_MAESTRA = 10774;
+        const SANGRIA_TABLA_MAESTRA = -998;
+        const ANCHO_ETIQUETA_2COL = 2679;
+        const ANCHO_VALOR_2COL = 8095;
+
         function fila2(label,value,opts={}) {
-            return `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(label,{width:2200,shading:'F1F4F7',bold:true,color:'123B5D'})}${celdaWord(value,{width:6638,size:opts.size||'18'})}</w:tr>`;
+            return `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(label,{width:ANCHO_ETIQUETA_2COL,shading:'F1F4F7',bold:true,color:'123B5D'})}${celdaWord(value,{width:ANCHO_VALOR_2COL,size:opts.size||'18'})}</w:tr>`;
         }
         function tabla2(filas) {
-            return `<w:tbl><w:tblPr><w:tblW w:w="8838" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/><w:insideH w:val="single" w:sz="6" w:color="999999"/><w:insideV w:val="single" w:sz="6" w:color="999999"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="2200"/><w:gridCol w:w="6638"/></w:tblGrid>${filas}</w:tbl>`;
+            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/><w:insideH w:val="single" w:sz="6" w:color="999999"/><w:insideV w:val="single" w:sz="6" w:color="999999"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${ANCHO_ETIQUETA_2COL}"/><w:gridCol w:w="${ANCHO_VALOR_2COL}"/></w:tblGrid>${filas}</w:tbl>`;
         }
         function titulo(texto,nivel=1){ return parrafoWord(texto,{font:'Arial',size:nivel===1?'24':'21',bold:true,color:'123B5D',before:160,after:100,line:260,keepNext:true}); }
         function tablaCabeceras(headers,widths) {
@@ -8915,8 +8952,11 @@ async function generarWordPlantillaMaestra() {
         }
         function tablaGenerica(headers,rows,widths) {
             const cols=headers.length;
-            const body=rows.length ? rows.map(row=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${row.map((v,i)=>celdaWord(v,{width:widths[i]||Math.floor(8838/cols),size:'16',align:i===0?'left':'center'})).join('')}</w:tr>`).join('') : `<w:tr>${celdaWord('No se registró información.',{width:8838,colspan:cols,align:'center',color:'666666'})}</w:tr>`;
-            return `<w:tbl><w:tblPr><w:tblW w:w="8838" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/><w:insideH w:val="single" w:sz="6" w:color="999999"/><w:insideV w:val="single" w:sz="6" w:color="999999"/></w:tblBorders></w:tblPr><w:tblGrid>${widths.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${tablaCabeceras(headers,widths)}${body}</w:tbl>`;
+            const sumaOriginal=(widths||[]).reduce((a,b)=>a+Number(b||0),0)||8838;
+            const factor=ANCHO_TABLA_MAESTRA/sumaOriginal;
+            const anchos=(widths&&widths.length) ? widths.map((w,i)=> i===widths.length-1 ? ANCHO_TABLA_MAESTRA-widths.slice(0,-1).reduce((a,b)=>a+Math.round(Number(b||0)*factor),0) : Math.round(Number(w||0)*factor)) : Array(cols).fill(Math.floor(ANCHO_TABLA_MAESTRA/cols));
+            const body=rows.length ? rows.map(row=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${row.map((v,i)=>celdaWord(v,{width:anchos[i]||Math.floor(ANCHO_TABLA_MAESTRA/cols),size:'16',align:i===0?'left':'center'})).join('')}</w:tr>`).join('') : `<w:tr>${celdaWord('No se registró información.',{width:ANCHO_TABLA_MAESTRA,colspan:cols,align:'center',color:'666666'})}</w:tr>`;
+            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/><w:insideH w:val="single" w:sz="6" w:color="999999"/><w:insideV w:val="single" w:sz="6" w:color="999999"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${tablaCabeceras(headers,anchos)}${body}</w:tbl>`;
         }
         function limpio(v){ return v!==undefined && v!==null && String(v).trim()!==""; }
         function camposDiligenciados(lista){ return lista.filter(([,v])=>limpio(v)); }
@@ -9038,11 +9078,57 @@ async function generarWordPlantillaMaestra() {
             cuerpo+=titulo("10. Mapa de calor de riesgos",1)+tablaGenerica(["IMPACTO / PROBABILIDAD","1","2","3","4","5"],mapa,[1700,1427,1427,1427,1427,1430])+parrafoWord("Los números dentro del mapa corresponden al número de riesgo de la matriz.",{font:'Arial',size:'16',color:'666666',before:60,after:80});
         }
 
-        // 11. HALLAZGOS — texto y referencia de fotografías. Las imágenes se conservan en los datos;
-        // la integración gráfica completa de cada fotografía se realizará como intervención específica.
+        // 11. HALLAZGOS — integración gráfica del registro fotográfico.
+        // Medida fija por fotografía: 3,8 cm de ancho x 2,6 cm de alto.
         if(hallazgos.length){
-            const rows=hallazgos.map((h,i)=>[String(i+1),h.area||h.categoria||"",h.hallazgo||h.descripcion||h.observacion||"",h.accion||h.accionPreventiva||h.recomendacion||"",Array.isArray(h.fotos)?`${h.fotos.length} fotografía(s) registrada(s)`:"Sin evidencia fotográfica"]);
-            cuerpo+=titulo("11. Hallazgos identificados",1)+tablaGenerica(["#","ÁREA","HALLAZGO","ACCIÓN PREVENTIVA / RECOMENDACIÓN","REGISTRO FOTOGRÁFICO"],rows,[500,1000,2600,3000,1738]);
+            const headers=["#","ÁREA","HALLAZGO","ACCIÓN PREVENTIVA / RECOMENDACIÓN","REGISTRO FOTOGRÁFICO"];
+            const widthsBase=[500,1000,2600,3000,1738];
+            const sumaOriginal=widthsBase.reduce((a,b)=>a+b,0);
+            const factor=ANCHO_TABLA_MAESTRA/sumaOriginal;
+            const anchos=widthsBase.map((w,i)=>i===widthsBase.length-1?ANCHO_TABLA_MAESTRA-widthsBase.slice(0,-1).reduce((a,b)=>a+Math.round(b*factor),0):Math.round(w*factor));
+            const headerXml=tablaCabeceras(headers,anchos);
+            let rowsXml="";
+            let relacionXml="";
+            let nextRelId=1;
+            const relsEntry=zip.file("word/_rels/document.xml.rels");
+            if(relsEntry){
+                relacionXml=await relsEntry.async("string");
+                const ids=[...relacionXml.matchAll(/Id="rId(\d+)"/g)].map(m=>Number(m[1]));
+                nextRelId=ids.length?Math.max(...ids)+1:1;
+            }else{
+                relacionXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+            }
+            let docPrId=1000;
+            let imageIndex=0;
+            let contentTypesXml=zip.file("[Content_Types].xml") ? await zip.file("[Content_Types].xml").async("string") : "";
+            for(const [i,h] of hallazgos.entries()){
+                const textoHallazgo=h.hallazgo||h.descripcion||h.observacion||"";
+                const recomendacion=h.accion||h.accionPreventiva||h.recomendacion||"";
+                let fotosContenido=parrafoWord("Sin evidencia fotográfica",{font:'Arial',size:'16',color:'666666',align:'center',line:220});
+                const fotos=Array.isArray(h.fotos)?h.fotos:[];
+                if(fotos.length){
+                    fotosContenido="";
+                    for(let j=0;j<fotos.length;j++){
+                        const datos=datosImagenWord(obtenerImagenDeFoto(fotos[j]));
+                        if(!datos) continue;
+                        const rId=`rId${nextRelId++}`;
+                        const mediaName=`tecchnex_hallazgo_${i+1}_${j+1}.${datos.extension}`;
+                        zip.file(`word/media/${mediaName}`,datos.bytes);
+                        relacionXml=relacionXml.replace("</Relationships>",`<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${mediaName}"/></Relationships>`);
+                        if(!contentTypesXml.includes(`Extension="${datos.extension}"`)){
+                            contentTypesXml=contentTypesXml.replace("</Types>",`<Default Extension="${datos.extension}" ContentType="${datos.mime}"/></Types>`);
+                        }
+                        fotosContenido+=imagenWordXML(rId,docPrId++,`Registro fotográfico ${i+1}-${j+1}`);
+                        imageIndex++;
+                    }
+                    if(!fotosContenido) fotosContenido=parrafoWord("Sin evidencia fotográfica",{font:'Arial',size:'16',color:'666666',align:'center',line:220});
+                }
+                rowsXml+=`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(String(i+1),{width:anchos[0],size:'16',align:'center'})}${celdaWord(h.area||h.categoria||"",{width:anchos[1],size:'16',align:'center'})}${celdaWord(textoHallazgo,{width:anchos[2],size:'16',align:'left'})}${celdaWord(recomendacion,{width:anchos[3],size:'16',align:'left'})}${celdaWordContenido(fotosContenido,{width:anchos[4],vAlign:'center'})}</w:tr>`;
+            }
+            const tablaHallazgos=`<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/><w:insideH w:val="single" w:sz="6" w:color="999999"/><w:insideV w:val="single" w:sz="6" w:color="999999"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${headerXml}${rowsXml}</w:tbl>`;
+            cuerpo+=titulo("11. Hallazgos identificados",1)+tablaHallazgos;
+            zip.file("word/_rels/document.xml.rels",relacionXml);
+            if(contentTypesXml) zip.file("[Content_Types].xml",contentTypesXml);
         }
 
         // 12. FIRMAS / RESPONSABLES
