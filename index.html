@@ -9215,13 +9215,18 @@ async function generarWordPlantillaMaestra() {
          */
         reemplazosMaestra.forEach(([m,v])=>documentXml=documentXml.split(m).join(escaparXmlWord(v)));
 
-        const marcadorContenido="<w:t xml:space=\"preserve\">{{CONTENIDO_INFORME}}</w:t>";
-        if(documentXml.includes(marcadorContenido)){
-            documentXml=documentXml.replace(
-                marcadorContenido,
-                `<w:t xml:space="preserve"></w:t>`
-            );
-            const posMarcador=documentXml.indexOf(`<w:t xml:space="preserve"></w:t>`);
+        /*
+         * CAM-WORD-02.1 — Localización robusta del marcador.
+         * La plantilla puede contener atributos adicionales en <w:t> (por ejemplo
+         * xml:space="preserve"). No dependemos de una cadena XML exacta: localizamos
+         * el texto {{CONTENIDO_INFORME}} dentro de su <w:t> y sustituimos el párrafo
+         * completo. Esto evita falsos negativos entre versiones equivalentes de la
+         * misma Hoja Maestra.
+         */
+        const marcadorRegex=/<w:t(?:\s[^>]*)?>\s*\{\{CONTENIDO_INFORME\}\}\s*<\/w:t>/;
+        const matchMarcador=documentXml.match(marcadorRegex);
+        if(matchMarcador){
+            const posMarcador=matchMarcador.index;
             const inicioParrafo=documentXml.lastIndexOf("<w:p",posMarcador);
             const finParrafo=documentXml.indexOf("</w:p>",posMarcador);
             if(inicioParrafo<0 || finParrafo<0) throw new Error("No se pudo localizar el párrafo de {{CONTENIDO_INFORME}}.");
