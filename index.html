@@ -8829,21 +8829,17 @@ ESTADO: INTEGRACIÓN APROBADA — MEMBRETE COTRASER
 */
 async function generarWordPlantillaMaestra() {
     /* =========================================================
-       TECCHNEX — BASE WORD ESTABILIZADA
+       TECCHNEX — CAMPO VISUAL 03 / INTERVENCIÓN 02
+       PLANTILLA MAESTRA + INFORME COMPLETO
        ---------------------------------------------------------
-       OBJETIVO: utilizar la Plantilla Maestra como documento base
-       y pegar el informe COMPLETO que ya genera generarInforme().
+       Objetivo: utilizar la Plantilla Maestra Word como contenedor
+       documental y alimentar progresivamente toda la información
+       disponible de la inspección, conservando el encabezado,
+       pie, márgenes, tipografía y colores de la plantilla.
 
-       REGLAS DE ESTABILIZACIÓN:
-       - No modificar la lógica de captura, guardado ni edición.
-       - No modificar el PDF.
-       - No modificar tamaños de tablas ni forzar anchos.
-       - No reconstruir el informe desde cero.
-       - No depender de un texto/marcador específico para insertar
-         el contenido, porque Word puede dividir un texto en varios
-         <w:t>.
-       - Insertar el altChunk antes del párrafo final que contiene
-         w:sectPr, conservando intacta la estructura de la plantilla.
+       PRINCIPIO: MEJORAR SIN ROMPER.
+       Esta función solo actúa sobre la generación Word.
+       No modifica captura, almacenamiento ni cálculos.
        ========================================================= */
 
     const indiceGuardado = localStorage.getItem("indiceInspeccionSeleccionadaInforme");
@@ -8855,277 +8851,219 @@ async function generarWordPlantillaMaestra() {
     const indice = Number(indiceGuardado);
     const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
     const inspeccion = inspecciones[indice];
+    if (!inspeccion) { alert("No se encontró la inspección seleccionada."); return; }
+    if (typeof JSZip === "undefined") { alert("No se pudo cargar el componente necesario para preparar la plantilla Word."); return; }
 
-    if (!inspeccion) {
-        alert("No se encontró la inspección seleccionada.");
-        return;
-    }
+    const checklists = JSON.parse(localStorage.getItem("checklists")) || [];
+    const todosLosHallazgos = JSON.parse(localStorage.getItem("hallazgos")) || [];
+    const todasLasMatrices = JSON.parse(localStorage.getItem("matrizRiesgos")) || [];
+    const resultadosGuardados = JSON.parse(localStorage.getItem("resultadosChecklistCategorias")) || {};
+    const resultadosCategorias = resultadosGuardados[indice] || {};
 
-    if (typeof JSZip === "undefined") {
-        alert("No se pudo cargar el componente necesario para preparar la plantilla Word.");
-        return;
-    }
+    const hallazgos = todosLosHallazgos.filter(h => Number(h.inspeccion) === indice);
+    const matrizInspeccion = todasLasMatrices.filter(m => Number(m.inspeccion) === indice);
+    const matricesRiesgosClientes = JSON.parse(localStorage.getItem("matricesRiesgosClientes")) || [];
+    const matrizCliente = matricesRiesgosClientes.filter(r => String(r.cliente || "") === String(inspeccion.cliente || ""));
+    const matrizParaInforme = matrizCliente.length ? matrizCliente : matrizInspeccion;
+
+    const coincidencias = checklists.filter(c => Number(c.inspeccion) === indice);
+    const coincidenciasAntiguas = checklists.filter(c => Number(c.inspeccion) === indice + 1);
+    const checklist = coincidencias.length ? coincidencias[coincidencias.length - 1] : (coincidenciasAntiguas.length ? coincidenciasAntiguas[coincidenciasAntiguas.length - 1] : null);
+    const datosChecklist = checklist && checklist.datos ? checklist.datos : {};
+    const respuestasChecklist = checklist && checklist.respuestas ? checklist.respuestas : {};
 
     const plantillaUrl = "./PLANTILLA_MAESTRA_INFORME_TECCHNEX.docx";
 
     try {
-        /*
-         * generarInforme() sigue siendo la fuente única del informe.
-         * Capturamos su HTML sin abrir ventanas ni duplicar su lógica.
-         */
-        let informeHtmlCapturado = "";
-        const ventanaCaptura = {
-            closed: false,
-            document: {
-                write(html) {
-                    informeHtmlCapturado += String(html || "");
-                },
-                close() {}
-            }
-        };
+        function escaparXmlWord(valor) {
+            return String(valor ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
+        }
+        function textoWord(valor) { return escaparXmlWord(valor).replace(/\r?\n/g, "<w:br/>"); }
+        function runWord(valor, opciones={}) {
+            const r=[];
+            if(opciones.bold) r.push("<w:b/><w:bCs/>");
+            r.push(`<w:rFonts w:ascii="${opciones.font||'Arial'}" w:hAnsi="${opciones.font||'Arial'}" w:cs="${opciones.font||'Arial'}"/>`);
+            r.push(`<w:sz w:val="${opciones.size||'18'}"/><w:szCs w:val="${opciones.size||'18'}"/>`);
+            if(opciones.color) r.push(`<w:color w:val="${opciones.color}"/>`);
+            return `<w:r><w:rPr>${r.join('')}</w:rPr><w:t xml:space="preserve">${textoWord(valor)}</w:t></w:r>`;
+        }
+        function parrafoWord(valor="", opciones={}) {
+            const p=[];
+            if(opciones.align) p.push(`<w:jc w:val="${opciones.align}"/>`);
+            p.push(`<w:spacing w:before="${opciones.before||0}" w:after="${opciones.after||0}" w:line="${opciones.line||240}" w:lineRule="auto"/>`);
+            if(opciones.keepNext) p.push("<w:keepNext/>");
+            return `<w:p><w:pPr>${p.join('')}</w:pPr>${runWord(valor,opciones)}</w:p>`;
+        }
+        function celdaWord(valor, opciones={}) {
+            const width=opciones.width||2200;
+            const shade=opciones.shading ? `<w:shd w:fill="${opciones.shading}"/>` : "";
+            const span=opciones.colspan ? `<w:gridSpan w:val="${opciones.colspan}"/>` : "";
+            const valign=opciones.vAlign ? `<w:vAlign w:val="${opciones.vAlign}"/>` : "";
+            const margins=`<w:tcMar><w:top w:w="80" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tcMar>`;
+            const borders=`<w:tcBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/></w:tcBorders>`;
+            return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${span}${shade}${valign}${margins}${borders}</w:tcPr>${parrafoWord(valor,{font:'Arial',size:opciones.size||'18',bold:!!opciones.bold,color:opciones.color||'000000',align:opciones.align||'left',line:240})}</w:tc>`;
+        }
+        function fila2(label,value,opts={}) {
+            return `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(label,{width:2200,shading:'F1F4F7',bold:true,color:'123B5D'})}${celdaWord(value,{width:6638,size:opts.size||'18'})}</w:tr>`;
+        }
+        function tabla2(filas) {
+            return `<w:tbl><w:tblPr><w:tblW w:w="8838" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/><w:insideH w:val="single" w:sz="6" w:color="999999"/><w:insideV w:val="single" w:sz="6" w:color="999999"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="2200"/><w:gridCol w:w="6638"/></w:tblGrid>${filas}</w:tbl>`;
+        }
+        function titulo(texto,nivel=1){ return parrafoWord(texto,{font:'Arial',size:nivel===1?'24':'21',bold:true,color:'123B5D',before:160,after:100,line:260,keepNext:true}); }
+        function tablaCabeceras(headers,widths) {
+            return `<w:tr><w:trPr><w:tblHeader/></w:trPr>${headers.map((h,i)=>celdaWord(h,{width:widths[i]||2200,shading:'123B5D',bold:true,color:'FFFFFF',align:'center',size:'16'})).join('')}</w:tr>`;
+        }
+        function tablaGenerica(headers,rows,widths) {
+            const cols=headers.length;
+            const body=rows.length ? rows.map(row=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${row.map((v,i)=>celdaWord(v,{width:widths[i]||Math.floor(8838/cols),size:'16',align:i===0?'left':'center'})).join('')}</w:tr>`).join('') : `<w:tr>${celdaWord('No se registró información.',{width:8838,colspan:cols,align:'center',color:'666666'})}</w:tr>`;
+            return `<w:tbl><w:tblPr><w:tblW w:w="8838" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/><w:insideH w:val="single" w:sz="6" w:color="999999"/><w:insideV w:val="single" w:sz="6" w:color="999999"/></w:tblBorders></w:tblPr><w:tblGrid>${widths.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${tablaCabeceras(headers,widths)}${body}</w:tbl>`;
+        }
+        function limpio(v){ return v!==undefined && v!==null && String(v).trim()!==""; }
+        function camposDiligenciados(lista){ return lista.filter(([,v])=>limpio(v)); }
+        function listaParrafos(items){ return items.map((x,i)=>parrafoWord(`${i+1}. ${x}`,{font:'Arial',size:'18',after:60,line:260})).join(''); }
+        function bloqueTexto(tituloTexto,texto){ return titulo(tituloTexto,2)+parrafoWord(texto||"",{font:'Arial',size:'18',after:80,line:276}); }
 
-        const resultadoInforme = generarInforme(ventanaCaptura);
-        if (resultadoInforme && typeof resultadoInforme.then === "function") {
-            await resultadoInforme;
+        const respuesta=await fetch(plantillaUrl,{cache:'no-store'});
+        if(!respuesta.ok) throw new Error("No se pudo localizar la plantilla maestra Word.");
+        const zip=await JSZip.loadAsync(await respuesta.blob());
+        const documentEntry=zip.file("word/document.xml");
+        if(!documentEntry) throw new Error("La plantilla no contiene word/document.xml.");
+        let documentXml=await documentEntry.async("string");
+
+        const versionDocumento=localStorage.getItem("versionDocumento")||"003";
+        const tituloDocumento=localStorage.getItem("tituloDocumento")||"INFORME PREVENTIVO DE SEGURIDAD INTEGRAL";
+        const puesto=inspeccion.nombrePuesto||"";
+        const headerEntry=zip.file("word/header1.xml");
+        if(headerEntry){
+            let headerXml=await headerEntry.async("string");
+            [["{{VERSION_DOCUMENTO}}",versionDocumento],["{{TITULO_DOCUMENTO}}",tituloDocumento],["{{PUESTO}}",puesto]].forEach(([m,v])=>headerXml=headerXml.split(m).join(escaparXmlWord(v)));
+            zip.file("word/header1.xml",headerXml);
         }
 
-        if (!informeHtmlCapturado.trim()) {
-            throw new Error("No fue posible capturar el informe completo generado por la aplicación.");
+        // 01. INFORMACIÓN GENERAL
+        const info=camposDiligenciados([
+            ["Cliente",inspeccion.cliente],["NIT",inspeccion.nit],["Dirección",inspeccion.direccion],["Ciudad",inspeccion.ciudad],
+            ["Contacto",inspeccion.contacto],["Teléfono",inspeccion.telefono],["Correo",inspeccion.correo],["Fecha",inspeccion.fecha],
+            ["Inspector",inspeccion.inspector],["Director",inspeccion.director],["Tipo de inspección",inspeccion.tipo]
+        ]);
+        let cuerpo=titulo("1. Información general de la inspección",1)+tabla2(info.map(x=>fila2(x[0],x[1])));
+        if(limpio(inspeccion.objetivo)) cuerpo+=tabla2([fila2("Objetivo",inspeccion.objetivo,{size:'18'})]);
+        if(limpio(inspeccion.entorno)) cuerpo+=tabla2([fila2("Descripción del entorno",inspeccion.entorno,{size:'18'})]);
+
+        // 02. CARACTERÍSTICAS DE LA INSTALACIÓN
+        let caracteristicas=[];
+        if(inspeccion.sectorInspeccion==="Residencial") caracteristicas=camposDiligenciados([
+            ["Tipo de instalación",inspeccion.tipoInstalacion],["Torres",inspeccion.cantidadTorres],["Niveles",inspeccion.cantidadNiveles],["Sótanos",inspeccion.cantidadSotanos],
+            ["Viviendas",inspeccion.cantidadViviendas],["Parqueaderos privados",inspeccion.parqueaderosPrivados],["Parqueaderos visitantes",inspeccion.parqueaderosVisitantes],
+            ["Parqueaderos motos",inspeccion.parqueaderosMotos],["Parqueaderos uso común",inspeccion.parqueaderosComunes],["Bicicleteros",inspeccion.bicicleteros]
+        ]);
+        else if(inspeccion.sectorInspeccion==="Industrial") caracteristicas=camposDiligenciados([
+            ["Tipo de instalación",inspeccion.tipoInstalacionIndustrial],["Actividad principal",inspeccion.actividadPrincipalIndustrial],["Cantidad de bodegas",inspeccion.cantidadBodegas],["Área aproximada (m²)",inspeccion.areaIndustrial]
+        ]);
+        else if(inspeccion.sectorInspeccion==="Parcelación") caracteristicas=camposDiligenciados([
+            ["Número de lotes",inspeccion.numeroLotesParcelacion],["Viviendas construidas",inspeccion.viviendasConstruidasParcelacion],["Viviendas en construcción",inspeccion.viviendasConstruccionParcelacion]
+        ]);
+        else if(inspeccion.sectorInspeccion==="Comercial") caracteristicas=camposDiligenciados([
+            ["Tipo de establecimiento",inspeccion.tipoEstablecimientoComercial],["Actividad comercial",inspeccion.actividadComercial],["Área aproximada (m²)",inspeccion.areaComercial],["Número de locales",inspeccion.numeroLocalesComercial],["Número de niveles",inspeccion.nivelesComercial],["Parqueaderos",inspeccion.parqueaderosComercial],["Otra información",inspeccion.otraInformacionComercial]
+        ]);
+        if(caracteristicas.length){ cuerpo+=titulo(`2. Características de la instalación — ${inspeccion.sectorInspeccion||""}`,1)+tabla2(caracteristicas.map(x=>fila2(x[0],x[1]))); }
+
+        // 03. CCTV
+        const cctv=camposDiligenciados([
+            ["Tipo de sistema CCTV",inspeccion.tipoCCTV],["Cantidad de cámaras",inspeccion.cantidadCamaras],["Cantidad de equipos de grabación",inspeccion.cantidadEquiposGrabacionCCTV],
+            ["Vídeo analítica",inspeccion.videoAnalitica],["Ubicación del rack",inspeccion.ubicacionRack],["Días de almacenamiento",inspeccion.diasAlmacenamiento],
+            ["UPS / sistema ininterrumpido",inspeccion.upsCCTV],["Manejo de contraseñas",inspeccion.manejoContrasenasCCTV],["Observaciones",inspeccion.observacionesCCTV]
+        ]);
+        if(cctv.length) cuerpo+=titulo("3. Sistema CCTV",1)+tabla2(cctv.map(x=>fila2(x[0],x[1])));
+
+        // 04. GEOREFERENCIACIÓN
+        const geo=camposDiligenciados([["Latitud",inspeccion.latitud||""],["Longitud",inspeccion.longitud||""]]);
+        if(geo.length) cuerpo+=titulo("4. Georreferenciación",1)+tabla2(geo.map(x=>fila2(x[0],x[1])));
+
+        // 05. HERRAMIENTAS DE SEGURIDAD
+        function serviciosRows(arr){ return (Array.isArray(arr)?arr:[]).map(s=>[s.servicio||"",s.horario||"",s.jornada||"",s.dias||"",s.modalidad||""]); }
+        if((inspeccion.seguridadActual||[]).length || (inspeccion.seguridadSugerida||[]).length){
+            cuerpo+=titulo("5. Herramientas de seguridad",1);
+            if((inspeccion.seguridadActual||[]).length) cuerpo+=titulo("Dispositivo de Seguridad actual",2)+tablaGenerica(["SERVICIO","HORARIO","JORNADA","DÍAS DE SERVICIO","MODALIDAD"],serviciosRows(inspeccion.seguridadActual),[2400,1500,1400,1800,1738]);
+            if((inspeccion.seguridadSugerida||[]).length) cuerpo+=titulo("Dispositivo de Seguridad sugerido",2)+tablaGenerica(["SERVICIO","HORARIO","JORNADA","DÍAS DE SERVICIO","MODALIDAD"],serviciosRows(inspeccion.seguridadSugerida),[2400,1500,1400,1800,1738]);
         }
 
-        const parser = new DOMParser();
-        const informeDoc = parser.parseFromString(informeHtmlCapturado, "text/html");
-        const hoja = informeDoc.querySelector(".hoja");
+        // 06. OBJETIVO Y METODOLOGÍA
+        const objetivoGeneral=inspeccion.objetivo||"Realizar un diagnóstico integral de las condiciones de seguridad de la copropiedad.";
+        const objetivos=[
+            "Identificar los aspectos positivos y los puntos críticos para la seguridad de la copropiedad mediante la aplicación de la lista de verificación.",
+            "Evaluar las condiciones de los accesos y cerramientos, identificando posibles vulnerabilidades frente a ingresos no autorizados.",
+            "Revisar las condiciones de los sistemas tecnológicos de seguridad, incluyendo CCTV, alarmas e iluminación.",
+            "Identificar condiciones que puedan favorecer la materialización de riesgos y establecer medidas preventivas y de mitigación.",
+            "Formular recomendaciones orientadas al fortalecimiento de las condiciones de seguridad de la copropiedad."
+        ];
+        const metodologia="Para la realización del presente estudio de seguridad se empleó una visita a la copropiedad, con toma de fotografías, entrevistas y aplicación de lista de chequeo.\nLos parámetros de observación comprenden Control de Accesos, Seguridad Perimetral, Sistemas Electrónicos de Seguridad, Gestión de Autocuidado, Planeación Estratégica y SG-SST, Medio Ambiente y otros aspectos.";
+        cuerpo+=titulo("6. Objetivo y metodología",1)+bloqueTexto("Objetivo General",objetivoGeneral)+titulo("Objetivos Específicos",2)+listaParrafos(objetivos)+bloqueTexto("Metodología",metodologia);
 
-        if (!hoja) {
-            throw new Error("El informe generado no contiene la estructura .hoja esperada.");
-        }
-
-        /* La plantilla maestra ya tiene su propio encabezado. */
-        const encabezado = hoja.querySelector(":scope > .encabezado");
-        if (encabezado) encabezado.remove();
-
-        hoja.querySelectorAll(".botones, .controles-informe-paginado, .pie, .paginacion-informe")
-            .forEach(el => el.remove());
-
-        const estilos = Array.from(informeDoc.querySelectorAll("head style"))
-            .map(style => style.outerHTML)
-            .join("\n");
-
-        let contenidoHtml = hoja.innerHTML;
-
-        /*
-         * Las imágenes viajan dentro del MHTML mediante Content-ID.
-         * Esto mantiene las fotografías dentro del DOCX sin depender
-         * de rutas externas o data-URI en el importador de Word.
-         */
-        const imagenes = Array.from(hoja.querySelectorAll("img"));
-        const imagenesParaWord = [];
-
-        imagenes.forEach((img, i) => {
-            const src = img.getAttribute("src") || "";
-            const match = src.match(/^data:(image\/(?:png|jpeg|jpg|gif|webp));base64,([A-Za-z0-9+/=]+)$/i);
-            if (!match) return;
-
-            const mime = match[1].toLowerCase();
-            const extension = mime.includes("png")
-                ? "png"
-                : (mime.includes("gif") ? "gif" : (mime.includes("webp") ? "webp" : "jpg"));
-            const nombre = `tecchnex-informe-${i + 1}.${extension}`;
-            imagenesParaWord.push({ nombre, base64: match[2], mime });
-            img.setAttribute("src", `media/${nombre}`);
-        });
-
-        contenidoHtml = hoja.innerHTML;
-
-        const respuesta = await fetch(plantillaUrl, { cache: "no-store" });
-        if (!respuesta.ok) {
-            throw new Error("No se pudo localizar la plantilla maestra Word.");
-        }
-
-        const archivoPlantilla = await respuesta.blob();
-        const zip = await JSZip.loadAsync(archivoPlantilla);
-
-        const fecha = inspeccion.fecha
-            ? inspeccion.fecha.split("-").reverse().join("/")
-            : "";
-        const cliente = inspeccion.cliente || "";
-        const puesto = inspeccion.nombrePuesto || "";
-        const realizadoPor = inspeccion.inspector || "";
-        const revisadoPor = inspeccion.revisadoPor || inspeccion.director || "";
-
-        function escaparXml(valor) {
-            return String(valor ?? "")
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&apos;");
-        }
-
-        const reemplazos = {
-            "{{FECHA}}": escaparXml(fecha),
-            "{{CLIENTE}}": escaparXml(cliente),
-            "{{PUESTO}}": escaparXml(puesto),
-            "{{REALIZADO_POR}}": escaparXml(realizadoPor),
-            "{{REVISADO_POR}}": escaparXml(revisadoPor)
-        };
-
-        const documentEntry = zip.file("word/document.xml");
-        if (!documentEntry) throw new Error("La plantilla no contiene word/document.xml.");
-        let documentXml = await documentEntry.async("string");
-
-        Object.entries(reemplazos).forEach(([marcador, valor]) => {
-            documentXml = documentXml.split(marcador).join(valor);
-        });
-
-        /*
-         * PUNTO DE INSERCIÓN ROBUSTO
-         * ---------------------------
-         * No buscamos una frase del documento. El texto de Word puede estar
-         * dividido entre varios <w:t>, por lo que una búsqueda textual frágil
-         * puede fallar aunque la plantilla sea correcta.
-         *
-         * En su lugar localizamos el <w:sectPr> de la sección final y, si está
-         * dentro de un párrafo, insertamos el altChunk ANTES de ese párrafo.
-         * Así el altChunk queda como hijo directo de w:body y w:sectPr continúa
-         * siendo la configuración final de la sección.
-         */
-        const sectPos = documentXml.lastIndexOf("<w:sectPr");
-        if (sectPos === -1) {
-            throw new Error("La plantilla maestra no contiene w:sectPr.");
-        }
-
-        const paragraphStarts = [];
-        const paragraphRegex = /<w:p(?:\s|>)/g;
-        let matchParagraph;
-        while ((matchParagraph = paragraphRegex.exec(documentXml)) !== null) {
-            if (matchParagraph.index < sectPos) {
-                paragraphStarts.push(matchParagraph.index);
-            } else {
-                break;
-            }
-        }
-
-        const paragraphStart = paragraphStarts.length
-            ? paragraphStarts[paragraphStarts.length - 1]
-            : -1;
-
-        let puntoInsercion;
-        if (paragraphStart !== -1) {
-            const paragraphEnd = documentXml.indexOf("</w:p>", sectPos);
-            if (paragraphEnd !== -1) {
-                puntoInsercion = paragraphStart;
-            }
-        }
-
-        if (puntoInsercion === undefined) {
-            puntoInsercion = sectPos;
-        }
-
-        const altChunkPart = "word/afchunk-tecchnex.mht";
-        const relationshipId = "rIdTecchnexInformeCompleto";
-
-        const escaparMht = valor => String(valor ?? "").replace(/\r?\n/g, "\r\n");
-
-        let cuerpoMhtml = `<!DOCTYPE html>\r\n<html lang="es"><head><meta charset="UTF-8">${estilos}</head><body>${contenidoHtml}</body></html>`;
-        const fronteraMhtml = "----=_TECCHNEX_MHTML_" + Date.now();
-        const partesMhtml = [];
-
-        imagenesParaWord.forEach((imagen, indiceImagen) => {
-            const cid = `tecchnex-img-${indiceImagen + 1}@informe`;
-            cuerpoMhtml = cuerpoMhtml.replaceAll(`media/${imagen.nombre}`, `cid:${cid}`);
-            partesMhtml.push(
-                `--${fronteraMhtml}\r\n` +
-                `Content-Type: ${imagen.mime}; name="${imagen.nombre}"\r\n` +
-                `Content-Transfer-Encoding: base64\r\n` +
-                `Content-Location: ${imagen.nombre}\r\n` +
-                `Content-ID: <${cid}>\r\n\r\n` +
-                imagen.base64 + `\r\n`
-            );
-        });
-
-        const contenidoMhtml =
-            `MIME-Version: 1.0\r\n` +
-            `Content-Type: multipart/related; boundary="${fronteraMhtml}"; type="text/html"; start="<tecchnex-root@informe>"\r\n` +
-            `\r\n` +
-            `--${fronteraMhtml}\r\n` +
-            `Content-Type: text/html; charset="utf-8"\r\n` +
-            `Content-Transfer-Encoding: 8bit\r\n` +
-            `Content-Location: informe-tecchnex.html\r\n` +
-            `Content-ID: <tecchnex-root@informe>\r\n\r\n` +
-            escaparMht(cuerpoMhtml) + `\r\n` +
-            partesMhtml.join("") +
-            `--${fronteraMhtml}--\r\n`;
-
-        zip.file(altChunkPart, contenidoMhtml);
-        documentXml =
-            documentXml.slice(0, puntoInsercion) +
-            `<w:altChunk r:id="${relationshipId}"/>` +
-            documentXml.slice(puntoInsercion);
-        zip.file("word/document.xml", documentXml);
-
-        const relsEntry = zip.file("word/_rels/document.xml.rels");
-        if (!relsEntry) throw new Error("La plantilla no contiene las relaciones de document.xml.");
-        let relsXml = await relsEntry.async("string");
-        if (!relsXml.includes(`Id="${relationshipId}"`)) {
-            relsXml = relsXml.replace(
-                "</Relationships>",
-                `<Relationship Id="${relationshipId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk" Target="afchunk-tecchnex.mht"/></Relationships>`
-            );
-        }
-        zip.file("word/_rels/document.xml.rels", relsXml);
-
-        const contentTypesEntry = zip.file("[Content_Types].xml");
-        if (!contentTypesEntry) throw new Error("La plantilla no contiene [Content_Types].xml.");
-        let contentTypesXml = await contentTypesEntry.async("string");
-        if (!contentTypesXml.includes('PartName="/word/afchunk-tecchnex.mht"')) {
-            contentTypesXml = contentTypesXml.replace(
-                "</Types>",
-                `<Override PartName="/word/afchunk-tecchnex.mht" ContentType="message/rfc822"/></Types>`
-            );
-        }
-        zip.file("[Content_Types].xml", contentTypesXml);
-
-        const headerEntry = zip.file("word/header1.xml");
-        if (headerEntry) {
-            let headerXml = await headerEntry.async("string");
-            Object.entries(reemplazos).forEach(([marcador, valor]) => {
-                headerXml = headerXml.split(marcador).join(valor);
+        // 07. CHECKLIST
+        if(Object.keys(datosChecklist).length){
+            const rows=[];
+            Object.keys(datosChecklist).forEach(categoria=>{
+                const resultado=Number(resultadosCategorias[categoria]??0);
+                rows.push([categoria,"RESULTADO DE CATEGORÍA",`${resultado}%`]);
+                (datosChecklist[categoria]||[]).forEach(item=>{
+                    const valor=String((respuestasChecklist[categoria]||{})[item]??"").trim();
+                    if(!valor || valor.toUpperCase()==="NA" || valor.toUpperCase()==="NO APLICA") return;
+                    let estado=valor; if(valor==="2") estado="BUENO"; else if(valor==="1") estado="REGULAR"; else if(valor==="0") estado="MALO";
+                    rows.push([item,estado,`${resultado}%`]);
+                });
             });
-            zip.file("word/header1.xml", headerXml);
+            cuerpo+=titulo("7. Evaluación detallada del checklist",1)+tablaGenerica(["ASPECTO / CATEGORÍA","ESTADO","RESULTADO"],rows,[5000,2200,1638]);
+            let totalPuntos=0,totalMaximo=0;
+            Object.keys(datosChecklist).forEach(c=>{const pct=Number(resultadosCategorias[c]);if(!isNaN(pct)){const n=datosChecklist[c].length;totalPuntos+=pct*n;totalMaximo+=n;}});
+            const porcentajeGeneral=totalMaximo?Math.round(totalPuntos/totalMaximo):0;
+            const perfil=porcentajeGeneral>=76?"BUENO":porcentajeGeneral>=51?"SUFICIENTE":porcentajeGeneral>=26?"REGULAR":"DÉBIL";
+            cuerpo+=titulo("8. Perfil de criticidad",1)+tablaGenerica(["PERFIL","RANGO","CLASIFICACIÓN","DESCRIPCIÓN"],[
+                ["BUENO","76% - 100%","Conforme","Se recomienda monitoreo y seguimiento general a cada aspecto, con el fin de darle continuidad a las fortalezas identificadas."],
+                ["SUFICIENTE","51% - 75,9%","Con observaciones menores","Plan de seguimiento encaminado a esas observaciones menores detectadas."],
+                ["REGULAR","26% - 50,9%","Requiere seguimiento","Es necesario el diseño de estrategias tendientes a la corrección de aquellos aspectos calificados por mejorar."],
+                ["DÉBIL","0% - 25,9%","Con observaciones mayores","Es necesario intervenir los aspectos de manera inmediata, con el ánimo de disminuir la probabilidad de materialización de las amenazas."]
+            ],[1300,1300,1900,4338])+parrafoWord(`Perfil obtenido: ${perfil} — Resultado: ${porcentajeGeneral}%`,{font:'Arial',size:'18',bold:true,color:'123B5D',before:80,after:80});
         }
 
-        const salida = await zip.generateAsync({
-            type: "blob",
-            mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            compression: "STORE"
-        });
+        // 09. MATRIZ DE RIESGOS
+        if(matrizParaInforme.length){
+            cuerpo+=titulo("9. Matriz de riesgos",1)+tablaGenerica(["#","Área","Elemento / Peligro","Probabilidad","Impacto","Puntuación","Nivel","Tratamiento"],matrizParaInforme.map((r,i)=>[String(i+1),r.area||"",r.peligro||"",r.probabilidad||"",r.impacto||"",r.puntuacion||"",r.nivel||"",r.tratamiento||""]),[500,1100,1900,900,800,900,900,1838]);
+        }
 
-        const nombreBase = (cliente || "Inspeccion")
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/[^a-zA-Z0-9_-]+/g, "_")
-            .replace(/^_+|_+$/g, "") || "Inspeccion";
-        const idControl = (inspeccion.idControl || "SIN_ID").toString().replace(/[^a-zA-Z0-9_-]+/g, "_");
+        // 10. MAPA DE CALOR — tabla de referencia con los riesgos numerados
+        if(matrizParaInforme.length){
+            const celdas={}; matrizParaInforme.forEach((r,i)=>{const p=Number(r.probabilidad),imp=Number(r.impacto);if(p>=1&&p<=5&&imp>=1&&imp<=5){const k=`${p}-${imp}`;(celdas[k]||(celdas[k]=[])).push(String(i+1));}});
+            const mapa=[]; for(let impacto=5;impacto>=1;impacto--){mapa.push([String(impacto),...Array.from({length:5},(_,j)=>(celdas[`${j+1}-${impacto}`]||[]).join(", "))]);}
+            cuerpo+=titulo("10. Mapa de calor de riesgos",1)+tablaGenerica(["IMPACTO / PROBABILIDAD","1","2","3","4","5"],mapa,[1700,1427,1427,1427,1427,1430])+parrafoWord("Los números dentro del mapa corresponden al número de riesgo de la matriz.",{font:'Arial',size:'16',color:'666666',before:60,after:80});
+        }
 
-        const enlace = document.createElement("a");
-        const url = URL.createObjectURL(salida);
-        enlace.href = url;
-        enlace.download = `Informe_${nombreBase}_${idControl}_PlantillaMaestra.docx`;
-        document.body.appendChild(enlace);
-        enlace.click();
-        enlace.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1500);
+        // 11. HALLAZGOS — texto y referencia de fotografías. Las imágenes se conservan en los datos;
+        // la integración gráfica completa de cada fotografía se realizará como intervención específica.
+        if(hallazgos.length){
+            const rows=hallazgos.map((h,i)=>[String(i+1),h.area||h.categoria||"",h.hallazgo||h.descripcion||h.observacion||"",h.accion||h.accionPreventiva||h.recomendacion||"",Array.isArray(h.fotos)?`${h.fotos.length} fotografía(s) registrada(s)`:"Sin evidencia fotográfica"]);
+            cuerpo+=titulo("11. Hallazgos identificados",1)+tablaGenerica(["#","ÁREA","HALLAZGO","ACCIÓN PREVENTIVA / RECOMENDACIÓN","REGISTRO FOTOGRÁFICO"],rows,[500,1000,2600,3000,1738]);
+        }
 
-        alert(
-            "Documento generado correctamente con la Hoja Maestra TECCHNEX + membrete COTRASER.\n\n" +
-            "El contenido proviene directamente del informe completo que ya genera la aplicación."
-        );
+        // 12. FIRMAS / RESPONSABLES
+        cuerpo+=titulo("12. Responsables",1)+tabla2([
+            fila2("Realizado por",inspeccion.inspector||""),
+            fila2("Responsable del cliente",inspeccion.director||"")
+        ]);
 
-    } catch (error) {
-        console.error("BASE WORD ESTABILIZADA — Error al generar Word:", error);
-        alert("No fue posible generar el Word con la plantilla maestra.\n\nDetalle: " + error.message);
+        const posicionSeccion=documentXml.search(/<w:sectPr(?=[ >])/);
+        if(posicionSeccion<0) throw new Error("La plantilla maestra no contiene la configuración de sección esperada.");
+        documentXml=documentXml.slice(0,posicionSeccion)+cuerpo+documentXml.slice(posicionSeccion);
+        zip.file("word/document.xml",documentXml);
+
+        const salida=await zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",compression:"STORE"});
+        const nombreBase=(inspeccion.cliente||"Inspeccion").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9_-]+/g,"_").replace(/^_+|_+$/g,"")||"Inspeccion";
+        const idControl=(inspeccion.idControl||"SIN_ID").toString().replace(/[^a-zA-Z0-9_-]+/g,"_");
+        const enlace=document.createElement("a"); const url=URL.createObjectURL(salida); enlace.href=url; enlace.download=`Informe_${nombreBase}_${idControl}_PlantillaMaestra_COMPLETO.docx`; document.body.appendChild(enlace); enlace.click(); enlace.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500);
+        alert("Documento Word completo generado sobre la Plantilla Maestra.\n\nSe incorporaron los bloques de información disponibles en la inspección y se conservaron los elementos corporativos de la plantilla.");
+    } catch(error) {
+        console.error("CAMPO VISUAL 03 / INTERVENCIÓN 02 — Error al generar Word:",error);
+        alert("No fue posible generar el Word completo con la plantilla maestra.\n\nDetalle: "+error.message);
     }
 }
 
@@ -10043,6 +9981,50 @@ matrizParaInforme.forEach((riesgo, indice) => {
                 .hoja > .encabezado {
                     margin-top:0 !important;
                     padding-top:0 !important;
+                }
+
+                /* =====================================================
+                   INTERVENCIÓN PRESENTACIÓN-01 · PRUEBA CONTROLADA
+                   Objetivo: presentar el informe en pantalla como un
+                   documento continuo, sin reconstrucción artificial de
+                   páginas A4.
+                   IMPORTANTE: estas reglas son SOLO para pantalla.
+                   La salida Word no se modifica.
+                   ===================================================== */
+                @media screen {
+                    body {
+                        background:#eef2f5;
+                    }
+
+                    .hoja {
+                        width:min(1100px, calc(100vw - 32px)) !important;
+                        max-width:none !important;
+                        margin:16px auto !important;
+                        padding:24px !important;
+                        box-sizing:border-box !important;
+                        background:#fff;
+                        box-shadow:0 2px 16px rgba(0,0,0,.10);
+                    }
+
+                    /* Los saltos creados exclusivamente para paginación/PDF
+                       dejan de intervenir en la vista de pantalla. */
+                    .salto-pagina-pdf,
+                    .salto-hallazgos-pdf {
+                        display:none !important;
+                    }
+
+                    .botones {
+                        display:block;
+                    }
+
+                    /* PDF no forma parte de esta etapa; ocultarlo solo en pantalla. */
+                    .botones button[onclick*="generarPDF"] {
+                        display:none !important;
+                    }
+
+                    .tabla-hallazgos {
+                        width:100%;
+                    }
                 }
 
                 /* =====================================================
@@ -12422,7 +12404,7 @@ ESTADO: EN DESARROLLO
                 ========================================================
                 -->
                 <button onclick="window.opener.generarWordPlantillaMaestra()">
-    📝 Generar Word con Hoja Maestra + membrete COTRASER
+    📝 Generar Word con Hoja Maestra limpia + membrete COTRASER
 </button>
 
                 <button onclick="window.opener.generarPDF(window)">
