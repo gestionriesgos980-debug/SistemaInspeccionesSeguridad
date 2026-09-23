@@ -8828,7 +8828,6 @@ ESTADO: INTEGRACIÓN APROBADA — MEMBRETE COTRASER
 ========================================================
 */
 async function generarWordPlantillaMaestra() {
-    /* CAMPO VISUAL 04 — INTERVENCIÓN 03: ancho seguro de tablas en Word. */
     /* =========================================================
        TECCHNEX — CAM-PLANTILLA-09 / BASE CAM-06
        GENERACIÓN WORD COMPLETA SIN VENTANA EMERGENTE
@@ -9019,24 +9018,14 @@ async function generarWordPlantillaMaestra() {
         const escaparMht = valor => String(valor ?? "")
             .replace(/\r?\n/g, "\r\n");
 
-        /* CAMPO VISUAL 04 — INTERVENCIÓN 03
-         * Ancho seguro: las tablas ocupan el 100 % del ancho disponible
-         * dentro de la plantilla Word. No se fuerzan centímetros ni se
-         * modifica document.xml, para evitar corrupción del DOCX.
-         */
-        const estilosAnchoSeguroWord = `
-            <style>
-                table {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                    border-collapse: collapse;
-                }
-                table td, table th {
-                    max-width: 100%;
-                }
-            </style>`;
-
-        let cuerpoMhtml = `<!DOCTYPE html>\r\n<html lang="es"><head><meta charset="UTF-8">${estilos}${estilosAnchoSeguroWord}</head><body>${contenidoHtml}</body></html>`;
+        /* CAMPO VISUAL 04 — ANCHO SEGURO WORD
+ * No se modifica document.xml ni la estructura de la plantilla.
+ * Las tablas ocupan el 100% del ancho disponible del cuerpo Word.
+ * Esto equivale al ancho útil de la página (15,5 cm en la plantilla actual)
+ * y evita el conflicto producido al forzar 19 cm sobre el cuerpo del documento.
+ */
+const estilosWordSeguro = `${estilos}\n<style>table{width:100% !important;max-width:100% !important;} .hoja{width:100% !important;max-width:100% !important;}</style>`;
+let cuerpoMhtml = `<!DOCTYPE html>\r\n<html lang="es"><head><meta charset="UTF-8">${estilosWordSeguro}</head><body>${contenidoHtml}</body></html>`;
 
         const fronteraMhtml = "----=_TECCHNEX_MHTML_" + Date.now();
         const partesMhtml = [];
