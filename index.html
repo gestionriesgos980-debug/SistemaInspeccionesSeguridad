@@ -368,6 +368,9 @@
     font-weight: bold;
 }
 </style>
+<style id="cam-riesgos-01-estilo">
+.codigo-riesgo-matriz { display:inline-block; color:#123b5d; font-weight:800; margin-right:4px; }
+</style>
 </head>
 
 <body>
@@ -7359,10 +7362,12 @@ if (
 
 } catch (error) {
 
-    alert(
-        "No fue posible guardar las fotografías. " +
-        "Intente seleccionar menos fotografías o imágenes más pequeñas."
-    );
+    if (!mostrarAlertaAlmacenamientoLleno(error)) {
+        alert(
+            "No fue posible guardar las fotografías. " +
+            "Intente seleccionar menos fotografías o imágenes más pequeñas."
+        );
+    }
 
     return;
 }
@@ -7587,6 +7592,59 @@ function cerrarMatrizRiesgos() {
 }
 
 
+/* =========================================================
+   CAM-RIESGOS-01 — IDENTIFICADOR INDEPENDIENTE POR RIESGO
+   Cada riesgo conserva un código estable R-001, R-002...
+   El código acompaña matriz, mapa de calor y futuras acciones.
+   ========================================================= */
+function siguienteCodigoRiesgo(matriz) {
+    let maximo = 0;
+    (Array.isArray(matriz) ? matriz : []).forEach(r => {
+        const m = String(r?.codigoRiesgo || "").match(/^R-(\d+)$/i);
+        if (m) maximo = Math.max(maximo, Number(m[1]));
+    });
+    return `R-${String(maximo + 1).padStart(3, "0")}`;
+}
+
+function asegurarCodigosRiesgo(matriz) {
+    const lista = Array.isArray(matriz) ? matriz : [];
+    let maximo = 0;
+    lista.forEach(r => {
+        const m = String(r?.codigoRiesgo || "").match(/^R-(\d+)$/i);
+        if (m) maximo = Math.max(maximo, Number(m[1]));
+    });
+    lista.forEach(r => {
+        if (!r.codigoRiesgo) {
+            maximo += 1;
+            r.codigoRiesgo = `R-${String(maximo).padStart(3, "0")}`;
+        }
+    });
+    return lista;
+}
+
+/* =========================================================
+   CAM-ALMACENAMIENTO-01 — ALERTA DE CUOTA LOCALSTORAGE
+   ========================================================= */
+function mostrarAlertaAlmacenamientoLleno(error) {
+    const esCuota = error && (
+        error.name === "QuotaExceededError" ||
+        error.code === 22 ||
+        error.code === 1014
+    );
+    if (!esCuota) return false;
+
+    alert(
+        "⚠️ ALMACENAMIENTO CASI LLENO\n\n" +
+        "No fue posible guardar la información porque el almacenamiento del navegador alcanzó su límite.\n\n" +
+        "Para continuar:\n" +
+        "• reduzca el número de fotografías del registro;\n" +
+        "• use fotografías de menor tamaño;\n" +
+        "• genere/realice el respaldo de la información y libere espacio si es necesario.\n\n" +
+        "La información que no pudo guardarse NO se considera registrada."
+    );
+    return true;
+}
+
 function cargarMatrizRiesgos() {
 
     const contenedor =
@@ -7623,10 +7681,17 @@ function cargarMatrizRiesgos() {
         return;
     }
 
-    const matrizGuardada =
+    const matrizGuardada = asegurarCodigosRiesgo(
         JSON.parse(
             localStorage.getItem("matrizRiesgos")
-        ) || [];
+        ) || []
+    );
+
+    try {
+        localStorage.setItem("matrizRiesgos", JSON.stringify(matrizGuardada));
+    } catch (error) {
+        mostrarAlertaAlmacenamientoLleno(error);
+    }
 
     const riesgosInspeccion =
         matrizGuardada.filter(
@@ -7713,6 +7778,10 @@ function cargarMatrizRiesgos() {
                 return;
             }
 
+            bloque.dataset.codigoRiesgo = riesgoGuardado.codigoRiesgo || bloque.dataset.codigoRiesgo || "";
+            const etiquetaCodigo = bloque.querySelector(".codigo-riesgo-matriz");
+            if (etiquetaCodigo) etiquetaCodigo.textContent = bloque.dataset.codigoRiesgo || "Nuevo";
+
             const area =
                 bloque.querySelector(
                     `[id^="areaRiesgo_"]`
@@ -7796,6 +7865,16 @@ function agregarRiesgoMatriz() {
     const bloque =
         document.createElement("div");
 
+    const matrizActualParaCodigo = JSON.parse(localStorage.getItem("matrizRiesgos")) || [];
+    const codigosEnFormulario = Array.from(contenedor.children)
+        .map(b => b.dataset.codigoRiesgo)
+        .filter(Boolean);
+    const matrizParaNuevoCodigo = [
+        ...matrizActualParaCodigo,
+        ...codigosEnFormulario.map(codigoRiesgo => ({ codigoRiesgo }))
+    ];
+    bloque.dataset.codigoRiesgo = siguienteCodigoRiesgo(matrizParaNuevoCodigo);
+
     bloque.style.background = "#f8fafc";
     bloque.style.border = "1px solid #dbe3ea";
     bloque.style.borderRadius = "10px";
@@ -7815,7 +7894,7 @@ function agregarRiesgoMatriz() {
                 margin:0;
                 color:#123b5d;
             ">
-                Riesgo ${indice + 1}
+                <span class="codigo-riesgo-matriz">${bloque.dataset.codigoRiesgo || "Nuevo"}</span> · Riesgo ${indice + 1}
             </h3>
 
             <button
@@ -8198,7 +8277,12 @@ function guardarMatrizRiesgos() {
                 `[id^="tratamiento_"]`
             )?.value || "";
 
+        const codigoRiesgo =
+            bloque.dataset.codigoRiesgo || siguienteCodigoRiesgo([...riesgosActuales, ...nuevosRiesgos]);
+
         nuevosRiesgos.push({
+
+            codigoRiesgo: codigoRiesgo,
 
             inspeccion:
                 indiceSeleccionado,
@@ -8230,18 +8314,22 @@ function guardarMatrizRiesgos() {
 
     });
 
-    const matrizFinal =
-        [
-            ...riesgosDeOtrasInspecciones,
-            ...nuevosRiesgos
-        ];
+    const matrizFinal = asegurarCodigosRiesgo([
+        ...riesgosDeOtrasInspecciones,
+        ...nuevosRiesgos
+    ]);
 
-    localStorage.setItem(
-        "matrizRiesgos",
-        JSON.stringify(
-            matrizFinal
-        )
-    );
+    try {
+        localStorage.setItem(
+            "matrizRiesgos",
+            JSON.stringify(matrizFinal)
+        );
+    } catch (error) {
+        if (!mostrarAlertaAlmacenamientoLleno(error)) {
+            alert("No fue posible guardar la matriz de riesgos.");
+        }
+        return;
+    }
 
     alert(
         "Matriz de riesgos guardada correctamente."
@@ -9096,12 +9184,12 @@ async function generarWordPlantillaMaestra() {
 
         // 09. MATRIZ DE RIESGOS
         if(matrizParaInforme.length){
-            cuerpo+=titulo("9. Matriz de riesgos",1)+tablaGenerica(["#","Área","Elemento / Peligro","Probabilidad","Impacto","Puntuación","Nivel","Tratamiento"],matrizParaInforme.map((r,i)=>[String(i+1),r.area||"",r.peligro||"",r.probabilidad||"",r.impacto||"",r.puntuacion||"",r.nivel||"",r.tratamiento||""]),[500,1100,1900,900,800,900,900,1838]);
+            cuerpo+=titulo("9. Matriz de riesgos",1)+tablaGenerica(["Código","Área","Elemento / Peligro","Probabilidad","Impacto","Puntuación","Nivel","Tratamiento"],matrizParaInforme.map((r,i)=>[r.codigoRiesgo||`R-${String(i+1).padStart(3,"0")}`,r.area||"",r.peligro||"",r.probabilidad||"",r.impacto||"",r.puntuacion||"",r.nivel||"",r.tratamiento||""]),[650,1050,1800,900,800,900,900,1838]);
         }
 
         // 10. MAPA DE CALOR — tabla de referencia con los riesgos numerados
         if(matrizParaInforme.length){
-            const celdas={}; matrizParaInforme.forEach((r,i)=>{const p=Number(r.probabilidad),imp=Number(r.impacto);if(p>=1&&p<=5&&imp>=1&&imp<=5){const k=`${p}-${imp}`;(celdas[k]||(celdas[k]=[])).push(String(i+1));}});
+            const celdas={}; matrizParaInforme.forEach((r,i)=>{const p=Number(r.probabilidad),imp=Number(r.impacto);if(p>=1&&p<=5&&imp>=1&&imp<=5){const k=`${p}-${imp}`;(celdas[k]||(celdas[k]=[])).push(r.codigoRiesgo||`R-${String(i+1).padStart(3,"0")}`);}});
             const mapa=[]; for(let impacto=5;impacto>=1;impacto--){mapa.push([String(impacto),...Array.from({length:5},(_,j)=>(celdas[`${j+1}-${impacto}`]||[]).join(", "))]);}
             cuerpo+=titulo("10. Mapa de calor de riesgos",1)+tablaGenerica(["IMPACTO / PROBABILIDAD","1","2","3","4","5"],mapa,[1700,1427,1427,1427,1427,1430])+parrafoWord("Los números dentro del mapa corresponden al número de riesgo de la matriz.",{font:'Arial',size:'16',color:'666666',before:60,after:80});
         }
@@ -9555,7 +9643,7 @@ function riesgosEnCelda(probabilidad, impacto) {
         return encontrados.map((riesgo, indice) => {
 
            const numero =
-    matrizParaMapaCalor.indexOf(riesgo) + 1;
+    riesgo.codigoRiesgo || `R-${String(matrizParaMapaCalor.indexOf(riesgo) + 1).padStart(3, "0")}`;
 
             return `
                 <span style="
@@ -9999,7 +10087,7 @@ matrizParaInforme.forEach((riesgo, indice) => {
 
         filasMatriz += `
             <tr>
-                <td>${indice + 1}</td>
+                <td><strong>${escapar(riesgo.codigoRiesgo || `R-${String(indice + 1).padStart(3, "0")}`)}</strong></td>
                 <td>${escapar(riesgo.area)}</td>
                <td>${escapar(riesgo.peligro)}</td>
                 <td>${escapar(riesgo.probabilidad)}</td>
@@ -12331,7 +12419,7 @@ ESTADO: EN DESARROLLO
 <table>
     <thead>
         <tr>
-            <th>#</th>
+            <th>Código</th>
             <th>Área</th>
             <th>Elemento</th>
             <th>Probabilidad</th>
