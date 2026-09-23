@@ -8975,6 +8975,57 @@ async function generarWordPlantillaMaestra() {
         return;
     }
 
+    /* =========================================================
+       CAMPO VISUAL 04 — INTERVENCIÓN 02
+       RECUPERACIÓN DE DATOS DEL MOTOR WORD
+       ---------------------------------------------------------
+       La función generarWordPlantillaMaestra() no comparte el
+       ámbito local de generarInforme(). Por ello, los datos de
+       checklist, hallazgos y matriz se recuperan aquí de forma
+       independiente, evitando referencias a variables locales
+       como resultadosCategorias.
+       ========================================================= */
+    const indiceSeleccionadoWord = indice;
+    const resultadosGuardadosWord =
+        JSON.parse(localStorage.getItem("resultadosChecklistCategorias")) || {};
+    const resultadosCategorias =
+        resultadosGuardadosWord[indiceSeleccionadoWord] || {};
+
+    const checklistsWord =
+        JSON.parse(localStorage.getItem("checklists")) || [];
+    const checklistWord = (() => {
+        const coincidencias = checklistsWord.filter(
+            registro => Number(registro.inspeccion) === indiceSeleccionadoWord
+        );
+        if (coincidencias.length) return coincidencias[coincidencias.length - 1];
+        const antiguos = checklistsWord.filter(
+            registro => Number(registro.inspeccion) === indiceSeleccionadoWord + 1
+        );
+        return antiguos.length ? antiguos[antiguos.length - 1] : null;
+    })();
+    const respuestasChecklist = checklistWord?.respuestas || {};
+    const datosChecklist = checklistWord?.datos || {};
+
+    const todosLosHallazgosWord =
+        JSON.parse(localStorage.getItem("hallazgos")) || [];
+    const hallazgos = todosLosHallazgosWord.filter(
+        registro => Number(registro.inspeccion) === indiceSeleccionadoWord
+    );
+
+    const todasLasMatricesWord =
+        JSON.parse(localStorage.getItem("matrizRiesgos")) || [];
+    const matriz = todasLasMatricesWord.filter(
+        registro => Number(registro.inspeccion) === indiceSeleccionadoWord
+    );
+
+    const matricesRiesgosClientesWord =
+        JSON.parse(localStorage.getItem("matricesRiesgosClientes")) || [];
+    const matrizCliente = matricesRiesgosClientesWord.filter(
+        registro => String(registro.cliente || "") === String(inspeccion.cliente || "")
+    );
+    const matrizParaMapaCalor = matrizCliente.length ? matrizCliente : matriz;
+    const matrizParaInforme = matrizCliente.length ? matrizCliente : matriz;
+
     if (typeof JSZip === "undefined") {
         alert("No se pudo cargar el componente necesario para preparar la plantilla Word.");
         return;
@@ -9553,7 +9604,7 @@ async function generarWordPlantillaMaestra() {
 
         const bloque01Completo =
             encabezadoSeccionWord("1. Información general de la inspección") +
-            tablaDosColumnasWord(camposGenerales) +
+            tablaDosColumnasWord(camposGenerales, 2300, 8474) +
             (inspeccion.sectorInspeccion ? encabezadoSeccionWord(`Características de la instalación — ${inspeccion.sectorInspeccion}`) + bloqueInstalacionWord : "") +
             encabezadoSeccionWord("Sistema CCTV") + tablaDosColumnasWord(filasCCTV) +
             encabezadoSeccionWord("Georreferenciación") + tablaDosColumnasWord([
