@@ -8975,6 +8975,137 @@ async function generarWordPlantillaMaestra() {
         return;
     }
 
+    /* =========================================================
+       CAMPO VISUAL 03 — INTERVENCIÓN 07
+       DATOS DEL INFORME WORD
+       ---------------------------------------------------------
+       Corrección quirúrgica del error:
+       "resultadosCategorias is not defined".
+
+       El generador Word vive en su propia función y no puede utilizar
+       variables locales de generarInforme(). Por eso recuperamos aquí
+       exclusivamente las fuentes necesarias para construir el informe
+       completo, manteniendo los mismos criterios de selección utilizados
+       por el informe actual.
+
+       NO se modifican datos, localStorage ni cálculos existentes.
+       ========================================================= */
+    const checklistsWord =
+        JSON.parse(localStorage.getItem("checklists")) || [];
+
+    const todosLosHallazgosWord =
+        JSON.parse(localStorage.getItem("hallazgos")) || [];
+
+    const todasLasMatricesWord =
+        JSON.parse(localStorage.getItem("matrizRiesgos")) || [];
+
+    const resultadosGuardadosWord =
+        JSON.parse(
+            localStorage.getItem("resultadosChecklistCategorias")
+        ) || {};
+
+    const resultadosCategorias =
+        resultadosGuardadosWord[indice] || {};
+
+    const hallazgos =
+        todosLosHallazgosWord.filter(
+            hallazgo => Number(hallazgo.inspeccion) === indice
+        );
+
+    const matriz =
+        todasLasMatricesWord.filter(
+            registro => Number(registro.inspeccion) === indice
+        );
+
+    const matricesRiesgosClientesWord =
+        JSON.parse(
+            localStorage.getItem("matricesRiesgosClientes")
+        ) || [];
+
+    const matrizCliente =
+        matricesRiesgosClientesWord.filter(
+            registro =>
+                String(registro.cliente || "") ===
+                String(inspeccion.cliente || "")
+        );
+
+    const checklistWord = (() => {
+        const coincidencias = checklistsWord.filter(
+            registro => Number(registro.inspeccion) === indice
+        );
+
+        if (coincidencias.length) {
+            return coincidencias[coincidencias.length - 1];
+        }
+
+        const registrosAntiguos = checklistsWord.filter(
+            registro => Number(registro.inspeccion) === indice + 1
+        );
+
+        return registrosAntiguos.length
+            ? registrosAntiguos[registrosAntiguos.length - 1]
+            : null;
+    })();
+
+    const respuestasChecklist =
+        checklistWord && checklistWord.respuestas
+            ? checklistWord.respuestas
+            : {};
+
+    const datosChecklist =
+        checklistWord && checklistWord.datos
+            ? checklistWord.datos
+            : {};
+
+    const matrizParaInforme =
+        matrizCliente.length > 0
+            ? matrizCliente
+            : matriz;
+
+    const matrizParaMapaCalor = matrizParaInforme;
+
+    const porcentajeGeneral = (() => {
+        let totalPuntos = 0;
+        let totalMaximo = 0;
+
+        Object.keys(datosChecklist).forEach(categoria => {
+            const porcentaje = Number(resultadosCategorias[categoria]);
+            if (Number.isNaN(porcentaje)) return;
+
+            const cantidadItems = Array.isArray(datosChecklist[categoria])
+                ? datosChecklist[categoria].length
+                : 0;
+
+            totalPuntos += porcentaje * cantidadItems;
+            totalMaximo += cantidadItems;
+        });
+
+        return totalMaximo === 0
+            ? 0
+            : Math.round(totalPuntos / totalMaximo);
+    })();
+
+    let perfilCriticidad = "";
+    let descripcionCriticidad = "";
+
+    if (porcentajeGeneral >= 76) {
+        perfilCriticidad = "BUENO";
+        descripcionCriticidad =
+            "Se recomienda monitoreo y seguimiento general a cada aspecto, con el fin de darle continuidad a las fortalezas identificadas. Las amenazas son reconocidas, pero el riesgo está controlado.";
+    } else if (porcentajeGeneral >= 51) {
+        perfilCriticidad = "SUFICIENTE";
+        descripcionCriticidad =
+            "Plan de seguimiento encaminado a esas observaciones menores detectadas. Se conocen las amenazas y se tiene controlado el riesgo.";
+    } else if (porcentajeGeneral >= 26) {
+        perfilCriticidad = "REGULAR";
+        descripcionCriticidad =
+            "Es necesario el diseño de estrategias tendientes a la corrección de aquellos aspectos calificados por mejorar, garantizar un plan de seguimiento para el cumplimiento de las actividades planteadas.";
+    } else {
+        perfilCriticidad = "DÉBIL";
+        descripcionCriticidad =
+            "El panorama de seguridad se percibe como crítico, por lo tanto, es necesario intervenir los aspectos de manera inmediata, con el ánimo de disminuir la probabilidad de materialización de las amenazas.";
+    }
+
     if (typeof JSZip === "undefined") {
         alert("No se pudo cargar el componente necesario para preparar la plantilla Word.");
         return;
@@ -9650,15 +9781,27 @@ async function generarWordPlantillaMaestra() {
             </w:tbl>`;
         }
 
-        const cuerpoInformeWord = tablaMaestraInformeWord([
-            bloque01Completo,
-            bloqueSeguridad,
-            bloque02Completo,
-            bloque03Completo,
-            bloquePerfil,
-            bloque04Completo,
-            bloque05Completo
-        ]);
+        /* ---------------------------------------------------------
+           CAMPO VISUAL 03 — INTERVENCIÓN 08
+           RECUPERACIÓN DEL FLUJO COMPLETO EN TABLAS WORD
+
+           Decisión quirúrgica:
+           - Se conservan TODOS los bloques ya construidos en tablas nativas.
+           - Se elimina únicamente la tabla contenedora externa de una sola
+             columna, porque no es necesaria para cumplir el objetivo y añade
+             una capa de tablas anidadas que puede interferir con la plantilla.
+           - Cada bloque se inserta directamente en w:body, conservando el
+             formato de tabla de cada sección.
+           - No se modifican datos, cálculos, PDF, fotografías, A4 ni plantilla.
+        --------------------------------------------------------- */
+        const cuerpoInformeWord =
+            bloque01Completo +
+            bloqueSeguridad +
+            bloque02Completo +
+            bloque03Completo +
+            bloquePerfil +
+            bloque04Completo +
+            bloque05Completo;
 
         /* Validación previa: si un bloque no fue construido, no se genera
            silenciosamente un informe incompleto. */
@@ -9714,8 +9857,8 @@ async function generarWordPlantillaMaestra() {
         setTimeout(() => URL.revokeObjectURL(url), 1500);
 
         alert(
-            "Documento generado correctamente — CAMPO VISUAL 03 / INTERVENCIÓN 06.\n\n" +
-            "El informe completo fue cargado en una tabla maestra continua, conservando las secciones y la plantilla Word."
+            "Documento generado correctamente — CAMPO VISUAL 03 / INTERVENCIÓN 08.\n\n" +
+            "El informe completo fue cargado en la plantilla maestra mediante tablas Word nativas, conservando las secciones y la plantilla."
         );
 
     } catch (error) {
