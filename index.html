@@ -368,9 +368,6 @@
     font-weight: bold;
 }
 </style>
-<style id="cam-riesgos-01-estilo">
-.codigo-riesgo-matriz { display:inline-block; color:#123b5d; font-weight:800; margin-right:4px; }
-</style>
 </head>
 
 <body>
@@ -7362,12 +7359,10 @@ if (
 
 } catch (error) {
 
-    if (!mostrarAlertaAlmacenamientoLleno(error)) {
-        alert(
-            "No fue posible guardar las fotografías. " +
-            "Intente seleccionar menos fotografías o imágenes más pequeñas."
-        );
-    }
+    alert(
+        "No fue posible guardar las fotografías. " +
+        "Intente seleccionar menos fotografías o imágenes más pequeñas."
+    );
 
     return;
 }
@@ -7592,59 +7587,6 @@ function cerrarMatrizRiesgos() {
 }
 
 
-/* =========================================================
-   CAM-RIESGOS-01 — IDENTIFICADOR INDEPENDIENTE POR RIESGO
-   Cada riesgo conserva un código estable R-001, R-002...
-   El código acompaña matriz, mapa de calor y futuras acciones.
-   ========================================================= */
-function siguienteCodigoRiesgo(matriz) {
-    let maximo = 0;
-    (Array.isArray(matriz) ? matriz : []).forEach(r => {
-        const m = String(r?.codigoRiesgo || "").match(/^R-(\d+)$/i);
-        if (m) maximo = Math.max(maximo, Number(m[1]));
-    });
-    return `R-${String(maximo + 1).padStart(3, "0")}`;
-}
-
-function asegurarCodigosRiesgo(matriz) {
-    const lista = Array.isArray(matriz) ? matriz : [];
-    let maximo = 0;
-    lista.forEach(r => {
-        const m = String(r?.codigoRiesgo || "").match(/^R-(\d+)$/i);
-        if (m) maximo = Math.max(maximo, Number(m[1]));
-    });
-    lista.forEach(r => {
-        if (!r.codigoRiesgo) {
-            maximo += 1;
-            r.codigoRiesgo = `R-${String(maximo).padStart(3, "0")}`;
-        }
-    });
-    return lista;
-}
-
-/* =========================================================
-   CAM-ALMACENAMIENTO-01 — ALERTA DE CUOTA LOCALSTORAGE
-   ========================================================= */
-function mostrarAlertaAlmacenamientoLleno(error) {
-    const esCuota = error && (
-        error.name === "QuotaExceededError" ||
-        error.code === 22 ||
-        error.code === 1014
-    );
-    if (!esCuota) return false;
-
-    alert(
-        "⚠️ ALMACENAMIENTO CASI LLENO\n\n" +
-        "No fue posible guardar la información porque el almacenamiento del navegador alcanzó su límite.\n\n" +
-        "Para continuar:\n" +
-        "• reduzca el número de fotografías del registro;\n" +
-        "• use fotografías de menor tamaño;\n" +
-        "• genere/realice el respaldo de la información y libere espacio si es necesario.\n\n" +
-        "La información que no pudo guardarse NO se considera registrada."
-    );
-    return true;
-}
-
 function cargarMatrizRiesgos() {
 
     const contenedor =
@@ -7681,17 +7623,10 @@ function cargarMatrizRiesgos() {
         return;
     }
 
-    const matrizGuardada = asegurarCodigosRiesgo(
+    const matrizGuardada =
         JSON.parse(
             localStorage.getItem("matrizRiesgos")
-        ) || []
-    );
-
-    try {
-        localStorage.setItem("matrizRiesgos", JSON.stringify(matrizGuardada));
-    } catch (error) {
-        mostrarAlertaAlmacenamientoLleno(error);
-    }
+        ) || [];
 
     const riesgosInspeccion =
         matrizGuardada.filter(
@@ -7778,10 +7713,6 @@ function cargarMatrizRiesgos() {
                 return;
             }
 
-            bloque.dataset.codigoRiesgo = riesgoGuardado.codigoRiesgo || bloque.dataset.codigoRiesgo || "";
-            const etiquetaCodigo = bloque.querySelector(".codigo-riesgo-matriz");
-            if (etiquetaCodigo) etiquetaCodigo.textContent = bloque.dataset.codigoRiesgo || "Nuevo";
-
             const area =
                 bloque.querySelector(
                     `[id^="areaRiesgo_"]`
@@ -7865,16 +7796,6 @@ function agregarRiesgoMatriz() {
     const bloque =
         document.createElement("div");
 
-    const matrizActualParaCodigo = JSON.parse(localStorage.getItem("matrizRiesgos")) || [];
-    const codigosEnFormulario = Array.from(contenedor.children)
-        .map(b => b.dataset.codigoRiesgo)
-        .filter(Boolean);
-    const matrizParaNuevoCodigo = [
-        ...matrizActualParaCodigo,
-        ...codigosEnFormulario.map(codigoRiesgo => ({ codigoRiesgo }))
-    ];
-    bloque.dataset.codigoRiesgo = siguienteCodigoRiesgo(matrizParaNuevoCodigo);
-
     bloque.style.background = "#f8fafc";
     bloque.style.border = "1px solid #dbe3ea";
     bloque.style.borderRadius = "10px";
@@ -7894,7 +7815,7 @@ function agregarRiesgoMatriz() {
                 margin:0;
                 color:#123b5d;
             ">
-                <span class="codigo-riesgo-matriz">${bloque.dataset.codigoRiesgo || "Nuevo"}</span> · Riesgo ${indice + 1}
+                Riesgo ${indice + 1}
             </h3>
 
             <button
@@ -8277,12 +8198,7 @@ function guardarMatrizRiesgos() {
                 `[id^="tratamiento_"]`
             )?.value || "";
 
-        const codigoRiesgo =
-            bloque.dataset.codigoRiesgo || siguienteCodigoRiesgo([...riesgosActuales, ...nuevosRiesgos]);
-
         nuevosRiesgos.push({
-
-            codigoRiesgo: codigoRiesgo,
 
             inspeccion:
                 indiceSeleccionado,
@@ -8314,22 +8230,18 @@ function guardarMatrizRiesgos() {
 
     });
 
-    const matrizFinal = asegurarCodigosRiesgo([
-        ...riesgosDeOtrasInspecciones,
-        ...nuevosRiesgos
-    ]);
+    const matrizFinal =
+        [
+            ...riesgosDeOtrasInspecciones,
+            ...nuevosRiesgos
+        ];
 
-    try {
-        localStorage.setItem(
-            "matrizRiesgos",
-            JSON.stringify(matrizFinal)
-        );
-    } catch (error) {
-        if (!mostrarAlertaAlmacenamientoLleno(error)) {
-            alert("No fue posible guardar la matriz de riesgos.");
-        }
-        return;
-    }
+    localStorage.setItem(
+        "matrizRiesgos",
+        JSON.stringify(
+            matrizFinal
+        )
+    );
 
     alert(
         "Matriz de riesgos guardada correctamente."
@@ -9021,11 +8933,14 @@ async function generarWordPlantillaMaestra() {
             const cy=Math.round((2.6/2.54)*914400);
             return `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="0" w:line="240"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${docPrId}" name="${escaparXmlWord(nombre)}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="${escaparXmlWord(nombre)}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1" noChangeArrowheads="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
         }
-        // CAMPO VISUAL 03 — INTERVENCIÓN 03A
-        // El encabezado maestro utiliza 10774 twips y una sangría de -998 twips.
-        // Las tablas del contenido adoptan exactamente esa misma huella visual.
-        const ANCHO_TABLA_MAESTRA = 10774;
-        const SANGRIA_TABLA_MAESTRA = -998;
+        /* CAM-VISUAL-05 — ESTRUCTURA TABULAR INTEGRAL
+         * Toda la información dinámica del Word se presenta mediante tablas
+         * con filas y columnas controladas y sangría neutra.
+         * Las filas llevan <w:cantSplit/> para evitar cortes arbitrarios.
+         * No modifica captura, almacenamiento ni cálculos.
+         */
+        const ANCHO_TABLA_MAESTRA = 10400;
+        const SANGRIA_TABLA_MAESTRA = 0;
         const ANCHO_ETIQUETA_2COL = 2679;
         const ANCHO_VALOR_2COL = 8095;
 
@@ -9035,7 +8950,12 @@ async function generarWordPlantillaMaestra() {
         function tabla2(filas) {
             return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/><w:insideH w:val="single" w:sz="6" w:color="999999"/><w:insideV w:val="single" w:sz="6" w:color="999999"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${ANCHO_ETIQUETA_2COL}"/><w:gridCol w:w="${ANCHO_VALOR_2COL}"/></w:tblGrid>${filas}</w:tbl>`;
         }
-        function titulo(texto,nivel=1){ return parrafoWord(texto,{font:'Arial',size:nivel===1?'24':'21',bold:true,color:'123B5D',before:160,after:100,line:260,keepNext:true}); }
+        function titulo(texto,nivel=1){
+            const size=nivel===1?'18':'17';
+            const shading=nivel===1?'123B5D':'EEF2F5';
+            const color=nivel===1?'FFFFFF':'123B5D';
+            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="0" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B7C1C9"/><w:left w:val="single" w:sz="6" w:color="B7C1C9"/><w:bottom w:val="single" w:sz="6" w:color="B7C1C9"/><w:right w:val="single" w:sz="6" w:color="B7C1C9"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${ANCHO_TABLA_MAESTRA}"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(texto,{width:ANCHO_TABLA_MAESTRA,shading,bold:true,color,size,align:'left'})}</w:tr></w:tbl>`;
+        }
         function tablaCabeceras(headers,widths) {
             return `<w:tr><w:trPr><w:tblHeader/></w:trPr>${headers.map((h,i)=>celdaWord(h,{width:widths[i]||2200,shading:'123B5D',bold:true,color:'FFFFFF',align:'center',size:'16'})).join('')}</w:tr>`;
         }
@@ -9154,7 +9074,16 @@ async function generarWordPlantillaMaestra() {
             "Formular recomendaciones orientadas al fortalecimiento de las condiciones de seguridad de la copropiedad."
         ];
         const metodologia="Para la realización del presente estudio de seguridad se empleó una visita a la copropiedad, con toma de fotografías, entrevistas y aplicación de lista de chequeo.\nLos parámetros de observación comprenden Control de Accesos, Seguridad Perimetral, Sistemas Electrónicos de Seguridad, Gestión de Autocuidado, Planeación Estratégica y SG-SST, Medio Ambiente y otros aspectos.";
-        cuerpo+=titulo("6. Objetivo y metodología",1)+bloqueTexto("Objetivo General",objetivoGeneral)+titulo("Objetivos Específicos",2)+listaParrafos(objetivos)+bloqueTexto("Metodología",metodologia);
+        const filasObjetivo=[
+            `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord("6. Objetivo y metodología",{width:ANCHO_TABLA_MAESTRA,shading:'123B5D',bold:true,color:'FFFFFF',size:'18',align:'left'})}</w:tr>`,
+            `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord("Objetivo General",{width:ANCHO_TABLA_MAESTRA,shading:'EEF2F5',bold:true,color:'123B5D',size:'17',align:'left'})}</w:tr>`,
+            `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(objetivoGeneral,{width:ANCHO_TABLA_MAESTRA,size:'18',align:'left'})}</w:tr>`,
+            `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord("Objetivos Específicos",{width:ANCHO_TABLA_MAESTRA,shading:'EEF2F5',bold:true,color:'123B5D',size:'17',align:'left'})}</w:tr>`,
+            ...objetivos.map(x=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(x,{width:ANCHO_TABLA_MAESTRA,size:'18',align:'left'})}</w:tr>`),
+            `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord("Metodología",{width:ANCHO_TABLA_MAESTRA,shading:'EEF2F5',bold:true,color:'123B5D',size:'17',align:'left'})}</w:tr>`,
+            `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(metodologia,{width:ANCHO_TABLA_MAESTRA,size:'18',align:'left'})}</w:tr>`
+        ].join("");
+        cuerpo+=`<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="0" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B7C1C9"/><w:left w:val="single" w:sz="6" w:color="B7C1C9"/><w:bottom w:val="single" w:sz="6" w:color="B7C1C9"/><w:right w:val="single" w:sz="6" w:color="B7C1C9"/><w:insideH w:val="single" w:sz="6" w:color="B7C1C9"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${ANCHO_TABLA_MAESTRA}"/></w:tblGrid>${filasObjetivo}</w:tbl>`;
 
         // 07. CHECKLIST
         if(Object.keys(datosChecklist).length){
@@ -9179,19 +9108,19 @@ async function generarWordPlantillaMaestra() {
                 ["SUFICIENTE","51% - 75,9%","Con observaciones menores","Plan de seguimiento encaminado a esas observaciones menores detectadas."],
                 ["REGULAR","26% - 50,9%","Requiere seguimiento","Es necesario el diseño de estrategias tendientes a la corrección de aquellos aspectos calificados por mejorar."],
                 ["DÉBIL","0% - 25,9%","Con observaciones mayores","Es necesario intervenir los aspectos de manera inmediata, con el ánimo de disminuir la probabilidad de materialización de las amenazas."]
-            ],[1300,1300,1900,4338])+parrafoWord(`Perfil obtenido: ${perfil} — Resultado: ${porcentajeGeneral}%`,{font:'Arial',size:'18',bold:true,color:'123B5D',before:80,after:80});
+            ],[1300,1300,1900,4338])+`<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="0" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B7C1C9"/><w:left w:val="single" w:sz="6" w:color="B7C1C9"/><w:bottom w:val="single" w:sz="6" w:color="B7C1C9"/><w:right w:val="single" w:sz="6" w:color="B7C1C9"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${ANCHO_TABLA_MAESTRA}"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(`Perfil obtenido: ${perfil} — Resultado: ${porcentajeGeneral}%`,{width:ANCHO_TABLA_MAESTRA,shading:'EEF2F5',bold:true,color:'123B5D',size:'17',align:'center'})}</w:tr></w:tbl>`;
         }
 
         // 09. MATRIZ DE RIESGOS
         if(matrizParaInforme.length){
-            cuerpo+=titulo("9. Matriz de riesgos",1)+tablaGenerica(["Código","Área","Elemento / Peligro","Probabilidad","Impacto","Puntuación","Nivel","Tratamiento"],matrizParaInforme.map((r,i)=>[r.codigoRiesgo||`R-${String(i+1).padStart(3,"0")}`,r.area||"",r.peligro||"",r.probabilidad||"",r.impacto||"",r.puntuacion||"",r.nivel||"",r.tratamiento||""]),[650,1050,1800,900,800,900,900,1838]);
+            cuerpo+=titulo("9. Matriz de riesgos",1)+tablaGenerica(["Código","Área","Elemento / Peligro","Probabilidad","Impacto","Puntuación","Nivel","Tratamiento"],matrizParaInforme.map((r,i)=>[r.codigoRiesgo||`R-${String(i+1).padStart(3,"0")}`,r.area||"",r.peligro||"",r.probabilidad||"",r.impacto||"",r.puntuacion||"",r.nivel||"",r.tratamiento||""]),[700,1100,1700,900,800,900,900,1800]);
         }
 
         // 10. MAPA DE CALOR — tabla de referencia con los riesgos numerados
         if(matrizParaInforme.length){
             const celdas={}; matrizParaInforme.forEach((r,i)=>{const p=Number(r.probabilidad),imp=Number(r.impacto);if(p>=1&&p<=5&&imp>=1&&imp<=5){const k=`${p}-${imp}`;(celdas[k]||(celdas[k]=[])).push(r.codigoRiesgo||`R-${String(i+1).padStart(3,"0")}`);}});
             const mapa=[]; for(let impacto=5;impacto>=1;impacto--){mapa.push([String(impacto),...Array.from({length:5},(_,j)=>(celdas[`${j+1}-${impacto}`]||[]).join(", "))]);}
-            cuerpo+=titulo("10. Mapa de calor de riesgos",1)+tablaGenerica(["IMPACTO / PROBABILIDAD","1","2","3","4","5"],mapa,[1700,1427,1427,1427,1427,1430])+parrafoWord("Los números dentro del mapa corresponden al número de riesgo de la matriz.",{font:'Arial',size:'16',color:'666666',before:60,after:80});
+            cuerpo+=titulo("10. Mapa de calor de riesgos",1)+tablaGenerica(["IMPACTO / PROBABILIDAD","1","2","3","4","5"],mapa,[1700,1427,1427,1427,1427,1430])+`<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="0" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B7C1C9"/><w:left w:val="single" w:sz="6" w:color="B7C1C9"/><w:bottom w:val="single" w:sz="6" w:color="B7C1C9"/><w:right w:val="single" w:sz="6" w:color="B7C1C9"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${ANCHO_TABLA_MAESTRA}"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord("Los códigos dentro del mapa corresponden al código de riesgo de la matriz.",{width:ANCHO_TABLA_MAESTRA,shading:'F7F8FA',color:'666666',size:'16',align:'left'})}</w:tr></w:tbl>`;
         }
 
         // 11. HALLAZGOS — integración gráfica del registro fotográfico.
@@ -9643,7 +9572,7 @@ function riesgosEnCelda(probabilidad, impacto) {
         return encontrados.map((riesgo, indice) => {
 
            const numero =
-    riesgo.codigoRiesgo || `R-${String(matrizParaMapaCalor.indexOf(riesgo) + 1).padStart(3, "0")}`;
+    matrizParaMapaCalor.indexOf(riesgo) + 1;
 
             return `
                 <span style="
@@ -10087,7 +10016,7 @@ matrizParaInforme.forEach((riesgo, indice) => {
 
         filasMatriz += `
             <tr>
-                <td><strong>${escapar(riesgo.codigoRiesgo || `R-${String(indice + 1).padStart(3, "0")}`)}</strong></td>
+                <td>${indice + 1}</td>
                 <td>${escapar(riesgo.area)}</td>
                <td>${escapar(riesgo.peligro)}</td>
                 <td>${escapar(riesgo.probabilidad)}</td>
@@ -12419,7 +12348,7 @@ ESTADO: EN DESARROLLO
 <table>
     <thead>
         <tr>
-            <th>Código</th>
+            <th>#</th>
             <th>Área</th>
             <th>Elemento</th>
             <th>Probabilidad</th>
