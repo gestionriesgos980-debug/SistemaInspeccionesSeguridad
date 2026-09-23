@@ -8842,9 +8842,9 @@ async function generarWordPlantillaMaestra() {
        01. Información general de la inspección.
        02. Objetivo y metodología.
 
-       INTERVENCIÓN 04: paginación continua entre bloques.
-       El Bloque 02 se divide en filas lógicas para que Word pueda iniciar
-       el contenido en el espacio disponible y continuar en la página siguiente.
+       INTERVENCIÓN 05: tabla contenedora única de flujo continuo.
+       El cuerpo variable se organiza en una única tabla Word nativa, con
+       una fila independiente por bloque, evitando saltos artificiales.
 
        NO se generan todavía checklist, hallazgos, matriz,
        fotografías ni los demás bloques. Se incorporarán uno
@@ -9163,10 +9163,62 @@ async function generarWordPlantillaMaestra() {
             ) +
             parrafoWord("", { after: 40 });
 
+        /* ---------------------------------------------------------
+           CAM-WORD-02 — INTERVENCIÓN 05
+           TABLA CONTENEDORA ÚNICA DE FLUJO CONTINUO
+
+           Todo el cuerpo variable del informe se aloja dentro de una
+           única tabla Word nativa. Cada sección ocupa una fila
+           independiente y Word puede continuar la tabla entre páginas.
+           No se fuerzan saltos de página entre bloques.
+           --------------------------------------------------------- */
+        function celdaContenedoraInformeWord(contenido) {
+            return `<w:tc>
+                <w:tcPr>
+                    <w:tcW w:w="8838" w:type="dxa"/>
+                    <w:tcMar>
+                        <w:top w:w="0" w:type="dxa"/><w:left w:w="0" w:type="dxa"/>
+                        <w:bottom w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/>
+                    </w:tcMar>
+                </w:tcPr>
+                ${contenido}
+            </w:tc>`;
+        }
+
+        function filaContenedoraInformeWord(contenido) {
+            /* Sin w:cantSplit: Word puede continuar esta fila entre páginas
+               si el contenido no cabe en el espacio disponible. */
+            return `<w:tr>${celdaContenedoraInformeWord(contenido)}</w:tr>`;
+        }
+
+        function tablaContenedoraInformeWord(bloques) {
+            return `<w:tbl>
+                <w:tblPr>
+                    <w:tblW w:w="8838" w:type="dxa"/>
+                    <w:tblLayout w:type="fixed"/>
+                    <w:tblCellMar>
+                        <w:top w:w="0" w:type="dxa"/><w:left w:w="0" w:type="dxa"/>
+                        <w:bottom w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/>
+                    </w:tblCellMar>
+                    <w:tblBorders>
+                        <w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/>
+                        <w:insideH w:val="nil"/><w:insideV w:val="nil"/>
+                    </w:tblBorders>
+                </w:tblPr>
+                <w:tblGrid><w:gridCol w:w="8838"/></w:tblGrid>
+                ${bloques.map(filaContenedoraInformeWord).join("")}
+            </w:tbl>`;
+        }
+
+        const cuerpoInformeWord = tablaContenedoraInformeWord([
+            bloque01,
+            contenidoBloque02
+        ]);
+
         /*
          * La plantilla maestra limpia contiene el cuerpo vacío y deja
-         * w:sectPr como último elemento de w:body. Insertamos los bloques
-         * nativos justo antes de w:sectPr.
+         * w:sectPr como último elemento de w:body. Insertamos UNA SOLA
+         * tabla contenedora justo antes de w:sectPr.
          */
         const posicionSeccion = documentXml.search(/<w:sectPr(?=[ >])/);
         if (posicionSeccion < 0) {
@@ -9175,8 +9227,7 @@ async function generarWordPlantillaMaestra() {
 
         documentXml =
             documentXml.slice(0, posicionSeccion) +
-            bloque01 +
-            contenidoBloque02 +
+            cuerpoInformeWord +
             documentXml.slice(posicionSeccion);
 
         zip.file("word/document.xml", documentXml);
