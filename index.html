@@ -527,12 +527,26 @@
 
                 <div class="formulario">
 
-                    <div class="campo completo">
-                        <label>Seleccionar cliente del Directorio</label>
-                        <select id="clienteDirectorioOM17" onchange="cargarClienteDesdeDirectorioOM17(this.value)">
-                            <option value="">Seleccione un cliente...</option>
-                        </select>
-                        <small style="display:block;margin-top:5px;color:#64748b;">Los datos registrados en el Directorio se cargarán automáticamente.</small>
+                    <div class="campo completo" style="position:relative;">
+                        <label>Buscar cliente en el Directorio</label>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <input
+                                type="search"
+                                id="clienteDirectorioOM17"
+                                placeholder="Escriba nombre, código, NIT o administrador..."
+                                autocomplete="off"
+                                oninput="buscarClienteDesdeDirectorioOM17(this.value)"
+                                onfocus="buscarClienteDesdeDirectorioOM17(this.value)"
+                                style="flex:1;min-width:240px;"
+                            >
+                            <button type="button" class="boton-secundario" onclick="limpiarBusquedaClienteOM17()">Limpiar</button>
+                        </div>
+                        <div
+                            id="resultadosBusquedaClienteOM17"
+                            style="display:none;position:absolute;left:0;right:0;top:100%;z-index:1000;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 20px rgba(0,0,0,.12);max-height:280px;overflow-y:auto;"
+                        ></div>
+                        <div id="clienteSeleccionadoOM17" style="display:none;margin-top:8px;padding:8px 10px;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:7px;color:#123b5d;font-size:13px;font-weight:bold;"></div>
+                        <small style="display:block;margin-top:5px;color:#64748b;">Escriba parte del nombre, código, NIT o administrador. Seleccione el resultado y los datos se cargarán automáticamente.</small>
                     </div>
 
                     <div class="campo">
@@ -1812,29 +1826,87 @@ function agregarServicioSeguridad(tipo) {
 }
     
     // CAMBIO OM-17 — Integración del Directorio de Clientes con Nueva Inspección.
-    // Al iniciar una inspección nueva se prepara el selector y, al seleccionar
-    // un cliente, se cargan automáticamente sus datos en el formulario.
+    // CAMBIO VISUAL OM-17.1 — Reemplaza la lista desplegable por búsqueda directa.
     function prepararSelectorClienteOM17() {
-        const selector = document.getElementById("clienteDirectorioOM17");
-        if (!selector || typeof inicializarDirectorioClientesOM16 !== "function") return;
+        const buscador = document.getElementById("clienteDirectorioOM17");
+        const resultados = document.getElementById("resultadosBusquedaClienteOM17");
+        const seleccionado = document.getElementById("clienteSeleccionadoOM17");
+        if (!buscador || typeof inicializarDirectorioClientesOM16 !== "function") return;
+        if (resultados) resultados.innerHTML = "";
+        if (resultados) resultados.style.display = "none";
+        if (seleccionado) {
+            seleccionado.textContent = "";
+            seleccionado.style.display = "none";
+        }
+    }
+
+    function buscarClienteDesdeDirectorioOM17(termino) {
+        const resultados = document.getElementById("resultadosBusquedaClienteOM17");
+        if (!resultados || typeof inicializarDirectorioClientesOM16 !== "function") return;
+
         const clientes = inicializarDirectorioClientesOM16();
-        selector.innerHTML = '<option value="">Seleccione un cliente...</option>';
-        clientes.forEach((cliente, indice) => {
-            if (cliente && cliente.estado !== "Inactivo") {
-                const option = document.createElement("option");
-                option.value = String(indice);
-                option.textContent = [cliente.codigo, cliente.cliente, cliente.nit ? `NIT ${cliente.nit}` : ""]
-                    .filter(Boolean).join(" — ");
-                selector.appendChild(option);
-            }
-        });
+        const texto = String(termino || "").trim().toLowerCase();
+
+        if (!texto) {
+            resultados.innerHTML = '<div style="padding:12px;color:#64748b;">Escriba un nombre, código, NIT o administrador para buscar.</div>';
+            resultados.style.display = "block";
+            return;
+        }
+
+        const filtrados = clientes
+            .map((cliente, indice) => ({ cliente, indice }))
+            .filter(item => {
+                const cliente = item.cliente || {};
+                if (cliente.estado === "Inactivo") return false;
+                const contenido = [
+                    cliente.cliente,
+                    cliente.codigo,
+                    cliente.nit,
+                    cliente.administrador,
+                    cliente.barrioMunicipio
+                ].filter(Boolean).join(" ").toLowerCase();
+                return contenido.includes(texto);
+            })
+            .slice(0, 30);
+
+        if (!filtrados.length) {
+            resultados.innerHTML = '<div style="padding:12px;color:#64748b;">No se encontraron clientes con ese criterio.</div>';
+            resultados.style.display = "block";
+            return;
+        }
+
+        resultados.innerHTML = filtrados.map(({cliente, indice}) => {
+            const nombre = cliente.cliente || "Cliente sin nombre";
+            const codigo = cliente.codigo || "";
+            const nit = cliente.nit ? `NIT ${cliente.nit}` : "";
+            const admin = cliente.administrador ? `Administrador: ${cliente.administrador}` : "";
+            return `
+                <button type="button" onclick="cargarClienteDesdeDirectorioOM17(${indice})"
+                    style="display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #e5e7eb;background:#fff;padding:10px 12px;cursor:pointer;">
+                    <div style="font-weight:bold;color:#123b5d;">${escaparHtmlOM17(nombre)}</div>
+                    <div style="font-size:12px;color:#64748b;margin-top:3px;">${escaparHtmlOM17([codigo, nit].filter(Boolean).join(" — "))}</div>
+                    ${admin ? `<div style="font-size:12px;color:#475569;margin-top:2px;">${escaparHtmlOM17(admin)}</div>` : ""}
+                </button>`;
+        }).join("");
+
+        resultados.style.display = "block";
+    }
+
+    function escaparHtmlOM17(valor) {
+        return String(valor ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     }
 
     function cargarClienteDesdeDirectorioOM17(indice) {
-        if (indice === "") return;
+        if (indice === "" || indice === null || indice === undefined) return;
         const clientes = inicializarDirectorioClientesOM16();
         const cliente = clientes[Number(indice)];
         if (!cliente) return;
+
         document.getElementById("cliente").value = cliente.cliente || "";
         document.getElementById("nit").value = cliente.nit || "";
         document.getElementById("direccion").value = cliente.direccion || "";
@@ -1842,9 +1914,43 @@ function agregarServicioSeguridad(tipo) {
         document.getElementById("contacto").value = cliente.administrador || "";
         document.getElementById("telefono").value = cliente.telefonoAdmin || cliente.telefonoPuesto || "";
         document.getElementById("correo").value = cliente.correo || "";
+
         const formulario = document.getElementById("formInspeccion");
         formulario.dataset.idClienteOM17 = cliente.idCliente || "";
         formulario.dataset.codigoClienteOM17 = cliente.codigo || "";
+        formulario.dataset.indiceClienteOM17 = String(indice);
+
+        const buscador = document.getElementById("clienteDirectorioOM17");
+        const resultados = document.getElementById("resultadosBusquedaClienteOM17");
+        const seleccionado = document.getElementById("clienteSeleccionadoOM17");
+
+        if (buscador) buscador.value = cliente.cliente || "";
+        if (resultados) {
+            resultados.innerHTML = "";
+            resultados.style.display = "none";
+        }
+        if (seleccionado) {
+            seleccionado.textContent = `✓ Cliente seleccionado: ${cliente.cliente || ""}${cliente.codigo ? ` — ${cliente.codigo}` : ""}`;
+            seleccionado.style.display = "block";
+        }
+    }
+
+    function limpiarBusquedaClienteOM17() {
+        const buscador = document.getElementById("clienteDirectorioOM17");
+        const resultados = document.getElementById("resultadosBusquedaClienteOM17");
+        const seleccionado = document.getElementById("clienteSeleccionadoOM17");
+        if (buscador) {
+            buscador.value = "";
+            buscador.focus();
+        }
+        if (resultados) {
+            resultados.innerHTML = "";
+            resultados.style.display = "none";
+        }
+        if (seleccionado) {
+            seleccionado.textContent = "";
+            seleccionado.style.display = "none";
+        }
     }
 
     // OM-26 · INTERVENCIÓN 1 — Control visual del flujo extraordinario.
@@ -1903,8 +2009,7 @@ function agregarServicioSeguridad(tipo) {
         limpiarDatosOM26();
         actualizarPanelModularInspeccionOM22(null);
         prepararSelectorClienteOM17();
-        const selector = document.getElementById("clienteDirectorioOM17");
-        if (selector) selector.value = "";
+        limpiarBusquedaClienteOM17();
         modal.style.display = "block";
 
         const fecha = document.getElementById("fecha");
@@ -5292,15 +5397,19 @@ modal.style.display = "block";
 
     // CAMBIO OM-17 — Recuperar la referencia del Directorio al editar.
     prepararSelectorClienteOM17();
-    const selectorEdicionOM17 = document.getElementById("clienteDirectorioOM17");
-    if (selectorEdicionOM17) {
+    const buscadorEdicionOM17 = document.getElementById("clienteDirectorioOM17");
+    if (buscadorEdicionOM17) {
         const clientesEdicionOM17 = inicializarDirectorioClientesOM16();
         const idxClienteOM17 = clientesEdicionOM17.findIndex(c =>
             (inspeccion.idCliente && c.idCliente === inspeccion.idCliente) ||
             (inspeccion.codigoCliente && c.codigo === inspeccion.codigoCliente) ||
             (c.cliente && inspeccion.cliente && normalizarClaveClienteOM16(c.cliente) === normalizarClaveClienteOM16(inspeccion.cliente))
         );
-        selectorEdicionOM17.value = idxClienteOM17 >= 0 ? String(idxClienteOM17) : "";
+        if (idxClienteOM17 >= 0) {
+            cargarClienteDesdeDirectorioOM17(idxClienteOM17);
+        } else {
+            buscadorEdicionOM17.value = inspeccion.cliente || "";
+        }
     }
     document.getElementById("formInspeccion").dataset.idClienteOM17 = inspeccion.idCliente || "";
     document.getElementById("formInspeccion").dataset.codigoClienteOM17 = inspeccion.codigoCliente || "";
@@ -8829,13 +8938,26 @@ ESTADO: INTEGRACIÓN APROBADA — MEMBRETE COTRASER
 */
 async function generarWordPlantillaMaestra() {
     /* =========================================================
-       TECCHNEX — CAM-PLANTILLA-09 / BASE CAM-06
-       GENERACIÓN WORD COMPLETA SIN VENTANA EMERGENTE
+       TECCHNEX — CAM-WORD-02 / BLOQUE 01
+       MOTOR WORD NATIVO — INFORMACIÓN GENERAL
        ---------------------------------------------------------
-       PRINCIPIO: reutilizar generarInforme() como fuente única
-       del contenido. No se modifican sus cálculos ni su
-       almacenamiento. Se utiliza un documento capturador en
-       memoria para recoger el HTML que ya genera la aplicación.
+       PRINCIPIO: MEJORAR SIN ROMPER.
+       Esta intervención reemplaza exclusivamente el mecanismo
+       HTML/MHTML/altChunk para el primer bloque del documento.
+       La captura, almacenamiento y cálculo de la inspección no
+       se modifican.
+
+       BLOQUES IMPLEMENTADOS EN ESTA ETAPA:
+       01. Información general de la inspección.
+       02. Objetivo y metodología.
+
+       INTERVENCIÓN 05: tabla contenedora única de flujo continuo.
+       El cuerpo variable se organiza en una única tabla Word nativa, con
+       una fila independiente por bloque, evitando saltos artificiales.
+
+       NO se generan todavía checklist, hallazgos, matriz,
+       fotografías ni los demás bloques. Se incorporarán uno
+       por uno después de validar este escalón.
        ========================================================= */
 
     const indiceGuardado = localStorage.getItem("indiceInspeccionSeleccionadaInforme");
@@ -8861,110 +8983,10 @@ async function generarWordPlantillaMaestra() {
     const plantillaUrl = "./PLANTILLA_MAESTRA_INFORME_TECCHNEX.docx";
 
     try {
-        /*
-         * PUNTO CLAVE:
-         * generarInforme() ya contiene toda la lógica comprobada del informe.
-         * No abrimos una ventana del navegador. Le entregamos un objeto mínimo
-         * que solamente implementa document.write/document.close y captura el
-         * HTML producido. Así evitamos el bloqueo de pop-ups y no duplicamos
-         * la lógica de checklist, matriz, hallazgos, fotos ni cálculos.
-         */
-        let informeHtmlCapturado = "";
-        const ventanaCaptura = {
-            closed: false,
-            document: {
-                write(html) {
-                    informeHtmlCapturado += String(html || "");
-                },
-                close() {}
-            }
-        };
-
-        const resultadoInforme = generarInforme(ventanaCaptura);
-        if (resultadoInforme && typeof resultadoInforme.then === "function") {
-            await resultadoInforme;
-        }
-
-        if (!informeHtmlCapturado.trim()) {
-            throw new Error("No fue posible capturar el informe completo generado por la aplicación.");
-        }
-
-        /*
-         * Extraemos exclusivamente el cuerpo del informe.
-         * Se elimina el encabezado HTML del informe antiguo porque la plantilla
-         * maestra ya conserva su propio encabezado corporativo.
-         */
-        const parser = new DOMParser();
-        const informeDoc = parser.parseFromString(informeHtmlCapturado, "text/html");
-        const hoja = informeDoc.querySelector(".hoja");
-
-        if (!hoja) {
-            throw new Error("El informe generado no contiene la estructura .hoja esperada.");
-        }
-
-        const encabezado = hoja.querySelector(":scope > .encabezado");
-        if (encabezado) encabezado.remove();
-
-        hoja.querySelectorAll(".botones, .controles-informe-paginado, .pie, .paginacion-informe").forEach(el => el.remove());
-
-        /*
-         * Conservamos los estilos originales del informe para que las tablas,
-         * títulos y fotografías mantengan su presentación al ser importados
-         * por Word.
-         */
-        const estilos = Array.from(informeDoc.querySelectorAll("head style"))
-            .map(style => style.outerHTML)
-            .join("\n");
-
-        let contenidoHtml = hoja.innerHTML;
-
-        /*
-         * Las fotografías del informe se almacenan como data:image/...;
-         * Convertimos cada una en un recurso real dentro de word/media y
-         * sustituimos el src por una ruta relativa desde word/document.xml.
-         * Esto evita depender de data-URI dentro del importador HTML de Word.
-         */
-        const imagenes = Array.from(hoja.querySelectorAll("img"));
-        const imagenesParaWord = [];
-
-        imagenes.forEach((img, i) => {
-            const src = img.getAttribute("src") || "";
-            const match = src.match(/^data:(image\/(?:png|jpeg|jpg|gif|webp));base64,([A-Za-z0-9+/=]+)$/i);
-            if (!match) return;
-
-            const mime = match[1].toLowerCase();
-            const extension = mime.includes("png") ? "png" : (mime.includes("gif") ? "gif" : (mime.includes("webp") ? "webp" : "jpg"));
-            const nombre = `tecchnex-informe-${i + 1}.${extension}`;
-            imagenesParaWord.push({ nombre, base64: match[2], mime });
-            img.setAttribute("src", `media/${nombre}`);
-        });
-
-        /* El DOM actualizado contiene las rutas relativas nuevas. */
-        contenidoHtml = hoja.innerHTML;
-
-        const respuesta = await fetch(plantillaUrl, { cache: "no-store" });
-        if (!respuesta.ok) {
-            throw new Error("No se pudo localizar la plantilla maestra Word.");
-        }
-
-        const archivoPlantilla = await respuesta.blob();
-        const zip = await JSZip.loadAsync(archivoPlantilla);
-
-        const fecha = inspeccion.fecha
-            ? inspeccion.fecha.split("-").reverse().join("/")
-            : "";
-        const cliente = inspeccion.cliente || "";
-        const puesto = inspeccion.nombrePuesto || "";
-        const realizadoPor = inspeccion.inspector || "";
-        const revisadoPor = inspeccion.revisadoPor || inspeccion.director || "";
-
-        /* CAM-PLANTILLA-10 / INTERVENCIÓN 1 — CORRECCIÓN DE INICIALIZACIÓN
-         * Se usa una declaración de función en lugar de const para eliminar
-         * cualquier riesgo de Temporal Dead Zone ("before initialization")
-         * durante la preparación del documento Word.
-         * No cambia la lógica ni los valores de los reemplazos.
-         */
-        function escaparXml(valor) {
+        /* ---------------------------------------------------------
+           Utilidades XML nativas de Word.
+           --------------------------------------------------------- */
+        function escaparXmlWord(valor) {
             return String(valor ?? "")
                 .replace(/&/g, "&amp;")
                 .replace(/</g, "&lt;")
@@ -8973,120 +8995,405 @@ async function generarWordPlantillaMaestra() {
                 .replace(/'/g, "&apos;");
         }
 
-        const reemplazos = {
-            "{{FECHA}}": escaparXml(fecha),
-            "{{CLIENTE}}": escaparXml(cliente),
-            "{{PUESTO}}": escaparXml(puesto),
-            "{{REALIZADO_POR}}": escaparXml(realizadoPor),
-            "{{REVISADO_POR}}": escaparXml(revisadoPor)
-        };
+        function textoWord(valor) {
+            return escaparXmlWord(valor);
+        }
 
-        const documentEntry = zip.file("word/document.xml");
-        if (!documentEntry) throw new Error("La plantilla no contiene word/document.xml.");
-        let documentXml = await documentEntry.async("string");
+        function contenidoRunWord(valor) {
+            const partes = String(valor ?? "").split(/\r?\n/);
+            return partes.map((parte, indiceParte) =>
+                `${indiceParte > 0 ? "<w:br/>" : ""}<w:t xml:space="preserve">${textoWord(parte)}</w:t>`
+            ).join("");
+        }
 
-        Object.entries(reemplazos).forEach(([marcador, valor]) => {
-            documentXml = documentXml.split(marcador).join(valor);
-        });
-
-        /* CAM-PLANTILLA-10 / INTERVENCIÓN 2 — PLANTILLA MAESTRA LIMPIA
-         * La nueva Hoja Maestra ya no contiene {{CONTENIDO_INFORME}}.
-         * Por tanto, no se exige un marcador dentro del DOCX.
-         * El contenido dinámico se insertará antes del bloque legal final,
-         * conservando intactos el membrete, los campos de cabecera y las firmas.
-         */
-        const marcadorContenidoLimpio = /<w:p(?=[ >])[^>]*>.*?<w:t[^>]*>La información antes descrita, no implica que todos los riesgos hayan sido identificados o que no existan otros riesgos\.\s*<\/w:t>.*?<\/w:p>/s;
-        if (!marcadorContenidoLimpio.test(documentXml)) {
-            throw new Error("No se encontró el punto de inserción del contenido dinámico en la plantilla maestra limpia.");
+        function runWord(valor, opciones = {}) {
+            const rPr = [];
+            if (opciones.bold) rPr.push("<w:b/><w:bCs/>");
+            if (opciones.font) rPr.push(`<w:rFonts w:ascii="${opciones.font}" w:hAnsi="${opciones.font}" w:cs="${opciones.font}"/>`);
+            if (opciones.size) rPr.push(`<w:sz w:val="${opciones.size}"/><w:szCs w:val="${opciones.size}"/>`);
+            if (opciones.color) rPr.push(`<w:color w:val="${opciones.color}"/>`);
+            return `<w:r>${rPr.length ? `<w:rPr>${rPr.join("")}</w:rPr>` : ""}${contenidoRunWord(valor)}</w:r>`;
         }
 
         /*
-         * CAM-WORD-01.1 — FOTOGRAFÍAS EMBEBIDAS Y DIMENSIONADAS EN WORD
-         *
-         * Word puede importar el contenido HTML de altChunk, pero no siempre
-         * resuelve correctamente imágenes que apuntan a archivos internos de
-         * word/media/. Para evitar la X roja que aparece en el documento,
-         * empaquetamos el HTML como MHTML (multipart/related) y cada fotografía
-         * se referencia por Content-ID (cid:...). De esta forma las imágenes
-         * viajan dentro del propio fragmento que Word importa.
-         *
-         * No se modifican datos, cálculos, paginación ni generación del informe.
-         */
-        const altChunkPart = "word/afchunk-tecchnex.mht";
-        const relationshipId = "rIdTecchnexInformeCompleto";
+           CAMPO VISUAL 03 — INTERVENCIÓN 02
+           Ruta alternativa segura para la inserción del contenido.
 
-        const escaparMht = valor => String(valor ?? "")
-            .replace(/\r?\n/g, "\r\n");
+           Se localiza el punto de inserción dentro de w:body sin depender
+           de una serialización concreta de la plantilla. Si existe un
+           w:sectPr hijo directo de w:body, el contenido se inserta antes de
+           él (w:sectPr debe permanecer al final del body). Si la plantilla
+           no tiene sectPr directo, se inserta antes del cierre de w:body.
+        */
+        /*
+           CAMPO VISUAL 03 — INTERVENCIÓN 03
+           PUNTO DE INSERCIÓN ROBUSTO
 
-        let cuerpoMhtml = `<!DOCTYPE html>\r\n<html lang="es"><head><meta charset="UTF-8">${estilos}</head><body>${contenidoHtml}</body></html>`;
+           La intervención anterior intentaba localizar w:sectPr y, en el
+           caso de que no existiera como hijo directo de w:body, utilizaba
+           una posición calculada incorrectamente fuera del cierre de body.
 
-        const fronteraMhtml = "----=_TECCHNEX_MHTML_" + Date.now();
-        const partesMhtml = [];
+           En esta etapa no se modifica ni se interpreta la configuración de
+           sección de la plantilla. Se toma exclusivamente el cierre real de
+           w:body y se inserta el contenido inmediatamente antes de dicho
+           cierre. Así, los bloques generados permanecen siempre como hijos
+           válidos de w:body, independientemente de dónde Word haya ubicado
+           la configuración de sección de la plantilla.
+        */
+        function localizarPuntoInsercionBody(xml) {
+            /*
+               CAMPO VISUAL 03 — INTERVENCIÓN 04
+               PUNTO DE INSERCIÓN COMPATIBLE CON WORDPROCESSINGML
 
-        imagenesParaWord.forEach((imagen, indiceImagen) => {
-            const cid = `tecchnex-img-${indiceImagen + 1}@informe`;
-            cuerpoMhtml = cuerpoMhtml.replaceAll(`media/${imagen.nombre}`, `cid:${cid}`);
-            partesMhtml.push(
-                `--${fronteraMhtml}\r\n` +
-                `Content-Type: ${imagen.mime}; name="${imagen.nombre}"\r\n` +
-                `Content-Transfer-Encoding: base64\r\n` +
-                `Content-Location: ${imagen.nombre}\r\n` +
-                `Content-ID: <${cid}>\r\n\r\n` +
-                imagen.base64 + `\r\n`
-            );
-        });
+               Word permite que w:sectPr aparezca de dos formas:
+               1) como hijo directo de w:body; o
+               2) dentro de w:pPr del ÚLTIMO párrafo del body.
 
-        const contenidoMhtml =
-            `MIME-Version: 1.0\r\n` +
-            `Content-Type: multipart/related; boundary="${fronteraMhtml}"; type="text/html"; start="<tecchnex-root@informe>"\r\n` +
-            `\r\n` +
-            `--${fronteraMhtml}\r\n` +
-            `Content-Type: text/html; charset="utf-8"\r\n` +
-            `Content-Transfer-Encoding: 8bit\r\n` +
-            `Content-Location: informe-tecchnex.html\r\n` +
-            `Content-ID: <tecchnex-root@informe>\r\n\r\n` +
-            escaparMht(cuerpoMhtml) + `\r\n` +
-            partesMhtml.join("") +
-            `--${fronteraMhtml}--\r\n`;
+               En el segundo caso, insertar contenido después de ese párrafo
+               deja w:sectPr en un párrafo que ya no es el último, pudiendo
+               invalidar el DOCX. Por eso insertamos ANTES del párrafo que
+               contiene w:sectPr, conservando la sección como último elemento.
+            */
+            const cuerpo = /(<w:body\b[^>]*>)([\s\S]*?)(<\/w:body\s*>)/.exec(xml);
+            if (!cuerpo) return null;
 
-        zip.file(altChunkPart, contenidoMhtml);
-        documentXml = documentXml.replace(
-            marcadorContenidoLimpio,
-            (parrafoLegal) => `<w:altChunk r:id="${relationshipId}"/>` + parrafoLegal
-        );
-        zip.file("word/document.xml", documentXml);
+            const contenido = cuerpo[2];
+            const inicioContenido = cuerpo.index + cuerpo[1].length;
 
-        const relsEntry = zip.file("word/_rels/document.xml.rels");
-        if (!relsEntry) throw new Error("La plantilla no contiene las relaciones de document.xml.");
-        let relsXml = await relsEntry.async("string");
-        if (!relsXml.includes(`Id="${relationshipId}"`)) {
-            relsXml = relsXml.replace(
-                "</Relationships>",
-                `<Relationship Id="${relationshipId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk" Target="afchunk-tecchnex.mht"/></Relationships>`
-            );
+            // Caso 1: w:sectPr directamente dentro de w:body.
+            const sectPrDirecto = /<w:sectPr\b[^>]*>/i.exec(contenido);
+            if (sectPrDirecto) {
+                // Verificar que no esté dentro de un párrafo anterior.
+                const antes = contenido.slice(0, sectPrDirecto.index);
+                const ultimoInicioP = antes.lastIndexOf('<w:p');
+                const ultimoFinP = antes.lastIndexOf('</w:p>');
+                if (ultimoInicioP <= ultimoFinP) {
+                    return {
+                        inicio: inicioContenido + sectPrDirecto.index,
+                        fin: inicioContenido + sectPrDirecto.index,
+                        tipo: 'sectPr-directo'
+                    };
+                }
+            }
+
+            // Caso 2: w:sectPr dentro del último párrafo del body.
+            const regexParrafo = /<w:p\b[^>]*>[\s\S]*?<\/w:p\s*>/gi;
+            let coincidencia;
+            let parrafoSeccion = null;
+
+            while ((coincidencia = regexParrafo.exec(contenido)) !== null) {
+                if (/<w:sectPr\b/i.test(coincidencia[0])) {
+                    parrafoSeccion = coincidencia;
+                }
+            }
+
+            if (parrafoSeccion) {
+                return {
+                    inicio: inicioContenido + parrafoSeccion.index,
+                    fin: inicioContenido + parrafoSeccion.index,
+                    tipo: 'sectPr-en-parrafo'
+                };
+            }
+
+            // Caso 3: plantilla sin sectPr detectable; inserción al final del body.
+            const inicioCierreBody = inicioContenido + contenido.length;
+            return {
+                inicio: inicioCierreBody,
+                fin: inicioCierreBody,
+                tipo: 'body-close'
+            };
         }
-        zip.file("word/_rels/document.xml.rels", relsXml);
 
-        const contentTypesEntry = zip.file("[Content_Types].xml");
-        if (!contentTypesEntry) throw new Error("La plantilla no contiene [Content_Types].xml.");
-        let contentTypesXml = await contentTypesEntry.async("string");
-        if (!contentTypesXml.includes('PartName="/word/afchunk-tecchnex.mht"')) {
-            contentTypesXml = contentTypesXml.replace(
-                "</Types>",
-                `<Override PartName="/word/afchunk-tecchnex.mht" ContentType="message/rfc822"/></Types>`
-            );
+        function parrafoWord(valor = "", opciones = {}) {
+            const pPr = [];
+            if (opciones.align) pPr.push(`<w:jc w:val="${opciones.align}"/>`);
+            pPr.push(`<w:spacing w:before="${opciones.before || 0}" w:after="${opciones.after || 0}" w:line="${opciones.line || 240}" w:lineRule="auto"/>`);
+            if (opciones.keepNext) pPr.push("<w:keepNext/>");
+            return `<w:p>${pPr.length ? `<w:pPr>${pPr.join("")}</w:pPr>` : ""}${runWord(valor, opciones)}</w:p>`;
         }
-        zip.file("[Content_Types].xml", contentTypesXml);
 
-        /* El encabezado de la Hoja Maestra permanece intacto salvo sus marcadores. */
+        function celdaWord(valor, opciones = {}) {
+            const width = opciones.width || 4400;
+            const shading = opciones.shading ? `<w:shd w:fill="${opciones.shading}"/>` : "";
+            const vertical = opciones.vAlign ? `<w:vAlign w:val="${opciones.vAlign}"/>` : "";
+            const colspan = opciones.colspan ? `<w:gridSpan w:val="${opciones.colspan}"/>` : "";
+            const borders = `<w:tcBorders>
+                <w:top w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                <w:left w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                <w:bottom w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                <w:right w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+            </w:tcBorders>`;
+            const margins = `<w:tcMar>
+                <w:top w:w="100" w:type="dxa"/><w:left w:w="120" w:type="dxa"/>
+                <w:bottom w:w="100" w:type="dxa"/><w:right w:w="120" w:type="dxa"/>
+            </w:tcMar>`;
+            const tcPr = `<w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${colspan}${vertical}${shading}${borders}${margins}</w:tcPr>`;
+            const p = parrafoWord(valor, {
+                align: opciones.align || "left",
+                font: "Arial",
+                size: opciones.size || "18",
+                bold: !!opciones.bold,
+                color: opciones.color || "000000",
+                after: 0,
+                line: 240
+            });
+            return `<w:tc>${tcPr}${p}</w:tc>`;
+        }
+
+        function filaWord(label, value) {
+            return `<w:tr>
+                <w:trPr><w:cantSplit/></w:trPr>
+                ${celdaWord(label, { width: 1900, shading: "F1F4F7", bold: true, color: "123B5D" })}
+                ${celdaWord(value, { width: 6938 })}
+            </w:tr>`;
+        }
+
+        function tablaInformacionGeneralWord(datos) {
+            const filas = datos.map(([label, value]) => filaWord(label, value)).join("");
+            return `<w:tbl>
+                <w:tblPr>
+                    <w:tblW w:w="8838" w:type="dxa"/>
+                    <w:tblLayout w:type="fixed"/>
+                    <w:tblCellMar>
+                        <w:top w:w="100" w:type="dxa"/><w:left w:w="120" w:type="dxa"/>
+                        <w:bottom w:w="100" w:type="dxa"/><w:right w:w="120" w:type="dxa"/>
+                    </w:tblCellMar>
+                    <w:tblBorders>
+                        <w:top w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:left w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:bottom w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:right w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:insideH w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:insideV w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                    </w:tblBorders>
+                </w:tblPr>
+                <w:tblGrid><w:gridCol w:w="1900"/><w:gridCol w:w="6938"/></w:tblGrid>
+                ${filas}
+            </w:tbl>`;
+        }
+
+        const versionDocumento = localStorage.getItem("versionDocumento") || "003";
+        const tituloDocumento = localStorage.getItem("tituloDocumento") || "INFORME PREVENTIVO DE SEGURIDAD INTEGRAL";
+        const puesto = inspeccion.nombrePuesto || "";
+
+        /* ---------------------------------------------------------
+           Abrir la Hoja Maestra y alimentar únicamente sus campos
+           variables de cabecera.
+           --------------------------------------------------------- */
+        const respuesta = await fetch(plantillaUrl, { cache: "no-store" });
+        if (!respuesta.ok) {
+            throw new Error("No se pudo localizar la plantilla maestra Word.");
+        }
+
+        const archivoPlantilla = await respuesta.blob();
+        const zip = await JSZip.loadAsync(archivoPlantilla);
+
+        const documentEntry = zip.file("word/document.xml");
+        if (!documentEntry) {
+            throw new Error("La plantilla no contiene word/document.xml.");
+        }
+
+        let documentXml = await documentEntry.async("string");
+
+        const reemplazosCabecera = {
+            "{{VERSION_DOCUMENTO}}": escaparXmlWord(versionDocumento),
+            "{{TITULO_DOCUMENTO}}": escaparXmlWord(tituloDocumento),
+            "{{PUESTO}}": escaparXmlWord(puesto)
+        };
+
         const headerEntry = zip.file("word/header1.xml");
         if (headerEntry) {
             let headerXml = await headerEntry.async("string");
-            Object.entries(reemplazos).forEach(([marcador, valor]) => {
+            Object.entries(reemplazosCabecera).forEach(([marcador, valor]) => {
                 headerXml = headerXml.split(marcador).join(valor);
             });
             zip.file("word/header1.xml", headerXml);
         }
+
+        /* ---------------------------------------------------------
+           CAM-WORD-02 — BLOQUE 01
+           Información general de la inspección.
+
+           Se construye como WordprocessingML real: párrafos y tabla
+           nativos. No se utiliza HTML, MHTML ni altChunk.
+           --------------------------------------------------------- */
+        const datosInformacionGeneral = [
+            ["Cliente", inspeccion.cliente],
+            ["NIT", inspeccion.nit],
+            ["Dirección", inspeccion.direccion],
+            ["Ciudad", inspeccion.ciudad],
+            ["Contacto", inspeccion.contacto],
+            ["Teléfono", inspeccion.telefono],
+            ["Correo", inspeccion.correo],
+            ["Fecha", inspeccion.fecha],
+            ["Inspector", inspeccion.inspector],
+            ["Director", inspeccion.director],
+            ["Tipo de inspección", inspeccion.tipo],
+            ["Objetivo", inspeccion.objetivo],
+            ["Descripción del entorno", inspeccion.entorno]
+        ].filter(([, value]) =>
+            value !== undefined &&
+            value !== null &&
+            String(value).trim() !== ""
+        );
+
+        const bloque01 =
+            parrafoWord("1. Información general de la inspección", {
+                font: "Arial",
+                size: "24",
+                bold: true,
+                color: "123B5D",
+                after: 140,
+                line: 260,
+                keepNext: true
+            }) +
+            tablaInformacionGeneralWord(datosInformacionGeneral) +
+            parrafoWord("", { after: 80 });
+
+        /* ---------------------------------------------------------
+           CAM-WORD-02 — BLOQUE 02
+           Objetivo y metodología.
+
+           Se toma como fuente el contenido que ya existe en
+           generarInforme(). Aquí solo se transforma su presentación
+           a WordprocessingML nativo. No se modifican datos ni cálculos.
+           --------------------------------------------------------- */
+        const objetivosEspecificos = [
+            "Identificar los aspectos positivos y los puntos críticos para la seguridad de la copropiedad mediante la aplicación de la lista de verificación.",
+            "Evaluar las condiciones de los accesos y cerramientos, identificando posibles vulnerabilidades frente a ingresos no autorizados.",
+            "Revisar las condiciones de los sistemas tecnológicos de seguridad, incluyendo CCTV, alarmas e iluminación.",
+            "Identificar condiciones que puedan favorecer la materialización de riesgos y establecer medidas preventivas y de mitigación.",
+            "Formular recomendaciones orientadas al fortalecimiento de las condiciones de seguridad de la copropiedad."
+        ];
+
+        function listaNumeradaWord(items) {
+            return items.map((item, indiceItem) =>
+                parrafoWord(`${indiceItem + 1}. ${item}`, {
+                    font: "Arial",
+                    size: "20",
+                    color: "000000",
+                    after: 80,
+                    line: 276
+                })
+            ).join("");
+        }
+
+        function filaContenidoWord(contenido) {
+            /* CAM-WORD-02 / INTERVENCIÓN 04
+             * El contenido ya no se concentra en una única fila gigante.
+             * Cada bloque lógico ocupa su propia fila para que Word pueda
+             * continuar entre páginas sin dejar un espacio blanco innecesario.
+             */
+            return `<w:tr>
+                ${celdaContenidoWord(contenido)}
+            </w:tr>`;
+        }
+
+        function celdaContenidoWord(contenido) {
+            return `<w:tc>
+                <w:tcPr>
+                    <w:tcW w:w="8838" w:type="dxa"/>
+                    <w:shd w:fill="FAFAFA"/>
+                    <w:tcMar>
+                        <w:top w:w="90" w:type="dxa"/><w:left w:w="180" w:type="dxa"/>
+                        <w:bottom w:w="90" w:type="dxa"/><w:right w:w="180" w:type="dxa"/>
+                    </w:tcMar>
+                </w:tcPr>
+                ${contenido}
+            </w:tc>`;
+        }
+
+        function tablaBloque02Word(filas) {
+            return `<w:tbl>
+                <w:tblPr>
+                    <w:tblW w:w="8838" w:type="dxa"/>
+                    <w:tblLayout w:type="fixed"/>
+                    <w:tblBorders>
+                        <w:top w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:left w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:bottom w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:right w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:insideH w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                    </w:tblBorders>
+                </w:tblPr>
+                <w:tblGrid><w:gridCol w:w="8838"/></w:tblGrid>
+                ${filas}
+            </w:tbl>`;
+        }
+
+        const objetivoGeneralWord = inspeccion.objetivo ||
+            "Realizar un diagnóstico integral de las condiciones de seguridad de la copropiedad.";
+
+        const metodologia1 =
+            "Para la realización del presente estudio de seguridad se empleó una visita a la copropiedad, con toma de fotografías, entrevistas y aplicación de lista de chequeo.";
+
+        const metodologia2 =
+            "Los parámetros de observación comprenden Control de Accesos, Seguridad Perimetral, Sistemas Electrónicos de Seguridad, Gestión de Autocuidado, Planeación Estratégica y SG-SST, Medio Ambiente y otros aspectos.";
+
+        const contenidoBloque02 =
+            parrafoWord("2. Objetivo y metodología", {
+                font: "Arial",
+                size: "24",
+                bold: true,
+                color: "123B5D",
+                before: 0,
+                after: 80,
+                line: 260,
+                keepNext: true
+            }) +
+            tablaBloque02Word(
+                filaContenidoWord(
+                    parrafoWord("Objetivo General", {
+                        font: "Arial", size: "21", bold: true, color: "123B5D", after: 70, line: 260, keepNext: true
+                    }) +
+                    parrafoWord(objetivoGeneralWord, {
+                        font: "Arial", size: "20", color: "000000", after: 0, line: 276
+                    })
+                ) +
+                filaContenidoWord(
+                    parrafoWord("Objetivos Específicos", {
+                        font: "Arial", size: "21", bold: true, color: "123B5D", after: 70, line: 260, keepNext: true
+                    }) +
+                    listaNumeradaWord(objetivosEspecificos)
+                ) +
+                filaContenidoWord(
+                    parrafoWord("Metodología", {
+                        font: "Arial", size: "21", bold: true, color: "123B5D", after: 70, line: 260, keepNext: true
+                    }) +
+                    parrafoWord(metodologia1, {
+                        font: "Arial", size: "20", color: "000000", after: 70, line: 276
+                    }) +
+                    parrafoWord(metodologia2, {
+                        font: "Arial", size: "20", color: "000000", after: 0, line: 276
+                    })
+                )
+            ) +
+            parrafoWord("", { after: 40 });
+
+        /* ---------------------------------------------------------
+           CAMPO VISUAL 03 — INTERVENCIÓN 02
+           FLUJO DIRECTO SOBRE LA PLANTILLA MAESTRA — INTERVENCIÓN 04
+
+           El contenido variable se inserta inmediatamente antes del cierre
+           real de w:body. No se busca ni se mueve w:sectPr. La arquitectura
+           original de la plantilla queda intacta y los bloques generados
+           permanecen como hijos directos y válidos de w:body.
+           --------------------------------------------------------- */
+        const cuerpoInformeWord =
+            bloque01 +
+            contenidoBloque02;
+
+        const puntoInsercion = localizarPuntoInsercionBody(documentXml);
+        if (!puntoInsercion) {
+            throw new Error("La plantilla maestra no contiene una estructura válida de w:body.");
+        }
+
+        documentXml =
+            documentXml.slice(0, puntoInsercion.inicio) +
+            cuerpoInformeWord +
+            documentXml.slice(puntoInsercion.inicio);
+
+        zip.file("word/document.xml", documentXml);
 
         const salida = await zip.generateAsync({
             type: "blob",
@@ -9094,7 +9401,7 @@ async function generarWordPlantillaMaestra() {
             compression: "STORE"
         });
 
-        const nombreBase = (cliente || "Inspeccion")
+        const nombreBase = (inspeccion.cliente || "Inspeccion")
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g, "")
             .replace(/[^a-zA-Z0-9_-]+/g, "_")
@@ -9111,13 +9418,14 @@ async function generarWordPlantillaMaestra() {
         setTimeout(() => URL.revokeObjectURL(url), 1500);
 
         alert(
-            "Documento generado correctamente con la Hoja Maestra TECCHNEX + membrete COTRASER.\n\n" +
-            "El contenido proviene directamente del informe completo que ya genera la aplicación."
+            "Documento generado correctamente — CAMPO VISUAL 03 / INTERVENCIÓN 03.\n\n" +
+            "La información general y el objetivo/metodología se insertaron directamente en la plantilla maestra Word.\n" +
+            "La inserción se realizó en una posición compatible con la configuración de sección de la plantilla."
         );
 
     } catch (error) {
-        console.error("CAM-PLANTILLA-09 — Error al generar Word:", error);
-        alert("No fue posible generar el Word con la plantilla maestra.\n\nDetalle: " + error.message);
+        console.error("CAMPO VISUAL 03 / INTERVENCIÓN 03 — Error al generar Word:", error);
+        alert("No fue posible generar el Word con el motor nativo.\n\nDetalle: " + error.message);
     }
 }
 
@@ -10035,6 +10343,50 @@ matrizParaInforme.forEach((riesgo, indice) => {
                 .hoja > .encabezado {
                     margin-top:0 !important;
                     padding-top:0 !important;
+                }
+
+                /* =====================================================
+                   INTERVENCIÓN PRESENTACIÓN-01 · PRUEBA CONTROLADA
+                   Objetivo: presentar el informe en pantalla como un
+                   documento continuo, sin reconstrucción artificial de
+                   páginas A4.
+                   IMPORTANTE: estas reglas son SOLO para pantalla.
+                   La salida Word no se modifica.
+                   ===================================================== */
+                @media screen {
+                    body {
+                        background:#eef2f5;
+                    }
+
+                    .hoja {
+                        width:min(1100px, calc(100vw - 32px)) !important;
+                        max-width:none !important;
+                        margin:16px auto !important;
+                        padding:24px !important;
+                        box-sizing:border-box !important;
+                        background:#fff;
+                        box-shadow:0 2px 16px rgba(0,0,0,.10);
+                    }
+
+                    /* Los saltos creados exclusivamente para paginación/PDF
+                       dejan de intervenir en la vista de pantalla. */
+                    .salto-pagina-pdf,
+                    .salto-hallazgos-pdf {
+                        display:none !important;
+                    }
+
+                    .botones {
+                        display:block;
+                    }
+
+                    /* PDF no forma parte de esta etapa; ocultarlo solo en pantalla. */
+                    .botones button[onclick*="generarPDF"] {
+                        display:none !important;
+                    }
+
+                    .tabla-hallazgos {
+                        width:100%;
+                    }
                 }
 
                 /* =====================================================
@@ -12414,7 +12766,7 @@ ESTADO: EN DESARROLLO
                 ========================================================
                 -->
                 <button onclick="window.opener.generarWordPlantillaMaestra()">
-    📝 Generar Word con Hoja Maestra + membrete COTRASER
+    📝 Generar Word con Hoja Maestra limpia + membrete COTRASER
 </button>
 
                 <button onclick="window.opener.generarPDF(window)">
