@@ -8975,6 +8975,137 @@ async function generarWordPlantillaMaestra() {
         return;
     }
 
+    /* =========================================================
+       CAMPO VISUAL 03 — INTERVENCIÓN 07
+       DATOS DEL INFORME WORD
+       ---------------------------------------------------------
+       Corrección quirúrgica del error:
+       "resultadosCategorias is not defined".
+
+       El generador Word vive en su propia función y no puede utilizar
+       variables locales de generarInforme(). Por eso recuperamos aquí
+       exclusivamente las fuentes necesarias para construir el informe
+       completo, manteniendo los mismos criterios de selección utilizados
+       por el informe actual.
+
+       NO se modifican datos, localStorage ni cálculos existentes.
+       ========================================================= */
+    const checklistsWord =
+        JSON.parse(localStorage.getItem("checklists")) || [];
+
+    const todosLosHallazgosWord =
+        JSON.parse(localStorage.getItem("hallazgos")) || [];
+
+    const todasLasMatricesWord =
+        JSON.parse(localStorage.getItem("matrizRiesgos")) || [];
+
+    const resultadosGuardadosWord =
+        JSON.parse(
+            localStorage.getItem("resultadosChecklistCategorias")
+        ) || {};
+
+    const resultadosCategorias =
+        resultadosGuardadosWord[indice] || {};
+
+    const hallazgos =
+        todosLosHallazgosWord.filter(
+            hallazgo => Number(hallazgo.inspeccion) === indice
+        );
+
+    const matriz =
+        todasLasMatricesWord.filter(
+            registro => Number(registro.inspeccion) === indice
+        );
+
+    const matricesRiesgosClientesWord =
+        JSON.parse(
+            localStorage.getItem("matricesRiesgosClientes")
+        ) || [];
+
+    const matrizCliente =
+        matricesRiesgosClientesWord.filter(
+            registro =>
+                String(registro.cliente || "") ===
+                String(inspeccion.cliente || "")
+        );
+
+    const checklistWord = (() => {
+        const coincidencias = checklistsWord.filter(
+            registro => Number(registro.inspeccion) === indice
+        );
+
+        if (coincidencias.length) {
+            return coincidencias[coincidencias.length - 1];
+        }
+
+        const registrosAntiguos = checklistsWord.filter(
+            registro => Number(registro.inspeccion) === indice + 1
+        );
+
+        return registrosAntiguos.length
+            ? registrosAntiguos[registrosAntiguos.length - 1]
+            : null;
+    })();
+
+    const respuestasChecklist =
+        checklistWord && checklistWord.respuestas
+            ? checklistWord.respuestas
+            : {};
+
+    const datosChecklist =
+        checklistWord && checklistWord.datos
+            ? checklistWord.datos
+            : {};
+
+    const matrizParaInforme =
+        matrizCliente.length > 0
+            ? matrizCliente
+            : matriz;
+
+    const matrizParaMapaCalor = matrizParaInforme;
+
+    const porcentajeGeneral = (() => {
+        let totalPuntos = 0;
+        let totalMaximo = 0;
+
+        Object.keys(datosChecklist).forEach(categoria => {
+            const porcentaje = Number(resultadosCategorias[categoria]);
+            if (Number.isNaN(porcentaje)) return;
+
+            const cantidadItems = Array.isArray(datosChecklist[categoria])
+                ? datosChecklist[categoria].length
+                : 0;
+
+            totalPuntos += porcentaje * cantidadItems;
+            totalMaximo += cantidadItems;
+        });
+
+        return totalMaximo === 0
+            ? 0
+            : Math.round(totalPuntos / totalMaximo);
+    })();
+
+    let perfilCriticidad = "";
+    let descripcionCriticidad = "";
+
+    if (porcentajeGeneral >= 76) {
+        perfilCriticidad = "BUENO";
+        descripcionCriticidad =
+            "Se recomienda monitoreo y seguimiento general a cada aspecto, con el fin de darle continuidad a las fortalezas identificadas. Las amenazas son reconocidas, pero el riesgo está controlado.";
+    } else if (porcentajeGeneral >= 51) {
+        perfilCriticidad = "SUFICIENTE";
+        descripcionCriticidad =
+            "Plan de seguimiento encaminado a esas observaciones menores detectadas. Se conocen las amenazas y se tiene controlado el riesgo.";
+    } else if (porcentajeGeneral >= 26) {
+        perfilCriticidad = "REGULAR";
+        descripcionCriticidad =
+            "Es necesario el diseño de estrategias tendientes a la corrección de aquellos aspectos calificados por mejorar, garantizar un plan de seguimiento para el cumplimiento de las actividades planteadas.";
+    } else {
+        perfilCriticidad = "DÉBIL";
+        descripcionCriticidad =
+            "El panorama de seguridad se percibe como crítico, por lo tanto, es necesario intervenir los aspectos de manera inmediata, con el ánimo de disminuir la probabilidad de materialización de las amenazas.";
+    }
+
     if (typeof JSZip === "undefined") {
         alert("No se pudo cargar el componente necesario para preparar la plantilla Word.");
         return;
@@ -9041,66 +9172,44 @@ async function generarWordPlantillaMaestra() {
            la configuración de sección de la plantilla.
         */
         function localizarPuntoInsercionBody(xml) {
-            /*
-               CAMPO VISUAL 03 — INTERVENCIÓN 04
-               PUNTO DE INSERCIÓN COMPATIBLE CON WORDPROCESSINGML
+            /* CAMPO VISUAL 04 — INTERVENCIÓN 01
+               PUNTO DE INSERCIÓN ROBUSTO Y ÚNICO
+               Insertamos el contenido antes del último párrafo que contiene
+               w:sectPr, o antes de un w:sectPr directo. Nunca alteramos la
+               configuración de sección de la plantilla. */
+            const bodyMatch = /(<w:body\b[^>]*>)([\s\S]*?)(<\/w:body\s*>)/i.exec(xml);
+            if (!bodyMatch) return null;
 
-               Word permite que w:sectPr aparezca de dos formas:
-               1) como hijo directo de w:body; o
-               2) dentro de w:pPr del ÚLTIMO párrafo del body.
+            const contenido = bodyMatch[2];
+            const inicioContenido = bodyMatch.index + bodyMatch[1].length;
 
-               En el segundo caso, insertar contenido después de ese párrafo
-               deja w:sectPr en un párrafo que ya no es el último, pudiendo
-               invalidar el DOCX. Por eso insertamos ANTES del párrafo que
-               contiene w:sectPr, conservando la sección como último elemento.
-            */
-            const cuerpo = /(<w:body\b[^>]*>)([\s\S]*?)(<\/w:body\s*>)/.exec(xml);
-            if (!cuerpo) return null;
+            // Caso 1: sectPr dentro del último párrafo del body.
+            const ultimoSect = contenido.lastIndexOf('<w:sectPr');
+            if (ultimoSect !== -1) {
+                const inicioUltimoP = contenido.lastIndexOf('<w:p', ultimoSect);
+                const finUltimoP = contenido.lastIndexOf('</w:p>', ultimoSect);
 
-            const contenido = cuerpo[2];
-            const inicioContenido = cuerpo.index + cuerpo[1].length;
-
-            // Caso 1: w:sectPr directamente dentro de w:body.
-            const sectPrDirecto = /<w:sectPr\b[^>]*>/i.exec(contenido);
-            if (sectPrDirecto) {
-                // Verificar que no esté dentro de un párrafo anterior.
-                const antes = contenido.slice(0, sectPrDirecto.index);
-                const ultimoInicioP = antes.lastIndexOf('<w:p');
-                const ultimoFinP = antes.lastIndexOf('</w:p>');
-                if (ultimoInicioP <= ultimoFinP) {
+                if (inicioUltimoP !== -1 && inicioUltimoP > finUltimoP) {
                     return {
-                        inicio: inicioContenido + sectPrDirecto.index,
-                        fin: inicioContenido + sectPrDirecto.index,
-                        tipo: 'sectPr-directo'
+                        inicio: inicioContenido + inicioUltimoP,
+                        fin: inicioContenido + inicioUltimoP,
+                        tipo: 'sectPr-en-parrafo'
                     };
                 }
-            }
 
-            // Caso 2: w:sectPr dentro del último párrafo del body.
-            const regexParrafo = /<w:p\b[^>]*>[\s\S]*?<\/w:p\s*>/gi;
-            let coincidencia;
-            let parrafoSeccion = null;
-
-            while ((coincidencia = regexParrafo.exec(contenido)) !== null) {
-                if (/<w:sectPr\b/i.test(coincidencia[0])) {
-                    parrafoSeccion = coincidencia;
-                }
-            }
-
-            if (parrafoSeccion) {
+                // Caso 2: sectPr es hijo directo de w:body.
                 return {
-                    inicio: inicioContenido + parrafoSeccion.index,
-                    fin: inicioContenido + parrafoSeccion.index,
-                    tipo: 'sectPr-en-parrafo'
+                    inicio: inicioContenido + ultimoSect,
+                    fin: inicioContenido + ultimoSect,
+                    tipo: 'sectPr-directo'
                 };
             }
 
-            // Caso 3: plantilla sin sectPr detectable; inserción al final del body.
-            const inicioCierreBody = inicioContenido + contenido.length;
+            // Caso 3: plantilla sin sectPr detectable: antes del cierre body.
             return {
-                inicio: inicioCierreBody,
-                fin: inicioCierreBody,
-                tipo: 'body-close'
+                inicio: inicioContenido + contenido.length,
+                fin: inicioContenido + contenido.length,
+                tipo: 'antes-cierre-body'
             };
         }
 
@@ -9379,9 +9488,345 @@ async function generarWordPlantillaMaestra() {
            original de la plantilla queda intacta y los bloques generados
            permanecen como hijos directos y válidos de w:body.
            --------------------------------------------------------- */
+        /* ---------------------------------------------------------
+           CAMPO VISUAL 03 — INTERVENCIÓN 05
+           INFORME WORD COMPLETO EN TABLAS
+
+           Objetivo:
+           - Cargar en la plantilla maestra el contenido completo del informe.
+           - Mantener el motor Word nativo y la estructura de la plantilla.
+           - Presentar los bloques de información mediante tablas Word reales.
+           - No modificar los datos, cálculos ni el generador PDF.
+           --------------------------------------------------------- */
+
+        function encabezadoSeccionWord(titulo) {
+            return parrafoWord(titulo, {
+                font: "Arial", size: "24", bold: true, color: "123B5D",
+                before: 140, after: 90, line: 260, keepNext: true
+            });
+        }
+
+        function tablaDosColumnasWord(filas, anchoEtiqueta = 1900, anchoValor = 6938) {
+            const filasXml = filas.length ? filas.map(([etiqueta, valor]) => `
+                <w:tr>
+                    <w:trPr><w:cantSplit/></w:trPr>
+                    ${celdaWord(etiqueta, { width: anchoEtiqueta, shading: "F1F4F7", bold: true, color: "123B5D" })}
+                    ${celdaWord(valor, { width: anchoValor })}
+                </w:tr>
+            `).join("") : `
+                <w:tr><w:trPr><w:cantSplit/></w:trPr>
+                    ${celdaWord("Información", { width: anchoEtiqueta, shading: "F1F4F7", bold: true, color: "123B5D" })}
+                    ${celdaWord("No registrada", { width: anchoValor })}
+                </w:tr>`;
+            return `<w:tbl>
+                <w:tblPr>
+                    <w:tblW w:w="8838" w:type="dxa"/>
+                    <w:tblLayout w:type="fixed"/>
+                    <w:tblBorders>
+                        <w:top w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:left w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:bottom w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:right w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:insideH w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:insideV w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                    </w:tblBorders>
+                </w:tblPr>
+                <w:tblGrid><w:gridCol w:w="${anchoEtiqueta}"/><w:gridCol w:w="${anchoValor}"/></w:tblGrid>
+                ${filasXml}
+            </w:tbl>`;
+        }
+
+        function tablaEncabezadaWord(encabezados, filas, anchos) {
+            const grid = encabezados.map((_, i) => `<w:gridCol w:w="${anchos[i] || Math.floor(8838 / encabezados.length)}"/>`).join("");
+            const head = `<w:tr><w:trPr><w:tblHeader/></w:trPr>${encabezados.map((h, i) =>
+                celdaWord(h, { width: anchos[i], shading: "123B5D", bold: true, color: "FFFFFF", align: "center", size: "17" })
+            ).join("")}</w:tr>`;
+            const body = filas.length ? filas.map(fila => `<w:tr><w:trPr><w:cantSplit/></w:trPr>${fila.map((v, i) =>
+                celdaWord(v, { width: anchos[i], align: i === 0 ? "left" : "center", size: "16" })
+            ).join("")}</w:tr>`).join("") :
+                `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord("Sin registros", { width: 8838, colspan: encabezados.length })}</w:tr>`;
+            return `<w:tbl>
+                <w:tblPr>
+                    <w:tblW w:w="8838" w:type="dxa"/><w:tblLayout w:type="fixed"/>
+                    <w:tblBorders>
+                        <w:top w:val="single" w:sz="6" w:space="0" w:color="999999"/><w:left w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:bottom w:val="single" w:sz="6" w:space="0" w:color="999999"/><w:right w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:insideH w:val="single" w:sz="6" w:space="0" w:color="999999"/><w:insideV w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                    </w:tblBorders>
+                </w:tblPr>
+                <w:tblGrid>${grid}</w:tblGrid>${head}${body}
+            </w:tbl>`;
+        }
+
+        function tablaBloquesWord(bloques) {
+            const filas = bloques.map(b => `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(b.titulo, { width: 8838, shading: "F1F4F7", bold: true, color: "123B5D" })}</w:tr>` +
+                `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(b.texto, { width: 8838, size: "17" })}</w:tr>`).join("");
+            return `<w:tbl><w:tblPr><w:tblW w:w="8838" w:type="dxa"/><w:tblLayout w:type="fixed"/>
+                <w:tblBorders><w:top w:val="single" w:sz="6" w:space="0" w:color="999999"/><w:left w:val="single" w:sz="6" w:space="0" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:space="0" w:color="999999"/><w:right w:val="single" w:sz="6" w:space="0" w:color="999999"/><w:insideH w:val="single" w:sz="6" w:space="0" w:color="999999"/></w:tblBorders>
+                </w:tblPr><w:tblGrid><w:gridCol w:w="8838"/></w:tblGrid>${filas}</w:tbl>`;
+        }
+
+        const camposGenerales = [
+            ["Cliente", inspeccion.cliente], ["NIT", inspeccion.nit], ["Dirección", inspeccion.direccion],
+            ["Ciudad", inspeccion.ciudad], ["Contacto", inspeccion.contacto], ["Teléfono", inspeccion.telefono],
+            ["Correo", inspeccion.correo], ["Fecha", inspeccion.fecha], ["Inspector", inspeccion.inspector],
+            ["Director", inspeccion.director], ["Tipo de inspección", inspeccion.tipo],
+            ["Objetivo", inspeccion.objetivo], ["Descripción del entorno", inspeccion.entorno]
+        ].filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== "");
+
+        let bloqueInstalacionWord = "";
+        if (inspeccion.sectorInspeccion === "Residencial") {
+            bloqueInstalacionWord = tablaDosColumnasWord([
+                ["Tipo de instalación", inspeccion.tipoInstalacion], ["Torres", inspeccion.cantidadTorres], ["Niveles", inspeccion.cantidadNiveles],
+                ["Sótanos", inspeccion.cantidadSotanos], ["Viviendas", inspeccion.cantidadViviendas], ["Parqueaderos privados", inspeccion.parqueaderosPrivados],
+                ["Parqueaderos visitantes", inspeccion.parqueaderosVisitantes], ["Parqueaderos motos", inspeccion.parqueaderosMotos], ["Parqueaderos uso común", inspeccion.parqueaderosComunes], ["Bicicleteros", inspeccion.bicicleteros]
+            ].filter(([,v]) => v !== undefined && v !== null && String(v).trim() !== ""));
+        } else if (inspeccion.sectorInspeccion === "Industrial") {
+            bloqueInstalacionWord = tablaDosColumnasWord([
+                ["Tipo de instalación", inspeccion.tipoInstalacionIndustrial], ["Actividad principal", inspeccion.actividadPrincipalIndustrial],
+                ["Cantidad de bodegas", inspeccion.cantidadBodegas], ["Área aproximada (m²)", inspeccion.areaIndustrial]
+            ].filter(([,v]) => v !== undefined && v !== null && String(v).trim() !== ""));
+        } else if (inspeccion.sectorInspeccion === "Parcelación") {
+            bloqueInstalacionWord = tablaDosColumnasWord([
+                ["Número de lotes", inspeccion.numeroLotesParcelacion], ["Viviendas construidas", inspeccion.viviendasConstruidasParcelacion],
+                ["Viviendas en construcción", inspeccion.viviendasConstruccionParcelacion]
+            ].filter(([,v]) => v !== undefined && v !== null && String(v).trim() !== ""));
+        } else if (inspeccion.sectorInspeccion === "Comercial") {
+            bloqueInstalacionWord = tablaDosColumnasWord([
+                ["Tipo de establecimiento", inspeccion.tipoEstablecimientoComercial], ["Actividad comercial", inspeccion.actividadComercial],
+                ["Área aproximada (m²)", inspeccion.areaComercial], ["Número de locales", inspeccion.numeroLocalesComercial],
+                ["Número de niveles", inspeccion.nivelesComercial], ["Parqueaderos", inspeccion.parqueaderosComercial], ["Otra información", inspeccion.otraInformacionComercial]
+            ].filter(([,v]) => v !== undefined && v !== null && String(v).trim() !== ""));
+        }
+
+        const filasCCTV = [
+            ["Tipo de sistema CCTV", inspeccion.tipoCCTV], ["Cantidad de cámaras", inspeccion.cantidadCamaras],
+            ["Cantidad de equipos de grabación", inspeccion.cantidadEquiposGrabacionCCTV], ["Vídeo analítica", inspeccion.videoAnalitica],
+            ["Ubicación del rack", inspeccion.ubicacionRack], ["Días de almacenamiento", inspeccion.diasAlmacenamiento],
+            ["UPS / sistema ininterrumpido", inspeccion.upsCCTV], ["Manejo de contraseñas", inspeccion.manejoContrasenasCCTV],
+            ["Observaciones", inspeccion.observacionesCCTV]
+        ].filter(([,v]) => v !== undefined && v !== null && String(v).trim() !== "");
+
+        const filasActual = (inspeccion.seguridadActual || []).map(s => [s.servicio || "", s.horario || "", s.jornada || "", s.dias || "", s.modalidad || ""]);
+        const filasSugerida = (inspeccion.seguridadSugerida || []).map(s => [s.servicio || "", s.horario || "", s.jornada || "", s.dias || "", s.modalidad || ""]);
+
+        const filasChecklistWord = [];
+        Object.keys(datosChecklist).forEach(categoria => {
+            const resultadoCategoria = resultadosCategorias[categoria] ?? 0;
+            filasChecklistWord.push([categoria, `Resultado categoría: ${resultadoCategoria}%`, `${resultadoCategoria}%`, "100%"]);
+            const respuestasCategoria = respuestasChecklist[categoria] || {};
+            datosChecklist[categoria].forEach(item => {
+                const valorNormalizado = String(respuestasCategoria[item] ?? "").trim().toUpperCase();
+                if (!valorNormalizado || valorNormalizado === "NA" || valorNormalizado === "NO APLICA") return;
+                let estado = "SIN RESPUESTA";
+                if (valorNormalizado === "2") estado = "BUENO";
+                else if (valorNormalizado === "1") estado = "REGULAR";
+                else if (valorNormalizado === "0") estado = "MALO";
+                filasChecklistWord.push([item, estado, `${resultadoCategoria}%`, "100%"]);
+            });
+        });
+
+        const filasCategoriasWord = Object.keys(resultadosCategorias).map(c => [c, `${resultadosCategorias[c]}%`]);
+
+        const filasPerfilWord = [
+            ["BUENO", "76% - 100%", "Conforme", "Se recomienda monitoreo y seguimiento general a cada aspecto, con el fin de darle continuidad a las fortalezas identificadas. Las amenazas son reconocidas, pero el riesgo está controlado."],
+            ["SUFICIENTE", "51% - 75,9%", "Con observaciones menores", "Plan de seguimiento encaminado a esas observaciones menores detectadas. Se conocen las amenazas y se tiene controlado el riesgo."],
+            ["REGULAR", "26% - 50,9%", "Requiere seguimiento", "Es necesario el diseño de estrategias tendientes a la corrección de aquellos aspectos calificados por mejorar, garantizar un plan de seguimiento para el cumplimiento de las actividades planteadas."],
+            ["DÉBIL", "0% - 25,9%", "Con observaciones mayores", "El panorama de seguridad se percibe como crítico, por lo tanto, es necesario intervenir los aspectos de manera inmediata, con el ánimo de disminuir la probabilidad de materialización de las amenazas."]
+        ];
+
+        const filasMatrizWord = matrizParaInforme.map((r, i) => [
+            String(i + 1), r.area || "", r.peligro || "", r.probabilidad || "", r.impacto || "", r.puntuacion || "", r.nivel || "", r.tratamiento || ""
+        ]);
+
+        const filasHallazgosWord = [];
+        hallazgos.forEach((h, i) => {
+            filasHallazgosWord.push([
+                h.area || "Sin área",
+                `${h.elemento || ""}\n${h.descripcion || "Sin descripción"}${h.nivel ? `\nEstado: ${h.nivel}` : ""}`,
+                h.recomendacion || "Sin recomendación registrada",
+                Array.isArray(h.fotos) && h.fotos.length ? `${h.fotos.length} fotografía(s) registrada(s)` : "Sin evidencia fotográfica"
+            ]);
+        });
+
+        const filasMapaWord = [];
+        for (let p = 5; p >= 1; p--) {
+            for (let impacto = 1; impacto <= 5; impacto++) {
+                const encontrados = matrizParaMapaCalor.filter(r => Number(r.probabilidad) === p && Number(r.impacto) === impacto);
+                filasMapaWord.push([String(p), String(impacto), String(p * impacto), encontrados.map(r => String(matrizParaMapaCalor.indexOf(r) + 1)).join(", ") || ""]);
+            }
+        }
+
+        const bloque01Completo =
+            encabezadoSeccionWord("1. Información general de la inspección") +
+            tablaDosColumnasWord(camposGenerales) +
+            (inspeccion.sectorInspeccion ? encabezadoSeccionWord(`Características de la instalación — ${inspeccion.sectorInspeccion}`) + bloqueInstalacionWord : "") +
+            encabezadoSeccionWord("Sistema CCTV") + tablaDosColumnasWord(filasCCTV) +
+            encabezadoSeccionWord("Georreferenciación") + tablaDosColumnasWord([
+                ["Latitud", inspeccion.latitud || "No registrada"], ["Longitud", inspeccion.longitud || "No registrada"],
+                ["Google Maps", inspeccion.imagenGoogleMaps ? "Imagen registrada en la inspección" : "No registrada"],
+                ["Google Earth", inspeccion.imagenGoogleEarth ? "Imagen registrada en la inspección" : "No registrada"]
+            ]);
+
+        const bloqueSeguridad =
+            encabezadoSeccionWord("Herramientas de seguridad") +
+            parrafoWord("Dispositivo de Seguridad actual", { font: "Arial", size: "20", bold: true, color: "123B5D", after: 60, keepNext: true }) +
+            tablaEncabezadaWord(["SERVICIO", "HORARIO", "JORNADA", "DÍAS DE SERVICIO", "MODALIDAD"], filasActual, [2100, 1500, 1300, 2000, 1938]) +
+            parrafoWord("Dispositivo de Seguridad sugerido", { font: "Arial", size: "20", bold: true, color: "123B5D", before: 100, after: 60, keepNext: true }) +
+            tablaEncabezadaWord(["SERVICIO", "HORARIO", "JORNADA", "DÍAS DE SERVICIO", "MODALIDAD"], filasSugerida, [2100, 1500, 1300, 2000, 1938]);
+
+        const bloque02Completo =
+            encabezadoSeccionWord("2. Objetivo y metodología") +
+            tablaBloquesWord([
+                { titulo: "Objetivo General", texto: inspeccion.objetivo || "Realizar un diagnóstico integral de las condiciones de seguridad de la copropiedad." },
+                { titulo: "Objetivos Específicos", texto: objetivosEspecificos.map((x, i) => `${i + 1}. ${x}`).join("\n") },
+                { titulo: "Metodología", texto: metodologia1 + "\n\n" + metodologia2 }
+            ]);
+
+        const bloque03Completo =
+            encabezadoSeccionWord("3. Resultado de la lista de chequeo") +
+            parrafoWord("EVALUACIÓN DE ESQUEMAS DE SEGURIDAD EXISTENTES", { font: "Arial", size: "20", bold: true, color: "123B5D", after: 70, keepNext: true }) +
+            tablaEncabezadaWord(["ITEMS EVALUADOS", "ESTADO", "% OBTENIDO", "% ESPERADO"], filasChecklistWord, [3900, 1700, 1619, 1619]) +
+            parrafoWord("Consolidado de resultados por categoría", { font: "Arial", size: "20", bold: true, color: "123B5D", before: 100, after: 70, keepNext: true }) +
+            tablaEncabezadaWord(["Área de evaluación", "Resultado"], filasCategoriasWord, [6500, 2338]) +
+            parrafoWord("RESULTADO GENERAL DE LA LISTA DE CHEQUEO", { font: "Arial", size: "20", bold: true, color: "123B5D", before: 100, after: 60, keepNext: true }) +
+            tablaDosColumnasWord([["Resultado general", `${porcentajeGeneral}%`], ["Perfil obtenido", perfilCriticidad], ["Descripción", descripcionCriticidad]]);
+
+        const bloquePerfil =
+            parrafoWord("CONSOLIDADO — PERFIL DE CRITICIDAD", { font: "Arial", size: "20", bold: true, color: "123B5D", before: 100, after: 70, keepNext: true }) +
+            tablaEncabezadaWord(["PERFIL", "RANGO", "CLASIFICACIÓN", "DESCRIPCIÓN"], filasPerfilWord, [1300, 1600, 1900, 4038]);
+
+        const bloque04Completo =
+            encabezadoSeccionWord("4. Matriz de riesgos") +
+            tablaEncabezadaWord(["#", "Área", "Elemento", "Probabilidad", "Impacto", "Puntuación", "Nivel", "Tratamiento"], filasMatrizWord, [450, 1250, 2100, 850, 700, 900, 900, 1688]) +
+            parrafoWord("Mapa de calor de riesgos", { font: "Arial", size: "20", bold: true, color: "123B5D", before: 120, after: 70, keepNext: true }) +
+            tablaEncabezadaWord(["Probabilidad", "Impacto", "Puntuación", "Riesgo(s)"], filasMapaWord, [1700, 1700, 1800, 3638]);
+
+        const bloque05Completo =
+            encabezadoSeccionWord("5. Hallazgos identificados") +
+            tablaEncabezadaWord(["ÁREA", "HALLAZGO", "ACCIÓN PREVENTIVA", "REGISTRO FOTOGRÁFICO"], filasHallazgosWord, [1400, 3000, 2500, 1938]) +
+            parrafoWord("Firmas", { font: "Arial", size: "20", bold: true, color: "123B5D", before: 120, after: 70, keepNext: true }) +
+            tablaDosColumnasWord([
+                ["Realizado por", inspeccion.inspector || ""],
+                ["Responsable del cliente", inspeccion.director || ""]
+            ]);
+
+        /* ---------------------------------------------------------
+           CAMPO VISUAL 03 — INTERVENCIÓN 06
+           TABLA MAESTRA CONTINUA DEL INFORME
+
+           Objetivo:
+           - Mantener TODOS los bloques del informe en el mismo flujo Word.
+           - Cada sección ocupa una fila de una tabla contenedora nativa.
+           - Los contenidos internos siguen siendo tablas Word nativas.
+           - Evitar que una modificación visual elimine bloques posteriores.
+           - No modificar datos, cálculos ni el generador PDF.
+        --------------------------------------------------------- */
+        function tablaMaestraInformeWord(bloques) {
+            const filas = bloques.filter(Boolean).map((bloque) => `
+                <w:tr>
+                    <w:trPr>
+                        <w:cantSplit/>
+                    </w:trPr>
+                    <w:tc>
+                        <w:tcPr>
+                            <w:tcW w:w="8838" w:type="dxa"/>
+                            <w:tcMar>
+                                <w:top w:w="70" w:type="dxa"/>
+                                <w:left w:w="90" w:type="dxa"/>
+                                <w:bottom w:w="70" w:type="dxa"/>
+                                <w:right w:w="90" w:type="dxa"/>
+                            </w:tcMar>
+                        </w:tcPr>
+                        ${bloque}
+                    </w:tc>
+                </w:tr>`).join("");
+
+            return `<w:tbl>
+                <w:tblPr>
+                    <w:tblW w:w="8838" w:type="dxa"/>
+                    <w:tblLayout w:type="fixed"/>
+                    <w:tblBorders>
+                        <w:top w:val="single" w:sz="4" w:space="0" w:color="D9E0E6"/>
+                        <w:left w:val="single" w:sz="4" w:space="0" w:color="D9E0E6"/>
+                        <w:bottom w:val="single" w:sz="4" w:space="0" w:color="D9E0E6"/>
+                        <w:right w:val="single" w:sz="4" w:space="0" w:color="D9E0E6"/>
+                        <w:insideH w:val="single" w:sz="4" w:space="0" w:color="D9E0E6"/>
+                    </w:tblBorders>
+                </w:tblPr>
+                <w:tblGrid><w:gridCol w:w="8838"/></w:tblGrid>
+                ${filas}
+            </w:tbl>`;
+        }
+
+        /* ---------------------------------------------------------
+           CAMPO VISUAL 03 — INTERVENCIÓN 08
+           RECUPERACIÓN DEL FLUJO COMPLETO EN TABLAS WORD
+
+           Decisión quirúrgica:
+           - Se conservan TODOS los bloques ya construidos en tablas nativas.
+           - Se elimina únicamente la tabla contenedora externa de una sola
+             columna, porque no es necesaria para cumplir el objetivo y añade
+             una capa de tablas anidadas que puede interferir con la plantilla.
+           - Cada bloque se inserta directamente en w:body, conservando el
+             formato de tabla de cada sección.
+           - No se modifican datos, cálculos, PDF, fotografías, A4 ni plantilla.
+        --------------------------------------------------------- */
         const cuerpoInformeWord =
-            bloque01 +
-            contenidoBloque02;
+            bloque01Completo +
+            bloqueSeguridad +
+            bloque02Completo +
+            bloque03Completo +
+            bloquePerfil +
+            bloque04Completo +
+            bloque05Completo;
+
+        /* Validación previa: si un bloque no fue construido, no se genera
+           silenciosamente un informe incompleto. */
+        const bloquesEsperados = [
+            ["1. Información general de la inspección", bloque01Completo],
+            ["Herramientas de seguridad", bloqueSeguridad],
+            ["2. Objetivo y metodología", bloque02Completo],
+            ["3. Resultado de la lista de chequeo", bloque03Completo],
+            ["4. Matriz de riesgos", bloque04Completo],
+            ["5. Hallazgos identificados", bloque05Completo]
+        ];
+
+        const bloquesFaltantes = bloquesEsperados
+            .filter(([, bloque]) => !bloque || !String(bloque).trim())
+            .map(([nombre]) => nombre);
+
+        if (bloquesFaltantes.length) {
+            throw new Error("No se pudo construir el informe completo. Bloques faltantes: " + bloquesFaltantes.join(", "));
+        }
+
+        /* CAMPO VISUAL 04 — INTERVENCIÓN 01
+           ANCHO GLOBAL DE TABLAS
+           El encabezado de la Hoja Maestra ocupa 10774 dxa. Las tablas
+           generadas históricamente trabajan sobre 8838 dxa. Se normalizan
+           todas las tablas del contenido dinámico a 10774 dxa, escalando
+           proporcionalmente gridCol y tcW. No se modifica el encabezado. */
+        function ajustarAnchoTablasInforme(xml, anchoObjetivo = 10774) {
+            return xml.replace(/<w:tbl>[\s\S]*?<\/w:tbl>/g, (tabla) => {
+                const m = /<w:tblW\b[^>]*w:w="(\d+)"[^>]*w:type="dxa"[^>]*\/>/i.exec(tabla);
+                if (!m) return tabla;
+                const anchoActual = Number(m[1]);
+                if (!anchoActual || anchoActual === anchoObjetivo) return tabla;
+                const factor = anchoObjetivo / anchoActual;
+                const escalar = (match) => {
+                    const n = Number(match[1]);
+                    if (!Number.isFinite(n) || n <= 0) return match[0];
+                    return match[0].replace(`w:w="${match[1]}"`, `w:w="${Math.round(n * factor)}"`);
+                };
+                let salida = tabla.replace(/<w:tblW\b[^>]*w:w="(\d+)"[^>]*w:type="dxa"[^>]*\/>/i,
+                    (x) => x.replace(`w:w="${m[1]}"`, `w:w="${anchoObjetivo}"`));
+                salida = salida.replace(/<w:gridCol\b[^>]*w:w="(\d+)"[^>]*\/>/gi, escalar);
+                salida = salida.replace(/<w:tcW\b[^>]*w:w="(\d+)"[^>]*w:type="dxa"[^>]*\/>/gi, escalar);
+                return salida;
+            });
+        }
+
+        const contenidoInformeAjustado = ajustarAnchoTablasInforme(cuerpoInformeWord, 10774);
 
         const puntoInsercion = localizarPuntoInsercionBody(documentXml);
         if (!puntoInsercion) {
@@ -9390,7 +9835,7 @@ async function generarWordPlantillaMaestra() {
 
         documentXml =
             documentXml.slice(0, puntoInsercion.inicio) +
-            cuerpoInformeWord +
+            contenidoInformeAjustado +
             documentXml.slice(puntoInsercion.inicio);
 
         zip.file("word/document.xml", documentXml);
@@ -9418,13 +9863,12 @@ async function generarWordPlantillaMaestra() {
         setTimeout(() => URL.revokeObjectURL(url), 1500);
 
         alert(
-            "Documento generado correctamente — CAMPO VISUAL 03 / INTERVENCIÓN 03.\n\n" +
-            "La información general y el objetivo/metodología se insertaron directamente en la plantilla maestra Word.\n" +
-            "La inserción se realizó en una posición compatible con la configuración de sección de la plantilla."
+            "Documento generado correctamente — CAMPO VISUAL 04 / INTERVENCIÓN 01.\n\n" +
+            "El informe completo fue cargado en la plantilla maestra mediante tablas Word nativas, conservando las secciones y la plantilla."
         );
 
     } catch (error) {
-        console.error("CAMPO VISUAL 03 / INTERVENCIÓN 03 — Error al generar Word:", error);
+        console.error("CAMPO VISUAL 04 / INTERVENCIÓN 01 — Error al generar Word:", error);
         alert("No fue posible generar el Word con el motor nativo.\n\nDetalle: " + error.message);
     }
 }
