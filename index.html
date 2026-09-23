@@ -8887,9 +8887,14 @@ async function generarWordPlantillaMaestra() {
         }
 
         function textoWord(valor) {
-            const texto = escaparXmlWord(valor);
-            if (!texto) return "";
-            return texto.replace(/\r?\n/g, "<w:br/>");
+            return escaparXmlWord(valor);
+        }
+
+        function contenidoRunWord(valor) {
+            const partes = String(valor ?? "").split(/\r?\n/);
+            return partes.map((parte, indiceParte) =>
+                `${indiceParte > 0 ? "<w:br/>" : ""}<w:t xml:space="preserve">${textoWord(parte)}</w:t>`
+            ).join("");
         }
 
         function runWord(valor, opciones = {}) {
@@ -8898,7 +8903,47 @@ async function generarWordPlantillaMaestra() {
             if (opciones.font) rPr.push(`<w:rFonts w:ascii="${opciones.font}" w:hAnsi="${opciones.font}" w:cs="${opciones.font}"/>`);
             if (opciones.size) rPr.push(`<w:sz w:val="${opciones.size}"/><w:szCs w:val="${opciones.size}"/>`);
             if (opciones.color) rPr.push(`<w:color w:val="${opciones.color}"/>`);
-            return `<w:r>${rPr.length ? `<w:rPr>${rPr.join("")}</w:rPr>` : ""}<w:t xml:space="preserve">${textoWord(valor)}</w:t></w:r>`;
+            return `<w:r>${rPr.length ? `<w:rPr>${rPr.join("")}</w:rPr>` : ""}${contenidoRunWord(valor)}</w:r>`;
+        }
+
+        function localizarSectPrDelBody(xml) {
+            const tokenRegex = /<!--[\s\S]*?-->|<[^>]+>/g;
+            const pila = [];
+            let coincidencia;
+            let inicioSectPr = -1;
+            let finSectPr = -1;
+
+            while ((coincidencia = tokenRegex.exec(xml)) !== null) {
+                const token = coincidencia[0];
+                if (token.startsWith("<!--") || token.startsWith("<?") || token.startsWith("<![")) {
+                    continue;
+                }
+
+                const cierre = /^<\/\s*([^ >]+)\s*>$/.exec(token);
+                if (cierre) {
+                    const nombre = cierre[1];
+                    if (nombre === "w:sectPr" && pila.length && pila[pila.length - 1] === "w:sectPr" && inicioSectPr >= 0) {
+                        finSectPr = tokenRegex.lastIndex;
+                        return { inicio: inicioSectPr, fin: finSectPr };
+                    }
+                    pila.pop();
+                    continue;
+                }
+
+                const apertura = /^<\s*([^ >\/]+)(?:\s[^>]*)?\s*(\/?)>$/.exec(token);
+                if (!apertura) continue;
+
+                const nombre = apertura[1];
+                const autocierre = apertura[2] === "/";
+
+                if (!autocierre && nombre === "w:sectPr" && pila.length && pila[pila.length - 1] === "w:body") {
+                    inicioSectPr = coincidencia.index;
+                }
+
+                if (!autocierre) pila.push(nombre);
+            }
+
+            return null;
         }
 
         function parrafoWord(valor = "", opciones = {}) {
@@ -9185,15 +9230,15 @@ async function generarWordPlantillaMaestra() {
             bloque01 +
             contenidoBloque02;
 
-        const posicionSeccion = documentXml.search(/<w:sectPr(?=[ >])/);
-        if (posicionSeccion < 0) {
-            throw new Error("La plantilla maestra no contiene la configuración de sección esperada.");
+        const rangoSectPr = localizarSectPrDelBody(documentXml);
+        if (!rangoSectPr) {
+            throw new Error("La plantilla maestra no contiene una configuración de sección directamente dentro de w:body.");
         }
 
         documentXml =
-            documentXml.slice(0, posicionSeccion) +
+            documentXml.slice(0, rangoSectPr.inicio) +
             cuerpoInformeWord +
-            documentXml.slice(posicionSeccion);
+            documentXml.slice(rangoSectPr.inicio);
 
         zip.file("word/document.xml", documentXml);
 
