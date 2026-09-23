@@ -8842,9 +8842,9 @@ async function generarWordPlantillaMaestra() {
        01. Información general de la inspección.
        02. Objetivo y metodología.
 
-       INTERVENCIÓN 03: paginación continua entre bloques.
-       El Bloque 02 puede comenzar en el espacio disponible de la página anterior
-       y continuar en la siguiente si Word necesita más espacio.
+       INTERVENCIÓN 04: paginación continua entre bloques.
+       El Bloque 02 se divide en filas lógicas para que Word pueda iniciar
+       el contenido en el espacio disponible y continuar en la página siguiente.
 
        NO se generan todavía checklist, hallazgos, matriz,
        fotografías ni los demás bloques. Se incorporarán uno
@@ -9071,7 +9071,32 @@ async function generarWordPlantillaMaestra() {
             ).join("");
         }
 
-        function bloqueTextoWord(contenido) {
+        function filaContenidoWord(contenido) {
+            /* CAM-WORD-02 / INTERVENCIÓN 04
+             * El contenido ya no se concentra en una única fila gigante.
+             * Cada bloque lógico ocupa su propia fila para que Word pueda
+             * continuar entre páginas sin dejar un espacio blanco innecesario.
+             */
+            return `<w:tr>
+                ${celdaContenidoWord(contenido)}
+            </w:tr>`;
+        }
+
+        function celdaContenidoWord(contenido) {
+            return `<w:tc>
+                <w:tcPr>
+                    <w:tcW w:w="8838" w:type="dxa"/>
+                    <w:shd w:fill="FAFAFA"/>
+                    <w:tcMar>
+                        <w:top w:w="90" w:type="dxa"/><w:left w:w="180" w:type="dxa"/>
+                        <w:bottom w:w="90" w:type="dxa"/><w:right w:w="180" w:type="dxa"/>
+                    </w:tcMar>
+                </w:tcPr>
+                ${contenido}
+            </w:tc>`;
+        }
+
+        function tablaBloque02Word(filas) {
             return `<w:tbl>
                 <w:tblPr>
                     <w:tblW w:w="8838" w:type="dxa"/>
@@ -9081,27 +9106,11 @@ async function generarWordPlantillaMaestra() {
                         <w:left w:val="single" w:sz="6" w:space="0" w:color="999999"/>
                         <w:bottom w:val="single" w:sz="6" w:space="0" w:color="999999"/>
                         <w:right w:val="single" w:sz="6" w:space="0" w:color="999999"/>
+                        <w:insideH w:val="single" w:sz="6" w:space="0" w:color="999999"/>
                     </w:tblBorders>
                 </w:tblPr>
                 <w:tblGrid><w:gridCol w:w="8838"/></w:tblGrid>
-                <w:tr>
-                    <!-- CAM-WORD-02 / INTERVENCIÓN 03
-                         Permitir que el contenido del Bloque 02 continúe en la misma página
-                         cuando exista espacio disponible. No usar cantSplit aquí: esa restricción
-                         obligaba a Word a mover toda la fila a la página siguiente y generaba
-                         el espacio blanco visible después de la tabla del Bloque 01. -->
-                    <w:tc>
-                        <w:tcPr>
-                            <w:tcW w:w="8838" w:type="dxa"/>
-                            <w:shd w:fill="FAFAFA"/>
-                            <w:tcMar>
-                                <w:top w:w="180" w:type="dxa"/><w:left w:w="180" w:type="dxa"/>
-                                <w:bottom w:w="180" w:type="dxa"/><w:right w:w="180" w:type="dxa"/>
-                            </w:tcMar>
-                        </w:tcPr>
-                        ${contenido}
-                    </w:tc>
-                </w:tr>
+                ${filas}
             </w:tbl>`;
         }
 
@@ -9120,33 +9129,39 @@ async function generarWordPlantillaMaestra() {
                 size: "24",
                 bold: true,
                 color: "123B5D",
-                before: 160,
-                after: 140,
+                before: 0,
+                after: 80,
                 line: 260,
                 keepNext: true
             }) +
-            bloqueTextoWord(
-                parrafoWord("Objetivo General", {
-                    font: "Arial", size: "21", bold: true, color: "123B5D", after: 100, line: 260, keepNext: true
-                }) +
-                parrafoWord(objetivoGeneralWord, {
-                    font: "Arial", size: "20", color: "000000", after: 180, line: 276
-                }) +
-                parrafoWord("Objetivos Específicos", {
-                    font: "Arial", size: "21", bold: true, color: "123B5D", after: 100, line: 260, keepNext: true
-                }) +
-                listaNumeradaWord(objetivosEspecificos) +
-                parrafoWord("Metodología", {
-                    font: "Arial", size: "21", bold: true, color: "123B5D", before: 80, after: 100, line: 260, keepNext: true
-                }) +
-                parrafoWord(metodologia1, {
-                    font: "Arial", size: "20", color: "000000", after: 100, line: 276
-                }) +
-                parrafoWord(metodologia2, {
-                    font: "Arial", size: "20", color: "000000", after: 0, line: 276
-                })
+            tablaBloque02Word(
+                filaContenidoWord(
+                    parrafoWord("Objetivo General", {
+                        font: "Arial", size: "21", bold: true, color: "123B5D", after: 70, line: 260, keepNext: true
+                    }) +
+                    parrafoWord(objetivoGeneralWord, {
+                        font: "Arial", size: "20", color: "000000", after: 0, line: 276
+                    })
+                ) +
+                filaContenidoWord(
+                    parrafoWord("Objetivos Específicos", {
+                        font: "Arial", size: "21", bold: true, color: "123B5D", after: 70, line: 260, keepNext: true
+                    }) +
+                    listaNumeradaWord(objetivosEspecificos)
+                ) +
+                filaContenidoWord(
+                    parrafoWord("Metodología", {
+                        font: "Arial", size: "21", bold: true, color: "123B5D", after: 70, line: 260, keepNext: true
+                    }) +
+                    parrafoWord(metodologia1, {
+                        font: "Arial", size: "20", color: "000000", after: 70, line: 276
+                    }) +
+                    parrafoWord(metodologia2, {
+                        font: "Arial", size: "20", color: "000000", after: 0, line: 276
+                    })
+                )
             ) +
-            parrafoWord("", { after: 100 });
+            parrafoWord("", { after: 40 });
 
         /*
          * La plantilla maestra limpia contiene el cuerpo vacío y deja
