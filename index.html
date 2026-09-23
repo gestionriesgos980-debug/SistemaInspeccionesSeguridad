@@ -8981,7 +8981,7 @@ async function generarWordPlantillaMaestra() {
            No basta buscar xmlns:a / xmlns:pic en todo document.xml porque Word puede
            tener esos prefijos declarados en elementos gráficos existentes.
            Las fotografías nuevas usan esos prefijos desde la raíz del documento. */
-        const aperturaDocumento = documentXml.match(/^\s*<w:document\b[^>]*>/);
+        const aperturaDocumento = documentXml.match(/<w:document\b[^>]*>/);
         if (!aperturaDocumento) throw new Error("No se encontró la apertura de w:document en la plantilla.");
         let raizDocumento = aperturaDocumento[0];
         if (!/\sxmlns:a="/.test(raizDocumento)) {
