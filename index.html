@@ -8903,6 +8903,55 @@ async function generarWordPlantillaMaestra() {
             const borders=`<w:tcBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/></w:tcBorders>`;
             return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${span}${shade}${valign}${margins}${borders}</w:tcPr>${parrafoWord(valor,{font:'Arial',size:opciones.size||'18',bold:!!opciones.bold,color:opciones.color||'000000',align:opciones.align||'left',line:240})}</w:tc>`;
         }
+        /*
+         * CAM-WORD-02 — INTEGRACIÓN NATIVA DE FOTOGRAFÍAS
+         * Las fotografías se insertan directamente en WordprocessingML.
+         * No se utiliza altChunk/MHTML para el cuerpo del informe.
+         */
+        function celdaWordXml(innerXml, opciones={}) {
+            const width=opciones.width||2200;
+            const shade=opciones.shading ? `<w:shd w:fill="${opciones.shading}"/>` : "";
+            const span=opciones.colspan ? `<w:gridSpan w:val="${opciones.colspan}"/>` : "";
+            const valign=opciones.vAlign ? `<w:vAlign w:val="${opciones.vAlign}"/>` : "";
+            const margins=`<w:tcMar><w:top w:w="80" w:type="dxa"/><w:left w:w="80" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="80" w:type="dxa"/></w:tcMar>`;
+            const borders=`<w:tcBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/></w:tcBorders>`;
+            return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${span}${shade}${valign}${margins}${borders}</w:tcPr>${innerXml}</w:tc>`;
+        }
+
+        function dataUrlToBytes(dataUrl) {
+            const match=String(dataUrl||"").match(/^data:([^;,]+);base64,([A-Za-z0-9+/=\s]+)$/i);
+            if(!match) return null;
+            const mime=match[1].toLowerCase();
+            const base64=match[2].replace(/\s+/g,"");
+            const bin=atob(base64);
+            const bytes=new Uint8Array(bin.length);
+            for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+            let extension="jpg";
+            if(mime==="image/png") extension="png";
+            else if(mime==="image/gif") extension="gif";
+            else if(mime==="image/webp") extension="webp";
+            else if(mime==="image/jpeg" || mime==="image/jpg") extension="jpg";
+            else return null;
+            return {mime,extension,bytes};
+        }
+
+        const fotosWord=[];
+        let siguienteRelFoto=1;
+
+        function imagenWord(foto, nombreBase) {
+            const src=typeof obtenerImagenDeFoto==="function" ? obtenerImagenDeFoto(foto) : (typeof foto==="string" ? foto : (foto?.imagen||foto?.data||""));
+            const datos=dataUrlToBytes(src);
+            if(!datos) return "";
+            const numero=fotosWord.length+1;
+            const nombre=`tecchnex-foto-${numero}.${datos.extension}`;
+            const relId=`rIdTecFoto${siguienteRelFoto++}`;
+            const docPrId=1000+numero;
+            const cx=126*9525;
+            const cy=88*9525;
+            fotosWord.push({nombre,mime:datos.mime,bytes:datos.bytes,relId});
+            return `<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${docPrId}" name="${nombreBase||"Registro fotográfico"}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${docPrId}" name="${nombreBase||"Registro fotográfico"}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1" noChangeArrowheads="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+        }
+
         // CAMPO VISUAL 03 — INTERVENCIÓN 03A
         // El encabezado maestro utiliza 10774 twips y una sangría de -998 twips.
         // Las tablas del contenido adoptan exactamente esa misma huella visual.
@@ -8940,14 +8989,36 @@ async function generarWordPlantillaMaestra() {
         const documentEntry=zip.file("word/document.xml");
         if(!documentEntry) throw new Error("La plantilla no contiene word/document.xml.");
         let documentXml=await documentEntry.async("string");
+        if(!documentXml.includes('xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"')){
+            documentXml=documentXml.replace(
+                /<w:document\b/,
+                '<w:document xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"'
+            );
+        }
+
 
         const versionDocumento=localStorage.getItem("versionDocumento")||"003";
         const tituloDocumento=localStorage.getItem("tituloDocumento")||"INFORME PREVENTIVO DE SEGURIDAD INTEGRAL";
+        const fechaDocumento=inspeccion.fecha ? String(inspeccion.fecha).split("-").reverse().join("/") : "";
+        const clienteDocumento=inspeccion.cliente||"";
         const puesto=inspeccion.nombrePuesto||"";
+        const realizadoPor=inspeccion.inspector||"";
+        const revisadoPor=inspeccion.revisadoPor||inspeccion.director||"";
+
+        const reemplazosMaestra=[
+            ["{{VERSION_DOCUMENTO}}",versionDocumento],
+            ["{{TITULO_DOCUMENTO}}",tituloDocumento],
+            ["{{FECHA}}",fechaDocumento],
+            ["{{CLIENTE}}",clienteDocumento],
+            ["{{PUESTO}}",puesto],
+            ["{{REALIZADO_POR}}",realizadoPor],
+            ["{{REVISADO_POR}}",revisadoPor]
+        ];
+
         const headerEntry=zip.file("word/header1.xml");
         if(headerEntry){
             let headerXml=await headerEntry.async("string");
-            [["{{VERSION_DOCUMENTO}}",versionDocumento],["{{TITULO_DOCUMENTO}}",tituloDocumento],["{{PUESTO}}",puesto]].forEach(([m,v])=>headerXml=headerXml.split(m).join(escaparXmlWord(v)));
+            reemplazosMaestra.forEach(([m,v])=>headerXml=headerXml.split(m).join(escaparXmlWord(v)));
             zip.file("word/header1.xml",headerXml);
         }
 
@@ -9049,11 +9120,51 @@ async function generarWordPlantillaMaestra() {
             cuerpo+=titulo("10. Mapa de calor de riesgos",1)+tablaGenerica(["IMPACTO / PROBABILIDAD","1","2","3","4","5"],mapa,[1700,1427,1427,1427,1427,1430])+parrafoWord("Los números dentro del mapa corresponden al número de riesgo de la matriz.",{font:'Arial',size:'16',color:'666666',before:60,after:80});
         }
 
-        // 11. HALLAZGOS — texto y referencia de fotografías. Las imágenes se conservan en los datos;
-        // la integración gráfica completa de cada fotografía se realizará como intervención específica.
+        // 11. HALLAZGOS — estructura visual aprobada: HALLAZGOS | ACCIÓN PREVENTIVA | REGISTRO FOTOGRÁFICO.
+        // Las fotografías se insertan como imágenes nativas dentro del DOCX.
         if(hallazgos.length){
-            const rows=hallazgos.map((h,i)=>[String(i+1),h.area||h.categoria||"",h.hallazgo||h.descripcion||h.observacion||"",h.accion||h.accionPreventiva||h.recomendacion||"",Array.isArray(h.fotos)?`${h.fotos.length} fotografía(s) registrada(s)`:"Sin evidencia fotográfica"]);
-            cuerpo+=titulo("11. Hallazgos identificados",1)+tablaGenerica(["#","ÁREA","HALLAZGO","ACCIÓN PREVENTIVA / RECOMENDACIÓN","REGISTRO FOTOGRÁFICO"],rows,[500,1000,2600,3000,1738]);
+            const ANCHO_HALLAZGO=3232;
+            const ANCHO_ACCION=3232;
+            const ANCHO_FOTOS=4310;
+
+            const filasHallazgos=hallazgos.map((h,i)=>{
+                const textoHallazgo=h.hallazgo||h.descripcion||h.observacion||"";
+                const textoAccion=h.accion||h.accionPreventiva||h.recomendacion||"";
+                const fotos=Array.isArray(h.fotos)?h.fotos.slice(0,4):[];
+
+                const fotoRows=[];
+                for(let j=0;j<4;j+=2){
+                    const f1=fotos[j];
+                    const f2=fotos[j+1];
+                    const p1=f1?imagenWord(f1,`Hallazgo ${i+1} - Foto ${j+1}`):parrafoWord("",{size:"1"});
+                    const p2=f2?imagenWord(f2,`Hallazgo ${i+1} - Foto ${j+2}`):parrafoWord("",{size:"1"});
+                    fotoRows.push(`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWordXml(p1,{width:2055,vAlign:"center"})}${celdaWordXml(p2,{width:2055,vAlign:"center"})}</w:tr>`);
+                }
+
+                const tablaFotos=fotos.length
+                    ? `<w:tbl><w:tblPr><w:tblW w:w="4110" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="2055"/><w:gridCol w:w="2055"/></w:tblGrid>${fotoRows.join("")}</w:tbl>`
+                    : parrafoWord("Sin evidencia fotográfica",{font:"Arial",size:"16",color:"666666",align:"center"});
+
+                const estado=h.nivel||h.estado||"";
+                const hallazgoConEstado=textoHallazgo+(estado?`\nEstado: ${estado}`:"");
+
+                return `<w:tr><w:trPr><w:cantSplit/></w:trPr>`+
+                    celdaWord(hallazgoConEstado,{width:ANCHO_HALLAZGO,size:"16",align:"left",vAlign:"center"})+
+                    celdaWord(textoAccion,{width:ANCHO_ACCION,size:"16",align:"left",vAlign:"center"})+
+                    celdaWordXml(tablaFotos,{width:ANCHO_FOTOS,vAlign:"center"})+
+                    `</w:tr>`;
+            }).join("");
+
+            const encabezadoHallazgos=`<w:tr><w:trPr><w:tblHeader/></w:trPr>`+
+                celdaWord("HALLAZGOS",{width:ANCHO_HALLAZGO,shading:"D9D9D9",bold:true,color:"000000",align:"center",size:"16"})+
+                celdaWord("ACCIÓN PREVENTIVA",{width:ANCHO_ACCION,shading:"D9D9D9",bold:true,color:"000000",align:"center",size:"16"})+
+                celdaWord("REGISTRO FOTOGRÁFICO",{width:ANCHO_FOTOS,shading:"D9D9D9",bold:true,color:"000000",align:"center",size:"15"})+
+                `</w:tr>`;
+
+            cuerpo+=titulo("11. Hallazgos identificados",1)+
+                `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/><w:insideH w:val="single" w:sz="6" w:color="999999"/><w:insideV w:val="single" w:sz="6" w:color="999999"/></w:tblBorders></w:tblPr>`+
+                `<w:tblGrid><w:gridCol w:w="${ANCHO_HALLAZGO}"/><w:gridCol w:w="${ANCHO_ACCION}"/><w:gridCol w:w="${ANCHO_FOTOS}"/></w:tblGrid>`+
+                encabezadoHallazgos+filasHallazgos+`</w:tbl>`;
         }
 
         // 12. FIRMAS / RESPONSABLES
@@ -9062,9 +9173,64 @@ async function generarWordPlantillaMaestra() {
             fila2("Responsable del cliente",inspeccion.director||"")
         ]);
 
-        const posicionSeccion=documentXml.search(/<w:sectPr(?=[ >])/);
-        if(posicionSeccion<0) throw new Error("La plantilla maestra no contiene la configuración de sección esperada.");
-        documentXml=documentXml.slice(0,posicionSeccion)+cuerpo+documentXml.slice(posicionSeccion);
+        /*
+         * Empaquetado nativo de fotografías:
+         * cada imagen vive en word/media y se vincula desde document.xml
+         * mediante una relación Image. No se usa altChunk/MHTML.
+         */
+        if(fotosWord.length){
+            const relsEntry=zip.file("word/_rels/document.xml.rels");
+            if(!relsEntry) throw new Error("La plantilla no contiene las relaciones de document.xml.");
+            let relsXml=await relsEntry.async("string");
+
+            fotosWord.forEach(foto=>{
+                zip.file(`word/media/${foto.nombre}`,foto.bytes);
+                if(!relsXml.includes(`Id="${foto.relId}"`)){
+                    relsXml=relsXml.replace(
+                        "</Relationships>",
+                        `<Relationship Id="${foto.relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${foto.nombre}"/></Relationships>`
+                    );
+                }
+            });
+            zip.file("word/_rels/document.xml.rels",relsXml);
+
+            const ctEntry=zip.file("[Content_Types].xml");
+            if(!ctEntry) throw new Error("La plantilla no contiene [Content_Types].xml.");
+            let ctXml=await ctEntry.async("string");
+            const tiposNecesarios={png:"image/png",jpg:"image/jpeg",gif:"image/gif",webp:"image/webp"};
+            Object.entries(tiposNecesarios).forEach(([ext,mime])=>{
+                if(fotosWord.some(f=>f.nombre.toLowerCase().endsWith(`.${ext}`)) && !ctXml.includes(`Extension="${ext}"`)){
+                    ctXml=ctXml.replace("</Types>",`<Default Extension="${ext}" ContentType="${mime}"/></Types>`);
+                }
+            });
+            zip.file("[Content_Types].xml",ctXml);
+        }
+
+        /*
+         * CAM-WORD-02 — La Hoja Maestra visual aprobada ya contiene:
+         * encabezado, pie, texto legal, firmas y el marcador de contenido.
+         * Sustituimos únicamente {{CONTENIDO_INFORME}} por WordprocessingML
+         * nativo. Así conservamos la estructura documental de la plantilla
+         * y, al mismo tiempo, evitamos altChunk/MHTML.
+         */
+        reemplazosMaestra.forEach(([m,v])=>documentXml=documentXml.split(m).join(escaparXmlWord(v)));
+
+        const marcadorContenido="<w:t xml:space=\"preserve\">{{CONTENIDO_INFORME}}</w:t>";
+        if(documentXml.includes(marcadorContenido)){
+            documentXml=documentXml.replace(
+                marcadorContenido,
+                `<w:t xml:space="preserve"></w:t>`
+            );
+            const posMarcador=documentXml.indexOf(`<w:t xml:space="preserve"></w:t>`);
+            const inicioParrafo=documentXml.lastIndexOf("<w:p",posMarcador);
+            const finParrafo=documentXml.indexOf("</w:p>",posMarcador);
+            if(inicioParrafo<0 || finParrafo<0) throw new Error("No se pudo localizar el párrafo de {{CONTENIDO_INFORME}}.");
+            const finParrafoAbs=finParrafo+6;
+            documentXml=documentXml.slice(0,inicioParrafo)+cuerpo+documentXml.slice(finParrafoAbs);
+        } else {
+            throw new Error("La Hoja Maestra visual no contiene {{CONTENIDO_INFORME}}.");
+        }
+
         zip.file("word/document.xml",documentXml);
 
         const salida=await zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",compression:"STORE"});
