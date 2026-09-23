@@ -9172,32 +9172,36 @@ async function generarWordPlantillaMaestra() {
            la configuración de sección de la plantilla.
         */
         function localizarPuntoInsercionBody(xml) {
-            /* CAMPO VISUAL 04 — INTERVENCIÓN 01
-               PUNTO DE INSERCIÓN ROBUSTO Y ÚNICO
-               Insertamos el contenido antes del último párrafo que contiene
-               w:sectPr, o antes de un w:sectPr directo. Nunca alteramos la
-               configuración de sección de la plantilla. */
+            /* CAMPO VISUAL 04 — INTERVENCIÓN 02
+               INSERCIÓN XML SEGURA
+               Nunca insertamos dentro de w:pPr. El contenido dinámico se
+               coloca antes del párrafo que contiene w:sectPr o, si sectPr
+               es directo, inmediatamente antes de sectPr. */
             const bodyMatch = /(<w:body\b[^>]*>)([\s\S]*?)(<\/w:body\s*>)/i.exec(xml);
             if (!bodyMatch) return null;
 
             const contenido = bodyMatch[2];
             const inicioContenido = bodyMatch.index + bodyMatch[1].length;
-
-            // Caso 1: sectPr dentro del último párrafo del body.
             const ultimoSect = contenido.lastIndexOf('<w:sectPr');
-            if (ultimoSect !== -1) {
-                const inicioUltimoP = contenido.lastIndexOf('<w:p', ultimoSect);
-                const finUltimoP = contenido.lastIndexOf('</w:p>', ultimoSect);
 
-                if (inicioUltimoP !== -1 && inicioUltimoP > finUltimoP) {
-                    return {
-                        inicio: inicioContenido + inicioUltimoP,
-                        fin: inicioContenido + inicioUltimoP,
-                        tipo: 'sectPr-en-parrafo'
-                    };
+            if (ultimoSect !== -1) {
+                // Buscar un elemento w:p real, no w:pPr/w:pBdr/etc.
+                const antesDeSect = contenido.slice(0, ultimoSect);
+                const parrafos = [...antesDeSect.matchAll(/<w:p(?:\s[^>]*)?>/gi)];
+                const ultimoParrafo = parrafos.length ? parrafos[parrafos.length - 1] : null;
+
+                if (ultimoParrafo) {
+                    const inicioUltimoP = ultimoParrafo.index;
+                    const cierreUltimoP = contenido.indexOf('</w:p>', ultimoSect - 1);
+                    if (inicioUltimoP !== -1) {
+                        return {
+                            inicio: inicioContenido + inicioUltimoP,
+                            fin: inicioContenido + inicioUltimoP,
+                            tipo: 'antes-parrafo-sectPr'
+                        };
+                    }
                 }
 
-                // Caso 2: sectPr es hijo directo de w:body.
                 return {
                     inicio: inicioContenido + ultimoSect,
                     fin: inicioContenido + ultimoSect,
@@ -9205,7 +9209,6 @@ async function generarWordPlantillaMaestra() {
                 };
             }
 
-            // Caso 3: plantilla sin sectPr detectable: antes del cierre body.
             return {
                 inicio: inicioContenido + contenido.length,
                 fin: inicioContenido + contenido.length,
@@ -9800,33 +9803,12 @@ async function generarWordPlantillaMaestra() {
             throw new Error("No se pudo construir el informe completo. Bloques faltantes: " + bloquesFaltantes.join(", "));
         }
 
-        /* CAMPO VISUAL 04 — INTERVENCIÓN 01
-           ANCHO GLOBAL DE TABLAS
-           El encabezado de la Hoja Maestra ocupa 10774 dxa. Las tablas
-           generadas históricamente trabajan sobre 8838 dxa. Se normalizan
-           todas las tablas del contenido dinámico a 10774 dxa, escalando
-           proporcionalmente gridCol y tcW. No se modifica el encabezado. */
-        function ajustarAnchoTablasInforme(xml, anchoObjetivo = 10774) {
-            return xml.replace(/<w:tbl>[\s\S]*?<\/w:tbl>/g, (tabla) => {
-                const m = /<w:tblW\b[^>]*w:w="(\d+)"[^>]*w:type="dxa"[^>]*\/>/i.exec(tabla);
-                if (!m) return tabla;
-                const anchoActual = Number(m[1]);
-                if (!anchoActual || anchoActual === anchoObjetivo) return tabla;
-                const factor = anchoObjetivo / anchoActual;
-                const escalar = (match) => {
-                    const n = Number(match[1]);
-                    if (!Number.isFinite(n) || n <= 0) return match[0];
-                    return match[0].replace(`w:w="${match[1]}"`, `w:w="${Math.round(n * factor)}"`);
-                };
-                let salida = tabla.replace(/<w:tblW\b[^>]*w:w="(\d+)"[^>]*w:type="dxa"[^>]*\/>/i,
-                    (x) => x.replace(`w:w="${m[1]}"`, `w:w="${anchoObjetivo}"`));
-                salida = salida.replace(/<w:gridCol\b[^>]*w:w="(\d+)"[^>]*\/>/gi, escalar);
-                salida = salida.replace(/<w:tcW\b[^>]*w:w="(\d+)"[^>]*w:type="dxa"[^>]*\/>/gi, escalar);
-                return salida;
-            });
-        }
-
-        const contenidoInformeAjustado = ajustarAnchoTablasInforme(cuerpoInformeWord, 10774);
+        /* CAMPO VISUAL 04 — INTERVENCIÓN 03
+           RECUPERACIÓN DEL INFORME COMPLETO
+           Se elimina deliberadamente cualquier transformación de ancho.
+           Primero validamos que el informe completo se inserte y Word abra
+           correctamente. El ancho se trabajará en una intervención posterior. */
+        const contenidoInformeFinal = cuerpoInformeWord;
 
         const puntoInsercion = localizarPuntoInsercionBody(documentXml);
         if (!puntoInsercion) {
@@ -9835,7 +9817,7 @@ async function generarWordPlantillaMaestra() {
 
         documentXml =
             documentXml.slice(0, puntoInsercion.inicio) +
-            contenidoInformeAjustado +
+            contenidoInformeFinal +
             documentXml.slice(puntoInsercion.inicio);
 
         zip.file("word/document.xml", documentXml);
@@ -9863,8 +9845,8 @@ async function generarWordPlantillaMaestra() {
         setTimeout(() => URL.revokeObjectURL(url), 1500);
 
         alert(
-            "Documento generado correctamente — CAMPO VISUAL 04 / INTERVENCIÓN 01.\n\n" +
-            "El informe completo fue cargado en la plantilla maestra mediante tablas Word nativas, conservando las secciones y la plantilla."
+            "Documento generado correctamente — CAMPO VISUAL 04 / RECUPERACIÓN INFORME COMPLETO.\n\n" +
+            "El informe completo fue cargado en la plantilla maestra mediante tablas Word nativas. El ancho no fue intervenido en esta prueba."
         );
 
     } catch (error) {
