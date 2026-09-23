@@ -527,12 +527,26 @@
 
                 <div class="formulario">
 
-                    <div class="campo completo">
-                        <label>Seleccionar cliente del Directorio</label>
-                        <select id="clienteDirectorioOM17" onchange="cargarClienteDesdeDirectorioOM17(this.value)">
-                            <option value="">Seleccione un cliente...</option>
-                        </select>
-                        <small style="display:block;margin-top:5px;color:#64748b;">Los datos registrados en el Directorio se cargarán automáticamente.</small>
+                    <div class="campo completo" style="position:relative;">
+                        <label>Buscar cliente en el Directorio</label>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <input
+                                type="search"
+                                id="clienteDirectorioOM17"
+                                placeholder="Escriba nombre, código, NIT o administrador..."
+                                autocomplete="off"
+                                oninput="buscarClienteDesdeDirectorioOM17(this.value)"
+                                onfocus="buscarClienteDesdeDirectorioOM17(this.value)"
+                                style="flex:1;min-width:240px;"
+                            >
+                            <button type="button" class="boton-secundario" onclick="limpiarBusquedaClienteOM17()">Limpiar</button>
+                        </div>
+                        <div
+                            id="resultadosBusquedaClienteOM17"
+                            style="display:none;position:absolute;left:0;right:0;top:100%;z-index:1000;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 20px rgba(0,0,0,.12);max-height:280px;overflow-y:auto;"
+                        ></div>
+                        <div id="clienteSeleccionadoOM17" style="display:none;margin-top:8px;padding:8px 10px;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:7px;color:#123b5d;font-size:13px;font-weight:bold;"></div>
+                        <small style="display:block;margin-top:5px;color:#64748b;">Escriba parte del nombre, código, NIT o administrador. Seleccione el resultado y los datos se cargarán automáticamente.</small>
                     </div>
 
                     <div class="campo">
@@ -1812,29 +1826,87 @@ function agregarServicioSeguridad(tipo) {
 }
     
     // CAMBIO OM-17 — Integración del Directorio de Clientes con Nueva Inspección.
-    // Al iniciar una inspección nueva se prepara el selector y, al seleccionar
-    // un cliente, se cargan automáticamente sus datos en el formulario.
+    // CAMBIO VISUAL OM-17.1 — Reemplaza la lista desplegable por búsqueda directa.
     function prepararSelectorClienteOM17() {
-        const selector = document.getElementById("clienteDirectorioOM17");
-        if (!selector || typeof inicializarDirectorioClientesOM16 !== "function") return;
+        const buscador = document.getElementById("clienteDirectorioOM17");
+        const resultados = document.getElementById("resultadosBusquedaClienteOM17");
+        const seleccionado = document.getElementById("clienteSeleccionadoOM17");
+        if (!buscador || typeof inicializarDirectorioClientesOM16 !== "function") return;
+        if (resultados) resultados.innerHTML = "";
+        if (resultados) resultados.style.display = "none";
+        if (seleccionado) {
+            seleccionado.textContent = "";
+            seleccionado.style.display = "none";
+        }
+    }
+
+    function buscarClienteDesdeDirectorioOM17(termino) {
+        const resultados = document.getElementById("resultadosBusquedaClienteOM17");
+        if (!resultados || typeof inicializarDirectorioClientesOM16 !== "function") return;
+
         const clientes = inicializarDirectorioClientesOM16();
-        selector.innerHTML = '<option value="">Seleccione un cliente...</option>';
-        clientes.forEach((cliente, indice) => {
-            if (cliente && cliente.estado !== "Inactivo") {
-                const option = document.createElement("option");
-                option.value = String(indice);
-                option.textContent = [cliente.codigo, cliente.cliente, cliente.nit ? `NIT ${cliente.nit}` : ""]
-                    .filter(Boolean).join(" — ");
-                selector.appendChild(option);
-            }
-        });
+        const texto = String(termino || "").trim().toLowerCase();
+
+        if (!texto) {
+            resultados.innerHTML = '<div style="padding:12px;color:#64748b;">Escriba un nombre, código, NIT o administrador para buscar.</div>';
+            resultados.style.display = "block";
+            return;
+        }
+
+        const filtrados = clientes
+            .map((cliente, indice) => ({ cliente, indice }))
+            .filter(item => {
+                const cliente = item.cliente || {};
+                if (cliente.estado === "Inactivo") return false;
+                const contenido = [
+                    cliente.cliente,
+                    cliente.codigo,
+                    cliente.nit,
+                    cliente.administrador,
+                    cliente.barrioMunicipio
+                ].filter(Boolean).join(" ").toLowerCase();
+                return contenido.includes(texto);
+            })
+            .slice(0, 30);
+
+        if (!filtrados.length) {
+            resultados.innerHTML = '<div style="padding:12px;color:#64748b;">No se encontraron clientes con ese criterio.</div>';
+            resultados.style.display = "block";
+            return;
+        }
+
+        resultados.innerHTML = filtrados.map(({cliente, indice}) => {
+            const nombre = cliente.cliente || "Cliente sin nombre";
+            const codigo = cliente.codigo || "";
+            const nit = cliente.nit ? `NIT ${cliente.nit}` : "";
+            const admin = cliente.administrador ? `Administrador: ${cliente.administrador}` : "";
+            return `
+                <button type="button" onclick="cargarClienteDesdeDirectorioOM17(${indice})"
+                    style="display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #e5e7eb;background:#fff;padding:10px 12px;cursor:pointer;">
+                    <div style="font-weight:bold;color:#123b5d;">${escaparHtmlOM17(nombre)}</div>
+                    <div style="font-size:12px;color:#64748b;margin-top:3px;">${escaparHtmlOM17([codigo, nit].filter(Boolean).join(" — "))}</div>
+                    ${admin ? `<div style="font-size:12px;color:#475569;margin-top:2px;">${escaparHtmlOM17(admin)}</div>` : ""}
+                </button>`;
+        }).join("");
+
+        resultados.style.display = "block";
+    }
+
+    function escaparHtmlOM17(valor) {
+        return String(valor ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     }
 
     function cargarClienteDesdeDirectorioOM17(indice) {
-        if (indice === "") return;
+        if (indice === "" || indice === null || indice === undefined) return;
         const clientes = inicializarDirectorioClientesOM16();
         const cliente = clientes[Number(indice)];
         if (!cliente) return;
+
         document.getElementById("cliente").value = cliente.cliente || "";
         document.getElementById("nit").value = cliente.nit || "";
         document.getElementById("direccion").value = cliente.direccion || "";
@@ -1842,9 +1914,43 @@ function agregarServicioSeguridad(tipo) {
         document.getElementById("contacto").value = cliente.administrador || "";
         document.getElementById("telefono").value = cliente.telefonoAdmin || cliente.telefonoPuesto || "";
         document.getElementById("correo").value = cliente.correo || "";
+
         const formulario = document.getElementById("formInspeccion");
         formulario.dataset.idClienteOM17 = cliente.idCliente || "";
         formulario.dataset.codigoClienteOM17 = cliente.codigo || "";
+        formulario.dataset.indiceClienteOM17 = String(indice);
+
+        const buscador = document.getElementById("clienteDirectorioOM17");
+        const resultados = document.getElementById("resultadosBusquedaClienteOM17");
+        const seleccionado = document.getElementById("clienteSeleccionadoOM17");
+
+        if (buscador) buscador.value = cliente.cliente || "";
+        if (resultados) {
+            resultados.innerHTML = "";
+            resultados.style.display = "none";
+        }
+        if (seleccionado) {
+            seleccionado.textContent = `✓ Cliente seleccionado: ${cliente.cliente || ""}${cliente.codigo ? ` — ${cliente.codigo}` : ""}`;
+            seleccionado.style.display = "block";
+        }
+    }
+
+    function limpiarBusquedaClienteOM17() {
+        const buscador = document.getElementById("clienteDirectorioOM17");
+        const resultados = document.getElementById("resultadosBusquedaClienteOM17");
+        const seleccionado = document.getElementById("clienteSeleccionadoOM17");
+        if (buscador) {
+            buscador.value = "";
+            buscador.focus();
+        }
+        if (resultados) {
+            resultados.innerHTML = "";
+            resultados.style.display = "none";
+        }
+        if (seleccionado) {
+            seleccionado.textContent = "";
+            seleccionado.style.display = "none";
+        }
     }
 
     // OM-26 · INTERVENCIÓN 1 — Control visual del flujo extraordinario.
@@ -1903,8 +2009,7 @@ function agregarServicioSeguridad(tipo) {
         limpiarDatosOM26();
         actualizarPanelModularInspeccionOM22(null);
         prepararSelectorClienteOM17();
-        const selector = document.getElementById("clienteDirectorioOM17");
-        if (selector) selector.value = "";
+        limpiarBusquedaClienteOM17();
         modal.style.display = "block";
 
         const fecha = document.getElementById("fecha");
@@ -5292,15 +5397,19 @@ modal.style.display = "block";
 
     // CAMBIO OM-17 — Recuperar la referencia del Directorio al editar.
     prepararSelectorClienteOM17();
-    const selectorEdicionOM17 = document.getElementById("clienteDirectorioOM17");
-    if (selectorEdicionOM17) {
+    const buscadorEdicionOM17 = document.getElementById("clienteDirectorioOM17");
+    if (buscadorEdicionOM17) {
         const clientesEdicionOM17 = inicializarDirectorioClientesOM16();
         const idxClienteOM17 = clientesEdicionOM17.findIndex(c =>
             (inspeccion.idCliente && c.idCliente === inspeccion.idCliente) ||
             (inspeccion.codigoCliente && c.codigo === inspeccion.codigoCliente) ||
             (c.cliente && inspeccion.cliente && normalizarClaveClienteOM16(c.cliente) === normalizarClaveClienteOM16(inspeccion.cliente))
         );
-        selectorEdicionOM17.value = idxClienteOM17 >= 0 ? String(idxClienteOM17) : "";
+        if (idxClienteOM17 >= 0) {
+            cargarClienteDesdeDirectorioOM17(idxClienteOM17);
+        } else {
+            buscadorEdicionOM17.value = inspeccion.cliente || "";
+        }
     }
     document.getElementById("formInspeccion").dataset.idClienteOM17 = inspeccion.idCliente || "";
     document.getElementById("formInspeccion").dataset.codigoClienteOM17 = inspeccion.codigoCliente || "";
