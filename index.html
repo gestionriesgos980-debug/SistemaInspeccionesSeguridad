@@ -8989,12 +8989,34 @@ async function generarWordPlantillaMaestra() {
         const documentEntry=zip.file("word/document.xml");
         if(!documentEntry) throw new Error("La plantilla no contiene word/document.xml.");
         let documentXml=await documentEntry.async("string");
-        if(!documentXml.includes('xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"')){
-            documentXml=documentXml.replace(
-                /<w:document\b/,
-                '<w:document xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"'
-            );
+
+        /* CAM-WORD-02.2 — CORRECCIÓN DE NAMESPACES PARA FOTOGRAFÍAS NATIVAS
+         *
+         * La Hoja Maestra puede contener xmlns:a / xmlns:pic dentro de elementos
+         * concretos ya existentes, pero eso NO declara dichos prefijos para el
+         * contenido nuevo que insertamos en document.xml. Por ello la comprobación
+         * anterior podía detectar un namespace local y omitir su declaración en
+         * <w:document>, dejando el XML final inválido para Word.
+         *
+         * La corrección inspecciona exclusivamente la etiqueta raíz <w:document>
+         * y agrega a/pic allí si realmente faltan.
+         */
+        const inicioRaiz=documentXml.indexOf("<w:document");
+        const finRaiz=documentXml.indexOf(">",inicioRaiz);
+        if(inicioRaiz<0 || finRaiz<0){
+            throw new Error("No se pudo localizar la raíz w:document de la plantilla maestra.");
         }
+        let raizDocumento=documentXml.slice(inicioRaiz,finRaiz+1);
+        const namespacesDibujo={
+            a:"http://schemas.openxmlformats.org/drawingml/2006/main",
+            pic:"http://schemas.openxmlformats.org/drawingml/2006/picture"
+        };
+        Object.entries(namespacesDibujo).forEach(([prefijo,uri])=>{
+            if(!new RegExp(`\\sxmlns:${prefijo}=`).test(raizDocumento)){
+                raizDocumento=raizDocumento.replace(/>$/,` xmlns:${prefijo}="${uri}">`);
+            }
+        });
+        documentXml=documentXml.slice(0,inicioRaiz)+raizDocumento+documentXml.slice(finRaiz+1);
 
 
         const versionDocumento=localStorage.getItem("versionDocumento")||"003";
