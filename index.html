@@ -8829,8 +8829,8 @@ ESTADO: INTEGRACIÓN APROBADA — MEMBRETE COTRASER
 */
 async function generarWordPlantillaMaestra() {
     /* =========================================================
-       TECCHNEX — CAM-PLANTILLA-09 / BASE CAM-06
-       GENERACIÓN WORD COMPLETA SIN VENTANA EMERGENTE
+       TECCHNEX — CAM-PLANTILLA-10 / BASE CAM-06
+       HOJA MAESTRA LIMPIA + GENERACIÓN WORD CONTROLADA
        ---------------------------------------------------------
        PRINCIPIO: reutilizar generarInforme() como fuente única
        del contenido. No se modifican sus cálculos ni su
@@ -8919,6 +8919,34 @@ async function generarWordPlantillaMaestra() {
         let contenidoHtml = hoja.innerHTML;
 
         /*
+         * CAM-PLANTILLA-10 — INFORMACIÓN FINAL DEL INFORME
+         * Estos textos dejan de vivir en la Hoja Maestra Word y pasan a ser
+         * parte del contenido generado por TECCHNEX.
+         */
+        const informacionFinalWord = `
+            <div class="bloque-cierre-word" style="margin-top:20px;font-family:Arial,sans-serif;font-size:9pt;line-height:1.15;">
+                <p style="margin:0 0 7px 0;text-align:justify;">La información antes descrita, no implica que todos los riesgos hayan sido identificados o que no existan otros riesgos.</p>
+                <p style="margin:0 0 7px 0;text-align:justify;">Las imágenes de referencia son tomadas de GOOGLE MAPS / GOOGLE EARTH / BUSCADORES EN LA RED o registro fotográfico con drones, cámaras o equipos móviles, solo para mostrar el contexto de lo descrito.</p>
+                <p style="margin:0 0 7px 0;text-align:justify;">Todas las recomendaciones aquí enunciadas deben ser implementadas por personal especializado, y el acatamiento de cualquiera de ellas no implica responsabilidad alguna por parte de COTRASER C.T.A. o sus funcionarios.</p>
+                <p style="margin:0;text-align:justify;">Este informe es confidencial y está dirigido exclusivamente a su destinatario.</p>
+
+                <table style="width:100%;border-collapse:collapse;margin-top:22px;font-family:Arial,sans-serif;font-size:9pt;">
+                    <tr>
+                        <td style="width:50%;text-align:center;padding:8px;">
+                            <strong>Realizado por:</strong><br>
+                            ${escaparXml(inspeccion.inspector || "")}
+                        </td>
+                        <td style="width:50%;text-align:center;padding:8px;">
+                            <strong>Revisado por:</strong><br>
+                            ${escaparXml(inspeccion.director || inspeccion.revisadoPor || "")}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        `;
+        contenidoHtml += informacionFinalWord;
+
+        /*
          * Las fotografías del informe se almacenan como data:image/...;
          * Convertimos cada una en un recurso real dentro de word/media y
          * sustituimos el src por una ruta relativa desde word/document.xml.
@@ -8950,13 +8978,14 @@ async function generarWordPlantillaMaestra() {
         const archivoPlantilla = await respuesta.blob();
         const zip = await JSZip.loadAsync(archivoPlantilla);
 
-        const fecha = inspeccion.fecha
-            ? inspeccion.fecha.split("-").reverse().join("/")
-            : "";
-        const cliente = inspeccion.cliente || "";
+        /*
+         * CAM-PLANTILLA-10 — HOJA MAESTRA LIMPIA
+         * La plantilla conserva únicamente el encabezado corporativo y
+         * tres campos dinámicos: versión, título y nombre del puesto.
+         */
+        const versionDocumento = localStorage.getItem("versionDocumento") || "003";
+        const tituloDocumento = localStorage.getItem("tituloDocumento") || "INFORME PREVENTIVO DE SEGURIDAD INTEGRAL";
         const puesto = inspeccion.nombrePuesto || "";
-        const realizadoPor = inspeccion.inspector || "";
-        const revisadoPor = inspeccion.revisadoPor || inspeccion.director || "";
 
         const escaparXml = valor => String(valor ?? "")
             .replace(/&/g, "&amp;")
@@ -8966,11 +8995,9 @@ async function generarWordPlantillaMaestra() {
             .replace(/'/g, "&apos;");
 
         const reemplazos = {
-            "{{FECHA}}": escaparXml(fecha),
-            "{{CLIENTE}}": escaparXml(cliente),
-            "{{PUESTO}}": escaparXml(puesto),
-            "{{REALIZADO_POR}}": escaparXml(realizadoPor),
-            "{{REVISADO_POR}}": escaparXml(revisadoPor)
+            "{{VERSION_DOCUMENTO}}": escaparXml(versionDocumento),
+            "{{TITULO_DOCUMENTO}}": escaparXml(tituloDocumento),
+            "{{PUESTO}}": escaparXml(puesto)
         };
 
         const documentEntry = zip.file("word/document.xml");
@@ -8981,9 +9008,13 @@ async function generarWordPlantillaMaestra() {
             documentXml = documentXml.split(marcador).join(valor);
         });
 
-        const marcadorRegex = /<w:p(?=[ >])[^>]*>.*?<w:t[^>]*>\{\{CONTENIDO_INFORME\}\}<\/w:t>.*?<\/w:p>/s;
-        if (!marcadorRegex.test(documentXml)) {
-            throw new Error("No se encontró {{CONTENIDO_INFORME}} en la plantilla maestra.");
+        /*
+         * La Hoja Maestra CAM-10 queda deliberadamente sin marcador de
+         * contenido. El informe se insertará en el cuerpo limpio, antes de
+         * la configuración final de sección (w:sectPr).
+         */
+        if (!documentXml.includes("<w:sectPr")) {
+            throw new Error("La plantilla maestra no contiene la configuración de sección esperada.");
         }
 
         /*
@@ -9037,8 +9068,8 @@ async function generarWordPlantillaMaestra() {
 
         zip.file(altChunkPart, contenidoMhtml);
         documentXml = documentXml.replace(
-            marcadorRegex,
-            `<w:altChunk r:id="${relationshipId}"/>`
+            /<w:sectPr(?=[ >])/,
+            `<w:altChunk r:id="${relationshipId}"/><w:sectPr`
         );
         zip.file("word/document.xml", documentXml);
 
@@ -12444,7 +12475,7 @@ ESTADO: EN DESARROLLO
                 ========================================================
                 -->
                 <button onclick="window.opener.generarWordPlantillaMaestra()">
-    📝 Generar Word con Hoja Maestra + membrete COTRASER
+    📝 Generar Word con Hoja Maestra limpia + membrete COTRASER
 </button>
 
                 <button onclick="window.opener.generarPDF(window)">
