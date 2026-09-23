@@ -8995,7 +8995,19 @@ async function generarWordPlantillaMaestra() {
          * El contenido dinámico se insertará antes del bloque legal final,
          * conservando intactos el membrete, los campos de cabecera y las firmas.
          */
-        const marcadorContenidoLimpio = /<w:p(?=[ >])[^>]*>.*?<w:t[^>]*>La información antes descrita, no implica que todos los riesgos hayan sido identificados o que no existan otros riesgos\.\s*<\/w:t>.*?<\/w:p>/s;
+        /* CAM-PLANTILLA-10 / INTERVENCIÓN 3 — LOCALIZACIÓN ROBUSTA DEL PUNTO DE INSERCIÓN
+         * La plantilla Word puede contener <w:pPr> y varios <w:r>/<w:t> dentro
+         * del mismo párrafo. La expresión anterior suponía que <w:t> aparecía
+         * inmediatamente después de <w:p>, por lo que no encontraba el texto legal.
+         * Ahora se localiza el párrafo completo que contiene la frase legal, sin
+         * alterar su contenido ni su formato.
+         */
+        const frasePuntoInsercion = "La información antes descrita, no implica que todos los riesgos hayan sido identificados o que no existan otros riesgos.";
+        const marcadorContenidoLimpio = new RegExp(
+            "<w:p\\b[^>]*>[\\s\\S]*?" +
+            frasePuntoInsercion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
+            "[\\s\\S]*?</w:p>"
+        );
         if (!marcadorContenidoLimpio.test(documentXml)) {
             throw new Error("No se encontró el punto de inserción del contenido dinámico en la plantilla maestra limpia.");
         }
