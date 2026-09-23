@@ -8842,6 +8842,10 @@ async function generarWordPlantillaMaestra() {
        01. Información general de la inspección.
        02. Objetivo y metodología.
 
+       INTERVENCIÓN 03: paginación continua entre bloques.
+       El Bloque 02 puede comenzar en el espacio disponible de la página anterior
+       y continuar en la siguiente si Word necesita más espacio.
+
        NO se generan todavía checklist, hallazgos, matriz,
        fotografías ni los demás bloques. Se incorporarán uno
        por uno después de validar este escalón.
@@ -9081,7 +9085,11 @@ async function generarWordPlantillaMaestra() {
                 </w:tblPr>
                 <w:tblGrid><w:gridCol w:w="8838"/></w:tblGrid>
                 <w:tr>
-                    <w:trPr><w:cantSplit/></w:trPr>
+                    <!-- CAM-WORD-02 / INTERVENCIÓN 03
+                         Permitir que el contenido del Bloque 02 continúe en la misma página
+                         cuando exista espacio disponible. No usar cantSplit aquí: esa restricción
+                         obligaba a Word a mover toda la fila a la página siguiente y generaba
+                         el espacio blanco visible después de la tabla del Bloque 01. -->
                     <w:tc>
                         <w:tcPr>
                             <w:tcW w:w="8838" w:type="dxa"/>
@@ -9181,13 +9189,13 @@ async function generarWordPlantillaMaestra() {
         setTimeout(() => URL.revokeObjectURL(url), 1500);
 
         alert(
-            "Documento generado correctamente — CAM-WORD-02 / BLOQUE 01.\n\n" +
-            "Se generó de forma nativa en Word la sección Información general.\n" +
-            "Los demás bloques se incorporarán después de validar este escalón."
+            "Documento generado correctamente — CAM-WORD-02 / BLOQUE 02.\n\n" +
+            "Se generaron de forma nativa en Word los bloques Información general y Objetivo y metodología.\n" +
+            "La paginación entre bloques queda continua y automática."
         );
 
     } catch (error) {
-        console.error("CAM-WORD-02 / BLOQUE 01 — Error al generar Word:", error);
+        console.error("CAM-WORD-02 / BLOQUE 02 — Error al generar Word:", error);
         alert("No fue posible generar el Word con el motor nativo.\n\nDetalle: " + error.message);
     }
 }
