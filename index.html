@@ -8989,9 +8989,15 @@ async function generarWordPlantillaMaestra() {
             documentXml = documentXml.split(marcador).join(valor);
         });
 
-        const marcadorRegex = /<w:p(?=[ >])[^>]*>.*?<w:t[^>]*>\{\{CONTENIDO_INFORME\}\}<\/w:t>.*?<\/w:p>/s;
-        if (!marcadorRegex.test(documentXml)) {
-            throw new Error("No se encontró {{CONTENIDO_INFORME}} en la plantilla maestra.");
+        /* CAM-PLANTILLA-10 / INTERVENCIÓN 2 — PLANTILLA MAESTRA LIMPIA
+         * La nueva Hoja Maestra ya no contiene {{CONTENIDO_INFORME}}.
+         * Por tanto, no se exige un marcador dentro del DOCX.
+         * El contenido dinámico se insertará antes del bloque legal final,
+         * conservando intactos el membrete, los campos de cabecera y las firmas.
+         */
+        const marcadorContenidoLimpio = /<w:p(?=[ >])[^>]*>.*?<w:t[^>]*>La información antes descrita, no implica que todos los riesgos hayan sido identificados o que no existan otros riesgos\.\s*<\/w:t>.*?<\/w:p>/s;
+        if (!marcadorContenidoLimpio.test(documentXml)) {
+            throw new Error("No se encontró el punto de inserción del contenido dinámico en la plantilla maestra limpia.");
         }
 
         /*
@@ -9045,8 +9051,8 @@ async function generarWordPlantillaMaestra() {
 
         zip.file(altChunkPart, contenidoMhtml);
         documentXml = documentXml.replace(
-            marcadorRegex,
-            `<w:altChunk r:id="${relationshipId}"/>`
+            marcadorContenidoLimpio,
+            (parrafoLegal) => `<w:altChunk r:id="${relationshipId}"/>` + parrafoLegal
         );
         zip.file("word/document.xml", documentXml);
 
