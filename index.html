@@ -8903,11 +8903,19 @@ async function generarWordPlantillaMaestra() {
             const borders=`<w:tcBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/></w:tcBorders>`;
             return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${span}${shade}${valign}${margins}${borders}</w:tcPr>${parrafoWord(valor,{font:'Arial',size:opciones.size||'18',bold:!!opciones.bold,color:opciones.color||'000000',align:opciones.align||'left',line:240})}</w:tc>`;
         }
+        // CAMPO VISUAL 03 — INTERVENCIÓN 03A
+        // El encabezado maestro utiliza 10774 twips y una sangría de -998 twips.
+        // Las tablas del contenido adoptan exactamente esa misma huella visual.
+        const ANCHO_TABLA_MAESTRA = 10774;
+        const SANGRIA_TABLA_MAESTRA = -998;
+        const ANCHO_ETIQUETA_2COL = 2679;
+        const ANCHO_VALOR_2COL = 8095;
+
         function fila2(label,value,opts={}) {
-            return `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(label,{width:2200,shading:'F1F4F7',bold:true,color:'123B5D'})}${celdaWord(value,{width:6638,size:opts.size||'18'})}</w:tr>`;
+            return `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(label,{width:ANCHO_ETIQUETA_2COL,shading:'F1F4F7',bold:true,color:'123B5D'})}${celdaWord(value,{width:ANCHO_VALOR_2COL,size:opts.size||'18'})}</w:tr>`;
         }
         function tabla2(filas) {
-            return `<w:tbl><w:tblPr><w:tblW w:w="8838" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/><w:insideH w:val="single" w:sz="6" w:color="999999"/><w:insideV w:val="single" w:sz="6" w:color="999999"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="2200"/><w:gridCol w:w="6638"/></w:tblGrid>${filas}</w:tbl>`;
+            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/><w:insideH w:val="single" w:sz="6" w:color="999999"/><w:insideV w:val="single" w:sz="6" w:color="999999"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${ANCHO_ETIQUETA_2COL}"/><w:gridCol w:w="${ANCHO_VALOR_2COL}"/></w:tblGrid>${filas}</w:tbl>`;
         }
         function titulo(texto,nivel=1){ return parrafoWord(texto,{font:'Arial',size:nivel===1?'24':'21',bold:true,color:'123B5D',before:160,after:100,line:260,keepNext:true}); }
         function tablaCabeceras(headers,widths) {
@@ -8915,8 +8923,11 @@ async function generarWordPlantillaMaestra() {
         }
         function tablaGenerica(headers,rows,widths) {
             const cols=headers.length;
-            const body=rows.length ? rows.map(row=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${row.map((v,i)=>celdaWord(v,{width:widths[i]||Math.floor(8838/cols),size:'16',align:i===0?'left':'center'})).join('')}</w:tr>`).join('') : `<w:tr>${celdaWord('No se registró información.',{width:8838,colspan:cols,align:'center',color:'666666'})}</w:tr>`;
-            return `<w:tbl><w:tblPr><w:tblW w:w="8838" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/><w:insideH w:val="single" w:sz="6" w:color="999999"/><w:insideV w:val="single" w:sz="6" w:color="999999"/></w:tblBorders></w:tblPr><w:tblGrid>${widths.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${tablaCabeceras(headers,widths)}${body}</w:tbl>`;
+            const sumaOriginal=(widths||[]).reduce((a,b)=>a+Number(b||0),0)||8838;
+            const factor=ANCHO_TABLA_MAESTRA/sumaOriginal;
+            const anchos=(widths&&widths.length) ? widths.map((w,i)=> i===widths.length-1 ? ANCHO_TABLA_MAESTRA-widths.slice(0,-1).reduce((a,b)=>a+Math.round(Number(b||0)*factor),0) : Math.round(Number(w||0)*factor)) : Array(cols).fill(Math.floor(ANCHO_TABLA_MAESTRA/cols));
+            const body=rows.length ? rows.map(row=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${row.map((v,i)=>celdaWord(v,{width:anchos[i]||Math.floor(ANCHO_TABLA_MAESTRA/cols),size:'16',align:i===0?'left':'center'})).join('')}</w:tr>`).join('') : `<w:tr>${celdaWord('No se registró información.',{width:ANCHO_TABLA_MAESTRA,colspan:cols,align:'center',color:'666666'})}</w:tr>`;
+            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/><w:insideH w:val="single" w:sz="6" w:color="999999"/><w:insideV w:val="single" w:sz="6" w:color="999999"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${tablaCabeceras(headers,anchos)}${body}</w:tbl>`;
         }
         function limpio(v){ return v!==undefined && v!==null && String(v).trim()!==""; }
         function camposDiligenciados(lista){ return lista.filter(([,v])=>limpio(v)); }
