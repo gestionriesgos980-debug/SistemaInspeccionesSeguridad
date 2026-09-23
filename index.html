@@ -8829,13 +8829,21 @@ ESTADO: INTEGRACIÓN APROBADA — MEMBRETE COTRASER
 */
 async function generarWordPlantillaMaestra() {
     /* =========================================================
-       TECCHNEX — CAM-PLANTILLA-09 / BASE CAM-06
-       GENERACIÓN WORD COMPLETA SIN VENTANA EMERGENTE
+       TECCHNEX — BASE WORD ESTABILIZADA
        ---------------------------------------------------------
-       PRINCIPIO: reutilizar generarInforme() como fuente única
-       del contenido. No se modifican sus cálculos ni su
-       almacenamiento. Se utiliza un documento capturador en
-       memoria para recoger el HTML que ya genera la aplicación.
+       OBJETIVO: utilizar la Plantilla Maestra como documento base
+       y pegar el informe COMPLETO que ya genera generarInforme().
+
+       REGLAS DE ESTABILIZACIÓN:
+       - No modificar la lógica de captura, guardado ni edición.
+       - No modificar el PDF.
+       - No modificar tamaños de tablas ni forzar anchos.
+       - No reconstruir el informe desde cero.
+       - No depender de un texto/marcador específico para insertar
+         el contenido, porque Word puede dividir un texto en varios
+         <w:t>.
+       - Insertar el altChunk antes del párrafo final que contiene
+         w:sectPr, conservando intacta la estructura de la plantilla.
        ========================================================= */
 
     const indiceGuardado = localStorage.getItem("indiceInspeccionSeleccionadaInforme");
@@ -8862,12 +8870,8 @@ async function generarWordPlantillaMaestra() {
 
     try {
         /*
-         * PUNTO CLAVE:
-         * generarInforme() ya contiene toda la lógica comprobada del informe.
-         * No abrimos una ventana del navegador. Le entregamos un objeto mínimo
-         * que solamente implementa document.write/document.close y captura el
-         * HTML producido. Así evitamos el bloqueo de pop-ups y no duplicamos
-         * la lógica de checklist, matriz, hallazgos, fotos ni cálculos.
+         * generarInforme() sigue siendo la fuente única del informe.
+         * Capturamos su HTML sin abrir ventanas ni duplicar su lógica.
          */
         let informeHtmlCapturado = "";
         const ventanaCaptura = {
@@ -8889,11 +8893,6 @@ async function generarWordPlantillaMaestra() {
             throw new Error("No fue posible capturar el informe completo generado por la aplicación.");
         }
 
-        /*
-         * Extraemos exclusivamente el cuerpo del informe.
-         * Se elimina el encabezado HTML del informe antiguo porque la plantilla
-         * maestra ya conserva su propio encabezado corporativo.
-         */
         const parser = new DOMParser();
         const informeDoc = parser.parseFromString(informeHtmlCapturado, "text/html");
         const hoja = informeDoc.querySelector(".hoja");
@@ -8902,16 +8901,13 @@ async function generarWordPlantillaMaestra() {
             throw new Error("El informe generado no contiene la estructura .hoja esperada.");
         }
 
+        /* La plantilla maestra ya tiene su propio encabezado. */
         const encabezado = hoja.querySelector(":scope > .encabezado");
         if (encabezado) encabezado.remove();
 
-        hoja.querySelectorAll(".botones, .controles-informe-paginado, .pie, .paginacion-informe").forEach(el => el.remove());
+        hoja.querySelectorAll(".botones, .controles-informe-paginado, .pie, .paginacion-informe")
+            .forEach(el => el.remove());
 
-        /*
-         * Conservamos los estilos originales del informe para que las tablas,
-         * títulos y fotografías mantengan su presentación al ser importados
-         * por Word.
-         */
         const estilos = Array.from(informeDoc.querySelectorAll("head style"))
             .map(style => style.outerHTML)
             .join("\n");
@@ -8919,10 +8915,9 @@ async function generarWordPlantillaMaestra() {
         let contenidoHtml = hoja.innerHTML;
 
         /*
-         * Las fotografías del informe se almacenan como data:image/...;
-         * Convertimos cada una en un recurso real dentro de word/media y
-         * sustituimos el src por una ruta relativa desde word/document.xml.
-         * Esto evita depender de data-URI dentro del importador HTML de Word.
+         * Las imágenes viajan dentro del MHTML mediante Content-ID.
+         * Esto mantiene las fotografías dentro del DOCX sin depender
+         * de rutas externas o data-URI en el importador de Word.
          */
         const imagenes = Array.from(hoja.querySelectorAll("img"));
         const imagenesParaWord = [];
@@ -8933,13 +8928,14 @@ async function generarWordPlantillaMaestra() {
             if (!match) return;
 
             const mime = match[1].toLowerCase();
-            const extension = mime.includes("png") ? "png" : (mime.includes("gif") ? "gif" : (mime.includes("webp") ? "webp" : "jpg"));
+            const extension = mime.includes("png")
+                ? "png"
+                : (mime.includes("gif") ? "gif" : (mime.includes("webp") ? "webp" : "jpg"));
             const nombre = `tecchnex-informe-${i + 1}.${extension}`;
             imagenesParaWord.push({ nombre, base64: match[2], mime });
             img.setAttribute("src", `media/${nombre}`);
         });
 
-        /* El DOM actualizado contiene las rutas relativas nuevas. */
         contenidoHtml = hoja.innerHTML;
 
         const respuesta = await fetch(plantillaUrl, { cache: "no-store" });
@@ -8958,12 +8954,6 @@ async function generarWordPlantillaMaestra() {
         const realizadoPor = inspeccion.inspector || "";
         const revisadoPor = inspeccion.revisadoPor || inspeccion.director || "";
 
-        /* CAM-PLANTILLA-10 / INTERVENCIÓN 1 — CORRECCIÓN DE INICIALIZACIÓN
-         * Se usa una declaración de función en lugar de const para eliminar
-         * cualquier riesgo de Temporal Dead Zone ("before initialization")
-         * durante la preparación del documento Word.
-         * No cambia la lógica ni los valores de los reemplazos.
-         */
         function escaparXml(valor) {
             return String(valor ?? "")
                 .replace(/&/g, "&amp;")
@@ -8989,44 +8979,56 @@ async function generarWordPlantillaMaestra() {
             documentXml = documentXml.split(marcador).join(valor);
         });
 
-        /* CAM-PLANTILLA-10 / INTERVENCIÓN 2 — PLANTILLA MAESTRA LIMPIA
-         * La nueva Hoja Maestra ya no contiene {{CONTENIDO_INFORME}}.
-         * Por tanto, no se exige un marcador dentro del DOCX.
-         * El contenido dinámico se insertará antes del bloque legal final,
-         * conservando intactos el membrete, los campos de cabecera y las firmas.
+        /*
+         * PUNTO DE INSERCIÓN ROBUSTO
+         * ---------------------------
+         * No buscamos una frase del documento. El texto de Word puede estar
+         * dividido entre varios <w:t>, por lo que una búsqueda textual frágil
+         * puede fallar aunque la plantilla sea correcta.
+         *
+         * En su lugar localizamos el <w:sectPr> de la sección final y, si está
+         * dentro de un párrafo, insertamos el altChunk ANTES de ese párrafo.
+         * Así el altChunk queda como hijo directo de w:body y w:sectPr continúa
+         * siendo la configuración final de la sección.
          */
-        const marcadorContenidoLimpio = /<w:p(?=[ >])[^>]*>.*?<w:t[^>]*>La información antes descrita, no implica que todos los riesgos hayan sido identificados o que no existan otros riesgos\.\s*<\/w:t>.*?<\/w:p>/s;
-        if (!marcadorContenidoLimpio.test(documentXml)) {
-            throw new Error("No se encontró el punto de inserción del contenido dinámico en la plantilla maestra limpia.");
+        const sectPos = documentXml.lastIndexOf("<w:sectPr");
+        if (sectPos === -1) {
+            throw new Error("La plantilla maestra no contiene w:sectPr.");
         }
 
-        /*
-         * CAM-WORD-01.1 — FOTOGRAFÍAS EMBEBIDAS Y DIMENSIONADAS EN WORD
-         *
-         * Word puede importar el contenido HTML de altChunk, pero no siempre
-         * resuelve correctamente imágenes que apuntan a archivos internos de
-         * word/media/. Para evitar la X roja que aparece en el documento,
-         * empaquetamos el HTML como MHTML (multipart/related) y cada fotografía
-         * se referencia por Content-ID (cid:...). De esta forma las imágenes
-         * viajan dentro del propio fragmento que Word importa.
-         *
-         * No se modifican datos, cálculos, paginación ni generación del informe.
-         */
+        const paragraphStarts = [];
+        const paragraphRegex = /<w:p(?:\s|>)/g;
+        let matchParagraph;
+        while ((matchParagraph = paragraphRegex.exec(documentXml)) !== null) {
+            if (matchParagraph.index < sectPos) {
+                paragraphStarts.push(matchParagraph.index);
+            } else {
+                break;
+            }
+        }
+
+        const paragraphStart = paragraphStarts.length
+            ? paragraphStarts[paragraphStarts.length - 1]
+            : -1;
+
+        let puntoInsercion;
+        if (paragraphStart !== -1) {
+            const paragraphEnd = documentXml.indexOf("</w:p>", sectPos);
+            if (paragraphEnd !== -1) {
+                puntoInsercion = paragraphStart;
+            }
+        }
+
+        if (puntoInsercion === undefined) {
+            puntoInsercion = sectPos;
+        }
+
         const altChunkPart = "word/afchunk-tecchnex.mht";
         const relationshipId = "rIdTecchnexInformeCompleto";
 
-        const escaparMht = valor => String(valor ?? "")
-            .replace(/\r?\n/g, "\r\n");
+        const escaparMht = valor => String(valor ?? "").replace(/\r?\n/g, "\r\n");
 
-        /* CAMPO VISUAL 04 — ANCHO SEGURO WORD
- * No se modifica document.xml ni la estructura de la plantilla.
- * Las tablas ocupan el 100% del ancho disponible del cuerpo Word.
- * Esto equivale al ancho útil de la página (15,5 cm en la plantilla actual)
- * y evita el conflicto producido al forzar 19 cm sobre el cuerpo del documento.
- */
-const estilosWordSeguro = `${estilos}\n<style>table{width:100% !important;max-width:100% !important;} .hoja{width:100% !important;max-width:100% !important;}</style>`;
-let cuerpoMhtml = `<!DOCTYPE html>\r\n<html lang="es"><head><meta charset="UTF-8">${estilosWordSeguro}</head><body>${contenidoHtml}</body></html>`;
-
+        let cuerpoMhtml = `<!DOCTYPE html>\r\n<html lang="es"><head><meta charset="UTF-8">${estilos}</head><body>${contenidoHtml}</body></html>`;
         const fronteraMhtml = "----=_TECCHNEX_MHTML_" + Date.now();
         const partesMhtml = [];
 
@@ -9057,10 +9059,10 @@ let cuerpoMhtml = `<!DOCTYPE html>\r\n<html lang="es"><head><meta charset="UTF-8
             `--${fronteraMhtml}--\r\n`;
 
         zip.file(altChunkPart, contenidoMhtml);
-        documentXml = documentXml.replace(
-            marcadorContenidoLimpio,
-            (parrafoLegal) => `<w:altChunk r:id="${relationshipId}"/>` + parrafoLegal
-        );
+        documentXml =
+            documentXml.slice(0, puntoInsercion) +
+            `<w:altChunk r:id="${relationshipId}"/>` +
+            documentXml.slice(puntoInsercion);
         zip.file("word/document.xml", documentXml);
 
         const relsEntry = zip.file("word/_rels/document.xml.rels");
@@ -9085,7 +9087,6 @@ let cuerpoMhtml = `<!DOCTYPE html>\r\n<html lang="es"><head><meta charset="UTF-8
         }
         zip.file("[Content_Types].xml", contentTypesXml);
 
-        /* El encabezado de la Hoja Maestra permanece intacto salvo sus marcadores. */
         const headerEntry = zip.file("word/header1.xml");
         if (headerEntry) {
             let headerXml = await headerEntry.async("string");
@@ -9123,7 +9124,7 @@ let cuerpoMhtml = `<!DOCTYPE html>\r\n<html lang="es"><head><meta charset="UTF-8
         );
 
     } catch (error) {
-        console.error("CAM-PLANTILLA-09 — Error al generar Word:", error);
+        console.error("BASE WORD ESTABILIZADA — Error al generar Word:", error);
         alert("No fue posible generar el Word con la plantilla maestra.\n\nDetalle: " + error.message);
     }
 }
