@@ -540,10 +540,18 @@
     </div>
 
     <!--
-        CAM-VISUAL-IDENTIDAD-02
-        Los indicadores generales se consultan en Dashboard.
-        Se retira únicamente su presentación de la pantalla principal.
+        CAM-VISUAL-IDENTIDAD-02 / CORRECCIÓN QUIRÚRGICA
+        Los indicadores generales no se muestran en la pantalla principal,
+        pero se conservan sus elementos técnicos porque el motor existente
+        actualiza estos IDs durante el funcionamiento de la aplicación.
+        Así se mantiene la compatibilidad con Nueva inspección, Editar,
+        Dashboard y respaldo, sin modificar la lógica de datos.
     -->
+    <div class="tarjetas" style="display:none !important;" aria-hidden="true">
+        <div class="tarjeta"><h3>Inspecciones realizadas</h3><div class="numero" id="total">0</div></div>
+        <div class="tarjeta"><h3>Clientes</h3><div class="numero" id="totalClientes">0</div></div>
+        <div class="tarjeta"><h3>Hallazgos</h3><div class="numero" id="totalHallazgos">0</div></div>
+    </div>
 
     </div>
 
