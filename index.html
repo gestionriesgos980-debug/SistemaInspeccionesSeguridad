@@ -8901,7 +8901,7 @@ async function generarWordPlantillaMaestra() {
             const span=opciones.colspan ? `<w:gridSpan w:val="${opciones.colspan}"/>` : "";
             const valign=opciones.vAlign ? `<w:vAlign w:val="${opciones.vAlign}"/>` : "";
             const margins=`<w:tcMar><w:top w:w="80" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tcMar>`;
-            const borders=`<w:tcBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/></w:tcBorders>`;
+            const borders=`<w:tcBorders><w:top w:val="single" w:sz="6" w:color="D5D9DD"/><w:left w:val="single" w:sz="6" w:color="D5D9DD"/><w:bottom w:val="single" w:sz="6" w:color="D5D9DD"/><w:right w:val="single" w:sz="6" w:color="D5D9DD"/></w:tcBorders>`;
             return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${span}${shade}${valign}${margins}${borders}</w:tcPr>${parrafoWord(valor,{font:'Arial',size:opciones.size||'18',bold:!!opciones.bold,color:opciones.color||'000000',align:opciones.align||'left',line:240})}</w:tc>`;
         }
 
@@ -8913,7 +8913,7 @@ async function generarWordPlantillaMaestra() {
             const span=opciones.colspan ? `<w:gridSpan w:val="${opciones.colspan}"/>` : "";
             const valign=opciones.vAlign ? `<w:vAlign w:val="${opciones.vAlign}"/>` : "";
             const margins=`<w:tcMar><w:top w:w="80" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tcMar>`;
-            const borders=`<w:tcBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/></w:tcBorders>`;
+            const borders=`<w:tcBorders><w:top w:val="single" w:sz="6" w:color="D5D9DD"/><w:left w:val="single" w:sz="6" w:color="D5D9DD"/><w:bottom w:val="single" w:sz="6" w:color="D5D9DD"/><w:right w:val="single" w:sz="6" w:color="D5D9DD"/></w:tcBorders>`;
             return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${span}${shade}${valign}${margins}${borders}</w:tcPr>${contenido}</w:tc>`;
         }
 
@@ -8933,31 +8933,63 @@ async function generarWordPlantillaMaestra() {
             const cy=Math.round((2.6/2.54)*914400);
             return `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="0" w:line="240"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${docPrId}" name="${escaparXmlWord(nombre)}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="${escaparXmlWord(nombre)}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1" noChangeArrowheads="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
         }
-        /* CAM-VISUAL-05 — ESTRUCTURA TABULAR INTEGRAL
-         * Toda la información dinámica del Word se presenta mediante tablas
-         * con filas y columnas controladas y sangría neutra.
-         * Las filas llevan <w:cantSplit/> para evitar cortes arbitrarios.
-         * No modifica captura, almacenamiento ni cálculos.
-         */
-        const ANCHO_TABLA_MAESTRA = 10400;
-        const SANGRIA_TABLA_MAESTRA = 0;
+        // CAMPO VISUAL 03 — INTERVENCIÓN 03A
+        // El encabezado maestro utiliza 10774 twips y una sangría de -998 twips.
+        // Las tablas del contenido adoptan exactamente esa misma huella visual.
+        const ANCHO_TABLA_MAESTRA = 10774;
+        const SANGRIA_TABLA_MAESTRA = -998;
         const ANCHO_ETIQUETA_2COL = 2679;
         const ANCHO_VALOR_2COL = 8095;
 
         function fila2(label,value,opts={}) {
-            return `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(label,{width:ANCHO_ETIQUETA_2COL,shading:'F1F4F7',bold:true,color:'123B5D'})}${celdaWord(value,{width:ANCHO_VALOR_2COL,size:opts.size||'18'})}</w:tr>`;
+            return `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(label,{width:ANCHO_ETIQUETA_2COL,shading:'EEF1F4',bold:true,color:'111111'})}${celdaWord(value,{width:ANCHO_VALOR_2COL,size:opts.size||'18',align:'center'})}</w:tr>`;
         }
         function tabla2(filas) {
-            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/><w:insideH w:val="single" w:sz="6" w:color="999999"/><w:insideV w:val="single" w:sz="6" w:color="999999"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${ANCHO_ETIQUETA_2COL}"/><w:gridCol w:w="${ANCHO_VALOR_2COL}"/></w:tblGrid>${filas}</w:tbl>`;
+            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="D5D9DD"/><w:left w:val="single" w:sz="6" w:color="D5D9DD"/><w:bottom w:val="single" w:sz="6" w:color="D5D9DD"/><w:right w:val="single" w:sz="6" w:color="D5D9DD"/><w:insideH w:val="single" w:sz="6" w:color="D5D9DD"/><w:insideV w:val="single" w:sz="6" w:color="D5D9DD"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${ANCHO_ETIQUETA_2COL}"/><w:gridCol w:w="${ANCHO_VALOR_2COL}"/></w:tblGrid>${filas}</w:tbl>`;
+        }
+
+        // CAM-WORD-VISUAL-ESTILO-01 — NEGRO / AMARILLO / GRIS SUAVE
+        // El encabezado de la plantilla DOCX no se toca; estos ajustes afectan solo al cuerpo generado.
+        // CAM-WORD-VISUAL-02 — DATOS INICIALES EN CUATRO COLUMNAS
+        // Desde Información general hasta Sistema CCTV se presentan dos pares
+        // etiqueta/valor por fila, siguiendo la distribución del documento de
+        // referencia. Se conserva el tamaño de fuente actual (18) y no se
+        // modifica la estructura de las secciones posteriores.
+        const ANCHO_ETIQUETA_4COL = 1900;
+        const ANCHO_VALOR_4COL_A = 3400;
+        const ANCHO_ETIQUETA_4COL_B = 1900;
+        const ANCHO_VALOR_4COL_B = ANCHO_TABLA_MAESTRA - ANCHO_ETIQUETA_4COL - ANCHO_VALOR_4COL_A - ANCHO_ETIQUETA_4COL_B;
+
+        function fila4(pares,opts={}) {
+            const cells=[];
+            for(let i=0;i<pares.length;i+=2){
+                const a=pares[i];
+                const b=pares[i+1];
+                if(!b){
+                    cells.push(celdaWord(a[0],{width:ANCHO_ETIQUETA_4COL,shading:'EEF1F4',bold:true,color:'111111'}));
+                    cells.push(celdaWord(a[1],{width:ANCHO_VALOR_4COL_A+ANCHO_ETIQUETA_4COL_B+ANCHO_VALOR_4COL_B,size:opts.size||'18',colspan:3}));
+                }else{
+                    cells.push(celdaWord(a[0],{width:ANCHO_ETIQUETA_4COL,shading:'EEF1F4',bold:true,color:'111111'}));
+                    cells.push(celdaWord(a[1],{width:ANCHO_VALOR_4COL_A,size:opts.size||'18'}));
+                    cells.push(celdaWord(b[0],{width:ANCHO_ETIQUETA_4COL_B,shading:'EEF1F4',bold:true,color:'111111'}));
+                    cells.push(celdaWord(b[1],{width:ANCHO_VALOR_4COL_B,size:opts.size||'18'}));
+                }
+            }
+            return `<w:tr><w:trPr><w:cantSplit/></w:trPr>${cells.join('')}</w:tr>`;
+        }
+        function tabla4(pares,opts={}) {
+            const filas=[];
+            for(let i=0;i<pares.length;i+=2) filas.push(fila4(pares.slice(i,i+2),opts));
+            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="D5D9DD"/><w:left w:val="single" w:sz="6" w:color="D5D9DD"/><w:bottom w:val="single" w:sz="6" w:color="D5D9DD"/><w:right w:val="single" w:sz="6" w:color="D5D9DD"/><w:insideH w:val="single" w:sz="6" w:color="D5D9DD"/><w:insideV w:val="single" w:sz="6" w:color="D5D9DD"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${ANCHO_ETIQUETA_4COL}"/><w:gridCol w:w="${ANCHO_VALOR_4COL_A}"/><w:gridCol w:w="${ANCHO_ETIQUETA_4COL_B}"/><w:gridCol w:w="${ANCHO_VALOR_4COL_B}"/></w:tblGrid>${filas.join('')}</w:tbl>`;
         }
         function titulo(texto,nivel=1){
-            const size=nivel===1?'18':'17';
-            const shading=nivel===1?'123B5D':'EEF2F5';
-            const color=nivel===1?'FFFFFF':'123B5D';
-            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="0" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B7C1C9"/><w:left w:val="single" w:sz="6" w:color="B7C1C9"/><w:bottom w:val="single" w:sz="6" w:color="B7C1C9"/><w:right w:val="single" w:sz="6" w:color="B7C1C9"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${ANCHO_TABLA_MAESTRA}"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(texto,{width:ANCHO_TABLA_MAESTRA,shading,bold:true,color,size,align:'left'})}</w:tr></w:tbl>`;
+            if(nivel===1){
+                return `<w:p><w:pPr><w:spacing w:before="160" w:after="100" w:line="260" w:lineRule="auto"/><w:keepNext/><w:shd w:fill="FFF4CC"/><w:pBdr><w:bottom w:val="single" w:sz="18" w:space="1" w:color="F2C300"/></w:pPr>${runWord(texto,{font:'Arial',size:'24',bold:true,color:'111111'})}</w:p>`;
+            }
+            return parrafoWord(texto,{font:'Arial',size:'21',bold:true,color:'111111',before:120,after:80,line:250,keepNext:true});
         }
         function tablaCabeceras(headers,widths) {
-            return `<w:tr><w:trPr><w:tblHeader/></w:trPr>${headers.map((h,i)=>celdaWord(h,{width:widths[i]||2200,shading:'123B5D',bold:true,color:'FFFFFF',align:'center',size:'16'})).join('')}</w:tr>`;
+            return `<w:tr><w:trPr><w:tblHeader/></w:trPr>${headers.map((h,i)=>celdaWord(h,{width:widths[i]||2200,shading:'111111',bold:true,color:'FFFFFF',align:'center',size:'16'})).join('')}</w:tr>`;
         }
         function tablaGenerica(headers,rows,widths) {
             const cols=headers.length;
@@ -8965,7 +8997,7 @@ async function generarWordPlantillaMaestra() {
             const factor=ANCHO_TABLA_MAESTRA/sumaOriginal;
             const anchos=(widths&&widths.length) ? widths.map((w,i)=> i===widths.length-1 ? ANCHO_TABLA_MAESTRA-widths.slice(0,-1).reduce((a,b)=>a+Math.round(Number(b||0)*factor),0) : Math.round(Number(w||0)*factor)) : Array(cols).fill(Math.floor(ANCHO_TABLA_MAESTRA/cols));
             const body=rows.length ? rows.map(row=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${row.map((v,i)=>celdaWord(v,{width:anchos[i]||Math.floor(ANCHO_TABLA_MAESTRA/cols),size:'16',align:i===0?'left':'center'})).join('')}</w:tr>`).join('') : `<w:tr>${celdaWord('No se registró información.',{width:ANCHO_TABLA_MAESTRA,colspan:cols,align:'center',color:'666666'})}</w:tr>`;
-            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/><w:insideH w:val="single" w:sz="6" w:color="999999"/><w:insideV w:val="single" w:sz="6" w:color="999999"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${tablaCabeceras(headers,anchos)}${body}</w:tbl>`;
+            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="D5D9DD"/><w:left w:val="single" w:sz="6" w:color="D5D9DD"/><w:bottom w:val="single" w:sz="6" w:color="D5D9DD"/><w:right w:val="single" w:sz="6" w:color="D5D9DD"/><w:insideH w:val="single" w:sz="6" w:color="D5D9DD"/><w:insideV w:val="single" w:sz="6" w:color="D5D9DD"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${tablaCabeceras(headers,anchos)}${body}</w:tbl>`;
         }
         function limpio(v){ return v!==undefined && v!==null && String(v).trim()!==""; }
         function camposDiligenciados(lista){ return lista.filter(([,v])=>limpio(v)); }
@@ -9020,9 +9052,9 @@ async function generarWordPlantillaMaestra() {
         const info=camposDiligenciados([
             ["Cliente",inspeccion.cliente],["NIT",inspeccion.nit],["Dirección",inspeccion.direccion],["Ciudad",inspeccion.ciudad],
             ["Contacto",inspeccion.contacto],["Teléfono",inspeccion.telefono],["Correo",inspeccion.correo],["Fecha",inspeccion.fecha],
-            ["Inspector",inspeccion.inspector],["Director",inspeccion.director],["Tipo de inspección",inspeccion.tipo]
+            ["Inspector",inspeccion.inspector],["Director Operativo",inspeccion.director],["Tipo de inspección",inspeccion.tipo]
         ]);
-        let cuerpo=titulo("1. Información general de la inspección",1)+tabla2(info.map(x=>fila2(x[0],x[1])));
+        let cuerpo=titulo("1. Información general de la inspección",1)+tabla4(info);
         if(limpio(inspeccion.objetivo)) cuerpo+=tabla2([fila2("Objetivo",inspeccion.objetivo,{size:'18'})]);
         if(limpio(inspeccion.entorno)) cuerpo+=tabla2([fila2("Descripción del entorno",inspeccion.entorno,{size:'18'})]);
 
@@ -9042,7 +9074,7 @@ async function generarWordPlantillaMaestra() {
         else if(inspeccion.sectorInspeccion==="Comercial") caracteristicas=camposDiligenciados([
             ["Tipo de establecimiento",inspeccion.tipoEstablecimientoComercial],["Actividad comercial",inspeccion.actividadComercial],["Área aproximada (m²)",inspeccion.areaComercial],["Número de locales",inspeccion.numeroLocalesComercial],["Número de niveles",inspeccion.nivelesComercial],["Parqueaderos",inspeccion.parqueaderosComercial],["Otra información",inspeccion.otraInformacionComercial]
         ]);
-        if(caracteristicas.length){ cuerpo+=titulo(`2. Características de la instalación — ${inspeccion.sectorInspeccion||""}`,1)+tabla2(caracteristicas.map(x=>fila2(x[0],x[1]))); }
+        if(caracteristicas.length){ cuerpo+=titulo(`2. Características de la instalación — ${inspeccion.sectorInspeccion||""}`,1)+tabla4(caracteristicas); }
 
         // 03. CCTV
         const cctv=camposDiligenciados([
@@ -9050,7 +9082,7 @@ async function generarWordPlantillaMaestra() {
             ["Vídeo analítica",inspeccion.videoAnalitica],["Ubicación del rack",inspeccion.ubicacionRack],["Días de almacenamiento",inspeccion.diasAlmacenamiento],
             ["UPS / sistema ininterrumpido",inspeccion.upsCCTV],["Manejo de contraseñas",inspeccion.manejoContrasenasCCTV],["Observaciones",inspeccion.observacionesCCTV]
         ]);
-        if(cctv.length) cuerpo+=titulo("3. Sistema CCTV",1)+tabla2(cctv.map(x=>fila2(x[0],x[1])));
+        if(cctv.length) cuerpo+=titulo("3. Sistema CCTV",1)+tabla4(cctv);
 
         // 04. GEOREFERENCIACIÓN
         const geo=camposDiligenciados([["Latitud",inspeccion.latitud||""],["Longitud",inspeccion.longitud||""]]);
@@ -9074,16 +9106,7 @@ async function generarWordPlantillaMaestra() {
             "Formular recomendaciones orientadas al fortalecimiento de las condiciones de seguridad de la copropiedad."
         ];
         const metodologia="Para la realización del presente estudio de seguridad se empleó una visita a la copropiedad, con toma de fotografías, entrevistas y aplicación de lista de chequeo.\nLos parámetros de observación comprenden Control de Accesos, Seguridad Perimetral, Sistemas Electrónicos de Seguridad, Gestión de Autocuidado, Planeación Estratégica y SG-SST, Medio Ambiente y otros aspectos.";
-        const filasObjetivo=[
-            `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord("6. Objetivo y metodología",{width:ANCHO_TABLA_MAESTRA,shading:'123B5D',bold:true,color:'FFFFFF',size:'18',align:'left'})}</w:tr>`,
-            `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord("Objetivo General",{width:ANCHO_TABLA_MAESTRA,shading:'EEF2F5',bold:true,color:'123B5D',size:'17',align:'left'})}</w:tr>`,
-            `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(objetivoGeneral,{width:ANCHO_TABLA_MAESTRA,size:'18',align:'left'})}</w:tr>`,
-            `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord("Objetivos Específicos",{width:ANCHO_TABLA_MAESTRA,shading:'EEF2F5',bold:true,color:'123B5D',size:'17',align:'left'})}</w:tr>`,
-            ...objetivos.map(x=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(x,{width:ANCHO_TABLA_MAESTRA,size:'18',align:'left'})}</w:tr>`),
-            `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord("Metodología",{width:ANCHO_TABLA_MAESTRA,shading:'EEF2F5',bold:true,color:'123B5D',size:'17',align:'left'})}</w:tr>`,
-            `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(metodologia,{width:ANCHO_TABLA_MAESTRA,size:'18',align:'left'})}</w:tr>`
-        ].join("");
-        cuerpo+=`<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="0" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B7C1C9"/><w:left w:val="single" w:sz="6" w:color="B7C1C9"/><w:bottom w:val="single" w:sz="6" w:color="B7C1C9"/><w:right w:val="single" w:sz="6" w:color="B7C1C9"/><w:insideH w:val="single" w:sz="6" w:color="B7C1C9"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${ANCHO_TABLA_MAESTRA}"/></w:tblGrid>${filasObjetivo}</w:tbl>`;
+        cuerpo+=titulo("6. Objetivo y metodología",1)+bloqueTexto("Objetivo General",objetivoGeneral)+titulo("Objetivos Específicos",2)+listaParrafos(objetivos)+bloqueTexto("Metodología",metodologia);
 
         // 07. CHECKLIST
         if(Object.keys(datosChecklist).length){
@@ -9108,19 +9131,19 @@ async function generarWordPlantillaMaestra() {
                 ["SUFICIENTE","51% - 75,9%","Con observaciones menores","Plan de seguimiento encaminado a esas observaciones menores detectadas."],
                 ["REGULAR","26% - 50,9%","Requiere seguimiento","Es necesario el diseño de estrategias tendientes a la corrección de aquellos aspectos calificados por mejorar."],
                 ["DÉBIL","0% - 25,9%","Con observaciones mayores","Es necesario intervenir los aspectos de manera inmediata, con el ánimo de disminuir la probabilidad de materialización de las amenazas."]
-            ],[1300,1300,1900,4338])+`<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="0" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B7C1C9"/><w:left w:val="single" w:sz="6" w:color="B7C1C9"/><w:bottom w:val="single" w:sz="6" w:color="B7C1C9"/><w:right w:val="single" w:sz="6" w:color="B7C1C9"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${ANCHO_TABLA_MAESTRA}"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(`Perfil obtenido: ${perfil} — Resultado: ${porcentajeGeneral}%`,{width:ANCHO_TABLA_MAESTRA,shading:'EEF2F5',bold:true,color:'123B5D',size:'17',align:'center'})}</w:tr></w:tbl>`;
+            ],[1300,1300,1900,4338])+parrafoWord(`Perfil obtenido: ${perfil} — Resultado: ${porcentajeGeneral}%`,{font:'Arial',size:'18',bold:true,color:'123B5D',before:80,after:80});
         }
 
         // 09. MATRIZ DE RIESGOS
         if(matrizParaInforme.length){
-            cuerpo+=titulo("9. Matriz de riesgos",1)+tablaGenerica(["Código","Área","Elemento / Peligro","Probabilidad","Impacto","Puntuación","Nivel","Tratamiento"],matrizParaInforme.map((r,i)=>[r.codigoRiesgo||`R-${String(i+1).padStart(3,"0")}`,r.area||"",r.peligro||"",r.probabilidad||"",r.impacto||"",r.puntuacion||"",r.nivel||"",r.tratamiento||""]),[700,1100,1700,900,800,900,900,1800]);
+            cuerpo+=titulo("9. Matriz de riesgos",1)+tablaGenerica(["#","Área","Elemento / Peligro","Probabilidad","Impacto","Puntuación","Nivel","Tratamiento"],matrizParaInforme.map((r,i)=>[String(i+1),r.area||"",r.peligro||"",r.probabilidad||"",r.impacto||"",r.puntuacion||"",r.nivel||"",r.tratamiento||""]),[500,1100,1900,900,800,900,900,1838]);
         }
 
         // 10. MAPA DE CALOR — tabla de referencia con los riesgos numerados
         if(matrizParaInforme.length){
-            const celdas={}; matrizParaInforme.forEach((r,i)=>{const p=Number(r.probabilidad),imp=Number(r.impacto);if(p>=1&&p<=5&&imp>=1&&imp<=5){const k=`${p}-${imp}`;(celdas[k]||(celdas[k]=[])).push(r.codigoRiesgo||`R-${String(i+1).padStart(3,"0")}`);}});
+            const celdas={}; matrizParaInforme.forEach((r,i)=>{const p=Number(r.probabilidad),imp=Number(r.impacto);if(p>=1&&p<=5&&imp>=1&&imp<=5){const k=`${p}-${imp}`;(celdas[k]||(celdas[k]=[])).push(String(i+1));}});
             const mapa=[]; for(let impacto=5;impacto>=1;impacto--){mapa.push([String(impacto),...Array.from({length:5},(_,j)=>(celdas[`${j+1}-${impacto}`]||[]).join(", "))]);}
-            cuerpo+=titulo("10. Mapa de calor de riesgos",1)+tablaGenerica(["IMPACTO / PROBABILIDAD","1","2","3","4","5"],mapa,[1700,1427,1427,1427,1427,1430])+`<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="0" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B7C1C9"/><w:left w:val="single" w:sz="6" w:color="B7C1C9"/><w:bottom w:val="single" w:sz="6" w:color="B7C1C9"/><w:right w:val="single" w:sz="6" w:color="B7C1C9"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${ANCHO_TABLA_MAESTRA}"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord("Los códigos dentro del mapa corresponden al código de riesgo de la matriz.",{width:ANCHO_TABLA_MAESTRA,shading:'F7F8FA',color:'666666',size:'16',align:'left'})}</w:tr></w:tbl>`;
+            cuerpo+=titulo("10. Mapa de calor de riesgos",1)+tablaGenerica(["IMPACTO / PROBABILIDAD","1","2","3","4","5"],mapa,[1700,1427,1427,1427,1427,1430])+parrafoWord("Los números dentro del mapa corresponden al número de riesgo de la matriz.",{font:'Arial',size:'16',color:'666666',before:60,after:80});
         }
 
         // 11. HALLAZGOS — integración gráfica del registro fotográfico.
@@ -9168,9 +9191,9 @@ async function generarWordPlantillaMaestra() {
                     }
                     if(!fotosContenido) fotosContenido=parrafoWord("Sin evidencia fotográfica",{font:'Arial',size:'16',color:'666666',align:'center',line:220});
                 }
-                rowsXml+=`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(String(i+1),{width:anchos[0],size:'16',align:'center',vAlign:'center'})}${celdaWord(h.area||h.categoria||"",{width:anchos[1],size:'16',align:'center',vAlign:'center'})}${celdaWord(textoHallazgo,{width:anchos[2],size:'16',align:'left',vAlign:'center'})}${celdaWord(recomendacion,{width:anchos[3],size:'16',align:'left',vAlign:'center'})}${celdaWordContenido(fotosContenido,{width:anchos[4],vAlign:'center'})}</w:tr>`;
+                rowsXml+=`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(String(i+1),{width:anchos[0],size:'16',align:'center'})}${celdaWord(h.area||h.categoria||"",{width:anchos[1],size:'16',align:'center'})}${celdaWord(textoHallazgo,{width:anchos[2],size:'16',align:'left'})}${celdaWord(recomendacion,{width:anchos[3],size:'16',align:'left'})}${celdaWordContenido(fotosContenido,{width:anchos[4],vAlign:'center'})}</w:tr>`;
             }
-            const tablaHallazgos=`<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="999999"/><w:left w:val="single" w:sz="6" w:color="999999"/><w:bottom w:val="single" w:sz="6" w:color="999999"/><w:right w:val="single" w:sz="6" w:color="999999"/><w:insideH w:val="single" w:sz="6" w:color="999999"/><w:insideV w:val="single" w:sz="6" w:color="999999"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${headerXml}${rowsXml}</w:tbl>`;
+            const tablaHallazgos=`<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="D5D9DD"/><w:left w:val="single" w:sz="6" w:color="D5D9DD"/><w:bottom w:val="single" w:sz="6" w:color="D5D9DD"/><w:right w:val="single" w:sz="6" w:color="D5D9DD"/><w:insideH w:val="single" w:sz="6" w:color="D5D9DD"/><w:insideV w:val="single" w:sz="6" w:color="D5D9DD"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${headerXml}${rowsXml}</w:tbl>`;
             cuerpo+=titulo("11. Hallazgos identificados",1)+tablaHallazgos;
             zip.file("word/_rels/document.xml.rels",relacionXml);
             if(contentTypesXml) zip.file("[Content_Types].xml",contentTypesXml);
