@@ -23,20 +23,36 @@
             color: #1f2937;
         }
 
-        header {
+        /* CAM-VISUAL-IDENTIDAD-01
+           Encabezado corporativo aprobado TECCHNEX.
+           Intervención quirúrgica: solo identidad visual del encabezado.
+        */
+        header.hero-tecchnex {
             background: #123b5d;
-            color: white;
-            padding: 22px 35px;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+            line-height: 0;
         }
 
-        header h1 {
-            font-size: 25px;
-            margin-bottom: 5px;
+        header.hero-tecchnex img {
+            display: block;
+            width: 100%;
+            height: auto;
+            max-width: 100%;
+            border: 0;
         }
 
-        header p {
-            font-size: 14px;
-            opacity: 0.9;
+        .texto-accesible-header {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
         }
 
         .contenedor {
@@ -372,9 +388,15 @@
 
 <body>
 
-<header>
-    <h1>Sistema de  de Seguridad</h1>
-    <p>Gestión de , riesgos, hallazgos y generación de informes</p>
+<header class="hero-tecchnex" aria-label="Identidad TECCHNEX">
+    <img
+        src="tecchnex-banner-aprobado.png"
+        alt="TECCHNEX — Sistema de Inspecciones de Seguridad. Gestión de riesgos, hallazgos y generación de informes."
+    >
+    <div class="texto-accesible-header">
+        <h1>Sistema de Inspecciones de Seguridad</h1>
+        <p>Gestión de riesgos, hallazgos y generación de informes</p>
+    </div>
 </header>
 
 <div class="contenedor">
