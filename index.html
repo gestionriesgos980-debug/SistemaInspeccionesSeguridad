@@ -90,50 +90,133 @@
         }
 
         /* CAM-VISUAL-IDENTIDAD-02
-           Botones del panel de inspección activa.
+           Identidad cromática del panel de inspección activa.
            Solo presentación visual; no modifica funciones ni eventos.
         */
-        #btnChecklistOM22 {
-            background: #1769aa;
-        }
+        #btnChecklistOM22 { background:#1769aa; }
+        #btnChecklistOM22:hover { background:#0f568d; }
 
-        #btnChecklistOM22:hover {
-            background: #0f568d;
-        }
-
-        #btnMatrizOM22 {
-            background: #7c3aed;
-        }
-
-        #btnMatrizOM22:hover {
-            background: #6d28d9;
-        }
+        #btnMatrizOM22 { background:#7c3aed; }
+        #btnMatrizOM22:hover { background:#6d28d9; }
 
         #btnHallazgosOM22 {
-            background: #f59e0b;
-            color: #1f2937;
+            background:#f59e0b;
+            color:#1f2937;
         }
-
         #btnHallazgosOM22:hover {
-            background: #d97706;
-            color: white;
+            background:#d97706;
+            color:white;
         }
 
         #btnEditarOM22 {
-            background: #facc15;
-            color: #1f2937;
+            background:#facc15;
+            color:#1f2937;
+        }
+        #btnEditarOM22:hover { background:#eab308; }
+
+        #btnEliminarOM22 { background:#dc2626 !important; }
+        #btnEliminarOM22:hover { background:#b91c1c !important; }
+
+        /* OM-03 · Checklist adaptable a celular.
+           La estructura de escritorio se conserva; en pantallas pequeñas
+           cada pregunta ocupa una línea y las cuatro respuestas se reordenan
+           en una cuadrícula táctil de 2 x 2.
+        */
+        #ventanaChecklist .contenedor-checklist {
+            width:90%;
+            max-width:1100px;
+            margin:30px auto;
+            padding:25px;
+            border-radius:12px;
+            box-shadow:0 8px 25px rgba(0,0,0,0.2);
         }
 
-        #btnEditarOM22:hover {
-            background: #eab308;
+        #ventanaChecklist .fila-checklist {
+            display:grid;
+            grid-template-columns:1fr 110px 110px 110px 110px;
+            gap:8px;
+            align-items:center;
+            padding:12px 8px;
+            border-bottom:1px solid #eee;
         }
 
-        #btnEliminarOM22 {
-            background: #dc2626 !important;
-        }
+        @media (max-width:600px) {
+            #ventanaChecklist {
+                padding:8px !important;
+            }
 
-        #btnEliminarOM22:hover {
-            background: #b91c1c !important;
+            #ventanaChecklist .contenedor-checklist {
+                width:100%;
+                max-width:none;
+                margin:0 auto;
+                padding:12px;
+                border-radius:9px;
+            }
+
+            #ventanaChecklist .cabecera-checklist {
+                align-items:flex-start !important;
+                flex-direction:column;
+                gap:10px;
+            }
+
+            #ventanaChecklist .cabecera-checklist h2 {
+                font-size:20px !important;
+                line-height:1.25;
+            }
+
+            #ventanaChecklist .cabecera-checklist button {
+                width:100%;
+                min-height:44px;
+            }
+
+            #ventanaChecklist .categoria-checklist > div:first-child {
+                font-size:16px !important;
+                padding:12px !important;
+            }
+
+            #ventanaChecklist .fila-checklist {
+                grid-template-columns:1fr 1fr;
+                gap:6px;
+                padding:12px 6px;
+            }
+
+            #ventanaChecklist .fila-checklist > div:first-child {
+                grid-column:1 / -1;
+                font-size:15px;
+                line-height:1.35;
+                margin-bottom:4px;
+            }
+
+            #ventanaChecklist .fila-checklist label {
+                min-height:52px;
+                padding:6px 2px;
+                display:flex;
+                flex-direction:column;
+                align-items:center;
+                justify-content:center;
+                border:1px solid #e5e7eb;
+                border-radius:7px;
+                background:#fafafa;
+            }
+
+            #ventanaChecklist .fila-checklist input[type="radio"] {
+                width:20px;
+                height:20px;
+                margin:0 0 4px;
+            }
+
+            #ventanaChecklist .fila-checklist small {
+                font-size:11px;
+                line-height:1.15;
+            }
+
+            #ventanaChecklist #resultadoChecklist {
+                font-size:26px !important;
+            }
+
+            #ventanaChecklist .resultado-final-checklist {
+                padding:15px !important;
+            }
         }
 
         .tarjetas {
@@ -456,22 +539,11 @@
         </button>
     </div>
 
-    <div class="tarjetas">
-
-        <div class="tarjeta">
-            <h3> realizadas</h3>
-            <div class="numero" id="total">0</div>
-        </div>
-
-        <div class="tarjeta">
-            <h3>Clientes</h3>
-            <div class="numero" id="totalClientes">0</div>
-        </div>
-
-         <div class="tarjeta">
-            <h3>Hallazgos</h3>
-            <div class="numero" id="totalHallazgos">0</div>
-        </div>
+    <!--
+        CAM-VISUAL-IDENTIDAD-02
+        Los indicadores generales se consultan en Dashboard.
+        Se retira únicamente su presentación de la pantalla principal.
+    -->
 
     </div>
 
@@ -5881,17 +5953,11 @@ ventana.style.boxSizing = "border-box";
 
 ventana.innerHTML = `
 
-    <div style="
+    <div class="contenedor-checklist" style="
         background:white;
-        width:90%;
-        max-width:1100px;
-        margin:30px auto;
-        padding:25px;
-        border-radius:12px;
-        box-shadow:0 8px 25px rgba(0,0,0,0.2);
     ">
 
-        <div style="
+        <div class="cabecera-checklist" style="
             display:flex;
             justify-content:space-between;
             align-items:center;
@@ -5927,7 +5993,7 @@ ventana.innerHTML = `
         </div>
 
         <div id="contenidoChecklist"></div>
-<div style="
+<div class="resultado-final-checklist" style="
     margin-top:25px;
     padding:20px;
     background:#f4f6f8;
@@ -5999,7 +6065,7 @@ function generarChecklist() {
     Object.keys(datosChecklist).forEach((categoria, indice) => {
 
         html += `
-            <div style="
+            <div class="categoria-checklist" style="
                 margin-bottom:25px;
                 border:1px solid #ddd;
                 border-radius:10px;
@@ -6025,7 +6091,7 @@ function generarChecklist() {
                 "check_" + indice + "_" + i;
 
             html += `
-                <div style="
+                <div class="fila-checklist" style="
                     display:grid;
                     grid-template-columns:1fr 110px 110px 110px 110px;
                     gap:8px;
