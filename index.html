@@ -1,5 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
+<!--
+TECCHNEX — CAM-ALMACENAMIENTO-02 / INTEGRACIÓN LOCAL
+Base: última versión de GitHub aportada por el usuario.
+Integración: bóveda fotográfica IndexedDB de CAM-ALMACENAMIENTO-01B.
+Correcciones: precarga dirigida de fotografías para informes y respaldo/restauración.
+Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva trabajo offline.
+-->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -677,11 +684,13 @@
                 <div class="formulario">
 
                     <div class="campo completo">
-                        <label>Seleccionar cliente del Directorio</label>
-                        <select id="clienteDirectorioOM17" onchange="cargarClienteDesdeDirectorioOM17(this.value)">
+                        <label>Buscar y seleccionar cliente del Directorio</label>
+                        <input type="search" id="buscadorClienteOM17" placeholder="Escriba nombre, NIT o código para buscar..." autocomplete="off" oninput="filtrarClientesOM17(this.value)">
+                        <div id="listaClientesOM17" style="margin-top:8px;max-height:180px;overflow:auto;border:1px solid #dbe3ea;border-radius:8px;background:#fff;"></div>
+                        <select id="clienteDirectorioOM17" onchange="cargarClienteDesdeDirectorioOM17(this.value)" style="display:none;">
                             <option value="">Seleccione un cliente...</option>
                         </select>
-                        <small style="display:block;margin-top:5px;color:#64748b;">Los datos registrados en el Directorio se cargarán automáticamente.</small>
+                        <small style="display:block;margin-top:5px;color:#64748b;">Busque por nombre, NIT o código. Al seleccionar, los datos registrados en el Directorio se cargarán automáticamente.</small>
                     </div>
 
                     <div class="campo">
@@ -1902,6 +1911,8 @@ function agregarServicioSeguridad(tipo) {
     // un cliente, se cargan automáticamente sus datos en el formulario.
     function prepararSelectorClienteOM17() {
         const selector = document.getElementById("clienteDirectorioOM17");
+        const buscador = document.getElementById("buscadorClienteOM17");
+        const lista = document.getElementById("listaClientesOM17");
         if (!selector || typeof inicializarDirectorioClientesOM16 !== "function") return;
         const clientes = inicializarDirectorioClientesOM16();
         selector.innerHTML = '<option value="">Seleccione un cliente...</option>';
@@ -1913,6 +1924,44 @@ function agregarServicioSeguridad(tipo) {
                     .filter(Boolean).join(" — ");
                 selector.appendChild(option);
             }
+        });
+        if (buscador) buscador.value = "";
+        filtrarClientesOM17("");
+    }
+
+    function filtrarClientesOM17(texto) {
+        const lista = document.getElementById("listaClientesOM17");
+        const selector = document.getElementById("clienteDirectorioOM17");
+        if (!lista || !selector) return;
+        const termino = String(texto || "").trim().toLowerCase();
+        lista.innerHTML = "";
+
+        const opciones = Array.from(selector.options).filter(opcion => opcion.value !== "");
+        const coincidencias = opciones.filter(opcion => !termino || opcion.textContent.toLowerCase().includes(termino));
+
+        if (!coincidencias.length) {
+            const vacio = document.createElement("div");
+            vacio.textContent = termino ? "No se encontraron clientes." : "No hay clientes disponibles.";
+            vacio.style.cssText = "padding:10px;color:#64748b;";
+            lista.appendChild(vacio);
+            return;
+        }
+
+        coincidencias.forEach(opcion => {
+            const boton = document.createElement("button");
+            boton.type = "button";
+            boton.textContent = opcion.textContent;
+            boton.style.cssText = "display:block;width:100%;text-align:left;padding:10px 12px;border:0;border-bottom:1px solid #edf2f7;background:#fff;color:#123b5d;cursor:pointer;font-weight:600;";
+            boton.onmouseenter = () => boton.style.background = "#f1f5f9";
+            boton.onmouseleave = () => boton.style.background = "#fff";
+            boton.onclick = function () {
+                selector.value = opcion.value;
+                const buscador = document.getElementById("buscadorClienteOM17");
+                if (buscador) buscador.value = opcion.textContent;
+                cargarClienteDesdeDirectorioOM17(opcion.value);
+                lista.innerHTML = "";
+            };
+            lista.appendChild(boton);
         });
     }
 
@@ -1991,6 +2040,9 @@ function agregarServicioSeguridad(tipo) {
         prepararSelectorClienteOM17();
         const selector = document.getElementById("clienteDirectorioOM17");
         if (selector) selector.value = "";
+        const buscadorCliente = document.getElementById("buscadorClienteOM17");
+        if (buscadorCliente) buscadorCliente.value = "";
+        filtrarClientesOM17("");
         modal.style.display = "block";
 
         const fecha = document.getElementById("fecha");
@@ -3304,118 +3356,484 @@ ctx.stroke();
 
 }
 }
-function crearRespaldo() {
+/* =========================================================
+   CAM-ALMACENAMIENTO-01B — BÓVEDA DE MEDIOS EN INDEXEDDB
+   OBJETIVO: Separar fotografías de la información estructurada.
+   localStorage conserva únicamente referencias ligeras; IndexedDB
+   conserva el Blob de cada fotografía.
+   Compatibilidad: fotografías antiguas en data URL se migran una vez.
+   ========================================================= */
+const TECCHNEX_MEDIA_DB = "TECCHNEX_MEDIA_V1";
+const TECCHNEX_MEDIA_STORE = "fotos";
+let tecchnexMediaDB = null;
+const tecchnexMediaCache = new Map();
 
+function abrirBovedaMedia() {
+    return new Promise((resolve, reject) => {
+        if (tecchnexMediaDB) {
+            resolve(tecchnexMediaDB);
+            return;
+        }
+
+        const solicitud = indexedDB.open(TECCHNEX_MEDIA_DB, 1);
+
+        solicitud.onupgradeneeded = function (evento) {
+            const db = evento.target.result;
+            if (!db.objectStoreNames.contains(TECCHNEX_MEDIA_STORE)) {
+                const store = db.createObjectStore(
+                    TECCHNEX_MEDIA_STORE,
+                    { keyPath: "id" }
+                );
+                store.createIndex("hashSha256", "hashSha256", { unique: false });
+            }
+        };
+
+        solicitud.onsuccess = function () {
+            tecchnexMediaDB = solicitud.result;
+            resolve(tecchnexMediaDB);
+        };
+
+        solicitud.onerror = function () {
+            reject(solicitud.error || new Error("No fue posible abrir IndexedDB."));
+        };
+    });
+}
+
+function blobDesdeDataUrl(dataUrl) {
+    const partes = String(dataUrl || "").split(",");
+    if (partes.length < 2) {
+        throw new Error("Fotografía inválida.");
+    }
+
+    const encabezado = partes[0];
+    const base64 = partes.slice(1).join(",");
+    const mime = (encabezado.match(/data:([^;]+)/i) || [null, "image/jpeg"])[1];
+    const binario = atob(base64);
+    const bytes = new Uint8Array(binario.length);
+
+    for (let i = 0; i < binario.length; i++) {
+        bytes[i] = binario.charCodeAt(i);
+    }
+
+    return new Blob([bytes], { type: mime });
+}
+
+function dataUrlDesdeBlob(blob) {
+    return new Promise((resolve, reject) => {
+        const lector = new FileReader();
+        lector.onload = () => resolve(lector.result);
+        lector.onerror = () => reject(lector.error || new Error("No fue posible leer la fotografía."));
+        lector.readAsDataURL(blob);
+    });
+}
+
+function leerMediaPorId(id) {
+    return abrirBovedaMedia().then(db => new Promise((resolve, reject) => {
+        const tx = db.transaction(TECCHNEX_MEDIA_STORE, "readonly");
+        const solicitud = tx.objectStore(TECCHNEX_MEDIA_STORE).get(id);
+        solicitud.onsuccess = () => resolve(solicitud.result || null);
+        solicitud.onerror = () => reject(solicitud.error || new Error("No fue posible leer la fotografía."));
+    }));
+}
+
+async function guardarMediaEnBoveda(foto) {
+    if (!foto) {
+        return null;
+    }
+
+    // Ya migrada/guardada: solo conserva la referencia.
+    if (foto.mediaId) {
+        return { ...foto };
+    }
+
+    const dataUrl = obtenerImagenDeFoto(foto);
+    if (!dataUrl) {
+        throw new Error("La fotografía no contiene datos utilizables.");
+    }
+
+    const hash = foto.hashSha256 || await calcularHashFoto(dataUrl);
+    const db = await abrirBovedaMedia();
+
+    // Evita duplicados cuando la misma evidencia ya existe.
+    const existente = await new Promise((resolve, reject) => {
+        const tx = db.transaction(TECCHNEX_MEDIA_STORE, "readonly");
+        const indice = tx.objectStore(TECCHNEX_MEDIA_STORE).index("hashSha256");
+        const solicitud = indice.get(hash);
+        solicitud.onsuccess = () => resolve(solicitud.result || null);
+        solicitud.onerror = () => reject(solicitud.error || new Error("No fue posible consultar la fotografía."));
+    });
+
+    if (existente) {
+        const referenciaExistente = {
+            mediaId: existente.id,
+            timestamp: existente.timestamp || foto.timestamp || "",
+            hashSha256: existente.hashSha256 || hash,
+            idControl: existente.idControl || foto.idControl || "",
+            hallazgo: existente.hallazgo || foto.hallazgo || ""
+        };
+        tecchnexMediaCache.set(existente.id, dataUrl);
+        return referenciaExistente;
+    }
+
+    const id = "media_" + Date.now() + "_" + Math.random().toString(36).slice(2, 10);
+    const registro = {
+        id,
+        blob: blobDesdeDataUrl(dataUrl),
+        timestamp: foto.timestamp || new Date().toISOString(),
+        hashSha256: hash,
+        idControl: foto.idControl || "",
+        hallazgo: foto.hallazgo || ""
+    };
+
+    await new Promise((resolve, reject) => {
+        const tx = db.transaction(TECCHNEX_MEDIA_STORE, "readwrite");
+        tx.objectStore(TECCHNEX_MEDIA_STORE).put(registro);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error || new Error("No fue posible guardar la fotografía en IndexedDB."));
+        tx.onabort = () => reject(tx.error || new Error("La transacción de fotografía fue cancelada."));
+    });
+
+    tecchnexMediaCache.set(id, dataUrl);
+
+    return {
+        mediaId: id,
+        timestamp: registro.timestamp,
+        hashSha256: registro.hashSha256,
+        idControl: registro.idControl,
+        hallazgo: registro.hallazgo
+    };
+}
+
+async function cargarMediaEnCache(referencia) {
+    if (!referencia || !referencia.mediaId) {
+        return;
+    }
+
+    if (tecchnexMediaCache.has(referencia.mediaId)) {
+        return;
+    }
+
+    const registro = await leerMediaPorId(referencia.mediaId);
+    if (!registro || !registro.blob) {
+        return;
+    }
+
+    const dataUrl = await dataUrlDesdeBlob(registro.blob);
+    tecchnexMediaCache.set(referencia.mediaId, dataUrl);
+}
+
+async function migrarFotosAntiguasABoveda() {
+    const hallazgos = JSON.parse(localStorage.getItem("hallazgos")) || [];
+    if (!Array.isArray(hallazgos) || !hallazgos.length) {
+        return;
+    }
+
+    let huboCambios = false;
+
+    for (const hallazgo of hallazgos) {
+        if (!Array.isArray(hallazgo.fotos) || !hallazgo.fotos.length) {
+            continue;
+        }
+
+        const fotosMigradas = [];
+        for (const foto of hallazgo.fotos) {
+            if (foto && foto.mediaId) {
+                fotosMigradas.push(foto);
+                continue;
+            }
+
+            try {
+                const referencia = await guardarMediaEnBoveda(foto);
+                if (referencia) {
+                    fotosMigradas.push(referencia);
+                    huboCambios = true;
+                }
+            } catch (error) {
+                // Si una fotografía antigua no puede migrarse, se conserva intacta.
+                console.warn("CAM-ALMACENAMIENTO-01B: no se pudo migrar una fotografía.", error);
+                fotosMigradas.push(foto);
+            }
+        }
+
+        hallazgo.fotos = fotosMigradas;
+    }
+
+    if (huboCambios) {
+        localStorage.setItem("hallazgos", JSON.stringify(hallazgos));
+    }
+
+    // Precarga de las referencias restantes para que la interfaz y el informe
+    // puedan seguir utilizando obtenerImagenDeFoto() de forma síncrona.
+    for (const hallazgo of hallazgos) {
+        for (const foto of (Array.isArray(hallazgo.fotos) ? hallazgo.fotos : [])) {
+            try {
+                await cargarMediaEnCache(foto);
+            } catch (error) {
+                console.warn("CAM-ALMACENAMIENTO-01B: no se pudo precargar una fotografía.", error);
+            }
+        }
+    }
+}
+
+const tecchnexMediaReady = (async function () {
     try {
+        await abrirBovedaMedia();
+        await migrarFotosAntiguasABoveda();
+        return true;
+    } catch (error) {
+        console.error("CAM-ALMACENAMIENTO-01B: IndexedDB no disponible.", error);
+        return false;
+    }
+})();
+
+async function guardarFotosHallazgoEnBoveda(fotos) {
+    // Si IndexedDB no está disponible, conservar compatibilidad con el almacenamiento
+    // anterior para no inutilizar la aplicación en un entorno no compatible.
+    if (!tecchnexMediaDB) {
+        return {
+            resultado: Array.isArray(fotos) ? [...fotos] : [],
+            nuevasReferencias: []
+        };
+    }
+
+    const resultado = [];
+    const nuevasReferencias = [];
+
+    for (const foto of (Array.isArray(fotos) ? fotos : [])) {
+        if (foto && foto.mediaId) {
+            await cargarMediaEnCache(foto);
+            resultado.push({ ...foto });
+            continue;
+        }
+
+        const referencia = await guardarMediaEnBoveda(foto);
+        if (!referencia) {
+            throw new Error("No fue posible convertir una fotografía en referencia de almacenamiento.");
+        }
+
+        resultado.push(referencia);
+        nuevasReferencias.push(referencia);
+    }
+
+    return { resultado, nuevasReferencias };
+}
+
+async function obtenerDataUrlMedia(foto) {
+    if (!foto) {
+        return "";
+    }
+
+    if (!foto.mediaId) {
+        return obtenerImagenDeFoto(foto);
+    }
+
+    if (tecchnexMediaCache.has(foto.mediaId)) {
+        return tecchnexMediaCache.get(foto.mediaId);
+    }
+
+    await cargarMediaEnCache(foto);
+    return tecchnexMediaCache.get(foto.mediaId) || "";
+}
+
+async function exportarMediosParaRespaldo(hallazgos) {
+    const medios = [];
+    const vistos = new Set();
+
+    for (const hallazgo of (Array.isArray(hallazgos) ? hallazgos : [])) {
+        for (const foto of (Array.isArray(hallazgo.fotos) ? hallazgo.fotos : [])) {
+            if (!foto || !foto.mediaId || vistos.has(foto.mediaId)) {
+                continue;
+            }
+
+            const dataUrl = await obtenerDataUrlMedia(foto);
+            if (!dataUrl) {
+                continue;
+            }
+
+            vistos.add(foto.mediaId);
+            medios.push({
+                ...foto,
+                dataUrl
+            });
+        }
+    }
+
+    return medios;
+}
+
+async function restaurarMediosDesdeRespaldo(medios) {
+    if (!tecchnexMediaDB) {
+        return;
+    }
+
+    const mapaIds = new Map();
+
+    for (const medio of (Array.isArray(medios) ? medios : [])) {
+        if (!medio || !medio.dataUrl) {
+            continue;
+        }
+
+        try {
+            const referencia = await guardarMediaEnBoveda({
+                ...medio,
+                imagen: medio.dataUrl
+            });
+
+            if (medio.mediaId && referencia?.mediaId) {
+                mapaIds.set(medio.mediaId, referencia.mediaId);
+            }
+        } catch (error) {
+            console.warn("CAM-ALMACENAMIENTO-01B: no se pudo restaurar un medio.", error);
+        }
+    }
+
+    // Reenlaza las referencias del respaldo al ID real de IndexedDB.
+    if (mapaIds.size) {
+        const hallazgos = JSON.parse(localStorage.getItem("hallazgos")) || [];
+        let huboCambios = false;
+
+        hallazgos.forEach(hallazgo => {
+            if (!Array.isArray(hallazgo.fotos)) return;
+            hallazgo.fotos = hallazgo.fotos.map(foto => {
+                if (foto?.mediaId && mapaIds.has(foto.mediaId)) {
+                    huboCambios = true;
+                    return { ...foto, mediaId: mapaIds.get(foto.mediaId) };
+                }
+                return foto;
+            });
+        });
+
+        if (huboCambios) {
+            localStorage.setItem("hallazgos", JSON.stringify(hallazgos));
+        }
+    }
+
+    // Reenlaza respaldos antiguos que contengan fotografías inline.
+    await migrarFotosAntiguasABoveda();
+}
+
+async function prepararFotografiasParaInforme(indiceInspeccion) {
+    // Carga bajo demanda las referencias de la inspección seleccionada.
+    // No depende únicamente de la precarga global realizada al iniciar.
+    try {
+        await tecchnexMediaReady;
+    } catch (error) {
+        console.warn("TECCHNEX: IndexedDB no disponible para el informe.", error);
+        return;
+    }
+
+    const hallazgos = JSON.parse(localStorage.getItem("hallazgos")) || [];
+    const hallazgosInspeccion = hallazgos.filter(
+        hallazgo => Number(hallazgo.inspeccion) === Number(indiceInspeccion)
+    );
+
+    for (const hallazgo of hallazgosInspeccion) {
+        for (const foto of (Array.isArray(hallazgo.fotos) ? hallazgo.fotos : [])) {
+            if (!foto || !foto.mediaId) {
+                continue;
+            }
+
+            try {
+                await cargarMediaEnCache(foto);
+            } catch (error) {
+                console.warn(
+                    "TECCHNEX: no fue posible cargar una fotografía del informe.",
+                    foto.mediaId,
+                    error
+                );
+            }
+        }
+    }
+}
+
+async function crearRespaldo() {
+    try {
+        const hallazgosRespaldo =
+            JSON.parse(localStorage.getItem("hallazgos")) || [];
+
+        await tecchnexMediaReady;
+
+        const mediosRespaldo =
+            await exportarMediosParaRespaldo(hallazgosRespaldo);
 
         const respaldo = {
             sistema: "Sistema de Inspecciones de Seguridad",
-            versionRespaldo: "1.0",
+            versionRespaldo: "1.1",
             fechaRespaldo: new Date().toISOString(),
 
             datos: {
                 inspecciones:
-                    JSON.parse(
-                        localStorage.getItem("inspecciones")
-                    ) || [],
+                    JSON.parse(localStorage.getItem("inspecciones")) || [],
 
                 checklists:
-                    JSON.parse(
-                        localStorage.getItem("checklists")
-                    ) || [],
+                    JSON.parse(localStorage.getItem("checklists")) || [],
 
-                hallazgos:
-                    JSON.parse(
-                        localStorage.getItem("hallazgos")
-                    ) || [],
+                hallazgos: hallazgosRespaldo,
+
+                // Las fotografías se incluyen solo durante la exportación.
+                // No se duplican permanentemente en localStorage.
+                mediosFotograficos: mediosRespaldo,
 
                 matrizRiesgos:
-                    JSON.parse(
-                        localStorage.getItem("matrizRiesgos")
-                    ) || [],
+                    JSON.parse(localStorage.getItem("matrizRiesgos")) || [],
 
                 resultadosChecklistCategorias:
                     JSON.parse(
-                        localStorage.getItem(
-                            "resultadosChecklistCategorias"
-                        )
-                    ) || [],
+                        localStorage.getItem("resultadosChecklistCategorias")
+                    ) || {},
 
                 ultimoNumeroInspeccion:
-                    localStorage.getItem(
-                        "ultimoNumeroInspeccion"
-                    ) || "0",
+                    localStorage.getItem("ultimoNumeroInspeccion") || "0",
 
                 informesGenerados:
-                    localStorage.getItem(
-                        "informesGenerados"
-                    ) || "0",
+                    localStorage.getItem("informesGenerados") || "0",
 
                 bibliotecaRecomendaciones:
                     JSON.parse(
-                        localStorage.getItem(
-                            CLAVE_BIBLIOTECA_RECOMENDACIONES
-                        )
+                        localStorage.getItem(CLAVE_BIBLIOTECA_RECOMENDACIONES)
                     ) || [],
 
                 bibliotecaRiesgos:
                     JSON.parse(
-                        localStorage.getItem(
-                            CLAVE_BIBLIOTECA_RIESGOS_OM20
-                        )
+                        localStorage.getItem(CLAVE_BIBLIOTECA_RIESGOS_OM20)
                     ) || []
             }
         };
 
-        const contenido =
-            JSON.stringify(respaldo, null, 2);
+        const contenido = JSON.stringify(respaldo, null, 2);
+        const archivo = new Blob(
+            [contenido],
+            { type: "application/json" }
+        );
 
-        const archivo =
-            new Blob(
-                [contenido],
-                { type: "application/json" }
-            );
-
-        const url =
-            URL.createObjectURL(archivo);
-
-        const enlace =
-            document.createElement("a");
+        const url = URL.createObjectURL(archivo);
+        const enlace = document.createElement("a");
 
         enlace.href = url;
-
         enlace.download =
             "Respaldo-Inspecciones-" +
-            new Date()
-                .toISOString()
-                .slice(0, 10) +
+            new Date().toISOString().slice(0, 10) +
             ".json";
 
         document.body.appendChild(enlace);
-
         enlace.click();
-
         document.body.removeChild(enlace);
 
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
 
         alert(
-            "Respaldo creado correctamente."
+            "Respaldo creado correctamente.\n\n" +
+            "Fotografías incluidas: " + mediosRespaldo.length
         );
-
     } catch (error) {
-
-        console.error(
-            "Error al crear respaldo:",
-            error
-        );
-
+        console.error("TECCHNEX: error al crear respaldo:", error);
         alert(
-            "No fue posible crear el respaldo."
+            "No fue posible crear el respaldo.\n\nDetalle técnico: " +
+            (error?.message || error)
         );
     }
 }
-    
+
 function seleccionarRespaldo() {
 
     const selector =
@@ -3435,7 +3853,7 @@ function seleccionarRespaldo() {
 
        const lector = new FileReader();
 
-lector.onload = function(e) {
+lector.onload = async function(e) {
 
     try {
 
@@ -3535,6 +3953,11 @@ if (Object.prototype.hasOwnProperty.call(datos, "bibliotecaRiesgos")) {
         JSON.stringify(datos.bibliotecaRiesgos || [])
     );
 }
+
+await tecchnexMediaReady;
+        await restaurarMediosDesdeRespaldo(
+            datos.mediosFotograficos || []
+        );
 
 actualizarContadores();
 
@@ -4979,7 +5402,16 @@ function generarInformeDesdeModulo() {
     cerrarClientes();
     cerrarDirectorioClientesOM16();
 
-    generarInforme(ventana);
+    // CAM-ALMACENAMIENTO-01B/02 — Preparar explícitamente las fotografías
+    // de la inspección antes de construir el informe. Esto evita depender
+    // únicamente de la precarga global de IndexedDB.
+    prepararFotografiasParaInforme(indice)
+        .then(() => generarInforme(ventana))
+        .catch(error => {
+            console.error("TECCHNEX: error preparando fotografías del informe.", error);
+            ventana.document.body.innerHTML =
+                "<p style=\"font-family:Arial;padding:20px;\">No fue posible preparar las fotografías del informe.</p>";
+        });
 }
 
 function verInspeccion(indice) {
@@ -5387,6 +5819,11 @@ modal.style.display = "block";
             (c.cliente && inspeccion.cliente && normalizarClaveClienteOM16(c.cliente) === normalizarClaveClienteOM16(inspeccion.cliente))
         );
         selectorEdicionOM17.value = idxClienteOM17 >= 0 ? String(idxClienteOM17) : "";
+        const buscadorEdicionOM17 = document.getElementById("buscadorClienteOM17");
+        if (buscadorEdicionOM17) {
+            const opcionSeleccionada = selectorEdicionOM17.options[selectorEdicionOM17.selectedIndex];
+            buscadorEdicionOM17.value = opcionSeleccionada && opcionSeleccionada.value ? opcionSeleccionada.textContent : "";
+        }
     }
     document.getElementById("formInspeccion").dataset.idClienteOM17 = inspeccion.idCliente || "";
     document.getElementById("formInspeccion").dataset.codigoClienteOM17 = inspeccion.codigoCliente || "";
@@ -7072,6 +7509,22 @@ function mostrarFotosHallazgoEditando() {
         return;
     }
 
+    // CAM-ALMACENAMIENTO-01B — Si una referencia aún no está en memoria,
+    // esperar a IndexedDB antes de pintar las miniaturas.
+    if (fotosHallazgoEditando.some(
+        foto => foto?.mediaId && !tecchnexMediaCache.has(foto.mediaId)
+    )) {
+        vistaFotos.innerHTML =
+            "<p style=\"color:#666;\">Cargando fotografías...</p>";
+        tecchnexMediaReady
+            .then(() => mostrarFotosHallazgoEditando())
+            .catch(error => console.warn(
+                "TECCHNEX: no fue posible cargar las fotografías.",
+                error
+            ));
+        return;
+    }
+
     vistaFotos.innerHTML = fotosHallazgoEditando
         .map((foto, indice) => `
             <div
@@ -7131,7 +7584,15 @@ function eliminarFotoHallazgo(indice) {
 // La fotografía se sella en el momento de procesarla y se calcula una huella SHA-256
 // sobre la imagen sellada. Las fotografías antiguas continúan siendo compatibles.
 function obtenerImagenDeFoto(foto) {
-    return typeof foto === "string" ? foto : (foto?.imagen || foto?.data || "");
+    if (typeof foto === "string") {
+        return foto;
+    }
+
+    if (foto?.mediaId) {
+        return tecchnexMediaCache.get(foto.mediaId) || "";
+    }
+
+    return foto?.imagen || foto?.data || "";
 }
 
 async function calcularHashFoto(dataUrl) {
@@ -7359,6 +7820,19 @@ async function guardarHallazgo() {
             ? Number(hallazgos[indiceHallazgoEditando].inspeccion)
             : (indiceInspeccion !== null ? Number(indiceInspeccion) : null);
 
+    const fotosParaGuardar =
+        indiceHallazgoEditando !== null
+            ? [
+                ...fotosHallazgoEditando,
+                ...fotos
+            ]
+            : fotos;
+
+    // CAM-ALMACENAMIENTO-01B — Primero guarda las fotografías en IndexedDB.
+    // Solo después se actualiza localStorage con referencias ligeras.
+    await tecchnexMediaReady;
+    const fotosPersistidas = await guardarFotosHallazgoEnBoveda(fotosParaGuardar);
+
     const hallazgoActualizado = {
 
     fecha:
@@ -7381,13 +7855,7 @@ async function guardarHallazgo() {
 
     recomendacion: recomendacion,
 
-    fotos:
-    indiceHallazgoEditando !== null
-        ? [
-            ...fotosHallazgoEditando,
-            ...fotos
-        ]
-        : fotos
+    fotos: fotosPersistidas.resultado
 };
 
 if (
