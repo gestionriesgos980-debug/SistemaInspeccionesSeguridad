@@ -716,13 +716,16 @@
 
                     <div class="campo completo">
                         <label>Correo electrónico</label>
-                        <input type="email" id="correo">
+                        <input type="text" id="correo">
                     </div>
 
                 </div>
 
             </div>
 
+
+            <!-- CAM-03A: Campos descriptivos anteriores a Herramientas de seguridad en texto libre.
+     Se conservan IDs y flujo de almacenamiento. Fecha, archivos y selector de directorio se mantienen por función técnica. -->
 
             <div class="seccion">
 
@@ -767,32 +770,13 @@
                     <div class="campo">
                         <label>Tipo de inspección</label>
 
-                        <select id="tipo">
-    <option>Inspección preventiva de seguridad integral</option>
-    <option>Inspección de seguimiento</option>
-    <option>Inspección extraordinaria</option>
-    <option>Reinspección</option>
-</select>
+                        <input type="text" id="tipo">
 </div>
 
 <div class="campo">
     <label>Sector de la inspección</label>
 
-    <select id="sectorInspeccion">
-        <option value="">Seleccione...</option>
-        <option value="Residencial">Residencial</option>
-        <option value="Parcelación">Parcelación</option>
-        <option value="Industrial">Industrial</option>
-        <option value="Comercial">Comercial</option>
-        <option value="Educativo">Educativo</option>
-        <option value="Hospitalario">Hospitalario</option>
-        <option value="Hotelero">Hotelero</option>
-        <option value="Institucional">Institucional</option>
-        <option value="Construcción">Construcción</option>
-        <option value="Logístico">Logístico</option>
-        <option value="Recreativo">Recreativo</option>
-        <option value="Otro">Otro</option>
-    </select>
+    <input type="text" id="sectorInspeccion">
 </div>
 
                     <div class="campo completo">
@@ -872,18 +856,12 @@
 
         <div class="campo">
             <label>Tipo de instalación</label>
-            <select id="tipoInstalacion">
-                <option value="">Seleccione...</option>
-                <option value="Urbanización">Urbanización</option>
-                <option value="Edificio">Edificio</option>
-                <option value="Otro">Otro</option>
-            </select>
+            <input type="text" id="tipoInstalacion">
         </div>
 
         <div class="campo">
             <label>Cantidad de torres</label>
-            <input
-                type="number"
+            <input type="text"
                 id="cantidadTorres"
                 min="0"
                 placeholder="Ej. 5">
@@ -891,8 +869,7 @@
 
         <div class="campo">
             <label>Cantidad de niveles</label>
-            <input
-                type="number"
+            <input type="text"
                 id="cantidadNiveles"
                 min="0"
                 placeholder="Ej. 10">
@@ -900,8 +877,7 @@
 
         <div class="campo">
             <label>Cantidad de sótanos</label>
-            <input
-                type="number"
+            <input type="text"
                 id="cantidadSotanos"
                 min="0"
                 placeholder="Ej. 2">
@@ -909,8 +885,7 @@
 
         <div class="campo">
             <label>Cantidad de viviendas</label>
-            <input
-                type="number"
+            <input type="text"
                 id="cantidadViviendas"
                 min="0"
                 placeholder="Ej. 120">
@@ -918,8 +893,7 @@
 
         <div class="campo">
             <label>Parqueaderos privados</label>
-            <input
-                type="number"
+            <input type="text"
                 id="parqueaderosPrivados"
                 min="0"
                 placeholder="Cantidad">
@@ -927,8 +901,7 @@
 
         <div class="campo">
             <label>Parqueaderos visitantes</label>
-            <input
-                type="number"
+            <input type="text"
                 id="parqueaderosVisitantes"
                 min="0"
                 placeholder="Cantidad">
@@ -936,8 +909,7 @@
 
         <div class="campo">
             <label>Parqueaderos motos</label>
-            <input
-                type="number"
+            <input type="text"
                 id="parqueaderosMotos"
                 min="0"
                 placeholder="Cantidad">
@@ -945,8 +917,7 @@
 
         <div class="campo">
             <label>Parqueaderos uso común</label>
-            <input
-                type="number"
+            <input type="text"
                 id="parqueaderosComunes"
                 min="0"
                 placeholder="Cantidad">
@@ -954,8 +925,7 @@
 
         <div class="campo">
             <label>Bicicleteros</label>
-            <input
-                type="number"
+            <input type="text"
                 id="bicicleteros"
                 min="0"
                 placeholder="Cantidad">
@@ -974,15 +944,7 @@
 
         <div class="campo">
             <label>Tipo de instalación industrial</label>
-            <select id="tipoInstalacionIndustrial">
-                <option value="">Seleccione...</option>
-                <option value="Planta de producción">Planta de producción</option>
-                <option value="Bodega">Bodega</option>
-                <option value="Centro de distribución">Centro de distribución</option>
-                <option value="Taller">Taller</option>
-                <option value="Complejo industrial">Complejo industrial</option>
-                <option value="Otra">Otra</option>
-            </select>
+            <input type="text" id="tipoInstalacionIndustrial">
         </div>
 
         <div class="campo">
@@ -994,14 +956,13 @@
         </div>
 <div class="campo">
     <label>Cantidad de bodegas</label>
-    <input type="number" id="cantidadBodegas" min="0" placeholder="Ej. 3">
+    <input type="text" id="cantidadBodegas" min="0" placeholder="Ej. 3">
 </div>
 
         
         <div class="campo">
             <label>Área aproximada (m²)</label>
-            <input
-                type="number"
+            <input type="text"
                 id="areaIndustrial"
                 min="0"
                 placeholder="Ej. 5000">
@@ -1021,17 +982,17 @@
 
         <div class="campo">
             <label>Número de lotes</label>
-            <input type="number" id="numeroLotesParcelacion" min="0" placeholder="Ej. 80">
+            <input type="text" id="numeroLotesParcelacion" min="0" placeholder="Ej. 80">
         </div>
 
         <div class="campo">
             <label>Viviendas construidas</label>
-            <input type="number" id="viviendasConstruidasParcelacion" min="0" placeholder="Ej. 45">
+            <input type="text" id="viviendasConstruidasParcelacion" min="0" placeholder="Ej. 45">
         </div>
 
         <div class="campo">
             <label>Viviendas en construcción</label>
-            <input type="number" id="viviendasConstruccionParcelacion" min="0" placeholder="Ej. 10">
+            <input type="text" id="viviendasConstruccionParcelacion" min="0" placeholder="Ej. 10">
         </div>
 
     </div>
@@ -1058,22 +1019,22 @@
 
         <div class="campo">
             <label>Área aproximada (m²)</label>
-            <input type="number" id="areaComercial" min="0" placeholder="Ej. 2500">
+            <input type="text" id="areaComercial" min="0" placeholder="Ej. 2500">
         </div>
 
         <div class="campo">
             <label>Número de locales</label>
-            <input type="number" id="numeroLocalesComercial" min="0" placeholder="Ej. 40">
+            <input type="text" id="numeroLocalesComercial" min="0" placeholder="Ej. 40">
         </div>
 
         <div class="campo">
             <label>Número de niveles</label>
-            <input type="number" id="nivelesComercial" min="0" placeholder="Ej. 3">
+            <input type="text" id="nivelesComercial" min="0" placeholder="Ej. 3">
         </div>
 
         <div class="campo">
             <label>Parqueaderos</label>
-            <input type="number" id="parqueaderosComercial" min="0" placeholder="Cantidad">
+            <input type="text" id="parqueaderosComercial" min="0" placeholder="Cantidad">
         </div>
 
         <div class="campo completo">
@@ -1095,19 +1056,12 @@
 
         <div class="campo">
             <label>Tipo de sistema CCTV</label>
-            <select id="tipoCCTV">
-                <option value="">Seleccione...</option>
-                <option value="NVR">NVR</option>
-                <option value="DVR">DVR</option>
-                <option value="Híbrido">Híbrido</option>
-                <option value="No dispone">No dispone</option>
-            </select>
+            <input type="text" id="tipoCCTV">
         </div>
 
         <div class="campo">
             <label>Cantidad de cámaras</label>
-            <input
-                type="number"
+            <input type="text"
                 id="cantidadCamaras"
                 min="0"
                 placeholder="Ej. 48">
@@ -1116,8 +1070,7 @@
         <!-- CAMBIO OM-05: Registro de cantidad de equipos de grabación del sistema CCTV. -->
         <div class="campo">
             <label>Cantidad de equipos de grabación</label>
-            <input
-                type="number"
+            <input type="text"
                 id="cantidadEquiposGrabacionCCTV"
                 min="0"
                 placeholder="Ej. 2">
@@ -1125,12 +1078,7 @@
 
         <div class="campo">
             <label>Vídeo analítica</label>
-            <select id="videoAnalitica">
-                <option value="">Seleccione...</option>
-                <option value="Sí">Sí</option>
-                <option value="No">No</option>
-                <option value="Parcial">Parcial</option>
-            </select>
+            <input type="text" id="videoAnalitica">
         </div>
 
         <div class="campo">
@@ -1143,8 +1091,7 @@
 
         <div class="campo">
             <label>Días de almacenamiento</label>
-            <input
-                type="number"
+            <input type="text"
                 id="diasAlmacenamiento"
                 min="0"
                 placeholder="Ej. 30">
@@ -1152,22 +1099,12 @@
 
         <div class="campo">
             <label>UPS / sistema ininterrumpido</label>
-            <select id="upsCCTV">
-                <option value="">Seleccione...</option>
-                <option value="Sí">Sí</option>
-                <option value="No">No</option>
-            </select>
+            <input type="text" id="upsCCTV">
         </div>
 
         <div class="campo">
             <label>Manejo de contraseñas</label>
-            <select id="manejoContrasenasCCTV">
-                <option value="">Seleccione...</option>
-                <option value="Administración">Administración</option>
-                <option value="Vigilantes">Vigilantes</option>
-                <option value="Administración y Vigilantes">Administración y Vigilantes</option>
-                <option value="Otro">Otro</option>
-            </select>
+            <input type="text" id="manejoContrasenasCCTV">
         </div>
 
         <!-- CAMBIO OM-05: Observaciones técnicas para describir detalles del sistema CCTV. -->
