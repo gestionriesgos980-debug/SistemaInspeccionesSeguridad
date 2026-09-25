@@ -9626,13 +9626,25 @@ async function generarWordPlantillaMaestra() {
         }
         documentXml = raizDocumento + documentXml.slice(aperturaDocumento[0].length);
 
+        // CAM-WORD-03 — ALIMENTACIÓN QUIRÚRGICA DEL ENCABEZADO
+        // El recipiente Word NO se modifica. Solo se alimentan los marcadores
+        // que ya existen en header1.xml con datos provenientes de la inspección.
+        // No se toca document.xml ni el contenido, tablas, fotos o paginación.
         const versionDocumento=localStorage.getItem("versionDocumento")||"003";
         const tituloDocumento=localStorage.getItem("tituloDocumento")||"INFORME PREVENTIVO DE SEGURIDAD INTEGRAL";
+        const fechaDocumento=inspeccion.fecha||"";
+        const clienteDocumento=inspeccion.cliente||"";
         const puesto=inspeccion.nombrePuesto||"";
         const headerEntry=zip.file("word/header1.xml");
         if(headerEntry){
             let headerXml=await headerEntry.async("string");
-            [["{{VERSION_DOCUMENTO}}",versionDocumento],["{{TITULO_DOCUMENTO}}",tituloDocumento],["{{PUESTO}}",puesto]].forEach(([m,v])=>headerXml=headerXml.split(m).join(escaparXmlWord(v)));
+            [
+                ["{{VERSION_DOCUMENTO}}",versionDocumento],
+                ["{{TITULO_DOCUMENTO}}",tituloDocumento],
+                ["{{FECHA}}",fechaDocumento],
+                ["{{CLIENTE}}",clienteDocumento],
+                ["{{PUESTO}}",puesto]
+            ].forEach(([m,v])=>headerXml=headerXml.split(m).join(escaparXmlWord(v)));
             zip.file("word/header1.xml",headerXml);
         }
 
