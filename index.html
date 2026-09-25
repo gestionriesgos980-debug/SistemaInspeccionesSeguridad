@@ -779,13 +779,32 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
                     <div class="campo">
                         <label>Tipo de inspección</label>
 
-                        <input type="text" id="tipo">
+                        <select id="tipo">
+    <option>Inspección preventiva de seguridad integral</option>
+    <option>Inspección de seguimiento</option>
+    <option>Inspección extraordinaria</option>
+    <option>Reinspección</option>
+</select>
 </div>
 
 <div class="campo">
     <label>Sector de la inspección</label>
 
-    <input type="text" id="sectorInspeccion">
+    <select id="sectorInspeccion">
+        <option value="">Seleccione...</option>
+        <option value="Residencial">Residencial</option>
+        <option value="Parcelación">Parcelación</option>
+        <option value="Industrial">Industrial</option>
+        <option value="Comercial">Comercial</option>
+        <option value="Educativo">Educativo</option>
+        <option value="Hospitalario">Hospitalario</option>
+        <option value="Hotelero">Hotelero</option>
+        <option value="Institucional">Institucional</option>
+        <option value="Construcción">Construcción</option>
+        <option value="Logístico">Logístico</option>
+        <option value="Recreativo">Recreativo</option>
+        <option value="Otro">Otro</option>
+    </select>
 </div>
 
                     <div class="campo completo">
@@ -1065,7 +1084,13 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
 
         <div class="campo">
             <label>Tipo de sistema CCTV</label>
-            <input type="text" id="tipoCCTV">
+            <select id="tipoCCTV">
+                <option value="">Seleccione...</option>
+                <option value="NVR">NVR</option>
+                <option value="DVR">DVR</option>
+                <option value="Híbrido">Híbrido</option>
+                <option value="No dispone">No dispone</option>
+            </select>
         </div>
 
         <div class="campo">
@@ -1087,7 +1112,12 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
 
         <div class="campo">
             <label>Vídeo analítica</label>
-            <input type="text" id="videoAnalitica">
+            <select id="videoAnalitica">
+                <option value="">Seleccione...</option>
+                <option value="Sí">Sí</option>
+                <option value="No">No</option>
+                <option value="Parcial">Parcial</option>
+            </select>
         </div>
 
         <div class="campo">
@@ -1108,12 +1138,22 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
 
         <div class="campo">
             <label>UPS / sistema ininterrumpido</label>
-            <input type="text" id="upsCCTV">
+            <select id="upsCCTV">
+                <option value="">Seleccione...</option>
+                <option value="Sí">Sí</option>
+                <option value="No">No</option>
+            </select>
         </div>
 
         <div class="campo">
             <label>Manejo de contraseñas</label>
-            <input type="text" id="manejoContrasenasCCTV">
+            <select id="manejoContrasenasCCTV">
+                <option value="">Seleccione...</option>
+                <option value="Administración">Administración</option>
+                <option value="Vigilantes">Vigilantes</option>
+                <option value="Administración y Vigilantes">Administración y Vigilantes</option>
+                <option value="Otro">Otro</option>
+            </select>
         </div>
 
         <!-- CAMBIO OM-05: Observaciones técnicas para describir detalles del sistema CCTV. -->
