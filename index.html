@@ -617,20 +617,50 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
                 </p>
             </div>
 
-            <div class="modulo" onclick="crearRespaldo()">
-                <h3>☁️ Crear Respaldo</h3>
-                <p>
-                    Generar una copia de seguridad de la información
-                    del sistema.
+            <!-- ======================================================
+                 CAM-ARCHIVOS-01 — CENTRO ÚNICO DE ARCHIVOS
+                 Intervención quirúrgica: sustituye únicamente las dos
+                 tarjetas independientes de respaldo por una sola tarjeta
+                 contenedora. Las funciones existentes de respaldo/restauración
+                 se conservan; se agregan accesos independientes para importar
+                 las bibliotecas de riesgos y hallazgos.
+                 ====================================================== -->
+            <div class="modulo" style="grid-column:1 / -1;cursor:default;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                    <h3 style="margin:0;">🗂️ Archivos</h3>
+                </div>
+                <p style="margin:0 0 14px;">
+                    Administrar respaldos y cargar las bibliotecas reutilizables del sistema.
                 </p>
-            </div>
 
-            <div class="modulo" onclick="seleccionarRespaldo()">
-                <h3>📥 Guardar Respaldo</h3>
-                <p>
-                    Restaurar información del sistema desde un respaldo
-                    previamente guardado.
-                </p>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;">
+                    <button type="button" onclick="crearRespaldo();event.stopPropagation();"
+                        style="border:1px solid #dbe3ea;background:#fff;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
+                        <strong style="display:block;color:#123b5d;margin-bottom:5px;">☁️ Crear respaldo</strong>
+                        <span style="font-size:12px;color:#64748b;">Generar una copia de seguridad de la información del sistema.</span>
+                    </button>
+
+                    <button type="button" onclick="seleccionarRespaldo();event.stopPropagation();"
+                        style="border:1px solid #dbe3ea;background:#fff;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
+                        <strong style="display:block;color:#123b5d;margin-bottom:5px;">📥 Restaurar respaldo</strong>
+                        <span style="font-size:12px;color:#64748b;">Recuperar información desde un respaldo previamente guardado.</span>
+                    </button>
+
+                    <button type="button" onclick="seleccionarBibliotecaArchivoOM31('riesgos');event.stopPropagation();"
+                        style="border:1px solid #dbe3ea;background:#fff;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
+                        <strong style="display:block;color:#123b5d;margin-bottom:5px;">⚠️ Subir biblioteca de riesgos</strong>
+                        <span style="font-size:12px;color:#64748b;">Importar una biblioteca de riesgos en formato JSON.</span>
+                    </button>
+
+                    <button type="button" onclick="seleccionarBibliotecaArchivoOM31('hallazgos');event.stopPropagation();"
+                        style="border:1px solid #dbe3ea;background:#fff;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
+                        <strong style="display:block;color:#123b5d;margin-bottom:5px;">🔎 Subir biblioteca de hallazgos</strong>
+                        <span style="font-size:12px;color:#64748b;">Importar la biblioteca de recomendaciones/hallazgos en formato JSON.</span>
+                    </button>
+                </div>
+
+                <input id="archivoBibliotecaRiesgosOM31" type="file" accept=".json,application/json" style="display:none" onchange="procesarBibliotecaArchivoOM31('riesgos',this.files[0]);this.value='';">
+                <input id="archivoBibliotecaHallazgosOM31" type="file" accept=".json,application/json" style="display:none" onchange="procesarBibliotecaArchivoOM31('hallazgos',this.files[0]);this.value='';">
             </div>
 
         </div>
@@ -2099,6 +2129,64 @@ function agregarServicioSeguridad(tipo) {
    OBJETIVO: dar acceso desde el menú principal a funciones
    ya existentes, sin modificar su lógica operativa.
    ====================================================== */
+
+/* ======================================================
+   CAM-ARCHIVOS-01 · IMPORTACIÓN DE BIBLIOTECAS
+   Las bibliotecas se almacenan en las mismas claves que ya utiliza
+   el sistema. No se modifica la lógica existente de consulta/edición.
+   Formato de entrada: JSON con un arreglo en la raíz o un objeto que
+   contenga bibliotecaRiesgos / bibliotecaRecomendaciones.
+   ====================================================== */
+function seleccionarBibliotecaArchivoOM31(tipo) {
+    const id = tipo === "riesgos"
+        ? "archivoBibliotecaRiesgosOM31"
+        : "archivoBibliotecaHallazgosOM31";
+    document.getElementById(id)?.click();
+}
+
+async function procesarBibliotecaArchivoOM31(tipo, archivo) {
+    if (!archivo) return;
+
+    try {
+        const texto = await archivo.text();
+        const datos = JSON.parse(texto);
+        const clave = tipo === "riesgos"
+            ? CLAVE_BIBLIOTECA_RIESGOS_OM20
+            : CLAVE_BIBLIOTECA_RECOMENDACIONES;
+
+        let biblioteca = Array.isArray(datos)
+            ? datos
+            : (tipo === "riesgos"
+                ? datos?.bibliotecaRiesgos
+                : datos?.bibliotecaRecomendaciones);
+
+        if (!Array.isArray(biblioteca)) {
+            throw new Error("El archivo no contiene una biblioteca válida.");
+        }
+
+        biblioteca = biblioteca.filter(item => item && typeof item === "object");
+        if (!biblioteca.length) {
+            throw new Error("La biblioteca está vacía.");
+        }
+
+        localStorage.setItem(clave, JSON.stringify(biblioteca));
+
+        const nombre = tipo === "riesgos" ? "riesgos" : "hallazgos";
+        alert(`Biblioteca de ${nombre} cargada correctamente.\n\nRegistros importados: ${biblioteca.length}`);
+
+        // Si la biblioteca correspondiente está abierta, refrescarla sin
+        // reconstruir ni modificar su lógica de edición/consulta.
+        if (tipo === "riesgos" && document.getElementById("contenidoBibliotecaRiesgosOM20")) {
+            renderizarBibliotecaRiesgosOM20();
+        }
+        if (tipo === "hallazgos" && document.getElementById("contenidoBibliotecaOM20")) {
+            renderizarBibliotecaRecomendacionesOM20();
+        }
+    } catch (error) {
+        console.error("CAM-ARCHIVOS-01: error al importar biblioteca:", error);
+        alert("No fue posible cargar la biblioteca.\n\nDetalle: " + (error?.message || error));
+    }
+}
 
 function abrirBibliotecaRecomendacionesOM22() {
 
