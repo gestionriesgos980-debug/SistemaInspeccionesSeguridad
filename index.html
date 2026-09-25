@@ -9461,7 +9461,7 @@ async function generarWordPlantillaMaestra() {
     const datosChecklist = checklist && checklist.datos ? checklist.datos : {};
     const respuestasChecklist = checklist && checklist.respuestas ? checklist.respuestas : {};
 
-    const plantillaUrl = "./PLANTILLA_MAESTRA_INFORME_TECCHNEX.docx";
+    const plantillaUrl = "./PLANTILLA_MAESTRA_TECCHNEX_SOLO_ENCABEZADO.docx";
 
     try {
         function escaparXmlWord(valor) {
@@ -9572,7 +9572,7 @@ async function generarWordPlantillaMaestra() {
         }
         function titulo(texto,nivel=1){
             if(nivel===1){
-                return `<w:p><w:pPr><w:spacing w:before="160" w:after="100" w:line="260" w:lineRule="auto"/><w:keepNext/><w:shd w:fill="FFF4CC"/><w:pBdr><w:bottom w:val="single" w:sz="18" w:space="1" w:color="F2C300"/></w:pPr>${runWord(texto,{font:'Arial',size:'24',bold:true,color:'111111'})}</w:p>`;
+                return `<w:p><w:pPr><w:spacing w:before="160" w:after="100" w:line="260" w:lineRule="auto"/><w:keepNext/><w:shd w:fill="FFF4CC"/><w:pBdr><w:bottom w:val="single" w:sz="18" w:space="1" w:color="F2C300"/></w:pBdr></w:pPr>${runWord(texto,{font:'Arial',size:'24',bold:true,color:'111111'})}</w:p>`;
             }
             return parrafoWord(texto,{font:'Arial',size:'21',bold:true,color:'111111',before:120,after:80,line:250,keepNext:true});
         }
