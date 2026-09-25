@@ -40,14 +40,33 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
             margin: 0;
             overflow: hidden;
             line-height: 0;
+            height: 170px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         header.hero-tecchnex img {
             display: block;
             width: 100%;
-            height: auto;
+            height: 170px;
             max-width: 100%;
+            object-fit: contain;
             border: 0;
+        }
+
+        @media (max-width: 900px) {
+            header.hero-tecchnex,
+            header.hero-tecchnex img {
+                height: 125px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            header.hero-tecchnex,
+            header.hero-tecchnex img {
+                height: 105px;
+            }
         }
 
         .texto-accesible-header {
@@ -293,6 +312,129 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
             font-size: 14px;
             line-height: 1.5;
         }
+
+        /* ======================================================
+           CAM-VISUAL-06 — APLICACIÓN VISUAL AL CENTRO DE ARCHIVOS
+           Solo presentación: no modifica funciones ni almacenamiento.
+           ====================================================== */
+        .archivos-centro {
+            background: linear-gradient(135deg, #f8fbff 0%, #ffffff 100%);
+            border: 1px solid #d7e3ee;
+            box-shadow: 0 5px 16px rgba(18,59,93,0.08);
+        }
+
+        .archivos-centro h3 {
+            color: #123b5d;
+        }
+
+        .archivos-acciones {
+            display:grid;
+            grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+            gap:12px;
+        }
+
+        .archivo-accion {
+            border:0 !important;
+            border-radius:12px !important;
+            padding:15px !important;
+            text-align:left !important;
+            cursor:pointer;
+            min-height:108px;
+            box-shadow:0 3px 9px rgba(15,23,42,0.08);
+            transition:transform .18s ease, box-shadow .18s ease, filter .18s ease;
+            color:#123b5d;
+        }
+
+        .archivo-accion:hover {
+            transform:translateY(-2px);
+            box-shadow:0 6px 14px rgba(15,23,42,0.13);
+            filter:brightness(0.98);
+        }
+
+        .archivo-accion:focus-visible {
+            outline:3px solid rgba(18,59,93,0.22);
+            outline-offset:2px;
+        }
+
+        .archivo-accion strong {
+            display:block !important;
+            margin-bottom:7px !important;
+            font-size:14px;
+            color:#123b5d !important;
+        }
+
+        .archivo-accion span {
+            font-size:12px;
+            color:#475569 !important;
+            line-height:1.45;
+        }
+
+        .archivo-accion.respaldo {
+            background:#eaf3ff !important;
+            border-left:5px solid #1769aa !important;
+        }
+
+        .archivo-accion.restaurar {
+            background:#edf9f0 !important;
+            border-left:5px solid #2e7d32 !important;
+        }
+
+        .archivo-accion.riesgos {
+            background:#f5edff !important;
+            border-left:5px solid #7b1fa2 !important;
+        }
+
+        .archivo-accion.hallazgos {
+            background:#fff3e8 !important;
+            border-left:5px solid #ef6c00 !important;
+        }
+
+        /* ======================================================
+           CAM-ARCHIVOS-03 — MENÚ PRINCIPAL A COLOR / VISUAL-06
+           Solo presentación. Conserva intactas las funciones.
+           Cada módulo del menú recibe una identidad cromática.
+           ====================================================== */
+        .modulos > .modulo:nth-child(1) {
+            background: linear-gradient(135deg, #eaf3ff 0%, #f8fbff 100%);
+            border: 1px solid #b9d6f2;
+            border-left: 6px solid #1769aa;
+        }
+        .modulos > .modulo:nth-child(2) {
+            background: linear-gradient(135deg, #e9f8fb 0%, #f8fdfe 100%);
+            border: 1px solid #b7e2e8;
+            border-left: 6px solid #008c95;
+        }
+        .modulos > .modulo:nth-child(3) {
+            background: linear-gradient(135deg, #f5edff 0%, #fcf9ff 100%);
+            border: 1px solid #dac5ee;
+            border-left: 6px solid #7b1fa2;
+        }
+        .modulos > .modulo:nth-child(4) {
+            background: linear-gradient(135deg, #fff3e8 0%, #fffaf6 100%);
+            border: 1px solid #f0cfb0;
+            border-left: 6px solid #ef6c00;
+        }
+        .modulos > .modulo:nth-child(5) {
+            background: linear-gradient(135deg, #edf9f0 0%, #fbfefb 100%);
+            border: 1px solid #c6e4cc;
+            border-left: 6px solid #2e7d32;
+        }
+        .modulos > .archivos-centro {
+            background: linear-gradient(135deg, #eef3f8 0%, #fbfdff 100%);
+            border: 1px solid #c8d6e3;
+            border-left: 6px solid #123b5d;
+        }
+        .modulos > .modulo:nth-child(-n+5):hover,
+        .modulos > .archivos-centro:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(15,23,42,0.12);
+        }
+        .modulos > .modulo:nth-child(1) h3 { color:#1769aa; }
+        .modulos > .modulo:nth-child(2) h3 { color:#008c95; }
+        .modulos > .modulo:nth-child(3) h3 { color:#7b1fa2; }
+        .modulos > .modulo:nth-child(4) h3 { color:#ef6c00; }
+        .modulos > .modulo:nth-child(5) h3 { color:#2e7d32; }
+        .modulos > .archivos-centro h3 { color:#123b5d; }
 
         /* Ventana de nueva inspección */
 
@@ -618,14 +760,14 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
             </div>
 
             <!-- ======================================================
-                 CAM-ARCHIVOS-01 — CENTRO ÚNICO DE ARCHIVOS
+                 CAM-ARCHIVOS-03 — CENTRO ÚNICO DE ARCHIVOS / VISUAL-06
                  Intervención quirúrgica: sustituye únicamente las dos
                  tarjetas independientes de respaldo por una sola tarjeta
                  contenedora. Las funciones existentes de respaldo/restauración
                  se conservan; se agregan accesos independientes para importar
                  las bibliotecas de riesgos y hallazgos.
                  ====================================================== -->
-            <div class="modulo" style="grid-column:1 / -1;cursor:default;">
+            <div class="modulo archivos-centro" style="grid-column:1 / -1;cursor:default;">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
                     <h3 style="margin:0;">🗂️ Archivos</h3>
                 </div>
@@ -633,27 +775,27 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
                     Administrar respaldos y cargar las bibliotecas reutilizables del sistema.
                 </p>
 
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;">
+                <div class="archivos-acciones">
                     <button type="button" onclick="crearRespaldo();event.stopPropagation();"
-                        style="border:1px solid #dbe3ea;background:#fff;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
+                        class="archivo-accion respaldo" >
                         <strong style="display:block;color:#123b5d;margin-bottom:5px;">☁️ Crear respaldo</strong>
                         <span style="font-size:12px;color:#64748b;">Generar una copia de seguridad de la información del sistema.</span>
                     </button>
 
                     <button type="button" onclick="seleccionarRespaldo();event.stopPropagation();"
-                        style="border:1px solid #dbe3ea;background:#fff;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
+                        class="archivo-accion restaurar" >
                         <strong style="display:block;color:#123b5d;margin-bottom:5px;">📥 Restaurar respaldo</strong>
                         <span style="font-size:12px;color:#64748b;">Recuperar información desde un respaldo previamente guardado.</span>
                     </button>
 
                     <button type="button" onclick="seleccionarBibliotecaArchivoOM31('riesgos');event.stopPropagation();"
-                        style="border:1px solid #dbe3ea;background:#fff;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
+                        class="archivo-accion riesgos" >
                         <strong style="display:block;color:#123b5d;margin-bottom:5px;">⚠️ Subir biblioteca de riesgos</strong>
                         <span style="font-size:12px;color:#64748b;">Importar una biblioteca de riesgos en formato JSON.</span>
                     </button>
 
                     <button type="button" onclick="seleccionarBibliotecaArchivoOM31('hallazgos');event.stopPropagation();"
-                        style="border:1px solid #dbe3ea;background:#fff;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
+                        class="archivo-accion hallazgos" >
                         <strong style="display:block;color:#123b5d;margin-bottom:5px;">🔎 Subir biblioteca de hallazgos</strong>
                         <span style="font-size:12px;color:#64748b;">Importar la biblioteca de recomendaciones/hallazgos en formato JSON.</span>
                     </button>
