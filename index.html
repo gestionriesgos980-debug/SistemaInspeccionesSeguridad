@@ -40,33 +40,14 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
             margin: 0;
             overflow: hidden;
             line-height: 0;
-            height: 170px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
 
         header.hero-tecchnex img {
             display: block;
             width: 100%;
-            height: 170px;
+            height: auto;
             max-width: 100%;
-            object-fit: contain;
             border: 0;
-        }
-
-        @media (max-width: 900px) {
-            header.hero-tecchnex,
-            header.hero-tecchnex img {
-                height: 125px;
-            }
-        }
-
-        @media (max-width: 600px) {
-            header.hero-tecchnex,
-            header.hero-tecchnex img {
-                height: 105px;
-            }
         }
 
         .texto-accesible-header {
@@ -312,129 +293,6 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
             font-size: 14px;
             line-height: 1.5;
         }
-
-        /* ======================================================
-           CAM-VISUAL-06 — APLICACIÓN VISUAL AL CENTRO DE ARCHIVOS
-           Solo presentación: no modifica funciones ni almacenamiento.
-           ====================================================== */
-        .archivos-centro {
-            background: linear-gradient(135deg, #f8fbff 0%, #ffffff 100%);
-            border: 1px solid #d7e3ee;
-            box-shadow: 0 5px 16px rgba(18,59,93,0.08);
-        }
-
-        .archivos-centro h3 {
-            color: #123b5d;
-        }
-
-        .archivos-acciones {
-            display:grid;
-            grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
-            gap:12px;
-        }
-
-        .archivo-accion {
-            border:0 !important;
-            border-radius:12px !important;
-            padding:15px !important;
-            text-align:left !important;
-            cursor:pointer;
-            min-height:108px;
-            box-shadow:0 3px 9px rgba(15,23,42,0.08);
-            transition:transform .18s ease, box-shadow .18s ease, filter .18s ease;
-            color:#123b5d;
-        }
-
-        .archivo-accion:hover {
-            transform:translateY(-2px);
-            box-shadow:0 6px 14px rgba(15,23,42,0.13);
-            filter:brightness(0.98);
-        }
-
-        .archivo-accion:focus-visible {
-            outline:3px solid rgba(18,59,93,0.22);
-            outline-offset:2px;
-        }
-
-        .archivo-accion strong {
-            display:block !important;
-            margin-bottom:7px !important;
-            font-size:14px;
-            color:#123b5d !important;
-        }
-
-        .archivo-accion span {
-            font-size:12px;
-            color:#475569 !important;
-            line-height:1.45;
-        }
-
-        .archivo-accion.respaldo {
-            background:#eaf3ff !important;
-            border-left:5px solid #1769aa !important;
-        }
-
-        .archivo-accion.restaurar {
-            background:#edf9f0 !important;
-            border-left:5px solid #2e7d32 !important;
-        }
-
-        .archivo-accion.riesgos {
-            background:#f5edff !important;
-            border-left:5px solid #7b1fa2 !important;
-        }
-
-        .archivo-accion.hallazgos {
-            background:#fff3e8 !important;
-            border-left:5px solid #ef6c00 !important;
-        }
-
-        /* ======================================================
-           CAM-ARCHIVOS-03 — MENÚ PRINCIPAL A COLOR / VISUAL-06
-           Solo presentación. Conserva intactas las funciones.
-           Cada módulo del menú recibe una identidad cromática.
-           ====================================================== */
-        .modulos > .modulo:nth-child(1) {
-            background: linear-gradient(135deg, #eaf3ff 0%, #f8fbff 100%);
-            border: 1px solid #b9d6f2;
-            border-left: 6px solid #1769aa;
-        }
-        .modulos > .modulo:nth-child(2) {
-            background: linear-gradient(135deg, #e9f8fb 0%, #f8fdfe 100%);
-            border: 1px solid #b7e2e8;
-            border-left: 6px solid #008c95;
-        }
-        .modulos > .modulo:nth-child(3) {
-            background: linear-gradient(135deg, #f5edff 0%, #fcf9ff 100%);
-            border: 1px solid #dac5ee;
-            border-left: 6px solid #7b1fa2;
-        }
-        .modulos > .modulo:nth-child(4) {
-            background: linear-gradient(135deg, #fff3e8 0%, #fffaf6 100%);
-            border: 1px solid #f0cfb0;
-            border-left: 6px solid #ef6c00;
-        }
-        .modulos > .modulo:nth-child(5) {
-            background: linear-gradient(135deg, #edf9f0 0%, #fbfefb 100%);
-            border: 1px solid #c6e4cc;
-            border-left: 6px solid #2e7d32;
-        }
-        .modulos > .archivos-centro {
-            background: linear-gradient(135deg, #eef3f8 0%, #fbfdff 100%);
-            border: 1px solid #c8d6e3;
-            border-left: 6px solid #123b5d;
-        }
-        .modulos > .modulo:nth-child(-n+5):hover,
-        .modulos > .archivos-centro:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(15,23,42,0.12);
-        }
-        .modulos > .modulo:nth-child(1) h3 { color:#1769aa; }
-        .modulos > .modulo:nth-child(2) h3 { color:#008c95; }
-        .modulos > .modulo:nth-child(3) h3 { color:#7b1fa2; }
-        .modulos > .modulo:nth-child(4) h3 { color:#ef6c00; }
-        .modulos > .modulo:nth-child(5) h3 { color:#2e7d32; }
-        .modulos > .archivos-centro h3 { color:#123b5d; }
 
         /* Ventana de nueva inspección */
 
@@ -759,50 +617,20 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
                 </p>
             </div>
 
-            <!-- ======================================================
-                 CAM-ARCHIVOS-03 — CENTRO ÚNICO DE ARCHIVOS / VISUAL-06
-                 Intervención quirúrgica: sustituye únicamente las dos
-                 tarjetas independientes de respaldo por una sola tarjeta
-                 contenedora. Las funciones existentes de respaldo/restauración
-                 se conservan; se agregan accesos independientes para importar
-                 las bibliotecas de riesgos y hallazgos.
-                 ====================================================== -->
-            <div class="modulo archivos-centro" style="grid-column:1 / -1;cursor:default;">
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-                    <h3 style="margin:0;">🗂️ Archivos</h3>
-                </div>
-                <p style="margin:0 0 14px;">
-                    Administrar respaldos y cargar las bibliotecas reutilizables del sistema.
+            <div class="modulo" onclick="crearRespaldo()">
+                <h3>☁️ Crear Respaldo</h3>
+                <p>
+                    Generar una copia de seguridad de la información
+                    del sistema.
                 </p>
+            </div>
 
-                <div class="archivos-acciones">
-                    <button type="button" onclick="crearRespaldo();event.stopPropagation();"
-                        class="archivo-accion respaldo" >
-                        <strong style="display:block;color:#123b5d;margin-bottom:5px;">☁️ Crear respaldo</strong>
-                        <span style="font-size:12px;color:#64748b;">Generar una copia de seguridad de la información del sistema.</span>
-                    </button>
-
-                    <button type="button" onclick="seleccionarRespaldo();event.stopPropagation();"
-                        class="archivo-accion restaurar" >
-                        <strong style="display:block;color:#123b5d;margin-bottom:5px;">📥 Restaurar respaldo</strong>
-                        <span style="font-size:12px;color:#64748b;">Recuperar información desde un respaldo previamente guardado.</span>
-                    </button>
-
-                    <button type="button" onclick="seleccionarBibliotecaArchivoOM31('riesgos');event.stopPropagation();"
-                        class="archivo-accion riesgos" >
-                        <strong style="display:block;color:#123b5d;margin-bottom:5px;">⚠️ Subir biblioteca de riesgos</strong>
-                        <span style="font-size:12px;color:#64748b;">Importar una biblioteca de riesgos en formato JSON.</span>
-                    </button>
-
-                    <button type="button" onclick="seleccionarBibliotecaArchivoOM31('hallazgos');event.stopPropagation();"
-                        class="archivo-accion hallazgos" >
-                        <strong style="display:block;color:#123b5d;margin-bottom:5px;">🔎 Subir biblioteca de hallazgos</strong>
-                        <span style="font-size:12px;color:#64748b;">Importar la biblioteca de recomendaciones/hallazgos en formato JSON.</span>
-                    </button>
-                </div>
-
-                <input id="archivoBibliotecaRiesgosOM31" type="file" accept=".json,application/json" style="display:none" onchange="procesarBibliotecaArchivoOM31('riesgos',this.files[0]);this.value='';">
-                <input id="archivoBibliotecaHallazgosOM31" type="file" accept=".json,application/json" style="display:none" onchange="procesarBibliotecaArchivoOM31('hallazgos',this.files[0]);this.value='';">
+            <div class="modulo" onclick="seleccionarRespaldo()">
+                <h3>📥 Guardar Respaldo</h3>
+                <p>
+                    Restaurar información del sistema desde un respaldo
+                    previamente guardado.
+                </p>
             </div>
 
         </div>
@@ -944,7 +772,7 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
                     </div>
 
                     <div class="campo">
-                        <label>Nombre del puesto</label>
+                        <label>Nombre del puesto / servicio</label>
                         <input type="text" id="nombrePuesto" placeholder="Ej.: Portería principal">
                     </div>
 
@@ -2271,64 +2099,6 @@ function agregarServicioSeguridad(tipo) {
    OBJETIVO: dar acceso desde el menú principal a funciones
    ya existentes, sin modificar su lógica operativa.
    ====================================================== */
-
-/* ======================================================
-   CAM-ARCHIVOS-01 · IMPORTACIÓN DE BIBLIOTECAS
-   Las bibliotecas se almacenan en las mismas claves que ya utiliza
-   el sistema. No se modifica la lógica existente de consulta/edición.
-   Formato de entrada: JSON con un arreglo en la raíz o un objeto que
-   contenga bibliotecaRiesgos / bibliotecaRecomendaciones.
-   ====================================================== */
-function seleccionarBibliotecaArchivoOM31(tipo) {
-    const id = tipo === "riesgos"
-        ? "archivoBibliotecaRiesgosOM31"
-        : "archivoBibliotecaHallazgosOM31";
-    document.getElementById(id)?.click();
-}
-
-async function procesarBibliotecaArchivoOM31(tipo, archivo) {
-    if (!archivo) return;
-
-    try {
-        const texto = await archivo.text();
-        const datos = JSON.parse(texto);
-        const clave = tipo === "riesgos"
-            ? CLAVE_BIBLIOTECA_RIESGOS_OM20
-            : CLAVE_BIBLIOTECA_RECOMENDACIONES;
-
-        let biblioteca = Array.isArray(datos)
-            ? datos
-            : (tipo === "riesgos"
-                ? datos?.bibliotecaRiesgos
-                : datos?.bibliotecaRecomendaciones);
-
-        if (!Array.isArray(biblioteca)) {
-            throw new Error("El archivo no contiene una biblioteca válida.");
-        }
-
-        biblioteca = biblioteca.filter(item => item && typeof item === "object");
-        if (!biblioteca.length) {
-            throw new Error("La biblioteca está vacía.");
-        }
-
-        localStorage.setItem(clave, JSON.stringify(biblioteca));
-
-        const nombre = tipo === "riesgos" ? "riesgos" : "hallazgos";
-        alert(`Biblioteca de ${nombre} cargada correctamente.\n\nRegistros importados: ${biblioteca.length}`);
-
-        // Si la biblioteca correspondiente está abierta, refrescarla sin
-        // reconstruir ni modificar su lógica de edición/consulta.
-        if (tipo === "riesgos" && document.getElementById("contenidoBibliotecaRiesgosOM20")) {
-            renderizarBibliotecaRiesgosOM20();
-        }
-        if (tipo === "hallazgos" && document.getElementById("contenidoBibliotecaOM20")) {
-            renderizarBibliotecaRecomendacionesOM20();
-        }
-    } catch (error) {
-        console.error("CAM-ARCHIVOS-01: error al importar biblioteca:", error);
-        alert("No fue posible cargar la biblioteca.\n\nDetalle: " + (error?.message || error));
-    }
-}
 
 function abrirBibliotecaRecomendacionesOM22() {
 
@@ -7262,8 +7032,18 @@ function inicializarBibliotecaRecomendaciones() {
         CLAVE_BIBLIOTECA_RECOMENDACIONES
     );
 
+    // CAM-WORD-11 — Si existe una biblioteca válida y con registros, se conserva.
+    // Si la clave existe pero quedó vacía/corrupta, se reconstruye únicamente
+    // la biblioteca base; nunca se reemplaza una biblioteca que ya tenga datos.
     if (existente) {
-        return;
+        try {
+            const bibliotecaExistente = JSON.parse(existente);
+            if (Array.isArray(bibliotecaExistente) && bibliotecaExistente.length > 0) {
+                return;
+            }
+        } catch (error) {
+            console.warn("Biblioteca de recomendaciones inválida; se reconstruirá la base.", error);
+        }
     }
 
     // OM-12 — Biblioteca inicial alimentada con recomendaciones reales
@@ -7497,33 +7277,73 @@ function renderizarBibliotecaHallazgoOM20() {
         document.getElementById("buscadorBibliotecaHallazgoOM20")?.value || ""
     );
 
-    const resultados = biblioteca.filter(item => {
-        if (!buscador) return true;
-        const texto = normalizarTextoOM12([
-            item.area,
-            item.tema,
-            ...(item.palabrasClave || []),
-            item.recomendacion,
-            item.fuente
-        ].join(" "));
-        return texto.includes(buscador);
-    });
+    // CAM-WORD-10 — La biblioteca de Hallazgos NO muestra toda la biblioteca.
+    // Solo presenta recomendaciones cuya(s) palabra(s) clave coinciden con
+    // el contenido actual del hallazgo. El buscador únicamente refina esas
+    // coincidencias; nunca vuelve a abrir la lista completa.
+    const area = document.getElementById("hallazgoArea")?.value || "";
+    const elemento = document.getElementById("hallazgoElemento")?.value || "";
+    const descripcion = document.getElementById("hallazgoDescripcion")?.value || "";
+    const textoHallazgo = normalizarTextoOM12(
+        `${area} ${elemento} ${descripcion}`
+    );
 
-    contenedor.innerHTML = resultados.length ? resultados.map(item => {
-        const indice = biblioteca.indexOf(item);
-        return `
-            <div style="border:1px solid #d1d5db;border-radius:8px;padding:12px;margin-bottom:9px;background:#fff;">
-                <div style="font-weight:bold;color:#123b5d;font-size:13px;">${escaparTextoOM12(item.area || "")} · ${escaparTextoOM12(item.tema || item.elemento || "")}</div>
-                <div style="font-size:13px;line-height:1.45;margin:7px 0;">${escaparTextoOM12(item.recomendacion || "")}</div>
-                <button type="button" onclick="usarRecomendacionBibliotecaDesdeHallazgoOM20(${indice})"
-                    style="background:#1d70b7;color:#fff;border:0;padding:7px 11px;border-radius:5px;cursor:pointer;font-weight:bold;">
-                    Usar esta recomendación
-                </button>
+    const resultados = biblioteca
+        .map((item, indice) => {
+            const palabrasClave = Array.isArray(item.palabrasClave)
+                ? item.palabrasClave
+                : [];
+
+            const coincidencias = palabrasClave.filter(palabra => {
+                const clave = normalizarTextoOM12(palabra).trim();
+                return clave && textoHallazgo.includes(clave);
+            });
+
+            return { item, indice, coincidencias };
+        })
+        .filter(resultado => resultado.coincidencias.length > 0)
+        .filter(resultado => {
+            if (!buscador) return true;
+            const texto = normalizarTextoOM12([
+                resultado.item.area,
+                resultado.item.tema,
+                ...(resultado.item.palabrasClave || []),
+                resultado.item.recomendacion,
+                resultado.item.fuente
+            ].join(" "));
+            return texto.includes(buscador);
+        })
+        .sort((a, b) => b.coincidencias.length - a.coincidencias.length);
+
+    if (!textoHallazgo.trim()) {
+        contenedor.innerHTML = `
+            <div style="padding:15px;text-align:center;color:#64748b;border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;">
+                Escriba el <strong>elemento</strong> o la <strong>descripción del hallazgo</strong> para mostrar únicamente las recomendaciones relacionadas mediante palabras clave.
             </div>
         `;
-    }).join("") : `
-        <div style="padding:15px;text-align:center;color:#64748b;border:1px solid #e5e7eb;border-radius:8px;">
-            No se encontraron recomendaciones con ese criterio.
+        return;
+    }
+
+    contenedor.innerHTML = resultados.length ? resultados.map(({ item, indice, coincidencias }) => `
+        <div style="border:1px solid #d1d5db;border-radius:8px;padding:12px;margin-bottom:9px;background:#fff;">
+            <div style="font-weight:bold;color:#123b5d;font-size:13px;">
+                ${escaparTextoOM12(item.area || "")} · ${escaparTextoOM12(item.tema || item.elemento || "")}
+            </div>
+            <div style="font-size:12px;color:#64748b;margin-top:4px;">
+                Coincidencia: ${escaparTextoOM12(coincidencias.join(", "))}
+            </div>
+            <div style="font-size:13px;line-height:1.45;margin:7px 0;">
+                ${escaparTextoOM12(item.recomendacion || "")}
+            </div>
+            <button type="button" onclick="usarRecomendacionBibliotecaDesdeHallazgoOM20(${indice})"
+                style="background:#1d70b7;color:#fff;border:0;padding:7px 11px;border-radius:5px;cursor:pointer;font-weight:bold;">
+                Usar esta recomendación
+            </button>
+        </div>
+    `).join("") : `
+        <div style="padding:15px;text-align:center;color:#64748b;border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;">
+            No hay recomendaciones vinculadas por palabras clave al hallazgo actual.
+            <br><small style="display:block;margin-top:6px;">Puede agregar palabras clave a la recomendación desde la administración de la biblioteca.</small>
         </div>
     `;
 }
@@ -9856,25 +9676,13 @@ async function generarWordPlantillaMaestra() {
         }
         documentXml = raizDocumento + documentXml.slice(aperturaDocumento[0].length);
 
-        // CAM-WORD-03 — ALIMENTACIÓN QUIRÚRGICA DEL ENCABEZADO
-        // El recipiente Word NO se modifica. Solo se alimentan los marcadores
-        // que ya existen en header1.xml con datos provenientes de la inspección.
-        // No se toca document.xml ni el contenido, tablas, fotos o paginación.
         const versionDocumento=localStorage.getItem("versionDocumento")||"003";
         const tituloDocumento=localStorage.getItem("tituloDocumento")||"INFORME PREVENTIVO DE SEGURIDAD INTEGRAL";
-        const fechaDocumento=inspeccion.fecha||"";
-        const clienteDocumento=inspeccion.cliente||"";
-        const puesto=inspeccion.nombrePuesto||"";
+        const puesto=String(inspeccion.nombrePuesto ?? "").trim();
         const headerEntry=zip.file("word/header1.xml");
         if(headerEntry){
             let headerXml=await headerEntry.async("string");
-            [
-                ["{{VERSION_DOCUMENTO}}",versionDocumento],
-                ["{{TITULO_DOCUMENTO}}",tituloDocumento],
-                ["{{FECHA}}",fechaDocumento],
-                ["{{CLIENTE}}",clienteDocumento],
-                ["{{PUESTO}}",puesto]
-            ].forEach(([m,v])=>headerXml=headerXml.split(m).join(escaparXmlWord(v)));
+            [["{{VERSION_DOCUMENTO}}",versionDocumento],["{{TITULO_DOCUMENTO}}",tituloDocumento],["{{PUESTO}}",puesto]].forEach(([m,v])=>headerXml=headerXml.split(m).join(escaparXmlWord(v)));
             zip.file("word/header1.xml",headerXml);
         }
 
@@ -9914,9 +9722,49 @@ async function generarWordPlantillaMaestra() {
         ]);
         if(cctv.length) cuerpo+=titulo("3. Sistema CCTV",1)+tabla4(cctv);
 
-        // 04. GEOREFERENCIACIÓN
+        // 04. GEOREFERENCIACIÓN — reutiliza exactamente el canal nativo
+        // de imágenes que ya funciona para el registro fotográfico de Hallazgos.
         const geo=camposDiligenciados([["Latitud",inspeccion.latitud||""],["Longitud",inspeccion.longitud||""]]);
-        if(geo.length) cuerpo+=titulo("4. Georreferenciación",1)+tabla2(geo.map(x=>fila2(x[0],x[1])));
+        const datosGeoMaps=datosImagenWord(inspeccion.imagenGoogleMaps);
+        const datosGeoContexto=datosImagenWord(inspeccion.imagenGoogleEarth);
+
+        if(geo.length || datosGeoMaps || datosGeoContexto){
+            cuerpo+=titulo("4. Georreferenciación",1);
+            if(geo.length) cuerpo+=tabla2(geo.map(x=>fila2(x[0],x[1])));
+
+            // Mismo mecanismo DrawingML + relationship + word/media utilizado
+            // posteriormente por Hallazgos. No se crea un segundo sistema.
+            if(datosGeoMaps || datosGeoContexto){
+                let geoRels=zip.file("word/_rels/document.xml.rels")
+                    ? await zip.file("word/_rels/document.xml.rels").async("string")
+                    : '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+                const geoIds=[...geoRels.matchAll(/Id="rId(\d+)"/g)].map(m=>Number(m[1]));
+                let geoNextRelId=geoIds.length?Math.max(...geoIds)+1:1;
+                let geoDocPrId=2000;
+                let geoContentTypes=zip.file("[Content_Types].xml") ? await zip.file("[Content_Types].xml").async("string") : "";
+
+                const insertarGeo=async(datos,nombre,archivo)=>{
+                    if(!datos) return "";
+                    const rId=`rId${geoNextRelId++}`;
+                    zip.file(`word/media/${archivo}`,datos.bytes);
+                    geoRels=geoRels.replace("</Relationships>",`<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${archivo}"/></Relationships>`);
+                    if(geoContentTypes && !geoContentTypes.includes(`Extension="${datos.extension}"`)){
+                        geoContentTypes=geoContentTypes.replace("</Types>",`<Default Extension="${datos.extension}" ContentType="${datos.mime}"/></Types>`);
+                    }
+                    return imagenWordXML(rId,geoDocPrId++,nombre);
+                };
+
+                const geoMapsXml=await insertarGeo(datosGeoMaps,"Georreferenciación — Google Maps",`tecchnex_georef_maps.${datosGeoMaps?.extension||'jpg'}`);
+                const geoContextoXml=await insertarGeo(datosGeoContexto,"Georreferenciación — Foto de contexto",`tecchnex_georef_contexto.${datosGeoContexto?.extension||'jpg'}`);
+                const wGeo=ANCHO_TABLA_MAESTRA;
+                const wGeoCol=Math.floor(wGeo/2);
+                const headerGeo=tablaCabeceras(["GOOGLE MAPS","FOTO DE CONTEXTO"],[wGeoCol,wGeo-wGeoCol]);
+                const bodyGeo=`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWordContenido(geoMapsXml||parrafoWord("Sin imagen",{font:'Arial',size:'16',color:'666666',align:'center'}),{width:wGeoCol,vAlign:'center'})}${celdaWordContenido(geoContextoXml||parrafoWord("Sin imagen",{font:'Arial',size:'16',color:'666666',align:'center'}),{width:wGeo-wGeoCol,vAlign:'center'})}</w:tr>`;
+                cuerpo+=`<w:tbl><w:tblPr><w:tblW w:w="${wGeo}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="D5D9DD"/><w:left w:val="single" w:sz="6" w:color="D5D9DD"/><w:bottom w:val="single" w:sz="6" w:color="D5D9DD"/><w:right w:val="single" w:sz="6" w:color="D5D9DD"/><w:insideH w:val="single" w:sz="6" w:color="D5D9DD"/><w:insideV w:val="single" w:sz="6" w:color="D5D9DD"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${wGeoCol}"/><w:gridCol w:w="${wGeo-wGeoCol}"/></w:tblGrid>${headerGeo}${bodyGeo}</w:tbl>`;
+                zip.file("word/_rels/document.xml.rels",geoRels);
+                if(geoContentTypes) zip.file("[Content_Types].xml",geoContentTypes);
+            }
+        }
 
         // 05. HERRAMIENTAS DE SEGURIDAD
         function serviciosRows(arr){ return (Array.isArray(arr)?arr:[]).map(s=>[s.servicio||"",s.horario||"",s.jornada||"",s.dias||"",s.modalidad||""]); }
