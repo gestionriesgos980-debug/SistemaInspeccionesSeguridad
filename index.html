@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <!--
-TECCHNEX — CAM-ENSAMBLADO-02 / INTEGRACIÓN LOCAL + WORD-11 + ARCHIVOS-01
+TECCHNEX — CAM-ENSAMBLADO-02 / INTEGRACIÓN LOCAL + WORD-11 + ARCHIVOS-01 + CAM-TIPO-INSPECCION-02
 Base: última versión de GitHub aportada por el usuario.
 Integración: bóveda fotográfica IndexedDB de CAM-ALMACENAMIENTO-01B.
 Correcciones: precarga dirigida de fotografías para informes y respaldo/restauración.
@@ -936,13 +936,21 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
                     </div>
 
                     <div class="campo">
+                        <label>Estado del puesto</label>
+                        <select id="estadoPuesto">
+                            <option value="ACTIVO">Puesto activo</option>
+                            <option value="TERMINADO">Puesto terminado</option>
+                        </select>
+                    </div>
+
+                    <div class="campo">
                         <label>Tipo de inspección</label>
 
                         <select id="tipo">
-    <option>Inspección preventiva de seguridad integral</option>
-    <option>Inspección de seguimiento</option>
-    <option>Inspección extraordinaria</option>
-    <option>Reinspección</option>
+    <option value="Inspección preventiva de seguridad integral">Inspección preventiva de seguridad integral</option>
+    <option value="Diagnóstico inicial de seguridad">Diagnóstico inicial de seguridad</option>
+    <option value="Inspección de seguimiento">Inspección de seguimiento</option>
+    <option value="Reinspección de seguridad">Reinspección de seguridad</option>
 </select>
 </div>
 
@@ -2842,6 +2850,41 @@ function cerrarDashboard() {
     };
 
 
+    // =====================================================
+    // CAM-TIPO-INSPECCION-01 — TÍTULO DINÁMICO DEL INFORME
+    // Reutiliza el campo tipo de la inspección y evita depender
+    // de un título global para generar el Word correcto.
+    // =====================================================
+    function obtenerTituloDocumentoPorTipo(tipo) {
+        const mapa = {
+            "Inspección preventiva de seguridad integral": "INFORME PREVENTIVO DE SEGURIDAD INTEGRAL",
+            "Diagnóstico inicial de seguridad": "INFORME DE DIAGNÓSTICO INICIAL DE SEGURIDAD",
+            "Inspección de seguimiento": "INFORME DE SEGUIMIENTO DE SEGURIDAD",
+            "Reinspección de seguridad": "INFORME DE REINSPECCIÓN DE SEGURIDAD"
+        };
+        return mapa[tipo] || "INFORME PREVENTIVO DE SEGURIDAD INTEGRAL";
+    }
+
+    function calcularFechaActualizacion(fecha) {
+        if (!fecha) return "";
+        const d = new Date(fecha + "T00:00:00");
+        if (Number.isNaN(d.getTime())) return "";
+        d.setFullYear(d.getFullYear() + 1);
+        return d.toISOString().slice(0,10);
+    }
+
+    function obtenerDetalleVigencia(fecha) {
+        if (!fecha) return { fechaActualizacion:"", dias:null, estado:"SIN FECHA", clase:"" };
+        const actualizacion = calcularFechaActualizacion(fecha);
+        const hoy = new Date();
+        hoy.setHours(0,0,0,0);
+        const limite = new Date(actualizacion + "T00:00:00");
+        const dias = Math.ceil((limite - hoy) / 86400000);
+        if (dias < 0) return { fechaActualizacion:actualizacion, dias, estado:"VENCIDA", clase:"inspeccion-vencida" };
+        if (dias <= 30) return { fechaActualizacion:actualizacion, dias, estado:"PRÓXIMA A VENCER", clase:"inspeccion-proxima" };
+        return { fechaActualizacion:actualizacion, dias, estado:"VIGENTE", clase:"inspeccion-vigente" };
+    }
+
     document.getElementById("formInspeccion")
     .addEventListener("submit", async function(event) {
 
@@ -3038,7 +3081,10 @@ const imagenGoogleEarthFinal =
                 // CAM-PLANTILLA-01: Datos destinados a la plantilla maestra Word.
                 revisadoPor: document.getElementById("revisadoPor")?.value || "",
                 nombrePuesto: document.getElementById("nombrePuesto")?.value || "",
+                estadoPuesto: document.getElementById("estadoPuesto")?.value || "ACTIVO",
                 tipo: document.getElementById("tipo").value,
+                tituloDocumento: obtenerTituloDocumentoPorTipo(document.getElementById("tipo").value),
+                fechaActualizacion: calcularFechaActualizacion(document.getElementById("fecha").value),
 
                 sectorInspeccion: document.getElementById("sectorInspeccion").value,
 
@@ -3130,7 +3176,7 @@ inspeccion.historicoIncidentes = Array.from(
 inspeccion.sinIncidentes =
     document.getElementById("sinIncidentes")?.checked || false;
 
-// OM-26 · INTERVENCIÓN 1 — Datos exclusivos de Inspección Extraordinaria.
+// OM-26 · INTERVENCIÓN 1 — Datos exclusivos del bloque de diagnóstico extraordinario.
 // Se guardan dentro de la misma inspección para conservar trazabilidad y
 // permitir que posteriormente sirvan como base de una Inspección de Seguridad.
 inspeccion.om26 = {
@@ -4713,7 +4759,7 @@ function abrirDirectorioClientesOM16() {
                                 <th style="padding:9px;border:1px solid #9ca3af;">Dirección</th>
                                 <th style="padding:9px;border:1px solid #9ca3af;">Municipio / barrio</th>
                                 <th style="padding:9px;border:1px solid #9ca3af;">Administrador</th>
-                                <th style="padding:9px;border:1px solid #9ca3af;">Estado</th>
+                                <th style="padding:9px;border:1px solid #9ca3af;">Estado / vigencia</th>
                                 <th style="padding:9px;border:1px solid #9ca3af;">Acciones</th>
                             </tr>
                         </thead>
@@ -4804,7 +4850,53 @@ function renderizarDirectorioClientesOM16() {
 
     cuerpo.innerHTML = filtrados.map(cliente => {
         const indice = clientes.indexOf(cliente);
-        const cantidadInspecciones = inspecciones.filter(i => coincideClienteConInspeccionOM16(cliente, i)).length;
+        const inspeccionesCliente = inspecciones
+            .map((inspeccion, indiceOriginal) => ({ inspeccion, indiceOriginal }))
+            .filter(item => coincideClienteConInspeccionOM16(cliente, item.inspeccion));
+
+        const inspeccionesActivas = inspeccionesCliente.filter(item =>
+            String(item.inspeccion.estadoPuesto || "ACTIVO").toUpperCase() !== "TERMINADO"
+        );
+
+        const listaReferencia = inspeccionesActivas.length ? inspeccionesActivas : inspeccionesCliente;
+
+        const ultima = [...listaReferencia].sort((a, b) =>
+            String(b.inspeccion.fecha || "").localeCompare(String(a.inspeccion.fecha || ""))
+        )[0];
+
+        let resumenVigencia = "Sin inspección";
+        let prioridad = "⚪ SIN DATOS";
+        let colorPrioridad = "#64748b";
+        let fechaInspeccion = "—";
+        let fechaActualizacion = "—";
+
+        if (ultima) {
+            const v = typeof obtenerDetalleVigencia === "function"
+                ? obtenerDetalleVigencia(ultima.inspeccion.fecha || "")
+                : { dias:null, fechaActualizacion:null };
+
+            fechaInspeccion = ultima.inspeccion.fecha || "—";
+            fechaActualizacion = v.fechaActualizacion || "—";
+
+            if (String(ultima.inspeccion.estadoPuesto || "ACTIVO").toUpperCase() === "TERMINADO") {
+                prioridad = "⚪ TERMINADO";
+                colorPrioridad = "#64748b";
+            } else if (v.dias !== null && v.dias < 0) {
+                prioridad = "🔴 ALTA";
+                colorPrioridad = "#b91c1c";
+            } else if (v.dias !== null && v.dias <= 30) {
+                prioridad = "🟠 MEDIA";
+                colorPrioridad = "#b45309";
+            } else {
+                prioridad = "🟢 NORMAL";
+                colorPrioridad = "#15803d";
+            }
+
+            resumenVigencia = typeof obtenerEstadoVencimiento === "function"
+                ? (obtenerEstadoVencimiento(ultima.inspeccion.fecha || "").texto || "—")
+                : "—";
+        }
+
         return `
             <tr>
                 <td style="padding:9px;border:1px solid #ddd;"><strong>${escaparClienteOM16(cliente.cliente || "—")}</strong><br><small>${escaparClienteOM16(cliente.codigo || cliente.idCliente || "")}</small></td>
@@ -4812,7 +4904,18 @@ function renderizarDirectorioClientesOM16() {
                 <td style="padding:9px;border:1px solid #ddd;">${escaparClienteOM16(cliente.direccion || "—")}</td>
                 <td style="padding:9px;border:1px solid #ddd;">${escaparClienteOM16(cliente.barrioMunicipio || "—")}</td>
                 <td style="padding:9px;border:1px solid #ddd;">${escaparClienteOM16(cliente.administrador || "—")}</td>
-                <td style="padding:9px;border:1px solid #ddd;text-align:center;">${cliente.estado === "Activo" ? "🟢 Activo" : "⚪ Inactivo"}<br><small>${cantidadInspecciones} inspección(es)</small></td>
+                <td style="padding:9px;border:1px solid #ddd;text-align:center;">
+                    ${cliente.estado === "Activo" ? "🟢 Activo" : "⚪ Inactivo"}<br>
+                    <small>${inspeccionesCliente.length} inspección(es)</small>
+                    ${ultima ? `
+                        <div style="margin-top:7px;padding-top:6px;border-top:1px solid #e5e7eb;text-align:left;font-size:11px;line-height:1.45;">
+                            <strong>Última:</strong> ${escaparClienteOM16(fechaInspeccion)}<br>
+                            <strong>Actualiza:</strong> ${escaparClienteOM16(fechaActualizacion)}<br>
+                            <strong>Vigencia:</strong> ${escaparClienteOM16(resumenVigencia)}
+                        </div>
+                    ` : ""}
+                    <div style="margin-top:6px;font-weight:bold;color:${colorPrioridad};font-size:12px;">${prioridad}</div>
+                </td>
                 <td style="padding:9px;border:1px solid #ddd;text-align:center;white-space:nowrap;">
                     <button type="button" onclick="editarClienteOM16(${indice})" style="margin:2px;padding:7px 9px;border:0;border-radius:6px;background:#e5e7eb;cursor:pointer;">✏️</button>
                     <button type="button" onclick="eliminarClienteOM16(${indice})" style="margin:2px;padding:7px 9px;border:0;border-radius:6px;background:#fee2e2;color:#991b1b;cursor:pointer;">🗑️</button>
@@ -5072,6 +5175,14 @@ const clientes = [
     )
 ];
 
+// CAM-TIPO-INSPECCION-02 — Orden visual por actividad más reciente.
+// No modifica el arreglo físico ni sus índices internos.
+clientes.sort((a,b) => {
+    const ultimaA = inspecciones.filter(x=>x.cliente===a).map(x=>x.fecha||"").sort().pop() || "";
+    const ultimaB = inspecciones.filter(x=>x.cliente===b).map(x=>x.fecha||"").sort().pop() || "";
+    return ultimaB.localeCompare(ultimaA);
+});
+
 let textoBusquedaClientes = "";
 
     // =====================================================
@@ -5207,6 +5318,12 @@ const diferencia =
 
     } else {
 
+        contenido += `
+            <div style="width:90%;max-width:1100px;margin:0 auto 15px auto;padding:12px 15px;border-radius:8px;background:#f8fafc;border:1px solid #dbe3ea;color:#334155;">
+                <strong style="color:#123b5d;">🎯 Prioridad de atención</strong>
+                <span style="margin-left:8px;font-size:13px;">🔴 Alta = vencida · 🟠 Media = vence en 30 días o menos · 🟢 Normal = vigente · ⚪ Terminado = sin gestión activa.</span>
+            </div>`;
+
         clientes.forEach((cliente, indiceCliente) => {
 
             const inspeccionesCliente =
@@ -5218,7 +5335,19 @@ const diferencia =
                     .filter(
                         item =>
                             item.inspeccion.cliente === cliente
-                    );
+                    )
+                    .sort((a, b) => {
+                        // CAM-PRIORIDAD-01: solo orden visual; conserva índices internos.
+                        const aTerminado = String(a.inspeccion.estadoPuesto || "ACTIVO").toUpperCase() === "TERMINADO";
+                        const bTerminado = String(b.inspeccion.estadoPuesto || "ACTIVO").toUpperCase() === "TERMINADO";
+                        if (aTerminado !== bTerminado) return aTerminado ? 1 : -1;
+                        const aV = typeof obtenerDetalleVigencia === "function" ? obtenerDetalleVigencia(a.inspeccion.fecha) : {dias:null};
+                        const bV = typeof obtenerDetalleVigencia === "function" ? obtenerDetalleVigencia(b.inspeccion.fecha) : {dias:null};
+                        const ad = aV.dias === null ? 999999 : aV.dias;
+                        const bd = bV.dias === null ? 999999 : bV.dias;
+                        if (ad !== bd) return ad - bd;
+                        return String(b.inspeccion.fecha || "").localeCompare(String(a.inspeccion.fecha || ""));
+                    });
 
             contenido += `
     <div class="bloque-cliente" style="
@@ -5294,6 +5423,27 @@ const diferencia =
                                         Fecha
                                     </th>
 
+                                    <th style="
+                                        padding:8px;
+                                        border:1px solid #999;
+                                    ">
+                                        Próxima actualización
+                                    </th>
+
+                                    <th style="
+                                        padding:8px;
+                                        border:1px solid #999;
+                                    ">
+                                        Días
+                                    </th>
+
+                                    <th style="
+                                        padding:8px;
+                                        border:1px solid #999;
+                                    ">
+                                        Puesto
+                                    </th>
+
                                     <!-- =====================================================
      FUNCIÓN: ESTADO DE VIGENCIA EN LISTADO
      OBJETIVO: Mostrar visualmente si la inspección está
@@ -5305,6 +5455,7 @@ const diferencia =
 ">
     Estado de vigencia
 </th>
+                                    <th style="padding:8px;border:1px solid #999;">Prioridad</th>
 
                                     <th style="
                                         padding:8px;
@@ -5351,6 +5502,19 @@ const diferencia =
     ">
         ${item.inspeccion.fecha || "—"}
     </td>
+
+    <td style="padding:8px;border:1px solid #999;">
+        ${obtenerDetalleVigencia(item.inspeccion.fecha).fechaActualizacion || "—"}
+    </td>
+
+    <td style="padding:8px;border:1px solid #999;text-align:center;">
+        ${(() => { const v=obtenerDetalleVigencia(item.inspeccion.fecha); return v.dias===null ? "—" : (v.dias < 0 ? Math.abs(v.dias)+" vencidos" : v.dias+" restantes"); })()}
+    </td>
+
+    <td style="padding:8px;border:1px solid #999;">
+        <strong>${item.inspeccion.nombrePuesto || "—"}</strong><br>
+        <span style="font-size:11px;${item.inspeccion.estadoPuesto === "TERMINADO" ? "color:#b91c1c;" : "color:#15803d;"}">${item.inspeccion.estadoPuesto === "TERMINADO" ? "PUESTO TERMINADO" : "PUESTO ACTIVO"}</span>
+    </td>
 <!-- =====================================================
      FUNCIÓN: INDICADOR VISUAL DE VIGENCIA
      OBJETIVO: Mostrar el estado de la inspección con
@@ -5379,6 +5543,16 @@ const diferencia =
         ).texto
     }
 </td>
+    <td style="padding:8px;border:1px solid #999;text-align:center;font-weight:bold;">
+        ${(() => {
+            const terminado = String(item.inspeccion.estadoPuesto || "ACTIVO").toUpperCase() === "TERMINADO";
+            if (terminado) return "⚪ TERMINADO";
+            const v = obtenerDetalleVigencia(item.inspeccion.fecha);
+            if (v.dias !== null && v.dias < 0) return "🔴 ALTA";
+            if (v.dias !== null && v.dias <= 30) return "🟠 MEDIA";
+            return "🟢 NORMAL";
+        })()}
+    </td>
     <td style="
         padding:8px;
         border:1px solid #999;
@@ -6188,7 +6362,12 @@ document.getElementById("bicicleteros").value =
     }
 
     document.getElementById("tipo").value =
-        inspeccion.tipo || "";
+        inspeccion.tipo || "Inspección preventiva de seguridad integral";
+
+    const campoEstadoPuesto = document.getElementById("estadoPuesto");
+    if (campoEstadoPuesto) {
+        campoEstadoPuesto.value = inspeccion.estadoPuesto || "ACTIVO";
+    }
 
     // OM-26 · INTERVENCIÓN 1 — Recuperar datos del análisis extraordinario.
     document.getElementById("om26RiesgoIdentificado").value =
@@ -9898,7 +10077,9 @@ async function generarWordPlantillaMaestra() {
         // que ya existen en header1.xml con datos provenientes de la inspección.
         // No se toca document.xml ni el contenido, tablas, fotos o paginación.
         const versionDocumento=localStorage.getItem("versionDocumento")||"003";
-        const tituloDocumento=localStorage.getItem("tituloDocumento")||"INFORME PREVENTIVO DE SEGURIDAD INTEGRAL";
+        const tituloDocumento=inspeccion.tituloDocumento || (typeof obtenerTituloDocumentoPorTipo === "function"
+            ? obtenerTituloDocumentoPorTipo(inspeccion.tipo)
+            : "INFORME PREVENTIVO DE SEGURIDAD INTEGRAL");
         const fechaDocumento=inspeccion.fecha||"";
         const clienteDocumento=inspeccion.cliente||"";
         const puesto=inspeccion.nombrePuesto||"";
