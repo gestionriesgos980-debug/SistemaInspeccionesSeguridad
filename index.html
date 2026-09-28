@@ -3760,12 +3760,29 @@ async function guardarMediaEnBoveda(foto) {
         return null;
     }
 
-    // Ya migrada/guardada: solo conserva la referencia.
-    if (foto.mediaId) {
-        return { ...foto };
+    // CAM-ALMACENAMIENTO-03E:
+    // En un respaldo, una fotografía puede traer mediaId y también dataUrl.
+    // Los datos de imagen deben tener prioridad: el mediaId puede pertenecer
+    // a otra instalación del navegador y no existir en esta bóveda IndexedDB.
+    const dataUrl =
+        foto.dataUrl ||
+        foto.imagen ||
+        foto.data ||
+        (foto.mediaId ? tecchnexMediaCache.get(foto.mediaId) : "") ||
+        "";
+
+    // Si solo llega una referencia, comprobar que el archivo realmente exista.
+    // No dar por válida una referencia huérfana sin verificar IndexedDB.
+    if (foto.mediaId && !dataUrl) {
+        const registroPorId = await leerMediaPorId(foto.mediaId);
+        if (registroPorId?.blob) {
+            const dataUrlExistente = await dataUrlDesdeBlob(registroPorId.blob);
+            tecchnexMediaCache.set(foto.mediaId, dataUrlExistente);
+            return { ...foto };
+        }
+        throw new Error("La referencia de fotografía no existe en IndexedDB y no contiene datos para recuperarla.");
     }
 
-    const dataUrl = obtenerImagenDeFoto(foto);
     if (!dataUrl) {
         throw new Error("La fotografía no contiene datos utilizables.");
     }
@@ -3955,21 +3972,36 @@ async function obtenerDataUrlMedia(foto) {
 }
 
 async function exportarMediosParaRespaldo(hallazgos) {
+    // CAM-RESPALDO-MATRIZ-01 / protección fotográfica:
+    // incluir fotos guardadas en IndexedDB y fotos antiguas que aún conserven
+    // la imagen inline. Si una foto registrada no puede recuperarse, detener
+    // el respaldo para no entregar un archivo aparentemente correcto e incompleto.
     const medios = [];
     const vistos = new Set();
 
     for (const hallazgo of (Array.isArray(hallazgos) ? hallazgos : [])) {
         for (const foto of (Array.isArray(hallazgo.fotos) ? hallazgo.fotos : [])) {
-            if (!foto || !foto.mediaId || vistos.has(foto.mediaId)) {
-                continue;
+            if (!foto) continue;
+
+            const mediaId = foto.mediaId || "";
+            if (mediaId && vistos.has(mediaId)) continue;
+
+            let dataUrl = "";
+            if (mediaId) {
+                dataUrl = await obtenerDataUrlMedia(foto);
+            } else {
+                // Compatibilidad con respaldos/fotos previas a IndexedDB.
+                dataUrl = foto.dataUrl || foto.imagen || foto.data || obtenerImagenDeFoto(foto) || "";
             }
 
-            const dataUrl = await obtenerDataUrlMedia(foto);
-            if (!dataUrl) {
-                continue;
+            if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
+                throw new Error(
+                    "No se pudo recuperar una fotografía de un hallazgo. " +
+                    "El respaldo se canceló para evitar perder evidencia fotográfica."
+                );
             }
 
-            vistos.add(foto.mediaId);
+            if (mediaId) vistos.add(mediaId);
             medios.push({
                 ...foto,
                 dataUrl
@@ -4077,7 +4109,7 @@ async function crearRespaldo() {
 
         const respaldo = {
             sistema: "Sistema de Inspecciones de Seguridad",
-            versionRespaldo: "1.1",
+            versionRespaldo: "1.2",
             fechaRespaldo: new Date().toISOString(),
 
             datos: {
@@ -4095,6 +4127,11 @@ async function crearRespaldo() {
 
                 matrizRiesgos:
                     JSON.parse(localStorage.getItem("matrizRiesgos")) || [],
+
+                // CAM-ALMACENAMIENTO-03E: respaldar también las matrices
+                // independientes asociadas a clientes.
+                matricesRiesgosClientes:
+                    JSON.parse(localStorage.getItem("matricesRiesgosClientes")) || [],
 
                 resultadosChecklistCategorias:
                     JSON.parse(
@@ -4140,9 +4177,21 @@ async function crearRespaldo() {
 
         setTimeout(() => URL.revokeObjectURL(url), 1000);
 
+        const matrizInspeccionesRespaldo = respaldo.datos.matrizRiesgos;
+        const matricesClientesRespaldo = respaldo.datos.matricesRiesgosClientes;
+
         alert(
             "Respaldo creado correctamente.\n\n" +
-            "Fotografías incluidas: " + mediosRespaldo.length
+            "Fotografías incluidas: " + mediosRespaldo.length + "\n" +
+            "Registros en matriz de riesgos: " +
+                (Array.isArray(matrizInspeccionesRespaldo) ? matrizInspeccionesRespaldo.length : 0) + "\n" +
+            "Matrices/registros de clientes: " +
+                (Array.isArray(matricesClientesRespaldo) ? matricesClientesRespaldo.length : 0) +
+            ((Array.isArray(matrizInspeccionesRespaldo) && matrizInspeccionesRespaldo.length === 0 &&
+              Array.isArray(matricesClientesRespaldo) && matricesClientesRespaldo.length === 0)
+                ? "\n\nADVERTENCIA: ambas matrices están vacías en el almacenamiento actual. " +
+                  "Verifique que la matriz se haya guardado antes de confiar en este respaldo."
+                : "")
         );
     } catch (error) {
         console.error("TECCHNEX: error al crear respaldo:", error);
@@ -4234,10 +4283,32 @@ localStorage.setItem(
     JSON.stringify(datos.hallazgos || [])
 );
 
-localStorage.setItem(
-    "matrizRiesgos",
-    JSON.stringify(datos.matrizRiesgos || [])
-);
+// CAM-ALMACENAMIENTO-03E: no borrar una matriz local válida si el respaldo
+// antiguo no contiene la propiedad o trae el arreglo vacío por una exportación
+// incompleta. Si el respaldo sí trae matrices, restaurarlas normalmente.
+const matrizRiesgosRespaldo = datos.matrizRiesgos;
+const matrizRiesgosActual = JSON.parse(localStorage.getItem("matrizRiesgos") || "[]");
+if (Array.isArray(matrizRiesgosRespaldo)) {
+    if (matrizRiesgosRespaldo.length > 0 || !Array.isArray(matrizRiesgosActual) || matrizRiesgosActual.length === 0) {
+        localStorage.setItem("matrizRiesgos", JSON.stringify(matrizRiesgosRespaldo));
+    } else {
+        console.warn("CAM-ALMACENAMIENTO-03E: el respaldo trae matrizRiesgos vacía; se conserva la matriz local existente para evitar pérdida de datos.");
+    }
+}
+
+// Los respaldos anteriores a CAM-ALMACENAMIENTO-03E no incluían esta clave.
+// Si no está presente, conservar las matrices locales que ya existan.
+if (Object.prototype.hasOwnProperty.call(datos, "matricesRiesgosClientes")) {
+    const matricesClientesRespaldo = datos.matricesRiesgosClientes;
+    const matricesClientesActuales = JSON.parse(localStorage.getItem("matricesRiesgosClientes") || "[]");
+    if (Array.isArray(matricesClientesRespaldo)) {
+        if (matricesClientesRespaldo.length > 0 || !Array.isArray(matricesClientesActuales) || matricesClientesActuales.length === 0) {
+            localStorage.setItem("matricesRiesgosClientes", JSON.stringify(matricesClientesRespaldo));
+        } else {
+            console.warn("CAM-ALMACENAMIENTO-03E: el respaldo trae matrices de clientes vacías; se conservan las matrices locales existentes para evitar pérdida de datos.");
+        }
+    }
+}
 
 localStorage.setItem(
     "resultadosChecklistCategorias",
@@ -4286,7 +4357,11 @@ alert(
     (datos.inspecciones || []).length +
     "\n" +
     "Hallazgos recuperados: " +
-    (datos.hallazgos || []).length
+    (datos.hallazgos || []).length +
+    "\nFotografías del respaldo: " +
+    (datos.mediosFotograficos || []).length +
+    "\nMatrices de clientes incluidas: " +
+    (Array.isArray(datos.matricesRiesgosClientes) ? datos.matricesRiesgosClientes.length : "No incluidas en este respaldo antiguo")
 );
 
     } catch (error) {
