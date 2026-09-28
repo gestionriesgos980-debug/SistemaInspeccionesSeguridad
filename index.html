@@ -7472,6 +7472,8 @@ function abrirHallazgos(indice) {
     // para permitir seleccionarlos y editarlos sin alterar el almacenamiento existente.
     indiceHallazgoEditando = null;
     fotosHallazgoEditando = [];
+    const estadoFotos = document.getElementById("estadoCargaFotosHallazgo");
+    if (estadoFotos) estadoFotos.textContent = "";
     renderizarHallazgosRegistrados();
     mostrarRecomendacionesSugeridas();
 
@@ -7489,6 +7491,8 @@ function cerrarHallazgos() {
     // no pueda sobrescribir accidentalmente el hallazgo editado anteriormente.
     indiceHallazgoEditando = null;
     fotosHallazgoEditando = [];
+    const estadoFotos = document.getElementById("estadoCargaFotosHallazgo");
+    if (estadoFotos) estadoFotos.textContent = "";
 
     if (ventana) {
         ventana.style.display = "none";
@@ -7496,6 +7500,63 @@ function cerrarHallazgos() {
 }
     let indiceHallazgoEditando = null;
 let fotosHallazgoEditando = [];
+let colaProcesamientoFotosHallazgo = Promise.resolve();
+
+// CAM-FOTOGRAFIAS-02 — Agregar cada selección al borrador del hallazgo.
+// Permite tomar varias fotos consecutivas con la cámara o seleccionar varias
+// desde la galería sin perder las fotos elegidas anteriormente.
+function procesarFotosSeleccionadas(input) {
+    const archivos = Array.from(input?.files || []);
+    if (!archivos.length) return colaProcesamientoFotosHallazgo;
+
+    // Vaciar el input permite volver a elegir el mismo archivo o tomar otra foto.
+    input.value = "";
+
+    colaProcesamientoFotosHallazgo = colaProcesamientoFotosHallazgo.then(async () => {
+        const estado = document.getElementById("estadoCargaFotosHallazgo");
+        const indiceInspeccion = localStorage.getItem("indiceInspeccionSeleccionadaInforme");
+        const hallazgos = JSON.parse(localStorage.getItem("hallazgos")) || [];
+        const numeroHallazgo = indiceHallazgoEditando !== null
+            ? indiceHallazgoEditando + 1
+            : hallazgos.length + 1;
+        let procesadas = 0;
+        let fallidas = 0;
+
+        if (estado) estado.textContent = `Procesando ${archivos.length} fotografía(s)...`;
+
+        // Procesamiento secuencial para limitar el uso de memoria en móviles.
+        for (const archivo of archivos) {
+            try {
+                const foto = await procesarFotoConTimestamp(
+                    archivo,
+                    indiceInspeccion,
+                    numeroHallazgo
+                );
+                fotosHallazgoEditando.push(foto);
+                procesadas++;
+                mostrarFotosHallazgoEditando();
+            } catch (error) {
+                fallidas++;
+                console.error("TECCHNEX: no fue posible procesar una fotografía.", error);
+            }
+        }
+
+        if (estado) {
+            estado.textContent = fallidas
+                ? `Se agregaron ${procesadas} fotografía(s); ${fallidas} no se pudieron procesar.`
+                : `Fotografías agregadas: ${fotosHallazgoEditando.length}. Puede añadir más antes de guardar.`;
+        }
+        if (fallidas) {
+            alert(`No se pudieron procesar ${fallidas} fotografía(s). Las demás se conservaron.`);
+        }
+    }).catch(error => {
+        console.error("TECCHNEX: error al agregar fotografías al hallazgo.", error);
+        const estado = document.getElementById("estadoCargaFotosHallazgo");
+        if (estado) estado.textContent = "No fue posible agregar las fotografías. Intente nuevamente.";
+    });
+
+    return colaProcesamientoFotosHallazgo;
+}
 
 /* =====================================================
    OM-12 — BIBLIOTECA VIVA DE RECOMENDACIONES
@@ -8103,6 +8164,8 @@ fotosHallazgoEditando =
     Array.isArray(hallazgo.fotos)
         ? [...hallazgo.fotos]
         : [];
+const estadoFotos = document.getElementById("estadoCargaFotosHallazgo");
+if (estadoFotos) estadoFotos.textContent = "";
 
 mostrarFotosHallazgoEditando();
 
@@ -8145,7 +8208,9 @@ function mostrarFotosHallazgoEditando() {
         return;
     }
 
-    vistaFotos.innerHTML = fotosHallazgoEditando
+    vistaFotos.innerHTML = `
+        <p style="font-size:12px;color:#123b5d;font-weight:600;">Fotografías adjuntas: ${fotosHallazgoEditando.length}</p>
+        ${fotosHallazgoEditando
         .map((foto, indice) => `
             <div
                 style="
@@ -8183,7 +8248,8 @@ function mostrarFotosHallazgoEditando() {
                 </button>
             </div>
         `)
-        .join("");
+        .join("")}
+    `;
 }
     
 function eliminarFotoHallazgo(indice) {
@@ -8391,37 +8457,14 @@ async function guardarHallazgo() {
     const descripcion = document.getElementById("hallazgoDescripcion").value;
     const nivel = document.getElementById("hallazgoNivel").value;
     const recomendacion = document.getElementById("hallazgoRecomendacion").value;
-    // CAMBIO OM-08-C: Reúne las fotos tomadas con cámara y las seleccionadas desde galería
-    // en el mismo flujo de procesamiento existente, sin modificar compresión ni almacenamiento.
-    const archivosCamara = document.getElementById("hallazgoFotoCamara").files;
-    const archivosGaleria = document.getElementById("hallazgoFotosGaleria").files;
-    const archivos = [...archivosCamara, ...archivosGaleria];
-
+    // CAM-FOTOGRAFIAS-02: las fotos se incorporan al borrador al seleccionarlas.
+    // Esperar aquí evita guardar el hallazgo antes de que termine el procesamiento.
     if (!area || !elemento || !descripcion || !nivel || !recomendacion) {
         alert("Por favor complete todos los campos del hallazgo.");
         return;
     }
 
-    /* CAMBIO TIMESTAMP FOTOGRÁFICO — Procesar cada evidencia con sello + SHA-256. */
-    const inspeccionParaFoto =
-        localStorage.getItem("indiceInspeccionSeleccionadaInforme");
-
-    const hallazgosExistentesParaFoto =
-        JSON.parse(localStorage.getItem("hallazgos")) || [];
-
-    const numeroHallazgoFoto = indiceHallazgoEditando !== null
-        ? indiceHallazgoEditando + 1
-        : hallazgosExistentesParaFoto.length + 1;
-
-    const fotos = await Promise.all(
-        Array.from(archivos).map(archivo =>
-            procesarFotoConTimestamp(
-                archivo,
-                inspeccionParaFoto,
-                numeroHallazgoFoto
-            )
-        )
-    );
+    await colaProcesamientoFotosHallazgo;
 
     const hallazgos = JSON.parse(
         localStorage.getItem("hallazgos")
@@ -8440,13 +8483,9 @@ async function guardarHallazgo() {
             ? Number(hallazgos[indiceHallazgoEditando].inspeccion)
             : (indiceInspeccion !== null ? Number(indiceInspeccion) : null);
 
-    const fotosParaGuardar =
-        indiceHallazgoEditando !== null
-            ? [
-                ...fotosHallazgoEditando,
-                ...fotos
-            ]
-            : fotos;
+    // Incluye tanto las fotografías existentes (si se edita) como todas las
+    // fotografías nuevas agregadas desde cámara o galería antes de guardar.
+    const fotosParaGuardar = [...fotosHallazgoEditando];
 
     // CAM-ALMACENAMIENTO-01B — Primero guarda las fotografías en IndexedDB.
     // Solo después se actualiza localStorage con referencias ligeras.
@@ -8542,6 +8581,8 @@ actualizarContadores();
     // inmediatamente otro hallazgo sin cerrar ni volver a abrir la ventana.
     indiceHallazgoEditando = null;
     fotosHallazgoEditando = [];
+    const estadoFotos = document.getElementById("estadoCargaFotosHallazgo");
+    if (estadoFotos) estadoFotos.textContent = "";
 
     document.getElementById("hallazgoArea").value = "";
     document.getElementById("hallazgoElemento").value = "";
@@ -8675,10 +8716,12 @@ actualizarContadores();
         </div>
 
         <input type="file" id="hallazgoFotoCamara" accept="image/*" capture="environment"
-               style="display:none;">
+               onchange="procesarFotosSeleccionadas(this)" style="display:none;">
         <input type="file" id="hallazgoFotosGaleria" accept="image/*" multiple
-               style="display:none;">
+               onchange="procesarFotosSeleccionadas(this)" style="display:none;">
 
+        <div id="estadoCargaFotosHallazgo" role="status" aria-live="polite"
+             style="font-size:12px;color:#123b5d;margin:4px 0;"></div>
         <div id="vistaFotosHallazgo"></div>
 
         <div class="botones-modal">
@@ -10185,14 +10228,16 @@ async function generarWordPlantillaMaestra() {
             for(let i=0;i<pares.length;i+=2) filas.push(fila4(pares.slice(i,i+2),opts));
             return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="D5D9DD"/><w:left w:val="single" w:sz="6" w:color="D5D9DD"/><w:bottom w:val="single" w:sz="6" w:color="D5D9DD"/><w:right w:val="single" w:sz="6" w:color="D5D9DD"/><w:insideH w:val="single" w:sz="6" w:color="D5D9DD"/><w:insideV w:val="single" w:sz="6" w:color="D5D9DD"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${ANCHO_ETIQUETA_4COL}"/><w:gridCol w:w="${ANCHO_VALOR_4COL_A}"/><w:gridCol w:w="${ANCHO_ETIQUETA_4COL_B}"/><w:gridCol w:w="${ANCHO_VALOR_4COL_B}"/></w:tblGrid>${filas.join('')}</w:tbl>`;
         }
+        // CAM-ISO31000-01-WORD: jerarquía visual del cuerpo del informe.
+        // Solo cambia la presentación del contenido generado; no toca la plantilla maestra.
         function titulo(texto,nivel=1){
             if(nivel===1){
-                return `<w:p><w:pPr><w:spacing w:before="160" w:after="100" w:line="260" w:lineRule="auto"/><w:keepNext/><w:shd w:fill="FFF4CC"/><w:pBdr><w:bottom w:val="single" w:sz="18" w:space="1" w:color="F2C300"/></w:pBdr></w:pPr>${runWord(texto,{font:'Arial',size:'24',bold:true,color:'111111'})}</w:p>`;
+                return `<w:p><w:pPr><w:spacing w:before="180" w:after="110" w:line="270" w:lineRule="auto"/><w:keepNext/><w:shd w:fill="EAF2F8"/><w:ind w:left="100"/><w:pBdr><w:bottom w:val="single" w:sz="22" w:space="1" w:color="16A6C7"/></w:pBdr></w:pPr>${runWord(texto,{font:'Arial',size:'24',bold:true,color:'123B5D'})}</w:p>`;
             }
-            return parrafoWord(texto,{font:'Arial',size:'21',bold:true,color:'111111',before:120,after:80,line:250,keepNext:true});
+            return parrafoWord(texto,{font:'Arial',size:'21',bold:true,color:'123B5D',before:130,after:80,line:250,keepNext:true});
         }
         function tablaCabeceras(headers,widths) {
-            return `<w:tr><w:trPr><w:tblHeader/></w:trPr>${headers.map((h,i)=>celdaWord(h,{width:widths[i]||2200,shading:'111111',bold:true,color:'FFFFFF',align:'center',size:'16'})).join('')}</w:tr>`;
+            return `<w:tr><w:trPr><w:tblHeader/></w:trPr>${headers.map((h,i)=>celdaWord(h,{width:widths[i]||2200,shading:'123B5D',bold:true,color:'FFFFFF',align:'center',size:'16'})).join('')}</w:tr>`;
         }
         function tablaGenerica(headers,rows,widths) {
             const cols=headers.length;
@@ -10271,6 +10316,69 @@ async function generarWordPlantillaMaestra() {
             zip.file("word/header1.xml",headerXml);
         }
 
+        // CAM-ISO31000-02 — RESUMEN EJECUTIVO DINÁMICO.
+        // Se presenta también en Diagnóstico inicial. Solo resume datos registrados;
+        // no calcula ni inventa un nivel global de riesgo.
+        const porcentajeChecklistResumen = (() => {
+            let puntos = 0, maximo = 0;
+            Object.keys(datosChecklist || {}).forEach(categoria => {
+                const valorRegistrado = resultadosCategorias[categoria];
+                if (valorRegistrado === undefined || valorRegistrado === null || String(valorRegistrado).trim() === "") return;
+                const pct = Number(valorRegistrado);
+                const items = Array.isArray(datosChecklist[categoria]) ? datosChecklist[categoria].length : 0;
+                if (Number.isFinite(pct) && items > 0) { puntos += pct * items; maximo += items; }
+            });
+            return maximo ? Math.round(puntos / maximo) : null;
+        })();
+        const perfilChecklistResumen = porcentajeChecklistResumen === null ? "No disponible"
+            : porcentajeChecklistResumen >= 76 ? "BUENO"
+            : porcentajeChecklistResumen >= 51 ? "SUFICIENTE"
+            : porcentajeChecklistResumen >= 26 ? "REGULAR" : "DÉBIL";
+        const datosDiagnosticoResumen = inspeccion.om26 || {};
+        const riesgosConNivel = matrizParaInforme.filter(r => limpio(r.nivel)).length;
+        const riesgosConTratamiento = matrizParaInforme.filter(r => limpio(r.tratamiento)).length;
+        const riesgosAltosCriticos = matrizParaInforme.filter(r => /cr[ií]tico|alto/i.test(String(r.nivel || ""))).length;
+        const hallazgosAltosCriticos = hallazgos.filter(h => /cr[ií]tico|alto/i.test(String(h.nivel || ""))).length;
+        const nivelResumen = esDiagnosticoInicial
+            ? (limpio(datosDiagnosticoResumen.nivelRiesgo) || "No registrado")
+            : (matrizParaInforme.length ? `${riesgosConNivel} de ${matrizParaInforme.length} riesgos con nivel consignado` : "No hay matriz de riesgos registrada");
+        const filasResumenISO = [
+            ["Tipo de inspección", limpio(inspeccion.tipo) || "No registrado", "Alcance indicado en el registro de inspección."],
+            ["Resultado del checklist", porcentajeChecklistResumen === null ? (esDiagnosticoInicial ? "No aplica" : "No disponible") : `${porcentajeChecklistResumen}% — ${perfilChecklistResumen}`, "Se presenta por separado; no equivale al nivel global de riesgo."],
+            [esDiagnosticoInicial ? "Nivel evidenciado durante la visita" : "Riesgos registrados en la matriz", esDiagnosticoInicial ? nivelResumen : String(matrizParaInforme.length), esDiagnosticoInicial ? (limpio(datosDiagnosticoResumen.observaciones) || "No se registró observación sustentadora.") : `${riesgosConNivel} con nivel consignado; ${riesgosConTratamiento} con tratamiento registrado.`],
+            ["Riesgos altos o críticos registrados", esDiagnosticoInicial ? "No aplica a esta modalidad" : String(riesgosAltosCriticos), "Conteo basado únicamente en la clasificación escrita en la matriz."],
+            ["Hallazgos documentados", String(hallazgos.length), `${hallazgosAltosCriticos} con nivel Alto o Crítico consignado.`]
+        ];
+        const riesgosPrioritariosResumen = matrizParaInforme
+            .filter(r => limpio(r.riesgo) || limpio(r.peligro))
+            .slice()
+            .sort((a,b) => (Number(b.puntuacion) || 0) - (Number(a.puntuacion) || 0))
+            .slice(0,3);
+        const filasPrioridadesResumen = riesgosPrioritariosResumen.length
+            ? riesgosPrioritariosResumen.map(r => [limpio(r.riesgo) || limpio(r.peligro) || "Riesgo registrado", limpio(r.nivel) || "Nivel no consignado", limpio(r.tratamiento) || "Tratamiento no consignado"])
+            : hallazgos.slice(0,3).map(h => [limpio(h.hallazgo || h.descripcion || h.observacion) || "Hallazgo registrado", limpio(h.nivel) || "Nivel no consignado", limpio(h.accion || h.accionPreventiva || h.recomendacion) || "Recomendación no consignada"]);
+        if (!filasPrioridadesResumen.length) filasPrioridadesResumen.push(["No hay riesgos ni hallazgos registrados para resumir.", "No disponible", "Completar los registros correspondientes, si aplica."]);
+        const textoResumenEjecutivo = esDiagnosticoInicial
+            ? `El diagnóstico inicial de ${limpio(inspeccion.cliente) || "la organización"} registra el nivel de riesgo evidenciado como “${nivelResumen}”. La observación que sustenta la calificación se presenta en los indicadores anteriores. Este diagnóstico no incorpora resultado de checklist ni matriz de riesgos, salvo que esos datos estén registrados por separado.`
+            : `La inspección de ${limpio(inspeccion.cliente) || "la organización"} registra ${hallazgos.length} hallazgo(s) y ${matrizParaInforme.length} riesgo(s) en la matriz disponible. ${porcentajeChecklistResumen === null ? "No hay resultado de checklist disponible para esta inspección." : `El checklist registra ${porcentajeChecklistResumen}% (${perfilChecklistResumen}).`} La priorización debe basarse en los niveles consignados en la matriz y en las evidencias registradas; el porcentaje del checklist no representa por sí solo el nivel global de riesgo.`;
+
+        let cuerpo = titulo("RESUMEN EJECUTIVO", 1)
+            + parrafoWord(textoResumenEjecutivo, {font:"Arial",size:"18",after:100,line:260})
+            + tablaGenerica(["INDICADOR", "RESULTADO", "LECTURA"], filasResumenISO, [2450, 1750, 4838])
+            + titulo("Riesgos prioritarios y medidas registradas", 2)
+            + tablaGenerica(["RIESGO / HALLAZGO", "NIVEL", "TRATAMIENTO / RECOMENDACIÓN"], filasPrioridadesResumen, [3600, 1300, 4138]);
+        if (!esDiagnosticoInicial) {
+            cuerpo += titulo("Marco de lectura — proceso de gestión del riesgo", 2)
+                + parrafoWord("La organización del informe toma como referencia metodológica las etapas de gestión del riesgo descritas en ISO 31000:2018. Esta referencia no constituye certificación ni declaración de conformidad integral con la norma.", {font:"Arial",size:"17",after:80,line:250})
+                + tablaGenerica(["ETAPA", "APLICACIÓN EN ESTE INFORME"], [
+                    ["Contexto y criterios", "Objetivo, alcance, características observadas y metodología."],
+                    ["Identificación", "Hallazgos, elementos o peligros registrados y evidencias disponibles."],
+                    ["Análisis y evaluación", "Probabilidad, impacto, nivel consignado en la matriz y mapa de calor, cuando existen registros."],
+                    ["Tratamiento", "Acciones preventivas y recomendaciones registradas para los riesgos y hallazgos."],
+                    ["Seguimiento", "Plan de trabajo y revisión posterior de las acciones implementadas."]
+                ], [2600, 6438]);
+        }
+
         // 01. INFORMACIÓN GENERAL
         const info=camposDiligenciados([
             ["Cliente",inspeccion.cliente],["NIT",inspeccion.nit],["Dirección",inspeccion.direccion],["Ciudad",inspeccion.ciudad],
@@ -10278,7 +10386,7 @@ async function generarWordPlantillaMaestra() {
             ["Puesto",inspeccion.nombrePuesto],["Sector",inspeccion.sectorInspeccion],
             ["Inspector",inspeccion.inspector],["Director Operativo",inspeccion.director],["Tipo de inspección",inspeccion.tipo]
         ]);
-        let cuerpo=titulo("1. Información general de la inspección",1)+tabla4(info);
+        cuerpo += titulo("1. Información general de la inspección",1)+tabla4(info);
         if(!esDiagnosticoInicial && limpio(inspeccion.objetivo)) cuerpo+=tabla2([fila2("Objetivo",inspeccion.objetivo,{size:'18'})]);
         if(!esDiagnosticoInicial && limpio(inspeccion.entorno)) cuerpo+=tabla2([fila2("Descripción del entorno",inspeccion.entorno,{size:'18'})]);
 
@@ -10382,7 +10490,7 @@ async function generarWordPlantillaMaestra() {
             "Formular recomendaciones orientadas al fortalecimiento de las condiciones de seguridad de la copropiedad."
         ];
         const metodologia="Para la realización del presente estudio de seguridad se empleó una visita a la copropiedad, con toma de fotografías, entrevistas y aplicación de lista de chequeo.\nLos parámetros de observación comprenden Control de Accesos, Seguridad Perimetral, Sistemas Electrónicos de Seguridad, Gestión de Autocuidado, Planeación Estratégica y SG-SST, Medio Ambiente y otros aspectos.";
-        cuerpo+=titulo("6. Objetivo y metodología",1)+bloqueTexto("Objetivo General",objetivoGeneral)+titulo("Objetivos Específicos",2)+listaParrafos(objetivos)+bloqueTexto("Metodología",metodologia);
+        cuerpo+=titulo("6. Contexto, objetivos y metodología de la inspección",1)+bloqueTexto("Objetivo General",objetivoGeneral)+titulo("Objetivos Específicos",2)+listaParrafos(objetivos)+bloqueTexto("Metodología",metodologia);
 
         // 07. CHECKLIST
         if(Object.keys(datosChecklist).length){
@@ -10397,12 +10505,12 @@ async function generarWordPlantillaMaestra() {
                     rows.push([item,estado,`${resultado}%`]);
                 });
             });
-            cuerpo+=titulo("7. Evaluación detallada del checklist",1)+tablaGenerica(["ASPECTO / CATEGORÍA","ESTADO","RESULTADO"],rows,[5000,2200,1638]);
+            cuerpo+=titulo("7. Revisión de controles existentes — lista de chequeo",1)+tablaGenerica(["ASPECTO / CATEGORÍA","ESTADO","RESULTADO"],rows,[5000,2200,1638]);
             let totalPuntos=0,totalMaximo=0;
             Object.keys(datosChecklist).forEach(c=>{const pct=Number(resultadosCategorias[c]);if(!isNaN(pct)){const n=datosChecklist[c].length;totalPuntos+=pct*n;totalMaximo+=n;}});
             const porcentajeGeneral=totalMaximo?Math.round(totalPuntos/totalMaximo):0;
             const perfil=porcentajeGeneral>=76?"BUENO":porcentajeGeneral>=51?"SUFICIENTE":porcentajeGeneral>=26?"REGULAR":"DÉBIL";
-            cuerpo+=titulo("8. Perfil de criticidad",1)+tablaGenerica(["PERFIL","RANGO","CLASIFICACIÓN","DESCRIPCIÓN"],[
+            cuerpo+=titulo("8. Resultado del checklist — perfil de criticidad",1)+tablaGenerica(["PERFIL","RANGO","CLASIFICACIÓN","DESCRIPCIÓN"],[
                 ["BUENO","76% - 100%","Conforme","Se recomienda monitoreo y seguimiento general a cada aspecto, con el fin de darle continuidad a las fortalezas identificadas."],
                 ["SUFICIENTE","51% - 75,9%","Con observaciones menores","Plan de seguimiento encaminado a esas observaciones menores detectadas."],
                 ["REGULAR","26% - 50,9%","Requiere seguimiento","Es necesario el diseño de estrategias tendientes a la corrección de aquellos aspectos calificados por mejorar."],
@@ -10412,14 +10520,14 @@ async function generarWordPlantillaMaestra() {
 
         // 09. MATRIZ DE RIESGOS
         if(matrizParaInforme.length){
-            cuerpo+=titulo("9. Matriz de riesgos",1)+tablaGenerica(["#","Área","Elemento / Peligro","Probabilidad","Impacto","Puntuación","Nivel","Tratamiento"],matrizParaInforme.map((r,i)=>[String(i+1),r.area||"",r.peligro||"",r.probabilidad||"",r.impacto||"",r.puntuacion||"",r.nivel||"",r.tratamiento||""]),[500,1100,1900,900,800,900,900,1838]);
+            cuerpo+=titulo("9. Análisis y evaluación de riesgos — matriz",1)+tablaGenerica(["#","Área","Elemento / Peligro","Probabilidad","Impacto","Puntuación","Nivel","Tratamiento"],matrizParaInforme.map((r,i)=>[String(i+1),r.area||"",r.peligro||"",r.probabilidad||"",r.impacto||"",r.puntuacion||"",r.nivel||"",r.tratamiento||""]),[500,1100,1900,900,800,900,900,1838]);
         }
 
         // 10. MAPA DE CALOR — tabla de referencia con los riesgos numerados
         if(matrizParaInforme.length){
             const celdas={}; matrizParaInforme.forEach((r,i)=>{const p=Number(r.probabilidad),imp=Number(r.impacto);if(p>=1&&p<=5&&imp>=1&&imp<=5){const k=`${p}-${imp}`;(celdas[k]||(celdas[k]=[])).push(String(i+1));}});
             const mapa=[]; for(let impacto=5;impacto>=1;impacto--){mapa.push([String(impacto),...Array.from({length:5},(_,j)=>(celdas[`${j+1}-${impacto}`]||[]).join(", "))]);}
-            cuerpo+=titulo("10. Mapa de calor de riesgos",1)+tablaGenerica(["IMPACTO / PROBABILIDAD","1","2","3","4","5"],mapa,[1700,1427,1427,1427,1427,1430])+parrafoWord("Los números dentro del mapa corresponden al número de riesgo de la matriz.",{font:'Arial',size:'16',color:'666666',before:60,after:80});
+            cuerpo+=titulo("10. Mapa de calor — distribución de riesgos",1)+tablaGenerica(["IMPACTO / PROBABILIDAD","1","2","3","4","5"],mapa,[1700,1427,1427,1427,1427,1430])+parrafoWord("Los números dentro del mapa corresponden al número de riesgo de la matriz.",{font:'Arial',size:'16',color:'666666',before:60,after:80});
         }
 
         // 11. HALLAZGOS — integración gráfica del registro fotográfico.
@@ -10460,7 +10568,7 @@ async function generarWordPlantillaMaestra() {
                 rowsXml+=`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(String(i+1),{width:anchos[0],size:'16',align:'center'})}${celdaWord(h.area||h.categoria||"",{width:anchos[1],size:'16',align:'center'})}${celdaWord(textoHallazgo,{width:anchos[2],size:'16',align:'left'})}${celdaWord(recomendacion,{width:anchos[3],size:'16',align:'left'})}${celdaWordContenido(fotosContenido,{width:anchos[4],vAlign:'center'})}</w:tr>`;
             }
             const tablaHallazgos=`<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="D5D9DD"/><w:left w:val="single" w:sz="6" w:color="D5D9DD"/><w:bottom w:val="single" w:sz="6" w:color="D5D9DD"/><w:right w:val="single" w:sz="6" w:color="D5D9DD"/><w:insideH w:val="single" w:sz="6" w:color="D5D9DD"/><w:insideV w:val="single" w:sz="6" w:color="D5D9DD"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${headerXml}${rowsXml}</w:tbl>`;
-            cuerpo+=titulo("11. Hallazgos identificados",1)+tablaHallazgos;
+            cuerpo+=titulo("11. Hallazgos, evidencias y medidas de tratamiento",1)+tablaHallazgos;
         }
 
         // Guardar las relaciones y tipos de contenido de imágenes dentro del mismo
@@ -10497,8 +10605,8 @@ async function generarWordPlantillaMaestra() {
         ];
         const anchosPlan = [650, 5050, ANCHO_TABLA_MAESTRA - 5700];
         const bordesPlan = '<w:tblBorders><w:top w:val="single" w:sz="6" w:color="A6A6A6"/><w:left w:val="single" w:sz="6" w:color="A6A6A6"/><w:bottom w:val="single" w:sz="6" w:color="A6A6A6"/><w:right w:val="single" w:sz="6" w:color="A6A6A6"/><w:insideH w:val="single" w:sz="6" w:color="A6A6A6"/><w:insideV w:val="single" w:sz="6" w:color="A6A6A6"/></w:tblBorders>';
-        const filaTituloPlan = `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord("PLAN DE TRABAJO - DIRECCIÓN OPERATIVA", {width:ANCHO_TABLA_MAESTRA,colspan:3,shading:"D9D9D9",bold:true,align:"center",size:"16"})}</w:tr>`;
-        const filaCabeceraPlan = `<w:tr><w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>${["No.","ACTIVIDAD","OBJETIVO"].map((v,i)=>celdaWord(v,{width:anchosPlan[i],shading:"E7E6E6",bold:true,align:"center",size:"15"})).join("")}</w:tr>`;
+        const filaTituloPlan = `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord("PLAN DE ACCIÓN Y SEGUIMIENTO — DIRECCIÓN OPERATIVA", {width:ANCHO_TABLA_MAESTRA,colspan:3,shading:"123B5D",bold:true,align:"center",color:"FFFFFF",size:"16"})}</w:tr>`;
+        const filaCabeceraPlan = `<w:tr><w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>${["No.","ACTIVIDAD","OBJETIVO"].map((v,i)=>celdaWord(v,{width:anchosPlan[i],shading:"DCEAF4",bold:true,align:"center",color:"123B5D",size:"15"})).join("")}</w:tr>`;
         const filasPlan = planTrabajo.map(fila => `<w:tr><w:trPr><w:cantSplit/></w:trPr>${fila.map((v,i)=>celdaWord(v,{width:anchosPlan[i],size:"14",align:i===0?"center":"left"})).join("")}</w:tr>`).join("");
         const tablaPlanTrabajoWord = `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/>${bordesPlan}</w:tblPr><w:tblGrid>${anchosPlan.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>${filaTituloPlan}${filaCabeceraPlan}${filasPlan}</w:tbl>`;
         cuerpo += tablaPlanTrabajoWord;
@@ -10570,6 +10678,18 @@ function renderizarInformeDiagnosticoInicialPDF(ventana, inspeccion, tituloInfor
         ["Director / responsable", inspeccion.director], ["Tipo de inspección", inspeccion.tipo]
     ].filter(([_, valor]) => valor !== undefined && valor !== null && String(valor).trim() !== "");
     const filasCampos = campos.map(([etiqueta, valor]) => `<tr><th>${e(etiqueta)}</th><td>${e(valor)}</td></tr>`).join("");
+    const nivelResumenPDF = String(datosDiagnostico.nivelRiesgo || "No registrado").trim() || "No registrado";
+    const observacionResumenPDF = String(datosDiagnostico.observaciones || "No registrada").trim() || "No registrada";
+    const resumenEjecutivoDiagnosticoPDF = `
+        <section class="resumen-ejecutivo">
+            <h2>Resumen ejecutivo</h2>
+            <p>El diagnóstico inicial de <strong>${e(inspeccion.cliente || "la organización")}</strong> registra como nivel de riesgo evidenciado <strong>${e(nivelResumenPDF)}</strong>. La observación sustentadora se incluye a continuación para facilitar la lectura de la calificación.</p>
+            <table class="riesgo resumen-tabla"><tbody>
+                <tr><th>Nivel de riesgo registrado</th><td><strong>${e(nivelResumenPDF)}</strong></td></tr>
+                <tr><th>Observación sustentadora</th><td>${e(observacionResumenPDF)}</td></tr>
+                <tr><th>Checklist / matriz</th><td>No se incorporan como resultado de este diagnóstico inicial; no se infieren valores que no estén registrados.</td></tr>
+            </tbody></table>
+        </section>`;
 
     ventana.document.open();
     ventana.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${e(tituloInforme)}</title>
@@ -10581,6 +10701,9 @@ function renderizarInformeDiagnosticoInicialPDF(ventana, inspeccion, tituloInfor
             .marca{width:20%}.titulo{width:55%;font-weight:bold;font-size:15px;line-height:1.25;color:#123b5d;overflow-wrap:anywhere;word-break:normal}.codigo{width:25%;font-size:11px}
             .confidencial{color:#c00000;font-weight:bold}.cliente{font-weight:bold}
             h2{font-size:15px;color:#123b5d;border-bottom:2px solid #123b5d;padding-bottom:6px;margin:20px 0 8px}
+            .resumen-ejecutivo{border:1px solid #cbd8e2;border-top:4px solid #123b5d;background:#f7fafc;padding:10px 12px;margin:0 0 16px;page-break-inside:avoid}
+            .resumen-ejecutivo h2{margin:0 0 8px}.resumen-ejecutivo p{font-size:11px;line-height:1.45;margin:5px 0 10px}
+            .resumen-tabla{margin:8px 0 2px!important}
             table.datos,table.incidentes,table.riesgo{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11px;margin:8px 0 18px}
             .datos th,.datos td,.incidentes th,.incidentes td,.riesgo th,.riesgo td{border:1px solid #999;padding:7px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
             .datos th,.incidentes th{background:#123b5d;color:white}.riesgo th{width:34%;background:#f1f4f7;color:#123b5d}
@@ -10603,6 +10726,7 @@ function renderizarInformeDiagnosticoInicialPDF(ventana, inspeccion, tituloInfor
                 <tr><td colspan="3" class="confidencial">- CONFIDENCIAL -</td></tr>
                 <tr><td colspan="3" class="cliente">${e(inspeccion.cliente || "")}<br><strong>ID DE INSPECCIÓN: ${e(inspeccion.idControl || "SIN ID")}</strong></td></tr>
             </tbody></table>
+            ${resumenEjecutivoDiagnosticoPDF}
             <h2>1. Información del cliente y del puesto</h2>
             <table class="datos"><tbody>${filasCampos}</tbody></table>
             <h2>2. Histórico de incidentes (último año)</h2>
@@ -11180,7 +11304,7 @@ function riesgosEnCelda(probabilidad, impacto) {
             }
 
             fotosHTML = `
-                <table class="tabla-fotos-hallazgo" width="100%" style="width:100%;table-layout:fixed;border-collapse:collapse;">
+                <table class="tabla-fotos-hallazgo ${esFotoUnica ? "foto-unica" : "fotos-multiples"}" width="100%" style="width:100%;table-layout:fixed;border-collapse:collapse;">
                     <tbody>${filasFotos.join("")}</tbody>
                 </table>
             `;
@@ -11494,6 +11618,38 @@ matrizParaInforme.forEach((riesgo, indice) => {
         `;
     }
 
+    // CAM-ISO31000-02 — Resumen ejecutivo PDF con datos existentes.
+    const checklistDisponibleResumenPDF = Object.keys(datosChecklist || {}).length > 0 &&
+        Object.keys(resultadosCategorias || {}).some(c => {
+            const valor = resultadosCategorias[c];
+            return valor !== undefined && valor !== null && String(valor).trim() !== "" && Number.isFinite(Number(valor));
+        });
+    const riesgosConNivelResumenPDF = matrizParaInforme.filter(r => String(r.nivel || "").trim()).length;
+    const riesgosAltosCriticosResumenPDF = matrizParaInforme.filter(r => /cr[ií]tico|alto/i.test(String(r.nivel || ""))).length;
+    const hallazgosAltosCriticosResumenPDF = hallazgos.filter(h => /cr[ií]tico|alto/i.test(String(h.nivel || ""))).length;
+    const filasResumenPDF = `
+        <tr><th>Tipo de inspección</th><td>${escapar(inspeccion.tipo || "No registrado")}</td></tr>
+        <tr><th>Resultado del checklist</th><td>${checklistDisponibleResumenPDF ? `${porcentajeGeneral}% — ${escapar(perfilCriticidad)}` : "No disponible"} <span class="nota-resumen">(no equivale por sí solo al nivel global de riesgo)</span></td></tr>
+        <tr><th>Riesgos registrados en la matriz</th><td>${matrizParaInforme.length}; ${riesgosConNivelResumenPDF} con nivel consignado.</td></tr>
+        <tr><th>Riesgos altos o críticos</th><td>${riesgosAltosCriticosResumenPDF} según el nivel escrito en la matriz.</td></tr>
+        <tr><th>Hallazgos documentados</th><td>${hallazgos.length}; ${hallazgosAltosCriticosResumenPDF} con nivel Alto o Crítico consignado.</td></tr>`;
+    const filasPrioridadesPDF = matrizParaInforme
+        .filter(r => String(r.riesgo || r.peligro || "").trim())
+        .slice()
+        .sort((a,b) => (Number(b.puntuacion) || 0) - (Number(a.puntuacion) || 0))
+        .slice(0,3)
+        .map(r => `<tr><td>${escapar(r.riesgo || r.peligro || "Riesgo registrado")}</td><td>${escapar(r.nivel || "No consignado")}</td><td>${escapar(r.tratamiento || "No consignado")}</td></tr>`).join("")
+        || hallazgos.slice(0,3).map(h => `<tr><td>${escapar(h.hallazgo || h.descripcion || h.observacion || "Hallazgo registrado")}</td><td>${escapar(h.nivel || "No consignado")}</td><td>${escapar(h.accion || h.accionPreventiva || h.recomendacion || "No consignada")}</td></tr>`).join("")
+        || '<tr><td colspan="3">No hay riesgos ni hallazgos registrados para resumir.</td></tr>';
+    const resumenEjecutivoHTML = `
+        <section class="bloque-pdf resumen-ejecutivo-pdf">
+            <h2>Resumen ejecutivo</h2>
+            <p>La inspección de <strong>${escapar(inspeccion.cliente || "la organización")}</strong> corresponde a <strong>${escapar(inspeccion.tipo || "un tipo de inspección no registrado")}</strong>. Se resumen los registros disponibles; la priorización debe leerse junto con las evidencias y los niveles consignados, sin interpretar el porcentaje del checklist como nivel global de riesgo.</p>
+            <table class="datos tabla-resumen-ejecutivo"><tbody>${filasResumenPDF}</tbody></table>
+            <h3>Riesgos prioritarios y medidas registradas</h3>
+            <table class="tabla-resumen-prioridades"><thead><tr><th>Riesgo / hallazgo</th><th>Nivel</th><th>Tratamiento / recomendación</th></tr></thead><tbody>${filasPrioridadesPDF}</tbody></table>
+            <p class="nota-resumen">Referencia metodológica: ISO 31000:2018. Esta referencia no constituye certificación ni declaración de conformidad integral con la norma.</p>
+        </section>`;
 
     /* =========================
        DOCUMENTO
@@ -11515,6 +11671,15 @@ matrizParaInforme.forEach((riesgo, indice) => {
             </title>
 
             <style>
+
+                .resumen-ejecutivo-pdf{border:1px solid #cbd8e2;border-top:4px solid #123b5d;background:#f7fafc;padding:12px;margin:0 0 18px;page-break-inside:avoid}
+                .resumen-ejecutivo-pdf h2{margin-top:0}
+                .resumen-ejecutivo-pdf p{font-size:10px;line-height:1.45}
+                .tabla-resumen-ejecutivo th{width:31%;background:#eaf2f8!important;color:#123b5d!important}
+                .tabla-resumen-prioridades{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9px;margin:8px 0}
+                .tabla-resumen-prioridades th,.tabla-resumen-prioridades td{border:1px solid #999;padding:6px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+                .tabla-resumen-prioridades th{background:#123b5d;color:#fff}
+                .nota-resumen{font-size:9px;color:#5b6570}
 
                 body {
 
@@ -11954,10 +12119,21 @@ matrizParaInforme.forEach((riesgo, indice) => {
     vertical-align:middle !important;
 }
 
-.tabla-fotos-hallazgo img {
+/* Mantener la proporción original y aplicar el tamaño acordado por cantidad. */
+.tabla-fotos-hallazgo.foto-unica img {
     display:block !important;
-    width:3.8cm !important;
-    height:2.6cm !important;
+    width:auto !important;
+    height:auto !important;
+    max-width:7.5cm !important;
+    max-height:5cm !important;
+    object-fit:contain !important;
+    margin:0 auto !important;
+}
+
+.tabla-fotos-hallazgo.fotos-multiples img {
+    display:block !important;
+    width:auto !important;
+    height:auto !important;
     max-width:3.8cm !important;
     max-height:2.6cm !important;
     object-fit:contain !important;
@@ -12674,6 +12850,8 @@ matrizParaInforme.forEach((riesgo, indice) => {
 </div>
           
 
+${resumenEjecutivoHTML}
+
 <div class="bloque-pdf">
 
  <h2>
@@ -13279,7 +13457,7 @@ ESTADO: EN DESARROLLO
 ========================================================
 -->
 <h2>
-    2. Objetivo y metodología
+    2. Contexto, objetivo y metodología
 </h2>
 
 <div style="
@@ -13380,9 +13558,29 @@ ESTADO: EN DESARROLLO
 
 </div>
 
+<!-- CAM-ISO31000-01: bloque exclusivamente visual para orientar la lectura del informe.
+     No modifica datos, cálculos, campos de captura ni la plantilla Word maestra. -->
+<section style="margin:18px 0 22px;padding:12px;border:1px solid #cbd5e1;border-left:5px solid #123b5d;background:#f5f8fb;page-break-inside:avoid;">
+    <h3 style="margin:0 0 7px;color:#123b5d;font-size:13px;">MARCO DE LECTURA — GESTIÓN DEL RIESGO</h3>
+    <p style="margin:0 0 10px;font-size:10px;line-height:1.45;">La presentación organiza los resultados con referencia al proceso de gestión del riesgo de ISO 31000:2018. Se trata de una orientación metodológica para leer los hallazgos y resultados; no constituye certificación ni declaración de conformidad con la norma.</p>
+    <table style="width:100%;border-collapse:separate;border-spacing:4px;table-layout:fixed;font-size:9px;">
+        <tbody>
+            <tr>
+                <td style="width:33.33%;vertical-align:top;padding:7px;border:1px solid #d5dce5;background:#fff;"><strong style="color:#123b5d;">1. Contexto y criterios</strong><br>Objetivo, alcance y condiciones observadas.</td>
+                <td style="width:33.33%;vertical-align:top;padding:7px;border:1px solid #d5dce5;background:#fff;"><strong style="color:#123b5d;">2. Identificación</strong><br>Hallazgos, peligros y eventos potenciales.</td>
+                <td style="width:33.33%;vertical-align:top;padding:7px;border:1px solid #d5dce5;background:#fff;"><strong style="color:#123b5d;">3. Análisis</strong><br>Probabilidad, impacto y nivel registrado.</td>
+            </tr>
+            <tr>
+                <td style="vertical-align:top;padding:7px;border:1px solid #d5dce5;background:#fff;"><strong style="color:#123b5d;">4. Evaluación</strong><br>Priorización según los criterios utilizados.</td>
+                <td style="vertical-align:top;padding:7px;border:1px solid #d5dce5;background:#fff;"><strong style="color:#123b5d;">5. Tratamiento</strong><br>Medidas y acciones recomendadas.</td>
+                <td style="vertical-align:top;padding:7px;border:1px solid #d5dce5;background:#fff;"><strong style="color:#123b5d;">6. Seguimiento</strong><br>Revisión de acciones y evidencias de avance.</td>
+            </tr>
+        </tbody>
+    </table>
+</section>
 
 <h2>
-    3. Resultado de la lista de chequeo
+    3. Revisión de controles existentes — lista de chequeo
 </h2>
 
 <!--
@@ -13581,7 +13779,7 @@ ESTADO: EN DESARROLLO
         margin-bottom:10px;
         color:#123b5d;
     ">
-        CONSOLIDADO - PERFIL DE CRITICIDAD
+        RESULTADO DEL CHECKLIST — PERFIL DE CUMPLIMIENTO
     </h3>
 
     <table style="
@@ -13803,7 +14001,7 @@ ESTADO: EN DESARROLLO
             
                <div class="salto-pagina-pdf"></div>
                <h2>
-    4. Matriz de riesgos
+    4. Análisis y evaluación de riesgos
 </h2>
 
 <table>
@@ -13826,7 +14024,7 @@ ESTADO: EN DESARROLLO
 </table>
 
 <h2>
-    Mapa de calor de riesgos
+    Mapa de calor — visualización de los niveles de riesgo
 </h2>
 
 <div style="
@@ -13927,7 +14125,7 @@ ESTADO: EN DESARROLLO
 
 <div class="seccion-pdf seccion-hallazgos-pdf">
 <h2>
-    5. Hallazgos identificados
+    5. Hallazgos y evidencias para el tratamiento del riesgo
 </h2>
 
 <!-- CAMBIO PDF-HALLAZGOS-REFERENCIA — Tabla HTML real de 3 columnas,
@@ -13952,7 +14150,7 @@ ESTADO: EN DESARROLLO
 </table>
 </div>
 
-${bloquePlanTrabajoHTML(escapar)}
+${bloquePlanTrabajoHTML(escapar).replace("PLAN DE TRABAJO - DIRECCIÓN OPERATIVA", "PLAN DE TRATAMIENTO Y SEGUIMIENTO DEL RIESGO")}
 <div class="notas-informe">
     <p>La información antes descrita no implica que todos los riesgos hayan sido identificados o que no existan otros riesgos.</p>
     <p>Las imágenes de referencia son tomadas de GOOGLE MAPS / GOOGLE EARTH / BUSCADOR EN LA RED o fotografías con drones, cámaras o equipos móviles. No representan el estado real del predio.</p>
