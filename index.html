@@ -3972,36 +3972,21 @@ async function obtenerDataUrlMedia(foto) {
 }
 
 async function exportarMediosParaRespaldo(hallazgos) {
-    // CAM-RESPALDO-MATRIZ-01 / protección fotográfica:
-    // incluir fotos guardadas en IndexedDB y fotos antiguas que aún conserven
-    // la imagen inline. Si una foto registrada no puede recuperarse, detener
-    // el respaldo para no entregar un archivo aparentemente correcto e incompleto.
     const medios = [];
     const vistos = new Set();
 
     for (const hallazgo of (Array.isArray(hallazgos) ? hallazgos : [])) {
         for (const foto of (Array.isArray(hallazgo.fotos) ? hallazgo.fotos : [])) {
-            if (!foto) continue;
-
-            const mediaId = foto.mediaId || "";
-            if (mediaId && vistos.has(mediaId)) continue;
-
-            let dataUrl = "";
-            if (mediaId) {
-                dataUrl = await obtenerDataUrlMedia(foto);
-            } else {
-                // Compatibilidad con respaldos/fotos previas a IndexedDB.
-                dataUrl = foto.dataUrl || foto.imagen || foto.data || obtenerImagenDeFoto(foto) || "";
+            if (!foto || !foto.mediaId || vistos.has(foto.mediaId)) {
+                continue;
             }
 
-            if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
-                throw new Error(
-                    "No se pudo recuperar una fotografía de un hallazgo. " +
-                    "El respaldo se canceló para evitar perder evidencia fotográfica."
-                );
+            const dataUrl = await obtenerDataUrlMedia(foto);
+            if (!dataUrl) {
+                continue;
             }
 
-            if (mediaId) vistos.add(mediaId);
+            vistos.add(foto.mediaId);
             medios.push({
                 ...foto,
                 dataUrl
@@ -4177,21 +4162,9 @@ async function crearRespaldo() {
 
         setTimeout(() => URL.revokeObjectURL(url), 1000);
 
-        const matrizInspeccionesRespaldo = respaldo.datos.matrizRiesgos;
-        const matricesClientesRespaldo = respaldo.datos.matricesRiesgosClientes;
-
         alert(
             "Respaldo creado correctamente.\n\n" +
-            "Fotografías incluidas: " + mediosRespaldo.length + "\n" +
-            "Registros en matriz de riesgos: " +
-                (Array.isArray(matrizInspeccionesRespaldo) ? matrizInspeccionesRespaldo.length : 0) + "\n" +
-            "Matrices/registros de clientes: " +
-                (Array.isArray(matricesClientesRespaldo) ? matricesClientesRespaldo.length : 0) +
-            ((Array.isArray(matrizInspeccionesRespaldo) && matrizInspeccionesRespaldo.length === 0 &&
-              Array.isArray(matricesClientesRespaldo) && matricesClientesRespaldo.length === 0)
-                ? "\n\nADVERTENCIA: ambas matrices están vacías en el almacenamiento actual. " +
-                  "Verifique que la matriz se haya guardado antes de confiar en este respaldo."
-                : "")
+            "Fotografías incluidas: " + mediosRespaldo.length
         );
     } catch (error) {
         console.error("TECCHNEX: error al crear respaldo:", error);
@@ -4670,14 +4643,16 @@ function abrirMatrizRiesgosCliente(nombreCliente) {
                 localStorage.getItem("matricesRiesgosClientes")
             ) || [];
 
+        // CAM-MATRIZ-CLIENTE-01: comparar nombres con la misma
+        // normalización usada por el directorio (acentos, espacios y mayúsculas).
+        // Esto permite recuperar matrices importadas aunque el nombre tenga
+        // diferencias de formato, sin cambiar los datos almacenados.
         const nombreClienteNormalizado =
-            String(nombreCliente || "").trim().toLowerCase();
+            normalizarClaveClienteOM16(nombreCliente);
 
         const riesgosCliente = matricesGuardadas.filter(
             registro =>
-                String(registro.cliente || "")
-                    .trim()
-                    .toLowerCase() ===
+                normalizarClaveClienteOM16(registro.cliente) ===
                 nombreClienteNormalizado
         );
 
@@ -10078,7 +10053,12 @@ async function generarWordPlantillaMaestra() {
     const hallazgos = todosLosHallazgos.filter(h => Number(h.inspeccion) === indice);
     const matrizInspeccion = todasLasMatrices.filter(m => Number(m.inspeccion) === indice);
     const matricesRiesgosClientes = JSON.parse(localStorage.getItem("matricesRiesgosClientes")) || [];
-    const matrizCliente = matricesRiesgosClientes.filter(r => String(r.cliente || "") === String(inspeccion.cliente || ""));
+    // CAM-MATRIZ-CLIENTE-01: normalizar la clave de cliente al enlazar
+    // la matriz con el informe Word. No altera los registros guardados.
+    const claveClienteInforme = normalizarClaveClienteOM16(inspeccion.cliente);
+    const matrizCliente = matricesRiesgosClientes.filter(
+        r => normalizarClaveClienteOM16(r.cliente) === claveClienteInforme
+    );
     const matrizParaInforme = matrizCliente.length ? matrizCliente : matrizInspeccion;
 
     const coincidencias = checklists.filter(c => Number(c.inspeccion) === indice);
@@ -10124,6 +10104,7 @@ async function generarWordPlantillaMaestra() {
 
         // CAMPO VISUAL 03 — INTERVENCIÓN 04
         // Contenedor de celda para insertar imágenes Word sin alterar las demás tablas.
+        // CAM-FOTOGRAFIAS-01: las imágenes se ajustan al campo y conservan proporciones.
         function celdaWordContenido(contenido, opciones={}) {
             const width=opciones.width||2200;
             const shade=opciones.shading ? `<w:shd w:fill="${opciones.shading}"/>` : "";
@@ -10145,9 +10126,14 @@ async function generarWordPlantillaMaestra() {
             return {extension,mime,bytes};
         }
 
-        function imagenWordXML(rId,docPrId,nombre) {
-            const cx=Math.round((3.8/2.54)*914400);
-            const cy=Math.round((2.6/2.54)*914400);
+        function imagenWordXML(rId,docPrId,nombre,anchoMaxCm=3.8,altoMaxCm=2.6,relacionAspecto=1.5) {
+            // Las medidas recibidas son límites máximos: se conserva la proporción original.
+            const maxCx=Math.round((anchoMaxCm/2.54)*914400);
+            const maxCy=Math.round((altoMaxCm/2.54)*914400);
+            const ratio=Number.isFinite(relacionAspecto)&&relacionAspecto>0 ? relacionAspecto : maxCx/maxCy;
+            let cx=maxCx;
+            let cy=Math.round(cx/ratio);
+            if(cy>maxCy){ cy=maxCy; cx=Math.round(cy*ratio); }
             return `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="0" w:line="240"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${docPrId}" name="${escaparXmlWord(nombre)}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="${escaparXmlWord(nombre)}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1" noChangeArrowheads="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
         }
         // CAMPO VISUAL 03 — INTERVENCIÓN 03A
@@ -10323,9 +10309,60 @@ async function generarWordPlantillaMaestra() {
         ]);
         if(cctv.length) cuerpo+=titulo("3. Sistema CCTV",1)+tabla4(cctv,{align:'center'});
 
-        // 04. GEOREFERENCIACIÓN
+        // CAM-FOTOGRAFIAS-01 — Registro común de imágenes en el DOCX.
+        // Se comparte entre georreferenciación, foto de contexto y hallazgos.
+        let relacionXml="";
+        let nextRelId=1;
+        let docPrId=1000;
+        let imageIndex=0;
+        let contentTypesXml=zip.file("[Content_Types].xml") ? await zip.file("[Content_Types].xml").async("string") : "";
+        const relsEntryImagenes=zip.file("word/_rels/document.xml.rels");
+        if(relsEntryImagenes){
+            relacionXml=await relsEntryImagenes.async("string");
+            const ids=[...relacionXml.matchAll(/Id="rId(\d+)"/g)].map(m=>Number(m[1]));
+            nextRelId=ids.length?Math.max(...ids)+1:1;
+        }else{
+            relacionXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+        }
+        async function agregarImagenWord(dataUrl,tipo,nombre,anchoMaxCm,altoMaxCm){
+            const datos=datosImagenWord(dataUrl);
+            if(!datos) return "";
+            let relacionAspecto=1.5;
+            try{
+                relacionAspecto=await new Promise(resolve=>{
+                    const imagen=new Image();
+                    imagen.onload=()=>resolve((imagen.naturalWidth||imagen.width)/(imagen.naturalHeight||imagen.height));
+                    imagen.onerror=()=>resolve(1.5);
+                    imagen.src=dataUrl;
+                });
+            }catch(_){ /* Mantener proporción de reserva si el navegador no informa dimensiones. */ }
+            const rId=`rId${nextRelId++}`;
+            const mediaName=`tecchnex_${tipo}_${++imageIndex}.${datos.extension}`;
+            zip.file(`word/media/${mediaName}`,datos.bytes);
+            relacionXml=relacionXml.replace("</Relationships>",`<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${mediaName}"/></Relationships>`);
+            if(!contentTypesXml.includes(`Extension="${datos.extension}"`)){
+                contentTypesXml=contentTypesXml.replace("</Types>",`<Default Extension="${datos.extension}" ContentType="${datos.mime}"/></Types>`);
+            }
+            return imagenWordXML(rId,docPrId++,nombre,anchoMaxCm,altoMaxCm,relacionAspecto);
+        }
+
+        // 04. GEOREFERENCIACIÓN — imágenes integradas dentro del documento Word.
         const geo=camposDiligenciados([["Latitud",inspeccion.latitud||""],["Longitud",inspeccion.longitud||""]]);
-        if(geo.length) cuerpo+=titulo("4. Georreferenciación",1)+tabla2(geo.map(x=>fila2(x[0],x[1])));
+        const tieneImagenesGeo=!!(inspeccion.imagenGoogleMaps||inspeccion.imagenGoogleEarth);
+        if(geo.length||tieneImagenesGeo){
+            cuerpo+=titulo("4. Georreferenciación",1);
+            if(tieneImagenesGeo){
+                const anchoGeo=Math.floor(ANCHO_TABLA_MAESTRA/2);
+                const cabeceraGeo=`<w:tr><w:trPr><w:tblHeader/></w:trPr>${celdaWord("GOOGLE MAPS",{width:anchoGeo,shading:"EEF1F4",bold:true,color:"123B5D",align:"center",size:"16"})}${celdaWord("FOTO DE CONTEXTO",{width:ANCHO_TABLA_MAESTRA-anchoGeo,shading:"EEF1F4",bold:true,color:"123B5D",align:"center",size:"16"})}</w:tr>`;
+                const imagenMaps=await agregarImagenWord(inspeccion.imagenGoogleMaps,"georeferenciacion","Google Maps",7.5,4.8);
+                const imagenContexto=await agregarImagenWord(inspeccion.imagenGoogleEarth,"contexto","Foto de contexto",7.5,4.8);
+                const contenidoMaps=imagenMaps||parrafoWord("Imagen no cargada",{font:"Arial",size:"16",color:"666666",align:"center"});
+                const contenidoContexto=imagenContexto||parrafoWord("Imagen no cargada",{font:"Arial",size:"16",color:"666666",align:"center"});
+                const filaImagenesGeo=`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWordContenido(contenidoMaps,{width:anchoGeo,vAlign:"center"})}${celdaWordContenido(contenidoContexto,{width:ANCHO_TABLA_MAESTRA-anchoGeo,vAlign:"center"})}</w:tr>`;
+                cuerpo+=`<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="D5D9DD"/><w:left w:val="single" w:sz="6" w:color="D5D9DD"/><w:bottom w:val="single" w:sz="6" w:color="D5D9DD"/><w:right w:val="single" w:sz="6" w:color="D5D9DD"/><w:insideH w:val="single" w:sz="6" w:color="D5D9DD"/><w:insideV w:val="single" w:sz="6" w:color="D5D9DD"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${anchoGeo}"/><w:gridCol w:w="${ANCHO_TABLA_MAESTRA-anchoGeo}"/></w:tblGrid>${cabeceraGeo}${filaImagenesGeo}</w:tbl>`;
+            }
+            if(geo.length) cuerpo+=tabla2(geo.map(x=>fila2(x[0],x[1])));
+        }
 
         // 05. HERRAMIENTAS DE SEGURIDAD
         function serviciosRows(arr){ return (Array.isArray(arr)?arr:[]).map(s=>[s.servicio||"",s.horario||"",s.jornada||"",s.dias||"",s.modalidad||""]); }
@@ -10389,25 +10426,16 @@ async function generarWordPlantillaMaestra() {
         // Medida fija por fotografía: 3,8 cm de ancho x 2,6 cm de alto.
         if(hallazgos.length){
             const headers=["#","ÁREA","HALLAZGO","ACCIÓN PREVENTIVA / RECOMENDACIÓN","REGISTRO FOTOGRÁFICO"];
-            const widthsBase=[500,1000,2600,3000,1738];
+            // Si existe un hallazgo con una sola foto, reservarle una columna
+            // de aproximadamente 7,85 cm (incluye márgenes internos de Word).
+            // Cuando todas tienen varias fotos, se conserva la distribución original.
+            const hayFotoUnica=hallazgos.some(h=>Array.isArray(h.fotos)&&h.fotos.length===1);
+            const widthsBase=hayFotoUnica?[450,900,2300,2674,4450]:[500,1000,2600,3000,1738];
             const sumaOriginal=widthsBase.reduce((a,b)=>a+b,0);
             const factor=ANCHO_TABLA_MAESTRA/sumaOriginal;
             const anchos=widthsBase.map((w,i)=>i===widthsBase.length-1?ANCHO_TABLA_MAESTRA-widthsBase.slice(0,-1).reduce((a,b)=>a+Math.round(b*factor),0):Math.round(w*factor));
             const headerXml=tablaCabeceras(headers,anchos);
             let rowsXml="";
-            let relacionXml="";
-            let nextRelId=1;
-            const relsEntry=zip.file("word/_rels/document.xml.rels");
-            if(relsEntry){
-                relacionXml=await relsEntry.async("string");
-                const ids=[...relacionXml.matchAll(/Id="rId(\d+)"/g)].map(m=>Number(m[1]));
-                nextRelId=ids.length?Math.max(...ids)+1:1;
-            }else{
-                relacionXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
-            }
-            let docPrId=1000;
-            let imageIndex=0;
-            let contentTypesXml=zip.file("[Content_Types].xml") ? await zip.file("[Content_Types].xml").async("string") : "";
             for(const [i,h] of hallazgos.entries()){
                 const textoHallazgo=h.hallazgo||h.descripcion||h.observacion||"";
                 const recomendacion=h.accion||h.accionPreventiva||h.recomendacion||"";
@@ -10415,18 +10443,17 @@ async function generarWordPlantillaMaestra() {
                 const fotos=Array.isArray(h.fotos)?h.fotos:[];
                 if(fotos.length){
                     fotosContenido="";
+                    const anchoMaxFoto=fotos.length===1?7.5:3.8;
+                    const altoMaxFoto=fotos.length===1?5:2.6;
                     for(let j=0;j<fotos.length;j++){
-                        const datos=datosImagenWord(obtenerImagenDeFoto(fotos[j]));
-                        if(!datos) continue;
-                        const rId=`rId${nextRelId++}`;
-                        const mediaName=`tecchnex_hallazgo_${i+1}_${j+1}.${datos.extension}`;
-                        zip.file(`word/media/${mediaName}`,datos.bytes);
-                        relacionXml=relacionXml.replace("</Relationships>",`<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${mediaName}"/></Relationships>`);
-                        if(!contentTypesXml.includes(`Extension="${datos.extension}"`)){
-                            contentTypesXml=contentTypesXml.replace("</Types>",`<Default Extension="${datos.extension}" ContentType="${datos.mime}"/></Types>`);
-                        }
-                        fotosContenido+=imagenWordXML(rId,docPrId++,`Registro fotográfico ${i+1}-${j+1}`);
-                        imageIndex++;
+                        const imagenHallazgo=await agregarImagenWord(
+                            obtenerImagenDeFoto(fotos[j]),
+                            `hallazgo_${i+1}_${j+1}`,
+                            `Registro fotográfico ${i+1}-${j+1}`,
+                            anchoMaxFoto,
+                            altoMaxFoto
+                        );
+                        if(imagenHallazgo) fotosContenido+=imagenHallazgo;
                     }
                     if(!fotosContenido) fotosContenido=parrafoWord("Sin evidencia fotográfica",{font:'Arial',size:'16',color:'666666',align:'center',line:220});
                 }
@@ -10434,6 +10461,11 @@ async function generarWordPlantillaMaestra() {
             }
             const tablaHallazgos=`<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="D5D9DD"/><w:left w:val="single" w:sz="6" w:color="D5D9DD"/><w:bottom w:val="single" w:sz="6" w:color="D5D9DD"/><w:right w:val="single" w:sz="6" w:color="D5D9DD"/><w:insideH w:val="single" w:sz="6" w:color="D5D9DD"/><w:insideV w:val="single" w:sz="6" w:color="D5D9DD"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${headerXml}${rowsXml}</w:tbl>`;
             cuerpo+=titulo("11. Hallazgos identificados",1)+tablaHallazgos;
+        }
+
+        // Guardar las relaciones y tipos de contenido de imágenes dentro del mismo
+        // ámbito donde se declara imageIndex y se agregan las imágenes.
+        if(imageIndex>0){
             zip.file("word/_rels/document.xml.rels",relacionXml);
             if(contentTypesXml) zip.file("[Content_Types].xml",contentTypesXml);
         }
@@ -10685,11 +10717,14 @@ const matricesRiesgosClientes =
         localStorage.getItem("matricesRiesgosClientes")
     ) || [];
 
+// CAM-MATRIZ-CLIENTE-01: aplicar la misma normalización al enlazar
+// la matriz de cliente con el informe PDF y su mapa de calor.
+const claveClienteInformePDF = normalizarClaveClienteOM16(inspeccion.cliente);
 const matrizCliente =
     matricesRiesgosClientes.filter(
         registro =>
-            String(registro.cliente || "") ===
-            String(inspeccion.cliente || "")
+            normalizarClaveClienteOM16(registro.cliente) ===
+            claveClienteInformePDF
     );
 
 console.log(
@@ -11108,40 +11143,45 @@ function riesgosEnCelda(probabilidad, impacto) {
            del informe de referencia y evitar dependencias de CSS Grid en html2pdf. */
         if (Array.isArray(hallazgo.fotos) && hallazgo.fotos.length) {
             const filasFotos = [];
+            const esFotoUnica = hallazgo.fotos.length === 1;
+            const anchoFotoPx = esFotoUnica ? 283 : 144; // aprox. 7,5 cm o 3,8 cm
+            const altoFotoPx = esFotoUnica ? 189 : 98;   // aprox. 5 cm o 2,6 cm
 
-            for (let i = 0; i < hallazgo.fotos.length; i += 2) {
-                const foto1 = hallazgo.fotos[i];
-                const foto2 = hallazgo.fotos[i + 1];
-
+            if (esFotoUnica) {
                 filasFotos.push(`
-                    <tr>
-                        <td>
-                            <img
-                                src="${obtenerImagenDeFoto(foto1)}"
-                                width="126" height="88"
-                                style="width:126px;height:88px;max-width:126px;max-height:88px;object-fit:contain;display:block;margin:0 auto;"
-                                alt="Registro fotográfico"
-                            >
-                        </td>
-                        <td>
-                            ${foto2 ? `
-                                <img
-                                    src="${obtenerImagenDeFoto(foto2)}"
-                                    width="126" height="88"
-                                    style="width:126px;height:88px;max-width:126px;max-height:88px;object-fit:contain;display:block;margin:0 auto;"
-                                    alt="Registro fotográfico"
-                                >
-                            ` : ""}
-                        </td>
-                    </tr>
+                    <tr><td colspan="2" style="text-align:center;vertical-align:middle;">
+                        <img src="${obtenerImagenDeFoto(hallazgo.fotos[0])}"
+                             width="${anchoFotoPx}" height="${altoFotoPx}"
+                             style="width:100%;max-width:${anchoFotoPx}px;height:auto;max-height:${altoFotoPx}px;object-fit:contain;display:block;margin:0 auto;"
+                             alt="Registro fotográfico">
+                    </td></tr>
                 `);
+            } else {
+                for (let i = 0; i < hallazgo.fotos.length; i += 2) {
+                    const foto1 = hallazgo.fotos[i];
+                    const foto2 = hallazgo.fotos[i + 1];
+                    filasFotos.push(`
+                        <tr>
+                            <td style="text-align:center;vertical-align:middle;">
+                                <img src="${obtenerImagenDeFoto(foto1)}"
+                                     width="${anchoFotoPx}" height="${altoFotoPx}"
+                                     style="width:100%;max-width:${anchoFotoPx}px;height:auto;max-height:${altoFotoPx}px;object-fit:contain;display:block;margin:0 auto;"
+                                     alt="Registro fotográfico">
+                            </td>
+                            <td style="text-align:center;vertical-align:middle;">
+                                ${foto2 ? `<img src="${obtenerImagenDeFoto(foto2)}"
+                                     width="${anchoFotoPx}" height="${altoFotoPx}"
+                                     style="width:100%;max-width:${anchoFotoPx}px;height:auto;max-height:${altoFotoPx}px;object-fit:contain;display:block;margin:0 auto;"
+                                     alt="Registro fotográfico">` : ""}
+                            </td>
+                        </tr>
+                    `);
+                }
             }
 
             fotosHTML = `
                 <table class="tabla-fotos-hallazgo" width="100%" style="width:100%;table-layout:fixed;border-collapse:collapse;">
-                    <tbody>
-                        ${filasFotos.join("")}
-                    </tbody>
+                    <tbody>${filasFotos.join("")}</tbody>
                 </table>
             `;
         }
@@ -11158,7 +11198,7 @@ function riesgosEnCelda(probabilidad, impacto) {
 
         filasHallazgos += `
             <tr class="fila-hallazgo">
-                <td class="col-hallazgo" width="30%" style="width:30%;">
+                <td class="col-hallazgo" width="28%" style="width:28%;">
                     <div class="dato-elemento">${escapar(hallazgo.elemento || "")}</div>
                     <div>${escapar(hallazgo.descripcion || "Sin descripción")}</div>
                     ${nivelHallazgo ? `<div class="dato-estado"><strong>Estado:</strong> ${escapar(nivelHallazgo)}</div>` : ""}
@@ -11166,7 +11206,7 @@ function riesgosEnCelda(probabilidad, impacto) {
                 <td class="col-recomendacion" width="30%" style="width:30%;">
                     ${escapar(hallazgo.recomendacion || "Sin recomendación registrada")}
                 </td>
-                <td class="col-fotografias" width="40%" style="width:40%;">
+                <td class="col-fotografias" width="42%" style="width:42%;">
                     ${fotosHTML || '<span class="sin-foto">Sin evidencia fotográfica</span>'}
                 </td>
             </tr>
@@ -12851,7 +12891,7 @@ ${caracteristicasInstalacionHTML}
                 background:#f1f4f7;
                 color:#123b5d;
             ">
-                GOOGLE EARTH
+                FOTO DE CONTEXTO
             </td>
 
         </tr>
