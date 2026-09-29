@@ -775,6 +775,18 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
                         <span style="font-size:12px;color:#64748b;">Recuperar información desde un respaldo previamente guardado.</span>
                     </button>
 
+                    <button type="button" onclick="exportarInspeccionSeleccionada();event.stopPropagation();"
+                        style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
+                        <strong style="display:block;color:#123b5d;margin-bottom:5px;">📤 Exportar inspección</strong>
+                        <span style="font-size:12px;color:#475569;">Guardar una sola inspección con checklist, hallazgos, riesgos y fotografías.</span>
+                    </button>
+
+                    <button type="button" onclick="importarInspeccionIndividual();event.stopPropagation();"
+                        style="border:1px solid #bbf7d0;background:#f0fdf4;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
+                        <strong style="display:block;color:#166534;margin-bottom:5px;">📥 Importar inspección</strong>
+                        <span style="font-size:12px;color:#475569;">Agregar una inspección exportada desde otro equipo, con sus datos y fotografías, sin reemplazar los registros actuales.</span>
+                    </button>
+
                     <button type="button" onclick="seleccionarBibliotecaArchivoOM31('riesgos');event.stopPropagation();"
                         style="border:1px solid #dbe3ea;background:#fff;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
                         <strong style="display:block;color:#123b5d;margin-bottom:5px;">⚠️ Subir biblioteca de riesgos</strong>
@@ -4173,6 +4185,384 @@ async function crearRespaldo() {
             (error?.message || error)
         );
     }
+}
+
+// CAM-ALMACENAMIENTO-04A — Exportación individual sin alterar el respaldo general.
+// El paquete conserva el índice original para que la futura importación pueda
+// reconstruir las relaciones entre inspección, checklist, hallazgos y riesgos.
+async function exportarInspeccionSeleccionada() {
+    try {
+        const indiceGuardado = localStorage.getItem("indiceInspeccionSeleccionadaInforme");
+        if (indiceGuardado === null) {
+            alert("Seleccione primero una inspección desde Clientes o Nueva inspección.");
+            return;
+        }
+
+        const indice = Number(indiceGuardado);
+        const inspecciones = JSON.parse(localStorage.getItem("inspecciones") || "[]");
+        const inspeccion = Number.isInteger(indice) && indice >= 0 ? inspecciones[indice] : null;
+
+        if (!inspeccion) {
+            alert("No se encontró la inspección seleccionada. Abra la inspección y vuelva a intentarlo.");
+            return;
+        }
+
+        const checklistsTodos = JSON.parse(localStorage.getItem("checklists") || "[]");
+        const hallazgosTodos = JSON.parse(localStorage.getItem("hallazgos") || "[]");
+        const matrizTodos = JSON.parse(localStorage.getItem("matrizRiesgos") || "[]");
+        const matricesClientesTodas = JSON.parse(localStorage.getItem("matricesRiesgosClientes") || "[]");
+        const resultadosTodos = JSON.parse(localStorage.getItem("resultadosChecklistCategorias") || "{}");
+
+        const checklists = checklistsTodos.filter(registro =>
+            Number(registro?.inspeccion) === indice
+        );
+        const hallazgos = hallazgosTodos.filter(registro =>
+            Number(registro?.inspeccion) === indice
+        );
+        const matrizRiesgos = matrizTodos.filter(registro =>
+            Number(registro?.inspeccion) === indice
+        );
+
+        const normalizarCliente = valor => String(valor || "")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, " ");
+
+        const claveCliente = normalizarCliente(inspeccion.cliente);
+        const matricesRiesgosClientes = matricesClientesTodas.filter(registro =>
+            normalizarCliente(registro?.cliente) === claveCliente
+        );
+
+        await tecchnexMediaReady;
+        const mediosFotograficos = await exportarMediosParaRespaldo(hallazgos);
+
+        const resultadosChecklistCategorias =
+            Object.prototype.hasOwnProperty.call(resultadosTodos, String(indice))
+                ? { [String(indice)]: resultadosTodos[String(indice)] }
+                : {};
+
+        const paquete = {
+            sistema: "Sistema de Inspecciones de Seguridad",
+            tipoArchivo: "inspeccion-individual",
+            versionExportacion: "1.0",
+            fechaExportacion: new Date().toISOString(),
+            indiceOriginal: indice,
+            idControl: inspeccion.idControl || null,
+            datos: {
+                inspeccion,
+                checklists,
+                hallazgos,
+                matrizRiesgos,
+                matricesRiesgosClientes,
+                resultadosChecklistCategorias,
+                mediosFotograficos
+            }
+        };
+
+        const contenido = JSON.stringify(paquete, null, 2);
+        const archivo = new Blob([contenido], { type: "application/json" });
+        const url = URL.createObjectURL(archivo);
+        const enlace = document.createElement("a");
+        const nombreBase = String(inspeccion.idControl || inspeccion.cliente || "inspeccion")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-zA-Z0-9_-]+/g, "-")
+            .replace(/^-+|-+$/g, "")
+            .slice(0, 60) || "inspeccion";
+
+        enlace.href = url;
+        enlace.download = `Inspeccion-${nombreBase}-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(enlace);
+        enlace.click();
+        document.body.removeChild(enlace);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+        alert(
+            "Exportación individual completada.\n\n" +
+            "Inspección: " + (inspeccion.idControl || inspeccion.cliente || "Seleccionada") +
+            "\nChecklist: " + checklists.length +
+            "\nHallazgos: " + hallazgos.length +
+            "\nRegistros de matriz de riesgos: " + matrizRiesgos.length +
+            "\nFotografías incluidas: " + mediosFotograficos.length +
+            "\n\nLos datos originales no fueron modificados."
+        );
+    } catch (error) {
+        console.error("CAM-ALMACENAMIENTO-04A: error al exportar inspección individual:", error);
+        alert(
+            "No fue posible exportar la inspección.\n\nDetalle técnico: " +
+            (error?.message || error)
+        );
+    }
+}
+
+// =========================================================
+// CAM-ALMACENAMIENTO-04B — IMPORTAR INSPECCIÓN INDIVIDUAL
+// Agrega una inspección sin reemplazar los datos existentes.
+// Remapea índices internos y referencias fotográficas al equipo actual.
+// =========================================================
+function importarInspeccionIndividual() {
+    const selector = document.createElement("input");
+    selector.type = "file";
+    selector.accept = ".json,application/json";
+    selector.onchange = function (evento) {
+        const archivo = evento.target.files && evento.target.files[0];
+        if (!archivo) return;
+
+        const lector = new FileReader();
+        lector.onload = async function (e) {
+            let paquete;
+            try {
+                paquete = JSON.parse(e.target.result);
+            } catch (error) {
+                alert("El archivo no contiene un JSON válido. No se importó información.");
+                return;
+            }
+
+            try {
+                if (
+                    paquete?.sistema !== "Sistema de Inspecciones de Seguridad" ||
+                    paquete?.tipoArchivo !== "inspeccion-individual" ||
+                    !paquete?.datos ||
+                    !paquete.datos.inspeccion ||
+                    typeof paquete.datos.inspeccion !== "object"
+                ) {
+                    alert("El archivo no corresponde a una exportación individual válida de TECCHNEX.");
+                    return;
+                }
+
+                const datos = paquete.datos;
+                const inspeccionImportada = { ...datos.inspeccion };
+                const idControl = String(inspeccionImportada.idControl || paquete.idControl || "").trim();
+                if (!idControl) {
+                    alert("La inspección no contiene un identificador de control. No se importó para evitar duplicados.");
+                    return;
+                }
+                inspeccionImportada.idControl = idControl;
+
+                const checklistsImportados = Array.isArray(datos.checklists) ? datos.checklists : [];
+                const hallazgosImportados = Array.isArray(datos.hallazgos) ? datos.hallazgos : [];
+                const matrizImportada = Array.isArray(datos.matrizRiesgos) ? datos.matrizRiesgos : [];
+                const mediosImportados = Array.isArray(datos.mediosFotograficos) ? datos.mediosFotograficos : [];
+                const matricesClienteImportadas = Array.isArray(datos.matricesRiesgosClientes) ? datos.matricesRiesgosClientes : [];
+
+                const inspeccionesActuales = JSON.parse(localStorage.getItem("inspecciones") || "[]");
+                if (!Array.isArray(inspeccionesActuales)) {
+                    throw new Error("La lista local de inspecciones no tiene un formato válido.");
+                }
+                const duplicada = inspeccionesActuales.some(registro =>
+                    String(registro?.idControl || "").trim().toLowerCase() === idControl.toLowerCase()
+                );
+                if (duplicada) {
+                    alert(
+                        "No se importó la inspección porque ya existe una con el identificador " + idControl + ".\n\n" +
+                        "No se modificó ningún registro."
+                    );
+                    return;
+                }
+
+                const mediosConDatos = new Set(
+                    mediosImportados
+                        .filter(medio => medio && medio.mediaId && typeof medio.dataUrl === "string" && medio.dataUrl.startsWith("data:"))
+                        .map(medio => medio.mediaId)
+                );
+                for (const hallazgo of hallazgosImportados) {
+                    for (const foto of (Array.isArray(hallazgo?.fotos) ? hallazgo.fotos : [])) {
+                        const tieneDatosInline = typeof foto === "string"
+                            ? foto.startsWith("data:")
+                            : Boolean(foto && (foto.dataUrl || foto.imagen || foto.data));
+                        if (foto?.mediaId && !mediosConDatos.has(foto.mediaId) && !tieneDatosInline) {
+                            throw new Error(
+                                "El archivo contiene una fotografía referenciada sin sus datos de imagen. " +
+                                "No se importó la inspección para evitar fotografías incompletas."
+                            );
+                        }
+                    }
+                }
+
+                const resumen =
+                    "Inspección: " + idControl + "\n" +
+                    "Checklist: " + checklistsImportados.length + "\n" +
+                    "Hallazgos: " + hallazgosImportados.length + "\n" +
+                    "Registros de matriz de riesgos: " + matrizImportada.length + "\n" +
+                    "Fotografías incluidas: " + mediosImportados.filter(medio => medio?.dataUrl).length + "\n\n" +
+                    "La inspección se agregará a los datos actuales; no reemplazará las demás inspecciones.\n\n" +
+                    "¿Desea continuar?";
+                if (!confirm(resumen)) {
+                    alert("Importación cancelada. Los datos actuales no fueron modificados.");
+                    return;
+                }
+
+                await tecchnexMediaReady;
+                const mapaIdsMedios = new Map();
+                for (const medio of mediosImportados) {
+                    if (!medio || !medio.dataUrl) continue;
+                    const referencia = await guardarMediaEnBoveda({
+                        ...medio,
+                        imagen: medio.dataUrl,
+                        idControl,
+                        hallazgo: medio.hallazgo || ""
+                    });
+                    if (medio.mediaId && referencia?.mediaId) {
+                        mapaIdsMedios.set(medio.mediaId, referencia.mediaId);
+                    }
+                }
+
+                const nuevoIndice = inspeccionesActuales.length;
+                const hallazgosNuevos = [];
+                for (const hallazgo of hallazgosImportados) {
+                    const nuevoHallazgo = { ...hallazgo, inspeccion: nuevoIndice };
+                    const fotosOriginales = Array.isArray(hallazgo?.fotos) ? hallazgo.fotos : [];
+                    nuevoHallazgo.fotos = [];
+
+                    for (const fotoOriginal of fotosOriginales) {
+                        if (fotoOriginal?.mediaId && mapaIdsMedios.has(fotoOriginal.mediaId)) {
+                            const { dataUrl, imagen, data, ...metadataFoto } = fotoOriginal;
+                            nuevoHallazgo.fotos.push({
+                                ...metadataFoto,
+                                mediaId: mapaIdsMedios.get(fotoOriginal.mediaId),
+                                idControl,
+                                timestamp: metadataFoto.timestamp || "",
+                                hashSha256: metadataFoto.hashSha256 || ""
+                            });
+                        } else {
+                            const fotoObjeto = typeof fotoOriginal === "string"
+                                ? { imagen: fotoOriginal }
+                                : (fotoOriginal || {});
+                            const datosImagen = fotoObjeto.dataUrl || fotoObjeto.imagen || fotoObjeto.data || "";
+                            if (!datosImagen) {
+                                if (fotoObjeto.mediaId) {
+                                    throw new Error("No fue posible enlazar una de las fotografías de la inspección.");
+                                }
+                                nuevoHallazgo.fotos.push({ ...fotoObjeto });
+                                continue;
+                            }
+                            const referencia = await guardarMediaEnBoveda({
+                                ...fotoObjeto,
+                                imagen: datosImagen,
+                                idControl,
+                                hallazgo: fotoObjeto.hallazgo || hallazgo.id || ""
+                            });
+                            const { dataUrl, imagen, data, ...metadataFoto } = fotoObjeto;
+                            nuevoHallazgo.fotos.push({ ...metadataFoto, ...referencia, idControl });
+                        }
+                    }
+                    hallazgosNuevos.push(nuevoHallazgo);
+                }
+
+                const checklistsNuevos = checklistsImportados.map(registro => ({ ...registro, inspeccion: nuevoIndice }));
+                const matrizNueva = matrizImportada.map(registro => ({ ...registro, inspeccion: nuevoIndice }));
+
+                const normalizarClienteImportacion = valor => String(valor || "")
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .trim()
+                    .toLowerCase()
+                    .replace(/\s+/g, " ");
+                const claveClienteImportacion = normalizarClienteImportacion(inspeccionImportada.cliente);
+                const matricesClienteValidas = matricesClienteImportadas.filter(registro =>
+                    normalizarClienteImportacion(registro?.cliente) === claveClienteImportacion
+                );
+
+                const checklistsActuales = JSON.parse(localStorage.getItem("checklists") || "[]");
+                const hallazgosActuales = JSON.parse(localStorage.getItem("hallazgos") || "[]");
+                const matrizActual = JSON.parse(localStorage.getItem("matrizRiesgos") || "[]");
+                const matricesClienteActuales = JSON.parse(localStorage.getItem("matricesRiesgosClientes") || "[]");
+                const resultadosActuales = JSON.parse(localStorage.getItem("resultadosChecklistCategorias") || "{}");
+                if (![checklistsActuales, hallazgosActuales, matrizActual, matricesClienteActuales].every(Array.isArray)) {
+                    throw new Error("Una de las listas locales no tiene un formato válido. No se guardaron los datos importados.");
+                }
+
+                const matricesClienteCombinadas = [...matricesClienteActuales];
+                const clavesMatrices = new Set(matricesClienteActuales.map(registro => JSON.stringify(registro)));
+                for (const registro of matricesClienteValidas) {
+                    const clave = JSON.stringify(registro);
+                    if (!clavesMatrices.has(clave)) {
+                        matricesClienteCombinadas.push(registro);
+                        clavesMatrices.add(clave);
+                    }
+                }
+
+                const resultadosCombinados = resultadosActuales && typeof resultadosActuales === "object" && !Array.isArray(resultadosActuales)
+                    ? { ...resultadosActuales }
+                    : {};
+                const resultadosPaquete = datos.resultadosChecklistCategorias;
+                if (resultadosPaquete && typeof resultadosPaquete === "object") {
+                    const claveOriginal = String(paquete.indiceOriginal);
+                    let resultadoImportado;
+                    if (Object.prototype.hasOwnProperty.call(resultadosPaquete, claveOriginal)) {
+                        resultadoImportado = resultadosPaquete[claveOriginal];
+                    } else {
+                        const clavesResultados = Object.keys(resultadosPaquete);
+                        if (clavesResultados.length === 1) resultadoImportado = resultadosPaquete[clavesResultados[0]];
+                    }
+                    if (resultadoImportado !== undefined) {
+                        resultadosCombinados[String(nuevoIndice)] = resultadoImportado;
+                    }
+                }
+
+                let ultimoNumero = Number(localStorage.getItem("ultimoNumeroInspeccion") || 0);
+                const coincidenciaId = idControl.match(/^INS-\d{4}-(\d+)$/i);
+                if (coincidenciaId) ultimoNumero = Math.max(ultimoNumero, Number(coincidenciaId[1]));
+
+                const clavesGuardar = {
+                    inspecciones: [...inspeccionesActuales, inspeccionImportada],
+                    checklists: [...checklistsActuales, ...checklistsNuevos],
+                    hallazgos: [...hallazgosActuales, ...hallazgosNuevos],
+                    matrizRiesgos: [...matrizActual, ...matrizNueva],
+                    matricesRiesgosClientes: matricesClienteCombinadas,
+                    resultadosChecklistCategorias: resultadosCombinados,
+                    ultimoNumeroInspeccion: String(ultimoNumero)
+                };
+                const clavesLocalStorage = Object.keys(clavesGuardar);
+                const valoresAnteriores = {};
+                for (const clave of clavesLocalStorage) valoresAnteriores[clave] = localStorage.getItem(clave);
+
+                try {
+                    for (const clave of clavesLocalStorage) {
+                        localStorage.setItem(clave, typeof clavesGuardar[clave] === "string"
+                            ? clavesGuardar[clave]
+                            : JSON.stringify(clavesGuardar[clave]));
+                    }
+                    localStorage.setItem("indiceInspeccionSeleccionadaInforme", String(nuevoIndice));
+                } catch (errorGuardado) {
+                    for (const clave of clavesLocalStorage) {
+                        try {
+                            if (valoresAnteriores[clave] === null) localStorage.removeItem(clave);
+                            else localStorage.setItem(clave, valoresAnteriores[clave]);
+                        } catch (errorRollback) {
+                            console.error("CAM-ALMACENAMIENTO-04B: no se pudo revertir una clave local.", clave, errorRollback);
+                        }
+                    }
+                    throw new Error("No se pudieron guardar todos los datos locales. Se intentó revertir el guardado: " + (errorGuardado?.message || errorGuardado));
+                }
+
+                try { actualizarContadores(); } catch (errorUI) {
+                    console.warn("CAM-ALMACENAMIENTO-04B: no se pudieron actualizar algunos contadores visuales.", errorUI);
+                }
+
+                alert(
+                    "Importación individual completada.\n\n" +
+                    "Inspección: " + idControl + "\n" +
+                    "Checklist: " + checklistsNuevos.length + "\n" +
+                    "Hallazgos: " + hallazgosNuevos.length + "\n" +
+                    "Registros de matriz de riesgos: " + matrizNueva.length + "\n" +
+                    "Fotografías procesadas: " + mapaIdsMedios.size + "\n\n" +
+                    "Las demás inspecciones y los datos existentes se conservaron."
+                );
+            } catch (error) {
+                console.error("CAM-ALMACENAMIENTO-04B: error al importar inspección individual:", error);
+                alert(
+                    "No fue posible completar la importación.\n\n" +
+                    (error?.message || error) +
+                    "\n\nNo se reemplazó la información general del sistema."
+                );
+            }
+        };
+        lector.readAsText(archivo);
+    };
+    selector.click();
 }
 
 function seleccionarRespaldo() {
