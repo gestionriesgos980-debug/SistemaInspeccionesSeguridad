@@ -8427,6 +8427,8 @@ function renderizarBibliotecaHallazgoOM20() {
             const texto = normalizarTextoOM12([
                 resultado.item.area,
                 resultado.item.tema,
+                resultado.item.descripcionHallazgo || resultado.item.hallazgo || "",
+                resultado.item.nivel || "",
                 ...(resultado.item.palabrasClave || []),
                 resultado.item.recomendacion,
                 resultado.item.fuente
@@ -8452,8 +8454,13 @@ function renderizarBibliotecaHallazgoOM20() {
             <div style="font-size:12px;color:#64748b;margin-top:4px;">
                 Coincidencia: ${escaparTextoOM12(coincidencias.join(", "))}
             </div>
+            ${item.descripcionHallazgo || item.hallazgo ? `
+                <div style="font-size:12px;color:#334155;margin-top:7px;">
+                    <strong>Hallazgo de referencia:</strong> ${escaparTextoOM12(item.descripcionHallazgo || item.hallazgo)}
+                </div>
+            ` : ""}
             <div style="font-size:13px;line-height:1.45;margin:7px 0;">
-                ${escaparTextoOM12(item.recomendacion || "")}
+                <strong>Recomendación:</strong> ${escaparTextoOM12(item.recomendacion || "")}
             </div>
             <button type="button" onclick="usarRecomendacionBibliotecaDesdeHallazgoOM20(${indice})"
                 style="background:#1d70b7;color:#fff;border:0;padding:7px 11px;border-radius:5px;cursor:pointer;font-weight:bold;">
@@ -8476,9 +8483,20 @@ function usarRecomendacionBibliotecaDesdeHallazgoOM20(indice) {
 
     if (!recomendacion || !campo) return;
 
+    // Los registros antiguos siguen funcionando como recomendaciones simples.
+    // Los registros completos también recuperan el hallazgo que les dio origen.
+    if (recomendacion.descripcionHallazgo || recomendacion.hallazgo) {
+        const campoElemento = document.getElementById("hallazgoElemento");
+        const campoDescripcion = document.getElementById("hallazgoDescripcion");
+        const campoNivel = document.getElementById("hallazgoNivel");
+        if (campoElemento) campoElemento.value = recomendacion.tema || recomendacion.elemento || "";
+        if (campoDescripcion) campoDescripcion.value = recomendacion.descripcionHallazgo || recomendacion.hallazgo || "";
+        if (campoNivel && recomendacion.nivel) campoNivel.value = recomendacion.nivel;
+    }
+
     campo.value = recomendacion.recomendacion || "";
     campo.focus();
-
+    mostrarRecomendacionesSugeridas();
     document.getElementById("ventanaBibliotecaHallazgoOM20")?.remove();
 }
 
@@ -8499,6 +8517,81 @@ function usarRecomendacionBiblioteca(indice) {
 
     campo.value = recomendacion.recomendacion || "";
     campo.focus();
+}
+
+function guardarHallazgoYRecomendacionEnBiblioteca() {
+    const area = document.getElementById("hallazgoArea")?.value.trim() || "";
+    const elemento = document.getElementById("hallazgoElemento")?.value.trim() || "";
+    const descripcionHallazgo = document.getElementById("hallazgoDescripcion")?.value.trim() || "";
+    const nivel = document.getElementById("hallazgoNivel")?.value || "";
+    const recomendacion = document.getElementById("hallazgoRecomendacion")?.value.trim() || "";
+    const palabras = document.getElementById("hallazgoPalabrasClaveBiblioteca")?.value || "";
+
+    if (!area || !elemento || !descripcionHallazgo || !recomendacion) {
+        alert("Para guardar el registro completo, indique el área, el elemento, la descripción del hallazgo y la recomendación.");
+        return;
+    }
+
+    const biblioteca = obtenerBibliotecaRecomendaciones();
+    const descripcionNormalizada = normalizarTextoOM12(descripcionHallazgo);
+    const recomendacionNormalizada = normalizarTextoOM12(recomendacion);
+    const areaNormalizada = normalizarTextoOM12(area);
+    const duplicado = biblioteca.some(item =>
+        normalizarTextoOM12(item.area) === areaNormalizada &&
+        normalizarTextoOM12(item.descripcionHallazgo || item.hallazgo || "") === descripcionNormalizada &&
+        normalizarTextoOM12(item.recomendacion || "") === recomendacionNormalizada
+    );
+
+    if (duplicado) {
+        alert("Este hallazgo con su recomendación ya existe en la biblioteca.");
+        return;
+    }
+
+    const palabrasClave = palabras.split(",").map(p => p.trim()).filter(Boolean);
+    const palabrasBase = [area, elemento];
+    const palabrasDescripcion = normalizarTextoOM12(descripcionHallazgo)
+        .split(/[^a-z0-9áéíóúüñ]+/i)
+        .map(p => p.trim())
+        .filter(p => p.length >= 4 && !["para", "como", "desde", "hasta", "donde", "cuando", "sobre", "entre", "esta", "este", "debe", "deben", "tiene", "tienen", "hallazgo", "evidencia"].includes(p));
+
+    [...palabrasBase, ...palabrasDescripcion].forEach(palabra => {
+        const p = String(palabra || "").trim();
+        if (p && !palabrasClave.some(existente => normalizarTextoOM12(existente) === normalizarTextoOM12(p))) {
+            palabrasClave.push(p);
+        }
+    });
+
+    const nuevo = {
+        id: "OM12-HALLAZGO-" + String(Date.now()),
+        tipoRegistro: "hallazgo_recomendacion",
+        area,
+        tema: elemento,
+        elemento,
+        descripcionHallazgo,
+        hallazgo: descripcionHallazgo,
+        nivel,
+        palabrasClave,
+        recomendacion,
+        fuente: "Hallazgo y recomendación guardados por el inspector"
+    };
+
+    biblioteca.push(nuevo);
+    localStorage.setItem(CLAVE_BIBLIOTECA_RECOMENDACIONES, JSON.stringify(biblioteca));
+
+    const indiceInspeccionTrazabilidad = Number(localStorage.getItem("indiceInspeccionSeleccionadaInforme"));
+    const inspeccionesTrazabilidad = JSON.parse(localStorage.getItem("inspecciones")) || [];
+    registrarEventoTrazabilidad({
+        modulo: "OM-12",
+        accion: "HALLAZGO_Y_RECOMENDACION_AGREGADOS",
+        indiceInspeccion: Number.isNaN(indiceInspeccionTrazabilidad) ? null : indiceInspeccionTrazabilidad,
+        idControl: !Number.isNaN(indiceInspeccionTrazabilidad) ? inspeccionesTrazabilidad[indiceInspeccionTrazabilidad]?.idControl || null : null,
+        descripcion: "Hallazgo completo y recomendación agregados a la biblioteca reutilizable",
+        area,
+        tema: elemento
+    });
+
+    mostrarRecomendacionesSugeridas();
+    alert("Hallazgo y recomendación guardados en la biblioteca. Podrá reutilizarlos en futuras inspecciones.");
 }
 
 function guardarRecomendacionEnBiblioteca() {
@@ -9247,10 +9340,19 @@ actualizarContadores();
                 style="margin-bottom:8px;"
             >
 
-            <button type="button" onclick="guardarRecomendacionEnBiblioteca()"
-                style="background:#123b5d;color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;">
-                ➕ Agregar recomendación a la biblioteca
-            </button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+                <button type="button" onclick="guardarRecomendacionEnBiblioteca()"
+                    style="background:#123b5d;color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;">
+                    ➕ Agregar solo recomendación
+                </button>
+                <button type="button" onclick="guardarHallazgoYRecomendacionEnBiblioteca()"
+                    style="background:#087f8c;color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;">
+                    📚 Guardar hallazgo + recomendación
+                </button>
+            </div>
+            <div style="font-size:11px;color:#64748b;margin-top:6px;">
+                La opción completa guarda el área, elemento, descripción, nivel y recomendación para reutilizarlos en otras inspecciones. No guarda fotografías del cliente.
+            </div>
         </div>
 
         <label>Evidencia fotográfica</label>
