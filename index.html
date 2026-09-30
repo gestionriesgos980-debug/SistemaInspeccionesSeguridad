@@ -2375,7 +2375,7 @@ function abrirBibliotecaRecomendacionesOM22() {
         <div style="max-width:1150px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25);overflow:hidden;">
             <div style="background:#123b5d;color:#fff;padding:18px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
                 <div>
-                    <h2 style="margin:0;font-size:22px;">📚 Biblioteca de hallazgos y recomendaciones</h2>
+                    <h2 style="margin:0;font-size:22px;">📚 Biblioteca de recomendaciones</h2>
                     <div style="margin-top:5px;font-size:13px;opacity:.9;">OM-20.2 · Administración de recomendaciones</div>
                 </div>
                 <button type="button" onclick="document.getElementById('ventanaBibliotecaOM22')?.remove()" style="background:transparent;color:#fff;border:0;font-size:28px;cursor:pointer;">&times;</button>
@@ -2388,7 +2388,7 @@ function abrirBibliotecaRecomendacionesOM22() {
                         style="flex:1;min-width:260px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:7px;box-sizing:border-box;">
                     <button type="button" onclick="abrirEditorBibliotecaRecomendacionOM20()"
                         style="background:#1d70b7;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
-                        ➕ Agregar hallazgo y recomendación
+                        ➕ Agregar recomendación
                     </button>
                     <button type="button" onclick="abrirBibliotecaRiesgosOM20()"
                         style="background:#475569;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
@@ -2421,7 +2421,6 @@ function renderizarBibliotecaRecomendacionesOM20() {
             item.area,
             item.tema,
             item.elemento,
-            item.hallazgo,
             ...(item.palabrasClave || []),
             item.recomendacion,
             item.fuente
@@ -2437,7 +2436,6 @@ function renderizarBibliotecaRecomendacionesOM20() {
                     <td style="padding:9px;border:1px solid #ddd;text-align:center;">${indice + 1}</td>
                     <td style="padding:9px;border:1px solid #ddd;">${escaparTextoOM12(item.area || "")}</td>
                     <td style="padding:9px;border:1px solid #ddd;">${escaparTextoOM12(item.tema || item.elemento || "")}</td>
-                    <td style="padding:9px;border:1px solid #ddd;line-height:1.4;">${escaparTextoOM12(item.hallazgo || "Registro antiguo: sin descripción de hallazgo guardada.")}</td>
                     <td style="padding:9px;border:1px solid #ddd;line-height:1.4;">${escaparTextoOM12(item.recomendacion || item.descripcion || "")}</td>
                     <td style="padding:9px;border:1px solid #ddd;text-align:center;white-space:nowrap;">
                         <button type="button" onclick="abrirEditorBibliotecaRecomendacionOM20(${indice})"
@@ -2450,7 +2448,7 @@ function renderizarBibliotecaRecomendacionesOM20() {
         }).join("")
         : `
             <tr>
-                <td colspan="6" style="padding:15px;text-align:center;border:1px solid #ddd;color:#6b7280;">
+                <td colspan="5" style="padding:15px;text-align:center;border:1px solid #ddd;color:#6b7280;">
                     ${buscador ? "No se encontraron recomendaciones con ese criterio." : "No hay recomendaciones registradas en la biblioteca."}
                 </td>
             </tr>
@@ -2467,8 +2465,7 @@ function renderizarBibliotecaRecomendacionesOM20() {
                         <th style="padding:9px;border:1px solid #ddd;text-align:center;">#</th>
                         <th style="padding:9px;border:1px solid #ddd;text-align:left;">Área</th>
                         <th style="padding:9px;border:1px solid #ddd;text-align:left;">Tema / elemento</th>
-                        <th style="padding:9px;border:1px solid #ddd;text-align:left;">Hallazgo asociado</th>
-                        <th style="padding:9px;border:1px solid #ddd;text-align:left;">Recomendación asociada</th>
+                        <th style="padding:9px;border:1px solid #ddd;text-align:left;">Recomendación</th>
                         <th style="padding:9px;border:1px solid #ddd;text-align:center;">Acciones</th>
                     </tr>
                 </thead>
@@ -2510,11 +2507,8 @@ function abrirEditorBibliotecaRecomendacionOM20(indice = null) {
                 <label style="display:block;font-weight:bold;margin-bottom:5px;">Palabras clave <span style="font-weight:normal;color:#64748b;">(separadas por coma)</span></label>
                 <input id="editorOM20Palabras" value="${escaparTextoOM12((item.palabrasClave || []).join(", "))}" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">
 
-                <label style="display:block;font-weight:bold;margin-bottom:5px;">Descripción del hallazgo</label>
-                <textarea id="editorOM20Hallazgo" rows="5" placeholder="Describa la situación que se ha identificado" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">${escaparTextoOM12(item.hallazgo || "")}</textarea>
-
-                <label style="display:block;font-weight:bold;margin-bottom:5px;">Recomendación asociada</label>
-                <textarea id="editorOM20Recomendacion" rows="6" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">${escaparTextoOM12(item.recomendacion || item.descripcion || "")}</textarea>
+                <label style="display:block;font-weight:bold;margin-bottom:5px;">Recomendación</label>
+                <textarea id="editorOM20Recomendacion" rows="7" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">${escaparTextoOM12(item.recomendacion || item.descripcion || "")}</textarea>
 
                 <label style="display:block;font-weight:bold;margin-bottom:5px;">Fuente</label>
                 <input id="editorOM20Fuente" value="${escaparTextoOM12(item.fuente || "")}" style="width:100%;padding:9px;margin-bottom:18px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">
@@ -2535,29 +2529,26 @@ function guardarEdicionBibliotecaRecomendacionOM20(indice = null) {
     const area = document.getElementById("editorOM20Area")?.value.trim() || "";
     const tema = document.getElementById("editorOM20Tema")?.value.trim() || "";
     const palabrasTexto = document.getElementById("editorOM20Palabras")?.value || "";
-    const hallazgo = document.getElementById("editorOM20Hallazgo")?.value.trim() || "";
     const recomendacion = document.getElementById("editorOM20Recomendacion")?.value.trim() || "";
     const fuente = document.getElementById("editorOM20Fuente")?.value.trim() || "";
 
-    if (!area || !hallazgo || !recomendacion) {
-        alert("Indique el área, la descripción del hallazgo y su recomendación antes de guardar.");
+    if (!area || !recomendacion) {
+        alert("Indique el área y la recomendación antes de guardar.");
         return;
     }
 
     const biblioteca = obtenerBibliotecaRecomendaciones();
     const editando = Number.isInteger(indice) && biblioteca[indice];
-    const hallazgoNormalizado = normalizarTextoOM12(hallazgo);
     const recomendacionNormalizada = normalizarTextoOM12(recomendacion);
 
     const duplicada = biblioteca.some((item, i) =>
         i !== indice &&
         normalizarTextoOM12(item.area) === normalizarTextoOM12(area) &&
-        normalizarTextoOM12(item.hallazgo) === hallazgoNormalizado &&
         normalizarTextoOM12(item.recomendacion) === recomendacionNormalizada
     );
 
     if (duplicada) {
-        alert("Ya existe esa misma combinación de hallazgo y recomendación para el área seleccionada.");
+        alert("Ya existe otra recomendación igual para el área seleccionada.");
         return;
     }
 
@@ -2574,9 +2565,8 @@ function guardarEdicionBibliotecaRecomendacionOM20(indice = null) {
         biblioteca[indice] = {
             ...biblioteca[indice],
             area,
-            tema: tema || biblioteca[indice].tema || "Nuevo hallazgo",
+            tema: tema || biblioteca[indice].tema || "Nueva recomendación",
             palabrasClave,
-            hallazgo,
             recomendacion,
             fuente: fuente || biblioteca[indice].fuente || "Administrada desde Biblioteca"
         };
@@ -2584,9 +2574,8 @@ function guardarEdicionBibliotecaRecomendacionOM20(indice = null) {
         biblioteca.push({
             id: "OM20-" + String(Date.now()),
             area,
-            tema: tema || "Nuevo hallazgo",
+            tema: tema || "Nueva recomendación",
             palabrasClave,
-            hallazgo,
             recomendacion,
             fuente: fuente || "Administrada desde Biblioteca"
         });
@@ -4107,6 +4096,7 @@ async function prepararFotografiasParaInforme(indiceInspeccion) {
 
 async function crearRespaldo() {
     try {
+        const directorioClientesRespaldo = inicializarDirectorioClientesOM16();
         const hallazgosRespaldo =
             JSON.parse(localStorage.getItem("hallazgos")) || [];
 
@@ -4151,6 +4141,9 @@ async function crearRespaldo() {
 
                 informesGenerados:
                     localStorage.getItem("informesGenerados") || "0",
+
+                // CAM-CLIENTES-02: incluir el directorio en nuevos respaldos.
+                directorioClientesOM16: directorioClientesRespaldo,
 
                 bibliotecaRecomendaciones:
                     JSON.parse(
@@ -4345,8 +4338,9 @@ function importarInspeccionIndividual() {
 
                 const datos = paquete.datos;
                 const inspeccionImportada = { ...datos.inspeccion };
-                const idControl = String(inspeccionImportada.idControl || paquete.idControl || "").trim();
-                if (!idControl) {
+                const idControlOriginal = String(inspeccionImportada.idControl || paquete.idControl || "").trim();
+                let idControl = idControlOriginal;
+                if (!idControlOriginal) {
                     alert("La inspección no contiene un identificador de control. No se importó para evitar duplicados.");
                     return;
                 }
@@ -4363,14 +4357,26 @@ function importarInspeccionIndividual() {
                     throw new Error("La lista local de inspecciones no tiene un formato válido.");
                 }
                 const duplicada = inspeccionesActuales.some(registro =>
-                    String(registro?.idControl || "").trim().toLowerCase() === idControl.toLowerCase()
+                    String(registro?.idControl || "").trim().toLowerCase() === idControlOriginal.toLowerCase()
                 );
                 if (duplicada) {
-                    alert(
-                        "No se importó la inspección porque ya existe una con el identificador " + idControl + ".\n\n" +
-                        "No se modificó ningún registro."
-                    );
-                    return;
+                    // CAM-CLIENTES-03: conservar el ID de origen como referencia y
+                    // asignar el siguiente consecutivo disponible en este equipo.
+                    let mayorConsecutivo = Number(localStorage.getItem("ultimoNumeroInspeccion") || 0);
+                    for (const registro of inspeccionesActuales) {
+                        const coincidencia = String(registro?.idControl || "").match(/^INS-\d{4}-(\d+)$/i);
+                        if (coincidencia) mayorConsecutivo = Math.max(mayorConsecutivo, Number(coincidencia[1]));
+                    }
+                    const anioIdOriginal = idControlOriginal.match(/^INS-(\d{4})-\d+$/i);
+                    const anioId = anioIdOriginal?.[1] || String(inspeccionImportada.fecha || "").substring(0, 4) || String(new Date().getFullYear());
+                    do {
+                        mayorConsecutivo++;
+                        idControl = "INS-" + anioId + "-" + String(mayorConsecutivo).padStart(4, "0");
+                    } while (inspeccionesActuales.some(registro =>
+                        String(registro?.idControl || "").trim().toLowerCase() === idControl.toLowerCase()
+                    ));
+                    inspeccionImportada.idControlOriginal = inspeccionImportada.idControlOriginal || idControlOriginal;
+                    inspeccionImportada.idControl = idControl;
                 }
 
                 const mediosConDatos = new Set(
@@ -4393,7 +4399,7 @@ function importarInspeccionIndividual() {
                 }
 
                 const resumen =
-                    "Inspección: " + idControl + "\n" +
+                    "Inspección: " + idControl + (idControl !== idControlOriginal ? "\nIdentificador de origen: " + idControlOriginal : "") + "\n" +
                     "Checklist: " + checklistsImportados.length + "\n" +
                     "Hallazgos: " + hallazgosImportados.length + "\n" +
                     "Registros de matriz de riesgos: " + matrizImportada.length + "\n" +
@@ -4555,7 +4561,7 @@ function importarInspeccionIndividual() {
 
                 alert(
                     "Importación individual completada.\n\n" +
-                    "Inspección: " + idControl + "\n" +
+                    "Inspección: " + idControl + (idControl !== idControlOriginal ? "\nIdentificador de origen conservado: " + idControlOriginal : "") + "\n" +
                     "Checklist: " + checklistsNuevos.length + "\n" +
                     "Hallazgos: " + hallazgosNuevos.length + "\n" +
                     "Registros de matriz de riesgos: " + matrizNueva.length + "\n" +
@@ -4717,6 +4723,27 @@ if (Object.prototype.hasOwnProperty.call(datos, "bibliotecaRiesgos")) {
         JSON.stringify(datos.bibliotecaRiesgos || [])
     );
 }
+
+// CAM-CLIENTES-02: compatibilidad con respaldos antiguos que no guardaban
+// el directorio. Se conserva el directorio local y se agregan solo clientes
+// que falten; luego se sincronizan los clientes de las inspecciones restauradas.
+const directorioActual = inicializarDirectorioClientesOM16();
+if (Array.isArray(datos.directorioClientesOM16)) {
+    for (const clienteRespaldo of datos.directorioClientesOM16) {
+        if (!clienteRespaldo || !String(clienteRespaldo.cliente || "").trim()) continue;
+        const yaExiste = directorioActual.some(clienteActual =>
+            coincideClienteConInspeccionOM16(clienteActual, clienteRespaldo)
+        );
+        if (!yaExiste) {
+            directorioActual.push({
+                ...clienteRespaldo,
+                idCliente: clienteRespaldo.idCliente || obtenerSiguienteIdClienteOM16(directorioActual)
+            });
+        }
+    }
+    guardarDirectorioClientesOM16(directorioActual);
+}
+sincronizarDirectorioClientesDesdeInspeccionesOM16(directorioActual);
 
 await tecchnexMediaReady;
         await restaurarMediosDesdeRespaldo(
@@ -5134,11 +5161,61 @@ function inicializarDirectorioClientesOM16() {
         localStorage.setItem(clave, JSON.stringify(base));
     }
 
+    // CAM-CLIENTES-02: los clientes presentes en inspecciones históricas
+    // también deben estar disponibles en el directorio, sin duplicar coincidencias.
+    const clientes = JSON.parse(localStorage.getItem(clave)) || [];
+    sincronizarDirectorioClientesDesdeInspeccionesOM16(clientes);
     return JSON.parse(localStorage.getItem(clave)) || [];
 }
 
 function guardarDirectorioClientesOM16(clientes) {
     localStorage.setItem("directorioClientesOM16", JSON.stringify(clientes));
+}
+
+// CAM-CLIENTES-02 — Compatibilidad con respaldos antiguos y clientes históricos.
+// Agrega al directorio clientes que aparecen en inspecciones pero no en la base,
+// conservando los registros existentes y evitando duplicados por nombre, NIT,
+// código o dirección.
+function sincronizarDirectorioClientesDesdeInspeccionesOM16(clientesEntrada) {
+    const clave = "directorioClientesOM16";
+    const clientes = Array.isArray(clientesEntrada)
+        ? clientesEntrada
+        : (JSON.parse(localStorage.getItem(clave) || "[]"));
+    const inspecciones = JSON.parse(localStorage.getItem("inspecciones") || "[]");
+    if (!Array.isArray(clientes) || !Array.isArray(inspecciones)) return clientes || [];
+
+    let huboCambios = false;
+    for (const inspeccion of inspecciones) {
+        if (!inspeccion || !String(inspeccion.cliente || "").trim()) continue;
+        const yaExiste = clientes.some(cliente =>
+            coincideClienteConInspeccionOM16(cliente, inspeccion)
+        );
+        if (yaExiste) continue;
+
+        clientes.push({
+            idCliente: obtenerSiguienteIdClienteOM16(clientes),
+            id: inspeccion.idCliente || "",
+            codigo: inspeccion.codigo || inspeccion.codCliente || inspeccion.codigoCliente || "",
+            nit: inspeccion.nit || "",
+            cliente: String(inspeccion.cliente || "").trim(),
+            zona: inspeccion.zona || "",
+            director: inspeccion.director || "",
+            telefonoPuesto: inspeccion.telefonoPuesto || "",
+            direccion: inspeccion.direccion || "",
+            barrioMunicipio: inspeccion.ciudad || inspeccion.barrioMunicipio || "",
+            administrador: inspeccion.contacto || inspeccion.administrador || "",
+            telefonoAdmin: inspeccion.telefono || inspeccion.telefonoAdmin || "",
+            correo: inspeccion.correo || "",
+            observaciones: "Cliente incorporado desde una inspección histórica" +
+                (inspeccion.idControl ? " (" + inspeccion.idControl + ")" : ""),
+            estado: "Activo",
+            origen: "Inspección histórica sincronizada"
+        });
+        huboCambios = true;
+    }
+
+    if (huboCambios) guardarDirectorioClientesOM16(clientes);
+    return clientes;
 }
 
 function escaparClienteOM16(valor) {
@@ -5165,6 +5242,9 @@ function abrirDirectorioClientesOM16() {
     let ventana = document.getElementById("ventanaDirectorioClientesOM16");
     if (ventana) {
         ventana.style.display = "block";
+        // Evita que un filtro de una consulta anterior oculte clientes al reabrir.
+        const buscador = document.getElementById("buscadorClientesOM16");
+        if (buscador) buscador.value = "";
         renderizarDirectorioClientesOM16();
         return;
     }
@@ -5561,6 +5641,27 @@ function editarClienteOM16(indice) {
 function guardarClienteOM16() {
     const clientes = inicializarDirectorioClientesOM16();
     const indiceValor = document.getElementById("clienteOM16Indice").value;
+    const nombreIngresado = document.getElementById("clienteOM16Cliente").value.trim();
+    if (!nombreIngresado) {
+        alert("Ingrese el nombre del cliente.");
+        return;
+    }
+
+    const normalizarNombre = valor => String(valor || "")
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .trim().toLowerCase().replace(/\s+/g, " ");
+    if (indiceValor === "") {
+        const indiceExistente = clientes.findIndex(cliente =>
+            normalizarNombre(cliente?.cliente) === normalizarNombre(nombreIngresado)
+        );
+        if (indiceExistente >= 0) {
+            if (confirm("Ya existe un cliente con ese nombre. ¿Desea abrir su registro para completar o editar sus datos?")) {
+                mostrarFormularioClienteOM16(indiceExistente);
+            }
+            return;
+        }
+    }
+
     const cliente = {
         idCliente: indiceValor === "" ? obtenerSiguienteIdClienteOM16(clientes) : clientes[Number(indiceValor)].idCliente,
         id: document.getElementById("clienteOM16Id").value.trim(),
@@ -8262,8 +8363,8 @@ function abrirBibliotecaRecomendacionesParaHallazgoOM20() {
         <div style="max-width:1050px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 10px 35px rgba(0,0,0,.3);overflow:hidden;">
             <div style="background:#123b5d;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
                 <div>
-                    <strong style="font-size:18px;">📚 Seleccionar hallazgo y recomendación</strong>
-                    <div style="font-size:13px;opacity:.9;margin-top:4px;">Seleccione una ficha y adapte ambos textos a la inspección actual.</div>
+                    <strong style="font-size:18px;">📚 Seleccionar recomendación</strong>
+                    <div style="font-size:13px;opacity:.9;margin-top:4px;">Biblioteca de recomendaciones · Hallazgos</div>
                 </div>
                 <button type="button" onclick="document.getElementById('ventanaBibliotecaHallazgoOM20')?.remove()" style="background:transparent;color:#fff;border:0;font-size:28px;cursor:pointer;">&times;</button>
             </div>
@@ -8320,7 +8421,6 @@ function renderizarBibliotecaHallazgoOM20() {
             const texto = normalizarTextoOM12([
                 resultado.item.area,
                 resultado.item.tema,
-                resultado.item.hallazgo,
                 ...(resultado.item.palabrasClave || []),
                 resultado.item.recomendacion,
                 resultado.item.fuente
@@ -8346,9 +8446,8 @@ function renderizarBibliotecaHallazgoOM20() {
             <div style="font-size:12px;color:#64748b;margin-top:4px;">
                 Coincidencia: ${escaparTextoOM12(coincidencias.join(", "))}
             </div>
-            ${item.hallazgo ? `<div style="font-size:13px;line-height:1.45;margin:7px 0;"><strong>Hallazgo:</strong> ${escaparTextoOM12(item.hallazgo)}</div>` : ""}
             <div style="font-size:13px;line-height:1.45;margin:7px 0;">
-                <strong>Recomendación:</strong> ${escaparTextoOM12(item.recomendacion || "")}
+                ${escaparTextoOM12(item.recomendacion || "")}
             </div>
             <button type="button" onclick="usarRecomendacionBibliotecaDesdeHallazgoOM20(${indice})"
                 style="background:#1d70b7;color:#fff;border:0;padding:7px 11px;border-radius:5px;cursor:pointer;font-weight:bold;">
@@ -8368,16 +8467,9 @@ function usarRecomendacionBibliotecaDesdeHallazgoOM20(indice) {
     const biblioteca = obtenerBibliotecaRecomendaciones();
     const recomendacion = biblioteca[indice];
     const campo = document.getElementById("hallazgoRecomendacion");
-    const campoHallazgo = document.getElementById("hallazgoDescripcion");
 
     if (!recomendacion || !campo) return;
 
-    // Los registros antiguos pueden no tener descripción de hallazgo.
-    // En ese caso se conserva el texto actual y solo se carga la recomendación.
-    if (campoHallazgo && recomendacion.hallazgo) {
-        campoHallazgo.value = recomendacion.hallazgo;
-        campoHallazgo.dispatchEvent(new Event("input", { bubbles: true }));
-    }
     campo.value = recomendacion.recomendacion || "";
     campo.focus();
 
@@ -8394,16 +8486,11 @@ function usarRecomendacionBiblioteca(indice) {
     }
 
     const campo = document.getElementById("hallazgoRecomendacion");
-    const campoHallazgo = document.getElementById("hallazgoDescripcion");
 
     if (!campo) {
         return;
     }
 
-    if (campoHallazgo && recomendacion.hallazgo) {
-        campoHallazgo.value = recomendacion.hallazgo;
-        campoHallazgo.dispatchEvent(new Event("input", { bubbles: true }));
-    }
     campo.value = recomendacion.recomendacion || "";
     campo.focus();
 }
@@ -8411,28 +8498,25 @@ function usarRecomendacionBiblioteca(indice) {
 function guardarRecomendacionEnBiblioteca() {
 
     const area = document.getElementById("hallazgoArea")?.value || "";
-    const elemento = document.getElementById("hallazgoElemento")?.value.trim() || "";
-    const hallazgo = document.getElementById("hallazgoDescripcion")?.value.trim() || "";
+    const elemento = document.getElementById("hallazgoElemento")?.value || "";
     const recomendacion = document.getElementById("hallazgoRecomendacion")?.value.trim() || "";
     const palabras = document.getElementById("hallazgoPalabrasClaveBiblioteca")?.value || "";
 
-    if (!area || !hallazgo || !recomendacion) {
-        alert("Para guardar en la biblioteca, indique el área, el hallazgo y su recomendación.");
+    if (!area || !recomendacion) {
+        alert("Para agregar una recomendación a la biblioteca, indique el área y la recomendación.");
         return;
     }
 
     const biblioteca = obtenerBibliotecaRecomendaciones();
-    const hallazgoNormalizado = normalizarTextoOM12(hallazgo);
     const recomendacionNormalizada = normalizarTextoOM12(recomendacion);
 
     const duplicada = biblioteca.some(item =>
-        normalizarTextoOM12(item.area) === normalizarTextoOM12(area) &&
-        normalizarTextoOM12(item.hallazgo) === hallazgoNormalizado &&
-        normalizarTextoOM12(item.recomendacion) === recomendacionNormalizada
+        normalizarTextoOM12(item.recomendacion) === recomendacionNormalizada &&
+        normalizarTextoOM12(item.area) === normalizarTextoOM12(area)
     );
 
     if (duplicada) {
-        alert("Este hallazgo con su recomendación ya existe en la biblioteca para el área seleccionada.");
+        alert("Esta recomendación ya existe en la biblioteca para el área seleccionada.");
         return;
     }
 
@@ -8448,8 +8532,7 @@ function guardarRecomendacionEnBiblioteca() {
     const nuevo = {
         id: "OM12-" + String(Date.now()),
         area: area,
-        tema: elemento || "Nuevo hallazgo",
-        hallazgo: hallazgo,
+        tema: elemento || "Nueva recomendación",
         palabrasClave: palabrasClave,
         recomendacion: recomendacion,
         fuente: "Agregada por el inspector"
@@ -9121,7 +9204,7 @@ actualizarContadores();
         <div style="margin-top:10px;padding:12px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;">
             <div style="font-weight:bold;color:#123b5d;margin-bottom:6px;">🧠 Asistente OM-12</div>
             <div style="font-size:13px;color:#555;margin-bottom:10px;">
-                Sugerencias de fichas maestras con hallazgo y recomendación asociados. Puede precargar ambos textos, adaptarlos o registrar una nueva ficha.
+                Sugerencias basadas en recomendaciones guardadas. Puede usarlas, editarlas o escribir una nueva.
             </div>
 
             <div id="panelRecomendacionesOM12" style="margin-bottom:10px;">
@@ -9138,7 +9221,7 @@ actualizarContadores();
 
             <button type="button" onclick="guardarRecomendacionEnBiblioteca()"
                 style="background:#123b5d;color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;">
-                ➕ Guardar hallazgo y recomendación en biblioteca
+                ➕ Agregar recomendación a la biblioteca
             </button>
         </div>
 
