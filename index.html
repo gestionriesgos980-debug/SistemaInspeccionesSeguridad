@@ -4217,15 +4217,9 @@ async function exportarInspeccionSeleccionada() {
         const matricesClientesTodas = JSON.parse(localStorage.getItem("matricesRiesgosClientes") || "[]");
         const resultadosTodos = JSON.parse(localStorage.getItem("resultadosChecklistCategorias") || "{}");
 
-        const checklists = checklistsTodos.filter(registro =>
-            Number(registro?.inspeccion) === indice
-        );
-        const hallazgos = hallazgosTodos.filter(registro =>
-            Number(registro?.inspeccion) === indice
-        );
-        const matrizRiesgos = matrizTodos.filter(registro =>
-            Number(registro?.inspeccion) === indice
-        );
+        const checklists = obtenerRegistrosDeInspeccion(checklistsTodos, inspeccion, indice);
+        const hallazgos = obtenerRegistrosDeInspeccion(hallazgosTodos, inspeccion, indice);
+        const matrizRiesgos = obtenerRegistrosDeInspeccion(matrizTodos, inspeccion, indice);
 
         const normalizarCliente = valor => String(valor || "")
             .normalize("NFD")
@@ -4429,7 +4423,11 @@ function importarInspeccionIndividual() {
                 const nuevoIndice = inspeccionesActuales.length;
                 const hallazgosNuevos = [];
                 for (const hallazgo of hallazgosImportados) {
-                    const nuevoHallazgo = { ...hallazgo, inspeccion: nuevoIndice };
+                    const nuevoHallazgo = {
+                        ...hallazgo,
+                        inspeccion: nuevoIndice,
+                        idControlInspeccion: idControl
+                    };
                     const fotosOriginales = Array.isArray(hallazgo?.fotos) ? hallazgo.fotos : [];
                     nuevoHallazgo.fotos = [];
 
@@ -4468,8 +4466,16 @@ function importarInspeccionIndividual() {
                     hallazgosNuevos.push(nuevoHallazgo);
                 }
 
-                const checklistsNuevos = checklistsImportados.map(registro => ({ ...registro, inspeccion: nuevoIndice }));
-                const matrizNueva = matrizImportada.map(registro => ({ ...registro, inspeccion: nuevoIndice }));
+                const checklistsNuevos = checklistsImportados.map(registro => ({
+                    ...registro,
+                    inspeccion: nuevoIndice,
+                    idControlInspeccion: idControl
+                }));
+                const matrizNueva = matrizImportada.map(registro => ({
+                    ...registro,
+                    inspeccion: nuevoIndice,
+                    idControlInspeccion: idControl
+                }));
 
                 const normalizarClienteImportacion = valor => String(valor || "")
                     .normalize("NFD")
@@ -8591,11 +8597,14 @@ function renderizarHallazgosRegistrados() {
     const hallazgos =
         JSON.parse(localStorage.getItem("hallazgos")) || [];
 
+    const inspeccionesHallazgos = JSON.parse(localStorage.getItem("inspecciones")) || [];
+    const inspeccionActualHallazgos = inspeccionesHallazgos[indiceInspeccion];
+    const hallazgosAsociados = new Set(
+        obtenerRegistrosDeInspeccion(hallazgos, inspeccionActualHallazgos, indiceInspeccion)
+    );
     const hallazgosInspeccion = hallazgos
         .map((hallazgo, indiceReal) => ({ hallazgo, indiceReal }))
-        .filter(({ hallazgo }) =>
-            Number(hallazgo.inspeccion) === indiceInspeccion
-        );
+        .filter(({ hallazgo }) => hallazgosAsociados.has(hallazgo));
 
     if (!hallazgosInspeccion.length) {
         contenedor.innerHTML =
@@ -9010,6 +9019,23 @@ async function guardarHallazgo() {
             ? Number(hallazgos[indiceHallazgoEditando].inspeccion)
             : (indiceInspeccion !== null ? Number(indiceInspeccion) : null);
 
+    const inspeccionesParaAsociarHallazgo =
+        JSON.parse(localStorage.getItem("inspecciones")) || [];
+    const inspeccionActivaHallazgo =
+        inspeccionHallazgo !== null && Number.isInteger(inspeccionHallazgo)
+            ? inspeccionesParaAsociarHallazgo[inspeccionHallazgo]
+            : null;
+    const idControlActivoHallazgo =
+        String(inspeccionActivaHallazgo?.idControl || "").trim();
+    const yaUsaRelacionEstable = Boolean(idControlActivoHallazgo) &&
+        hallazgos.some(h =>
+            String(h?.idControlInspeccion || "").trim() === idControlActivoHallazgo
+        );
+    const idControlHallazgoEstable =
+        indiceHallazgoEditando !== null && hallazgos[indiceHallazgoEditando]?.idControlInspeccion
+            ? hallazgos[indiceHallazgoEditando].idControlInspeccion
+            : (yaUsaRelacionEstable ? idControlActivoHallazgo : "");
+
     // Incluye tanto las fotografías existentes (si se edita) como todas las
     // fotografías nuevas agregadas desde cámara o galería antes de guardar.
     const fotosParaGuardar = [...fotosHallazgoEditando];
@@ -9030,6 +9056,8 @@ async function guardarHallazgo() {
     inspeccion: Number.isNaN(inspeccionHallazgo)
         ? null
         : inspeccionHallazgo,
+
+    ...(idControlHallazgoEstable ? { idControlInspeccion: idControlHallazgoEstable } : {}),
 
     area: area,
 
@@ -10600,6 +10628,23 @@ function obtenerHallazgosInformeCAM14(hallazgos, incluirPermanentes = true) {
     return incluirPermanentes ? [...variables, ...CAM14_RECOMENDACIONES_PERMANENTES] : variables;
 }
 
+/* CAM-INTEGRIDAD-01 — Relación estable de datos con la inspección.
+   Prioriza el identificador estable cuando existe; conserva compatibilidad
+   con registros históricos que solo tienen el índice numérico. */
+function obtenerRegistrosDeInspeccion(registros, inspeccion, indice) {
+    const lista = Array.isArray(registros) ? registros : [];
+    const idControl = String(inspeccion?.idControl || "").trim();
+    if (idControl) {
+        const vinculados = lista.filter(registro =>
+            String(registro?.idControlInspeccion || "").trim() === idControl
+        );
+        if (vinculados.length) return vinculados;
+    }
+    return lista.filter(registro =>
+        Number(registro?.inspeccion) === Number(indice)
+    );
+}
+
 async function generarWordPlantillaMaestra() {
     /* =========================================================
        TECCHNEX — CAMPO VISUAL 03 / INTERVENCIÓN 02
@@ -10634,8 +10679,8 @@ async function generarWordPlantillaMaestra() {
     const resultadosGuardados = JSON.parse(localStorage.getItem("resultadosChecklistCategorias")) || {};
     const resultadosCategorias = resultadosGuardados[indice] || {};
 
-    const hallazgos = todosLosHallazgos.filter(h => Number(h.inspeccion) === indice);
-    const matrizInspeccion = todasLasMatrices.filter(m => Number(m.inspeccion) === indice);
+    const hallazgos = obtenerRegistrosDeInspeccion(todosLosHallazgos, inspeccion, indice);
+    const matrizInspeccion = obtenerRegistrosDeInspeccion(todasLasMatrices, inspeccion, indice);
     const matricesRiesgosClientes = JSON.parse(localStorage.getItem("matricesRiesgosClientes")) || [];
     // CAM-MATRIZ-CLIENTE-01: normalizar la clave de cliente al enlazar
     // la matriz con el informe Word. No altera los registros guardados.
@@ -10645,9 +10690,8 @@ async function generarWordPlantillaMaestra() {
     );
     const matrizParaInforme = matrizCliente.length ? matrizCliente : matrizInspeccion;
 
-    const coincidencias = checklists.filter(c => Number(c.inspeccion) === indice);
-    const coincidenciasAntiguas = checklists.filter(c => Number(c.inspeccion) === indice + 1);
-    const checklist = coincidencias.length ? coincidencias[coincidencias.length - 1] : (coincidenciasAntiguas.length ? coincidenciasAntiguas[coincidenciasAntiguas.length - 1] : null);
+    const coincidencias = obtenerRegistrosDeInspeccion(checklists, inspeccion, indice);
+    const checklist = coincidencias.length ? coincidencias[coincidencias.length - 1] : null;
     const datosChecklist = checklist && checklist.datos ? checklist.datos : {};
     const respuestasChecklist = checklist && checklist.respuestas ? checklist.respuestas : {};
 
@@ -11425,11 +11469,11 @@ if (
 const resultadosCategorias =
     resultadosGuardados[indiceSeleccionado] || {};
    
-const hallazgos =
-    todosLosHallazgos.filter(
-       hallazgo =>
-    Number(hallazgo.inspeccion) === indiceSeleccionado
-    );
+const hallazgos = obtenerRegistrosDeInspeccion(
+    todosLosHallazgos,
+    inspecciones[indiceSeleccionado],
+    indiceSeleccionado
+);
 
 const hallazgosVariablesPDF = obtenerHallazgosInformeCAM14(hallazgos, false);
 const hallazgosParaInformePDF = [...hallazgosVariablesPDF, ...CAM14_RECOMENDACIONES_PERMANENTES];
