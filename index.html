@@ -2375,20 +2375,23 @@ function abrirBibliotecaRecomendacionesOM22() {
         <div style="max-width:1150px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25);overflow:hidden;">
             <div style="background:#123b5d;color:#fff;padding:18px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
                 <div>
-                    <h2 style="margin:0;font-size:22px;">📚 Biblioteca de recomendaciones</h2>
-                    <div style="margin-top:5px;font-size:13px;opacity:.9;">OM-20.2 · Administración de recomendaciones</div>
+                    <h2 style="margin:0;font-size:22px;">📚 Biblioteca de hallazgos y recomendaciones</h2>
+                    <div style="margin-top:5px;font-size:13px;opacity:.9;">OM-20.2 · Administración de registros vinculados</div>
                 </div>
                 <button type="button" onclick="document.getElementById('ventanaBibliotecaOM22')?.remove()" style="background:transparent;color:#fff;border:0;font-size:28px;cursor:pointer;">&times;</button>
             </div>
 
             <div style="padding:20px;">
+                <p style="margin:0 0 14px;color:#475569;font-size:13px;line-height:1.45;">
+                    Cada registro puede vincular la descripción del hallazgo con su recomendación. Los registros antiguos que solo contienen recomendaciones siguen siendo compatibles.
+                </p>
                 <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px;">
-                    <input id="buscadorBibliotecaOM20" type="search" placeholder="Buscar por área, tema, palabra clave o recomendación..."
+                    <input id="buscadorBibliotecaOM20" type="search" placeholder="Buscar por área, tema, hallazgo, palabra clave o recomendación..."
                         oninput="renderizarBibliotecaRecomendacionesOM20()"
                         style="flex:1;min-width:260px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:7px;box-sizing:border-box;">
                     <button type="button" onclick="abrirEditorBibliotecaRecomendacionOM20()"
                         style="background:#1d70b7;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
-                        ➕ Agregar recomendación
+                        ➕ Agregar registro
                     </button>
                     <button type="button" onclick="abrirBibliotecaRiesgosOM20()"
                         style="background:#475569;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
@@ -2421,6 +2424,8 @@ function renderizarBibliotecaRecomendacionesOM20() {
             item.area,
             item.tema,
             item.elemento,
+            item.descripcionHallazgo,
+            item.hallazgo,
             ...(item.palabrasClave || []),
             item.recomendacion,
             item.fuente
@@ -2436,7 +2441,8 @@ function renderizarBibliotecaRecomendacionesOM20() {
                     <td style="padding:9px;border:1px solid #ddd;text-align:center;">${indice + 1}</td>
                     <td style="padding:9px;border:1px solid #ddd;">${escaparTextoOM12(item.area || "")}</td>
                     <td style="padding:9px;border:1px solid #ddd;">${escaparTextoOM12(item.tema || item.elemento || "")}</td>
-                    <td style="padding:9px;border:1px solid #ddd;line-height:1.4;">${escaparTextoOM12(item.recomendacion || item.descripcion || "")}</td>
+                    <td style="padding:9px;border:1px solid #ddd;line-height:1.4;min-width:220px;">${escaparTextoOM12(item.descripcionHallazgo || item.hallazgo || "—")}</td>
+                    <td style="padding:9px;border:1px solid #ddd;line-height:1.4;min-width:260px;">${escaparTextoOM12(item.recomendacion || item.descripcion || "")}</td>
                     <td style="padding:9px;border:1px solid #ddd;text-align:center;white-space:nowrap;">
                         <button type="button" onclick="abrirEditorBibliotecaRecomendacionOM20(${indice})"
                             style="background:#f59e0b;color:#fff;border:0;padding:6px 9px;border-radius:5px;cursor:pointer;margin-right:4px;">✏️ Editar</button>
@@ -2448,15 +2454,15 @@ function renderizarBibliotecaRecomendacionesOM20() {
         }).join("")
         : `
             <tr>
-                <td colspan="5" style="padding:15px;text-align:center;border:1px solid #ddd;color:#6b7280;">
-                    ${buscador ? "No se encontraron recomendaciones con ese criterio." : "No hay recomendaciones registradas en la biblioteca."}
+                <td colspan="6" style="padding:15px;text-align:center;border:1px solid #ddd;color:#6b7280;">
+                    ${buscador ? "No se encontraron registros con ese criterio." : "No hay registros en la biblioteca."}
                 </td>
             </tr>
         `;
 
     contenedor.innerHTML = `
         <p style="margin:0 0 12px;color:#64748b;">
-            Mostrando <strong>${resultados.length}</strong> de <strong>${biblioteca.length}</strong> recomendaciones.
+            Mostrando <strong>${resultados.length}</strong> de <strong>${biblioteca.length}</strong> registros de hallazgos y recomendaciones.
         </p>
         <div style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;font-size:14px;">
@@ -2465,6 +2471,7 @@ function renderizarBibliotecaRecomendacionesOM20() {
                         <th style="padding:9px;border:1px solid #ddd;text-align:center;">#</th>
                         <th style="padding:9px;border:1px solid #ddd;text-align:left;">Área</th>
                         <th style="padding:9px;border:1px solid #ddd;text-align:left;">Tema / elemento</th>
+                        <th style="padding:9px;border:1px solid #ddd;text-align:left;">Hallazgo</th>
                         <th style="padding:9px;border:1px solid #ddd;text-align:left;">Recomendación</th>
                         <th style="padding:9px;border:1px solid #ddd;text-align:center;">Acciones</th>
                     </tr>
@@ -2494,7 +2501,7 @@ function abrirEditorBibliotecaRecomendacionOM20(indice = null) {
     modal.innerHTML = `
         <div style="width:min(700px,100%);max-height:90vh;overflow-y:auto;background:#fff;border-radius:12px;box-shadow:0 10px 35px rgba(0,0,0,.3);">
             <div style="background:#123b5d;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">
-                <strong style="font-size:18px;">${editar ? "✏️ Editar recomendación" : "➕ Nueva recomendación"}</strong>
+                <strong style="font-size:18px;">${editar ? "✏️ Editar hallazgo y recomendación" : "➕ Nuevo hallazgo / recomendación"}</strong>
                 <button type="button" onclick="document.getElementById('modalEditorBibliotecaOM20')?.remove()" style="background:transparent;color:#fff;border:0;font-size:26px;cursor:pointer;">&times;</button>
             </div>
             <div style="padding:20px;">
@@ -2504,10 +2511,13 @@ function abrirEditorBibliotecaRecomendacionOM20(indice = null) {
                 <label style="display:block;font-weight:bold;margin-bottom:5px;">Tema / elemento</label>
                 <input id="editorOM20Tema" value="${escaparTextoOM12(item.tema || item.elemento || "")}" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">
 
+                <label style="display:block;font-weight:bold;margin-bottom:5px;">Descripción del hallazgo <span style="font-weight:normal;color:#64748b;">(los registros antiguos pueden dejar este campo vacío)</span></label>
+                <textarea id="editorOM20Hallazgo" rows="4" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">${escaparTextoOM12(item.descripcionHallazgo || item.hallazgo || "")}</textarea>
+
                 <label style="display:block;font-weight:bold;margin-bottom:5px;">Palabras clave <span style="font-weight:normal;color:#64748b;">(separadas por coma)</span></label>
                 <input id="editorOM20Palabras" value="${escaparTextoOM12((item.palabrasClave || []).join(", "))}" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">
 
-                <label style="display:block;font-weight:bold;margin-bottom:5px;">Recomendación</label>
+                <label style="display:block;font-weight:bold;margin-bottom:5px;">Recomendación asociada</label>
                 <textarea id="editorOM20Recomendacion" rows="7" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">${escaparTextoOM12(item.recomendacion || item.descripcion || "")}</textarea>
 
                 <label style="display:block;font-weight:bold;margin-bottom:5px;">Fuente</label>
@@ -2528,6 +2538,7 @@ function guardarEdicionBibliotecaRecomendacionOM20(indice = null) {
 
     const area = document.getElementById("editorOM20Area")?.value.trim() || "";
     const tema = document.getElementById("editorOM20Tema")?.value.trim() || "";
+    const descripcionHallazgo = document.getElementById("editorOM20Hallazgo")?.value.trim() || "";
     const palabrasTexto = document.getElementById("editorOM20Palabras")?.value || "";
     const recomendacion = document.getElementById("editorOM20Recomendacion")?.value.trim() || "";
     const fuente = document.getElementById("editorOM20Fuente")?.value.trim() || "";
@@ -2540,12 +2551,15 @@ function guardarEdicionBibliotecaRecomendacionOM20(indice = null) {
     const biblioteca = obtenerBibliotecaRecomendaciones();
     const editando = Number.isInteger(indice) && biblioteca[indice];
     const recomendacionNormalizada = normalizarTextoOM12(recomendacion);
+    const hallazgoNormalizado = normalizarTextoOM12(descripcionHallazgo);
 
-    const duplicada = biblioteca.some((item, i) =>
-        i !== indice &&
-        normalizarTextoOM12(item.area) === normalizarTextoOM12(area) &&
-        normalizarTextoOM12(item.recomendacion) === recomendacionNormalizada
-    );
+    const duplicada = biblioteca.some((item, i) => {
+        if (i === indice) return false;
+        const mismaArea = normalizarTextoOM12(item.area) === normalizarTextoOM12(area);
+        const mismaRecomendacion = normalizarTextoOM12(item.recomendacion || item.descripcion || "") === recomendacionNormalizada;
+        const hallazgoExistente = normalizarTextoOM12(item.descripcionHallazgo || item.hallazgo || "");
+        return mismaArea && mismaRecomendacion && hallazgoExistente === hallazgoNormalizado;
+    });
 
     if (duplicada) {
         alert("Ya existe otra recomendación igual para el área seleccionada.");
@@ -2562,23 +2576,41 @@ function guardarEdicionBibliotecaRecomendacionOM20(indice = null) {
     }
 
     if (editando) {
+        const registroAnterior = biblioteca[indice];
+        const hallazgoFinal = descripcionHallazgo ||
+            registroAnterior.descripcionHallazgo ||
+            registroAnterior.hallazgo ||
+            "";
         biblioteca[indice] = {
-            ...biblioteca[indice],
+            ...registroAnterior,
             area,
-            tema: tema || biblioteca[indice].tema || "Nueva recomendación",
+            tema: tema || registroAnterior.tema || registroAnterior.elemento || "Nueva recomendación",
+            elemento: tema || registroAnterior.elemento || registroAnterior.tema || "",
+            ...(hallazgoFinal ? {
+                descripcionHallazgo: hallazgoFinal,
+                hallazgo: hallazgoFinal,
+                tipoRegistro: "hallazgo_recomendacion"
+            } : {}),
             palabrasClave,
             recomendacion,
-            fuente: fuente || biblioteca[indice].fuente || "Administrada desde Biblioteca"
+            fuente: fuente || registroAnterior.fuente || "Administrada desde Biblioteca"
         };
     } else {
-        biblioteca.push({
+        const nuevoRegistro = {
             id: "OM20-" + String(Date.now()),
             area,
             tema: tema || "Nueva recomendación",
+            elemento: tema,
             palabrasClave,
             recomendacion,
             fuente: fuente || "Administrada desde Biblioteca"
-        });
+        };
+        if (descripcionHallazgo) {
+            nuevoRegistro.descripcionHallazgo = descripcionHallazgo;
+            nuevoRegistro.hallazgo = descripcionHallazgo;
+            nuevoRegistro.tipoRegistro = "hallazgo_recomendacion";
+        }
+        biblioteca.push(nuevoRegistro);
     }
 
     localStorage.setItem(CLAVE_BIBLIOTECA_RECOMENDACIONES, JSON.stringify(biblioteca));
@@ -8975,7 +9007,7 @@ async function procesarFotoConTimestamp(archivo, indiceInspeccion, numeroHallazg
                     // AJUSTE TIMESTAMP FOTOGRÁFICO — Aumentar la visibilidad del sello
                     // directamente sobre la fotografía, manteniendo la información integrada
                     // en los píxeles de la evidencia.
-                    const altoSello = Math.max(86, Math.round(alto * 0.11));
+                    const altoSello = Math.max(24, Math.round(alto * 0.075));
                     const selloY = Math.max(0, alto - altoSello);
 
                     contexto.fillStyle = "rgba(8, 35, 58, 0.82)";
@@ -8984,10 +9016,10 @@ async function procesarFotoConTimestamp(archivo, indiceInspeccion, numeroHallazg
                     // CAMBIO OM-14.1 — Incorporar el mismo logo corporativo del encabezado
                     // dentro del sello fotográfico, sin modificar la fotografía original
                     // fuera del área destinada al timestamp.
-                    const margenSello = Math.max(14, Math.round(ancho * 0.018));
+                    const margenSello = Math.max(6, Math.round(ancho * 0.012));
                     const altoLogo = Math.min(
-                        Math.max(52, Math.round(altoSello * 0.72)),
-                        altoSello - 14
+                        Math.max(18, Math.round(altoSello * 0.68)),
+                        altoSello - 6
                     );
                     const logo = new Image();
 
@@ -9019,7 +9051,7 @@ async function procesarFotoConTimestamp(archivo, indiceInspeccion, numeroHallazg
                         );
 
                         contexto.fillStyle = "#ffffff";
-                        contexto.font = `bold ${Math.max(18, Math.round(ancho * 0.018))}px Arial`;
+                        contexto.font = `bold ${Math.max(10, Math.round(ancho * 0.014))}px Arial`;
                         contexto.fillText(
                             `TECCHNEX | ${idControl || "SIN-ID"} | HALLAZGO ${numeroHallazgo}`,
                             inicioTexto,
@@ -9027,7 +9059,7 @@ async function procesarFotoConTimestamp(archivo, indiceInspeccion, numeroHallazg
                             espacioTexto
                         );
 
-                        contexto.font = `${Math.max(16, Math.round(ancho * 0.015))}px Arial`;
+                        contexto.font = `${Math.max(9, Math.round(ancho * 0.011))}px Arial`;
                         contexto.fillText(
                             `CAPTURA: ${selloFecha} ${selloHora}`,
                             inicioTexto,
@@ -9039,14 +9071,14 @@ async function procesarFotoConTimestamp(archivo, indiceInspeccion, numeroHallazg
                         // Si el logo no pudiera cargarse, el timestamp continúa funcionando
                         // con el diseño anterior para no perder la evidencia fotográfica.
                         contexto.fillStyle = "#ffffff";
-                        contexto.font = `bold ${Math.max(18, Math.round(ancho * 0.018))}px Arial`;
+                        contexto.font = `bold ${Math.max(10, Math.round(ancho * 0.014))}px Arial`;
                         contexto.fillText(
                             `TECCHNEX | ${idControl || "SIN-ID"} | HALLAZGO ${numeroHallazgo}`,
                             margenSello,
                             selloY + Math.round(altoSello * 0.38)
                         );
 
-                        contexto.font = `${Math.max(16, Math.round(ancho * 0.015))}px Arial`;
+                        contexto.font = `${Math.max(9, Math.round(ancho * 0.011))}px Arial`;
                         contexto.fillText(
                             `CAPTURA: ${selloFecha} ${selloHora}`,
                             margenSello,
