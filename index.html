@@ -11381,15 +11381,20 @@ async function generarWordPlantillaMaestra() {
         // Medida fija por fotografía: 3,8 cm de ancho x 2,6 cm de alto.
         if(hallazgosInforme.length){
             const headers=["#","ÁREA","HALLAZGO","ACCIÓN PREVENTIVA / RECOMENDACIÓN","REGISTRO FOTOGRÁFICO"];
-            // Si existe un hallazgo con una sola foto, reservarle una columna
-            // de aproximadamente 7,85 cm (incluye márgenes internos de Word).
-            // Cuando todas tienen varias fotos, se conserva la distribución original.
-            const hayFotoUnica=hallazgos.some(h=>Array.isArray(h.fotos)&&h.fotos.length===1);
-            const widthsBase=hayFotoUnica?[450,900,2300,2674,4450]:[500,1000,2600,3000,1738];
-            const sumaOriginal=widthsBase.reduce((a,b)=>a+b,0);
-            const factor=ANCHO_TABLA_MAESTRA/sumaOriginal;
-            const anchos=widthsBase.map((w,i)=>i===widthsBase.length-1?ANCHO_TABLA_MAESTRA-widthsBase.slice(0,-1).reduce((a,b)=>a+Math.round(b*factor),0):Math.round(w*factor));
+            // CAM-INFORME-01 — Distribución automática de fotografías en cuadrícula.
+            // Se reserva una columna fotográfica suficiente para dos imágenes de 3,8 cm.
+            // Se conserva la estructura de la tabla principal y las relaciones de imagen existentes.
+            const anchos=[450,850,2200,2574,4700];
             const headerXml=tablaCabeceras(headers,anchos);
+            const anchoInternoFotos=Math.max(1000,anchos[4]-300);
+            const anchoCeldaFoto=Math.floor(anchoInternoFotos/2);
+            const bordesFotos='<w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders>';
+            function celdaFotoWord(contenido,width,span=1){
+                return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${span===2?'<w:gridSpan w:val="2"/>':''}<w:tcMar><w:top w:w="30" w:type="dxa"/><w:left w:w="20" w:type="dxa"/><w:bottom w:w="30" w:type="dxa"/><w:right w:w="20" w:type="dxa"/></w:tcMar><w:vAlign w:val="center"/></w:tcPr>${contenido||'<w:p/>'}<w:p/></w:tc>`;
+            }
+            function tablaFotosWord(filas){
+                return `<w:tbl><w:tblPr><w:tblW w:w="${anchoInternoFotos}" w:type="dxa"/><w:tblLayout w:type="fixed"/>${bordesFotos}</w:tblPr><w:tblGrid><w:gridCol w:w="${anchoCeldaFoto}"/><w:gridCol w:w="${anchoInternoFotos-anchoCeldaFoto}"/></w:tblGrid>${filas.join('')}</w:tbl><w:p/>`;
+            }
             let rowsXml="";
             for(const [i,h] of hallazgosInforme.entries()){
                 const textoHallazgo=h.hallazgo||h.descripcion||h.observacion||"";
@@ -11397,27 +11402,33 @@ async function generarWordPlantillaMaestra() {
                 let fotosContenido=parrafoWord("Sin evidencia fotográfica",{font:'Cambria',size:'16',color:'666666',align:'center',line:220});
                 const fotos=Array.isArray(h.fotos)?h.fotos:[];
                 if(fotos.length){
-                    fotosContenido="";
-                    const anchoMaxFoto=fotos.length===1?7.5:3.8;
-                    const altoMaxFoto=fotos.length===1?5:2.6;
+                    const filasFotos=[];
+                    const imagenes=[];
                     for(let j=0;j<fotos.length;j++){
-                        // CAM-PLANTILLA-12 — Recuperar la imagen de forma asíncrona.
-                        // Las fotografías nuevas se guardan como referencias mediaId en IndexedDB;
-                        // obtenerImagenDeFoto() es síncrona y puede devolver vacío si la caché
-                        // todavía no está preparada. obtenerDataUrlMedia() recupera la imagen
-                        // desde la caché o desde la bóveda antes de incorporarla al DOCX.
-                        const referenciaFoto = fotos[j];
-                        const dataUrlFoto = (typeof referenciaFoto === "string" && referenciaFoto.startsWith("data:")) ? referenciaFoto : await obtenerDataUrlMedia(referenciaFoto);
-                        const imagenHallazgo = await agregarImagenWord(
+                        // Recuperar la imagen de forma asíncrona antes de incorporarla al DOCX.
+                        const referenciaFoto=fotos[j];
+                        const dataUrlFoto=(typeof referenciaFoto==="string"&&referenciaFoto.startsWith("data:"))?referenciaFoto:await obtenerDataUrlMedia(referenciaFoto);
+                        const imagenHallazgo=await agregarImagenWord(
                             dataUrlFoto,
                             `hallazgo_${i+1}_${j+1}`,
                             `Registro fotográfico ${i+1}-${j+1}`,
-                            anchoMaxFoto,
-                            altoMaxFoto
+                            fotos.length===1?7.5:3.8,
+                            fotos.length===1?5:2.6
                         );
-                        if(imagenHallazgo) fotosContenido+=imagenHallazgo;
+                        if(imagenHallazgo) imagenes.push(imagenHallazgo);
                     }
-                    if(!fotosContenido) fotosContenido=parrafoWord("Sin evidencia fotográfica",{font:'Cambria',size:'16',color:'666666',align:'center',line:220});
+                    if(imagenes.length===1){
+                        filasFotos.push(`<w:tr>${celdaFotoWord(imagenes[0],anchoInternoFotos,2)}</w:tr>`);
+                    }else if(imagenes.length>1){
+                        for(let j=0;j<imagenes.length;j+=2){
+                            const img1=imagenes[j];
+                            const img2=imagenes[j+1]||"";
+                            filasFotos.push(`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaFotoWord(img1,anchoCeldaFoto)}${celdaFotoWord(img2,anchoInternoFotos-anchoCeldaFoto)}</w:tr>`);
+                        }
+                    }else{
+                        filasFotos.push(`<w:tr>${celdaFotoWord(parrafoWord("No fue posible recuperar la evidencia fotográfica",{font:'Cambria',size:'16',color:'C00000',align:'center',line:220}),anchoInternoFotos,2)}</w:tr>`);
+                    }
+                    fotosContenido=tablaFotosWord(filasFotos);
                 }
                 rowsXml+=`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(String(i+1),{width:anchos[0],size:'16',align:'center'})}${celdaWord(h.area||h.categoria||"",{width:anchos[1],size:'16',align:'center'})}${celdaWord(textoHallazgo,{width:anchos[2],size:'16',align:'left'})}${celdaWord(recomendacion,{width:anchos[3],size:'16',align:'left'})}${celdaWordContenido(fotosContenido,{width:anchos[4],vAlign:'center'})}</w:tr>`;
             }
