@@ -4093,37 +4093,71 @@ async function restaurarMediosDesdeRespaldo(medios) {
 }
 
 async function prepararFotografiasParaInforme(indiceInspeccion) {
-    // Carga bajo demanda las referencias de la inspección seleccionada.
-    // No depende únicamente de la precarga global realizada al iniciar.
-    try {
-        await tecchnexMediaReady;
-    } catch (error) {
-        console.warn("TECCHNEX: IndexedDB no disponible para el informe.", error);
-        return;
+    // CAM-FOTOGRAFIAS-02: preparar y validar las evidencias antes de construir
+    // el informe. Si una imagen no puede recuperarse, no generar un informe
+    // aparentemente válido con fotografías en blanco.
+    const almacenamientoListo = await tecchnexMediaReady;
+    if (!almacenamientoListo) {
+        throw new Error("El almacenamiento de fotografías no está disponible. No se generó el informe para evitar evidencias en blanco.");
     }
 
     const hallazgos = JSON.parse(localStorage.getItem("hallazgos")) || [];
-    const hallazgosInspeccion = hallazgos.filter(
-        hallazgo => Number(hallazgo.inspeccion) === Number(indiceInspeccion)
+    const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
+    const inspeccionSeleccionada = inspecciones[Number(indiceInspeccion)];
+
+    if (!inspeccionSeleccionada) {
+        throw new Error("No se encontró la inspección seleccionada al preparar sus fotografías.");
+    }
+
+    // Mantener exactamente el mismo criterio de selección de hallazgos que usa
+    // generarInforme(), sin alterar IDs ni reasignar relaciones.
+    const hallazgosInspeccion = obtenerRegistrosDeInspeccion(
+        hallazgos,
+        inspeccionSeleccionada,
+        indiceInspeccion
     );
 
-    for (const hallazgo of hallazgosInspeccion) {
-        for (const foto of (Array.isArray(hallazgo.fotos) ? hallazgo.fotos : [])) {
-            if (!foto || !foto.mediaId) {
+    const errores = [];
+    for (const [indiceHallazgo, hallazgo] of hallazgosInspeccion.entries()) {
+        const fotos = Array.isArray(hallazgo.fotos) ? hallazgo.fotos : [];
+        for (const [indiceFoto, foto] of fotos.entries()) {
+            if (!foto) {
+                errores.push(`Hallazgo ${indiceHallazgo + 1}, foto ${indiceFoto + 1}: referencia vacía`);
                 continue;
             }
 
             try {
-                await cargarMediaEnCache(foto);
+                if (foto.mediaId) {
+                    await cargarMediaEnCache(foto);
+                }
+
+                const imagen = obtenerImagenDeFoto(foto);
+                if (!imagen || !/^data:image\//i.test(imagen)) {
+                    errores.push(
+                        `Hallazgo ${indiceHallazgo + 1}, foto ${indiceFoto + 1}`
+                        + (foto.mediaId ? ` (mediaId: ${foto.mediaId})` : "")
+                    );
+                }
             } catch (error) {
-                console.warn(
-                    "TECCHNEX: no fue posible cargar una fotografía del informe.",
-                    foto.mediaId,
-                    error
+                errores.push(
+                    `Hallazgo ${indiceHallazgo + 1}, foto ${indiceFoto + 1}`
+                    + (foto.mediaId ? ` (mediaId: ${foto.mediaId})` : "")
+                    + `: ${error?.message || "no se pudo recuperar"}`
                 );
             }
         }
     }
+
+    if (errores.length) {
+        const detalle = errores.slice(0, 8).join("; ");
+        const adicionales = errores.length > 8 ? `; y ${errores.length - 8} más` : "";
+        throw new Error(
+            `No se generó el informe porque ${errores.length} fotografía(s) no pudieron validarse. `
+            + `Revise el almacenamiento o restaure un respaldo íntegro. Detalle: ${detalle}${adicionales}`
+        );
+    }
+
+    return { inspeccion: inspeccionSeleccionada, fotografiasValidadas: true };
 }
 
 async function crearRespaldo() {
@@ -6464,7 +6498,7 @@ function generarInformeDesdeModulo() {
     generarInformeInspeccion(indice);
 }
 
-   function generarInformeInspeccion(indice) {
+   async function generarInformeInspeccion(indice) {
 
     const ventana = window.open("", "_blank");
 
@@ -6475,6 +6509,11 @@ function generarInformeDesdeModulo() {
         );
         return;
     }
+
+    // CAM-ALMACENAMIENTO-01B / CAM-PLANTILLA-12:
+    // Esperar a que IndexedDB esté lista; después se recuperan y validan
+    // explícitamente todas las fotografías de esta inspección antes de generar.
+    await tecchnexMediaReady;
 
     const inspecciones =
         JSON.parse(localStorage.getItem("inspecciones")) || [];
@@ -6499,9 +6538,9 @@ function generarInformeDesdeModulo() {
         console.warn("TECCHNEX: no fue necesario cerrar un panel antes del informe.", errorPanel);
     }
 
-    // CAM-ALMACENAMIENTO-01B/02 — Preparar explícitamente las fotografías
-    // antes de construir el informe. Promise.resolve también captura errores
-    // síncronos del preparador para que la pestaña no quede en about:blank.
+    // CAM-FOTOGRAFIAS-02 — Recuperar y validar todas las fotografías de esta
+    // inspección antes de construir el informe. Si alguna falla, mostrar el
+    // diagnóstico en la pestaña en vez de entregar un documento con fotos blancas.
     Promise.resolve()
         .then(() => prepararFotografiasParaInforme(indice))
         .then(() => generarInforme(ventana))
@@ -8372,8 +8411,14 @@ function mostrarRecomendacionesSugeridas() {
         <div style="font-weight:bold;color:#123b5d;margin-bottom:8px;">💡 Recomendaciones sugeridas</div>
         ${sugerencias.map(({ item, indice }) => `
             <div style="border:1px solid #d1d5db;border-radius:7px;padding:10px;margin-bottom:8px;background:#fff;">
-                <div style="font-weight:bold;color:#123b5d;font-size:13px;">${escaparTextoOM12(item.tema || item.area)}</div>
-                <div style="font-size:13px;line-height:1.45;margin:6px 0;">${escaparTextoOM12(item.recomendacion)}</div>
+                <div style="font-weight:bold;color:#123b5d;font-size:13px;">${escaparTextoOM12(item.tema || item.elemento || item.area || "Recomendación")}</div>
+                <div style="font-size:12px;line-height:1.45;margin:7px 0;color:#334155;">
+                    <strong>Hallazgo:</strong>
+                    ${escaparTextoOM12(item.descripcionHallazgo || item.hallazgo || "Esta ficha no tiene una descripción de hallazgo registrada.")}
+                </div>
+                <div style="font-size:13px;line-height:1.45;margin:6px 0;">
+                    <strong>Recomendación:</strong> ${escaparTextoOM12(item.recomendacion || "")}
+                </div>
                 <button type="button" onclick="usarRecomendacionBiblioteca(${indice})"
                     style="background:#1d70b7;color:white;border:none;padding:7px 11px;border-radius:5px;cursor:pointer;">
                     Usar esta recomendación
@@ -8547,8 +8592,21 @@ function usarRecomendacionBiblioteca(indice) {
         return;
     }
 
+    // Al seleccionar una ficha completa, cargar también el hallazgo de referencia.
+    // Si la ficha antigua solo contiene recomendación, no sobrescribir el hallazgo actual.
+    const textoHallazgo = recomendacion.descripcionHallazgo || recomendacion.hallazgo || "";
+    if (textoHallazgo) {
+        const campoElemento = document.getElementById("hallazgoElemento");
+        const campoDescripcion = document.getElementById("hallazgoDescripcion");
+        const campoNivel = document.getElementById("hallazgoNivel");
+        if (campoElemento) campoElemento.value = recomendacion.tema || recomendacion.elemento || campoElemento.value;
+        if (campoDescripcion) campoDescripcion.value = textoHallazgo;
+        if (campoNivel && recomendacion.nivel) campoNivel.value = recomendacion.nivel;
+    }
+
     campo.value = recomendacion.recomendacion || "";
     campo.focus();
+    mostrarRecomendacionesSugeridas();
 }
 
 function guardarHallazgoYRecomendacionEnBiblioteca() {
@@ -8935,11 +8993,17 @@ function obtenerImagenDeFoto(foto) {
         return foto;
     }
 
+    // CAM-FOTOGRAFIAS-02: priorizar la caché cuando existe, pero conservar
+    // compatibilidad con respaldos/objetos que todavía traigan la imagen inline.
     if (foto?.mediaId) {
-        return tecchnexMediaCache.get(foto.mediaId) || "";
+        return tecchnexMediaCache.get(foto.mediaId)
+            || foto.dataUrl
+            || foto.imagen
+            || foto.data
+            || "";
     }
 
-    return foto?.imagen || foto?.data || "";
+    return foto?.dataUrl || foto?.imagen || foto?.data || "";
 }
 
 async function calcularHashFoto(dataUrl) {
