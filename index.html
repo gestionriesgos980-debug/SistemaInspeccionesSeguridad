@@ -6511,7 +6511,19 @@ function generarInformeDesdeModulo() {
 
    async function generarInformeInspeccion(indice) {
 
-    const ventana = window.open("", "_blank");
+    // CAM-INFORME-ESTILO-02-CORRECCION-01
+    // El informe debe abrirse en una ventana independiente del panel principal.
+    // Se conserva window.opener porque los botones Word/PDF del informe
+    // utilizan las funciones de la aplicación principal.
+    const ventana = window.open(
+        "",
+        "TECCHNEX_INFORME",
+        "popup=yes,width=1400,height=900,scrollbars=yes,resizable=yes"
+    );
+
+    if (ventana) {
+        try { ventana.focus(); } catch (e) {}
+    }
 
     if (!ventana) {
         alert(
@@ -6570,293 +6582,85 @@ function generarInformeDesdeModulo() {
 }
 
 function verInspeccion(indice) {
-
-    const inspecciones =
-        JSON.parse(localStorage.getItem("inspecciones")) || [];
-
+    const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
     const inspeccion = inspecciones[indice];
-
     if (!inspeccion) {
         alert("No se encontró la inspección seleccionada.");
         return;
     }
 
     cerrarClientes();
-
     let ventana = document.getElementById("ventanaVerInspeccion");
-
-    if (ventana) {
-        ventana.remove();
-    }
+    if (ventana) ventana.remove();
 
     ventana = document.createElement("div");
     ventana.id = "ventanaVerInspeccion";
-
-    ventana.style.position = "fixed";
-    ventana.style.top = "0";
-    ventana.style.left = "0";
-    ventana.style.width = "100%";
-    ventana.style.height = "100%";
-    ventana.style.background = "rgba(0,0,0,0.55)";
-    ventana.style.zIndex = "3000";
-    ventana.style.overflowY = "auto";
-
-    const incidentes = inspeccion.historicoIncidentes || [];
-
-    let tablaIncidentes = "";
-
-    if (
-        inspeccion.sinIncidentes ||
-        incidentes.length === 0
-    ) {
-
-    tablaIncidentes += `
-        <tr>
-            <td style="padding:8px;border:1px solid #999;">
-                NO REPORTADOS
-            </td>
-
-            <td style="padding:8px;border:1px solid #999;">
-                NO REPORTADOS
-            </td>
-
-            <td style="padding:8px;border:1px solid #999;">
-                N/A
-            </td>
-        </tr>
-    `;
-
-} else {
-
-    incidentes.forEach(incidente => {
-
-        tablaIncidentes += `
-            <tr>
-                <td style="padding:8px;border:1px solid #999;">
-                    ${incidente.riesgo || ""}
-                </td>
-
-                <td style="padding:8px;border:1px solid #999;">
-                    ${incidente.incidente || ""}
-                </td>
-
-                <td style="padding:8px;border:1px solid #999;">
-                    ${incidente.consecuencias || ""}
-                </td>
-            </tr>
-        `;
-
+    Object.assign(ventana.style, {
+        position:"fixed", top:"0", left:"0", width:"100%", height:"100%",
+        background:"rgba(0,0,0,0.55)", zIndex:"3000", overflowY:"auto",
+        fontFamily:"Century Gothic, Arial, sans-serif"
     });
-}
+
+    const esc = v => String(v ?? "")
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+
+    const incidentes = Array.isArray(inspeccion.historicoIncidentes) ? inspeccion.historicoIncidentes : [];
+    const tablaIncidentes = (inspeccion.sinIncidentes || !incidentes.length)
+        ? `<tr><td style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">NO REPORTADOS</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">NO REPORTADOS</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">N/A</td></tr>`
+        : incidentes.map(x => `<tr><td style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(x.riesgo)}</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(x.incidente)}</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(x.consecuencias)}</td></tr>`).join("");
+
+    let campos = [];
+    if (inspeccion.sectorInspeccion === "Residencial") {
+        campos = [
+            ["Tipo de instalación", inspeccion.tipoInstalacion], ["Torres", inspeccion.cantidadTorres],
+            ["Niveles", inspeccion.cantidadNiveles], ["Sótanos", inspeccion.cantidadSotanos],
+            ["Viviendas", inspeccion.cantidadViviendas], ["Parqueaderos privados", inspeccion.parqueaderosPrivados],
+            ["Parqueaderos visitantes", inspeccion.parqueaderosVisitantes], ["Parqueaderos motos", inspeccion.parqueaderosMotos],
+            ["Parqueaderos uso común", inspeccion.parqueaderosComunes], ["Bicicleteros", inspeccion.bicicleteros]
+        ];
+    } else if (inspeccion.sectorInspeccion === "Industrial") {
+        campos = [["Tipo de instalación", inspeccion.tipoInstalacionIndustrial], ["Actividad principal", inspeccion.actividadPrincipalIndustrial], ["Cantidad de bodegas", inspeccion.cantidadBodegas], ["Área aproximada (m²)", inspeccion.areaIndustrial]];
+    } else if (inspeccion.sectorInspeccion === "Parcelación") {
+        campos = [["Número de lotes", inspeccion.numeroLotesParcelacion], ["Viviendas construidas", inspeccion.viviendasConstruidasParcelacion], ["Viviendas en construcción", inspeccion.viviendasConstruccionParcelacion]];
+    } else if (inspeccion.sectorInspeccion === "Comercial") {
+        campos = [["Tipo de establecimiento", inspeccion.tipoEstablecimientoComercial], ["Actividad comercial", inspeccion.actividadComercial], ["Área aproximada (m²)", inspeccion.areaComercial], ["Número de locales", inspeccion.numeroLocalesComercial], ["Número de niveles", inspeccion.nivelesComercial], ["Parqueaderos", inspeccion.parqueaderosComercial], ["Otra información", inspeccion.otraInformacionComercial]];
+    }
+    campos = campos.filter(x => x[1] !== undefined && x[1] !== null && String(x[1]).trim() !== "");
+    const tituloSector = inspeccion.sectorInspeccion ? `Características de la instalación - ${esc(inspeccion.sectorInspeccion)}` : "Características de la instalación";
+    const caracteristicasInstalacionHTML = campos.length ? `
+        <h3 style="color:#123b5d;">${tituloSector}</h3>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:9pt;">
+            ${campos.map(c => `<tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;text-align:justify;width:30%;"><strong>${esc(c[0])}</strong></td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(c[1])}</td></tr>`).join("")}
+        </table>` : "";
+
     ventana.innerHTML = `
-
-       
-            width:90%;
-            max-width:1000px;
-            margin:40px auto;
-            background:white;
-            padding:25px;
-            border-radius:10px;
-            box-shadow:0 4px 20px rgba(0,0,0,0.25);
-        ">
-
-           
-                display:flex;
-                justify-content:space-between;
-                align-items:center;
-                margin-bottom:20px;
-            ">
-
-                <h2 style="
-                    margin:0;
-                    color:#123b5d;
-                ">
-                    Consulta de inspección
-                </h2>
-
-                <button
-                    type="button"
-                    class="boton-secundario"
-                    onclick="document.getElementById('ventanaVerInspeccion').remove()"
-                >
-                    Cerrar
-                </button>
-
+        <div style="width:90%;max-width:1000px;margin:40px auto;background:white;padding:25px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.25);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h2 style="margin:0;color:#123b5d;">Consulta de inspección</h2>
+                <button type="button" class="boton-secundario" onclick="document.getElementById('ventanaVerInspeccion').remove()">Cerrar</button>
             </div>
-
-            <h3 style="color:#123b5d;">
-                Información del cliente
-            </h3>
-
-            <table style="
-                width:100%;
-                border-collapse:collapse;
-                margin-bottom:20px;
-            ">
-
-                <tr>
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Cliente</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.cliente || ""}
-                    </td>
-
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>NIT</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.nit || ""}
-                    </td>
-                </tr>
-
-                <tr>
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Dirección</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.direccion || ""}
-                    </td>
-
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Ciudad</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.ciudad || ""}
-                    </td>
-                </tr>
-
-                <tr>
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Contacto</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.contacto || ""}
-                    </td>
-
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Teléfono</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.telefono || ""}
-                    </td>
-                </tr>
-
-                <tr>
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Correo</strong>
-                    </td>
-                    <td colspan="3" style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.correo || ""}
-                    </td>
-                                </tr>
-
-                        </table>
-
-${caracteristicasInstalacionHTML}
-
-            <h3 style="color:#123b5d;">
-                Información de la inspección
-            </h3>
-
-            <table style="
-                width:100%;
-                border-collapse:collapse;
-                margin-bottom:20px;
-            ">
-
-                <tr>
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Fecha</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.fecha || ""}
-                    </td>
-
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Inspector</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.inspector || ""}
-                    </td>
-                </tr>
-
-                <tr>
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Director</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.director || ""}
-                    </td>
-
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Tipo de inspección</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.tipo || ""}
-                    </td>
-                </tr>
-
-                <tr>
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Objetivo</strong>
-                    </td>
-                    <td colspan="3" style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.objetivo || ""}
-                    </td>
-                </tr>
-
-                <tr>
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Entorno</strong>
-                    </td>
-                    <td colspan="3" style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.entorno || ""}
-                    </td>
-                </tr>
-
+            <h3 style="color:#123b5d;">Información del cliente</h3>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:9pt;">
+                <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Cliente</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(inspeccion.cliente)}</td><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">NIT</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.nit)}</td></tr>
+                <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Dirección</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(inspeccion.direccion)}</td><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Ciudad</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.ciudad)}</td></tr>
+                <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Contacto</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(inspeccion.contacto)}</td><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Teléfono</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.telefono)}</td></tr>
+                <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Correo</td><td colspan="3" style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(inspeccion.correo)}</td></tr>
             </table>
-
-            <h3 style="color:#123b5d;">
-                Histórico de incidentes
-            </h3>
-
-            <table style="
-                width:100%;
-                border-collapse:collapse;
-                margin-bottom:20px;
-            ">
-
-                <thead>
-                    <tr style="
-                        background:#123b5d;
-                        color:white;
-                    ">
-
-                        <th style="padding:8px;border:1px solid #999;">
-                            Riesgos materializados
-                        </th>
-
-                        <th style="padding:8px;border:1px solid #999;">
-                            Incidente
-                        </th>
-
-                        <th style="padding:8px;border:1px solid #999;">
-                            Consecuencias
-                        </th>
-
-                    </tr>
-                </thead>
-
-                <tbody>
-                    ${tablaIncidentes}
-                </tbody>
-
+            ${caracteristicasInstalacionHTML}
+            <h3 style="color:#123b5d;">Información de la inspección</h3>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:9pt;">
+                <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Fecha</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.fecha)}</td><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Inspector</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.inspector)}</td></tr>
+                <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Director</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.director)}</td><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Tipo de inspección</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.tipo)}</td></tr>
+                <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Objetivo</td><td colspan="3" style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(inspeccion.objetivo)}</td></tr>
+                <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Entorno</td><td colspan="3" style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(inspeccion.entorno)}</td></tr>
             </table>
-
-        </div>
-    `;
-
+            <h3 style="color:#123b5d;">Histórico de incidentes</h3>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:9pt;">
+                <thead><tr style="background:#000;color:white;"><th style="padding:8px;border:1px solid #B8B8B8;text-align:center;">Riesgos materializados</th><th style="padding:8px;border:1px solid #B8B8B8;text-align:center;">Incidente</th><th style="padding:8px;border:1px solid #B8B8B8;text-align:center;">Consecuencias</th></tr></thead>
+                <tbody>${tablaIncidentes}</tbody>
+            </table>
+        </div>`;
     document.body.appendChild(ventana);
 }
 let indiceInspeccionEditando = null;
@@ -11216,7 +11020,16 @@ async function generarWordPlantillaMaestra() {
             const sumaOriginal=(widths||[]).reduce((a,b)=>a+Number(b||0),0)||8838;
             const factor=ANCHO_TABLA_MAESTRA/sumaOriginal;
             const anchos=(widths&&widths.length) ? widths.map((w,i)=> i===widths.length-1 ? ANCHO_TABLA_MAESTRA-widths.slice(0,-1).reduce((a,b)=>a+Math.round(Number(b||0)*factor),0) : Math.round(Number(w||0)*factor)) : Array(cols).fill(Math.floor(ANCHO_TABLA_MAESTRA/cols));
-            const body=rows.length ? rows.map(row=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${row.map((v,i)=>celdaWord(v,{width:anchos[i]||Math.floor(ANCHO_TABLA_MAESTRA/cols),size:'16',align:i===0?'left':'center'})).join('')}</w:tr>`).join('') : `<w:tr>${celdaWord('No se registró información.',{width:ANCHO_TABLA_MAESTRA,colspan:cols,align:'center',color:'666666'})}</w:tr>`;
+            const alineaciones = (() => {
+                const h = headers.map(x => String(x || '').toUpperCase().trim());
+                if (h[0] === 'ASPECTO / CATEGORÍA') return ['both','center','center'];
+                if (h[0] === 'PERFIL') return ['both','center','center','both'];
+                if (h[0] === '#' && h.includes('TRATAMIENTO')) return Array(cols).fill('center');
+                if (h[0] === 'ETAPA') return Array(cols).fill('both');
+                if (h[0] === 'RIESGO MATERIALIZADO') return Array(cols).fill('both');
+                return Array(cols).fill('both');
+            })();
+            const body=rows.length ? rows.map(row=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${row.map((v,i)=>celdaWord(v,{width:anchos[i]||Math.floor(ANCHO_TABLA_MAESTRA/cols),size:'16',align:alineaciones[i]||'both'})).join('')}</w:tr>`).join('') : `<w:tr>${celdaWord('No se registró información.',{width:ANCHO_TABLA_MAESTRA,colspan:cols,align:'center',color:'666666'})}</w:tr>`;
             return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B8B8B8"/><w:left w:val="single" w:sz="6" w:color="B8B8B8"/><w:bottom w:val="single" w:sz="6" w:color="B8B8B8"/><w:right w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideH w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideV w:val="single" w:sz="6" w:color="B8B8B8"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${tablaCabeceras(headers,anchos)}${body}</w:tbl>`;
         }
         // CAM-PLANTILLA-13C — Mapa de calor Word con colores por nivel de riesgo.
@@ -11619,7 +11432,7 @@ async function generarWordPlantillaMaestra() {
                     }
                     fotosContenido=tablaFotosWord(filasFotos);
                 }
-                rowsXml+=`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(String(i+1),{width:anchos[0],size:'16',align:'center'})}${celdaWord(h.area||h.categoria||"",{width:anchos[1],size:'16',align:'center'})}${celdaWord(textoHallazgo,{width:anchos[2],size:'16',align:'left'})}${celdaWord(recomendacion,{width:anchos[3],size:'16',align:'left'})}${celdaWordContenido(fotosContenido,{width:anchos[4],vAlign:'center'})}</w:tr>`;
+                rowsXml+=`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(String(i+1),{width:anchos[0],size:'16',align:'center'})}${celdaWord(h.area||h.categoria||"",{width:anchos[1],size:'16',align:'center'})}${celdaWord(textoHallazgo,{width:anchos[2],size:'16',align:'center'})}${celdaWord(recomendacion,{width:anchos[3],size:'16',align:'both'})}${celdaWordContenido(fotosContenido,{width:anchos[4],vAlign:'center'})}</w:tr>`;
             }
             const tablaHallazgos=`<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B8B8B8"/><w:left w:val="single" w:sz="6" w:color="B8B8B8"/><w:bottom w:val="single" w:sz="6" w:color="B8B8B8"/><w:right w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideH w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideV w:val="single" w:sz="6" w:color="B8B8B8"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${headerXml}${rowsXml}</w:tbl>`;
             cuerpo+=titulo("11. Hallazgos, evidencias y medidas de tratamiento",1)+tablaHallazgos;
@@ -11681,9 +11494,9 @@ async function generarWordPlantillaMaestra() {
         zip.file("word/document.xml",documentXml);
 
         /* =========================================================
-           CAM-INFORME-ESTILO-01 — OPCIÓN B
+           CAM-INFORME-ESTILO-02 — ESTILO APROBADO POR CLIENTE
            ---------------------------------------------------------
-           Tipografía moderna para el informe Word.
+           Tipografía aprobada por el cliente: Century Gothic para el informe Word.
            Se conserva:
            - plantilla maestra
            - estructura y tablas
@@ -11695,7 +11508,7 @@ async function generarWordPlantillaMaestra() {
            Intervención exclusivamente visual: se normalizan las
            fuentes explícitas del paquete Word a Aptos.
            ========================================================= */
-        const FUENTE_INFORME_OPCION_B = "Aptos";
+        const FUENTE_INFORME_OPCION_B = "Century Gothic";
         const archivosWordEstiloB = Object.keys(zip.files).filter(
             nombre => /^word\\/i.test(nombre) && /\\.xml$/i.test(nombre)
         );
@@ -11789,7 +11602,7 @@ function renderizarInformeDiagnosticoInicialPDF(ventana, inspeccion, tituloInfor
     ventana.document.open();
     ventana.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${e(tituloInforme)}</title>
         <style>
-            *{box-sizing:border-box} html,body{margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;color:#222;background:#eef2f5}
+            *{box-sizing:border-box} html,body{margin:0;padding:0;font-family:"Century Gothic",Arial,sans-serif;color:#222;background:#eef2f5}
             .hoja{width:180mm;max-width:calc(100% - 32px);margin:16px auto;padding:12mm 0;background:#fff}
             .encabezado{width:100%;border-collapse:collapse;table-layout:fixed;margin:0 0 18px}
             .encabezado td,.encabezado th{border:1px solid #555;padding:8px;text-align:center;vertical-align:middle}
@@ -11799,7 +11612,7 @@ function renderizarInformeDiagnosticoInicialPDF(ventana, inspeccion, tituloInfor
             .resumen-ejecutivo{border:1px solid #cbd8e2;border-top:4px solid #123b5d;background:#f7fafc;padding:10px 12px;margin:0 0 16px;page-break-inside:avoid}
             .resumen-ejecutivo h2{margin:0 0 8px}.resumen-ejecutivo p{font-size:11px;line-height:1.45;margin:5px 0 10px}
             .resumen-tabla{margin:8px 0 2px!important}
-            table.datos,table.incidentes,table.riesgo{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11px;margin:8px 0 18px}
+            table.datos,table.incidentes,table.riesgo{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8pt;margin:8px 0 18px}
             .datos th,.datos td,.incidentes th,.incidentes td,.riesgo th,.riesgo td{border:1px solid #999;padding:7px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
             .datos th,.incidentes th{background:#123b5d;color:white}.riesgo th{width:34%;background:#f1f4f7;color:#123b5d}
             .tabla-plan-trabajo{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9px;margin:16px 0 10px}
@@ -11815,7 +11628,7 @@ function renderizarInformeDiagnosticoInicialPDF(ventana, inspeccion, tituloInfor
             @media print{html,body{background:#fff}.hoja{max-width:none;width:180mm;margin:0 auto;padding:0}.botones{display:none}}
         
 /* CAM-PLANTILLA-14 — paleta institucional COTRASER aplicada al informe generado */
-body{font-family:Cambria,Georgia,serif!important;color:#000!important}
+body{font-family:"Century Gothic",Arial,sans-serif!important;color:#000!important}
 h2{color:#000!important;background:#F2C500!important;border-bottom:2px solid #F2C500!important;padding:5px 8px!important}
 h3{color:#000!important;border-bottom:1px solid #F2C500!important}
 .resumen-ejecutivo-pdf{border:1px solid #B8B8B8!important;border-top:4px solid #F2C500!important;background:#FFFFFF!important}
@@ -13203,10 +13016,8 @@ matrizParaInforme.forEach((riesgo, indice) => {
     page-break-inside:avoid !important;
 }
 
-.tabla-hallazgos td.col-hallazgo,
-.tabla-hallazgos td.col-recomendacion {
-    text-align:left;
-}
+.tabla-hallazgos td.col-hallazgo { text-align:center; }
+.tabla-hallazgos td.col-recomendacion { text-align:justify; }
 
 .tabla-hallazgos td.col-fotografias {
     padding:4px;
@@ -13280,9 +13091,10 @@ matrizParaInforme.forEach((riesgo, indice) => {
 
 .tabla-hallazgos .fotos img {
     display:block !important;
-    width:100% !important;
-    max-width:100% !important;
-    height:92px !important;
+    width:auto !important;
+    max-width:3.8cm !important;
+    height:auto !important;
+    max-height:2.6cm !important;
     object-fit:contain !important;
     margin:0 auto !important;
     border:1px solid #70ad47 !important;
@@ -13793,7 +13605,7 @@ matrizParaInforme.forEach((riesgo, indice) => {
                                   
             
 /* CAM-PLANTILLA-14 — paleta institucional COTRASER aplicada al informe generado */
-body{font-family:Cambria,Georgia,serif!important;color:#000!important}
+body{font-family:"Century Gothic",Arial,sans-serif!important;color:#000!important}
 h2{color:#000!important;background:#F2C500!important;border-bottom:2px solid #F2C500!important;padding:5px 8px!important}
 h3{color:#000!important;border-bottom:1px solid #F2C500!important}
 .resumen-ejecutivo-pdf{border:1px solid #B8B8B8!important;border-top:4px solid #F2C500!important;background:#FFFFFF!important}
