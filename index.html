@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <!--
-TECCHNEX — CAM-ENSAMBLADO-OBS-LAB / CAM-WORD-LOCAL-01 + CAM-PDF-FALLBACK-01 / CAM-RIESGOS-BIB-01 / CAM-INFORME-ESTILO-03
+TECCHNEX — CAM-ENSAMBLADO-OBS-LAB / CAM-WORD-LOCAL-01 + CAM-PDF-FALLBACK-01 / CAM-RIESGOS-BIB-01
 Base: última versión de GitHub aportada por el usuario.
 Integración: bóveda fotográfica IndexedDB de CAM-ALMACENAMIENTO-01B.
 Correcciones: precarga dirigida de fotografías para informes y respaldo/restauración.
@@ -6511,7 +6511,19 @@ function generarInformeDesdeModulo() {
 
    async function generarInformeInspeccion(indice) {
 
-    const ventana = window.open("", "_blank");
+    // CAM-INFORME-ESTILO-02-CORRECCION-01
+    // El informe debe abrirse en una ventana independiente del panel principal.
+    // Se conserva window.opener porque los botones Word/PDF del informe
+    // utilizan las funciones de la aplicación principal.
+    const ventana = window.open(
+        "",
+        "TECCHNEX_INFORME",
+        "popup=yes,width=1400,height=900,scrollbars=yes,resizable=yes"
+    );
+
+    if (ventana) {
+        try { ventana.focus(); } catch (e) {}
+    }
 
     if (!ventana) {
         alert(
@@ -6570,293 +6582,85 @@ function generarInformeDesdeModulo() {
 }
 
 function verInspeccion(indice) {
-
-    const inspecciones =
-        JSON.parse(localStorage.getItem("inspecciones")) || [];
-
+    const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
     const inspeccion = inspecciones[indice];
-
     if (!inspeccion) {
         alert("No se encontró la inspección seleccionada.");
         return;
     }
 
     cerrarClientes();
-
     let ventana = document.getElementById("ventanaVerInspeccion");
-
-    if (ventana) {
-        ventana.remove();
-    }
+    if (ventana) ventana.remove();
 
     ventana = document.createElement("div");
     ventana.id = "ventanaVerInspeccion";
-
-    ventana.style.position = "fixed";
-    ventana.style.top = "0";
-    ventana.style.left = "0";
-    ventana.style.width = "100%";
-    ventana.style.height = "100%";
-    ventana.style.background = "rgba(0,0,0,0.55)";
-    ventana.style.zIndex = "3000";
-    ventana.style.overflowY = "auto";
-
-    const incidentes = inspeccion.historicoIncidentes || [];
-
-    let tablaIncidentes = "";
-
-    if (
-        inspeccion.sinIncidentes ||
-        incidentes.length === 0
-    ) {
-
-    tablaIncidentes += `
-        <tr>
-            <td style="padding:8px;border:1px solid #999;">
-                NO REPORTADOS
-            </td>
-
-            <td style="padding:8px;border:1px solid #999;">
-                NO REPORTADOS
-            </td>
-
-            <td style="padding:8px;border:1px solid #999;">
-                N/A
-            </td>
-        </tr>
-    `;
-
-} else {
-
-    incidentes.forEach(incidente => {
-
-        tablaIncidentes += `
-            <tr>
-                <td style="padding:8px;border:1px solid #999;">
-                    ${incidente.riesgo || ""}
-                </td>
-
-                <td style="padding:8px;border:1px solid #999;">
-                    ${incidente.incidente || ""}
-                </td>
-
-                <td style="padding:8px;border:1px solid #999;">
-                    ${incidente.consecuencias || ""}
-                </td>
-            </tr>
-        `;
-
+    Object.assign(ventana.style, {
+        position:"fixed", top:"0", left:"0", width:"100%", height:"100%",
+        background:"rgba(0,0,0,0.55)", zIndex:"3000", overflowY:"auto",
+        fontFamily:"Century Gothic, Arial, sans-serif"
     });
-}
+
+    const esc = v => String(v ?? "")
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+
+    const incidentes = Array.isArray(inspeccion.historicoIncidentes) ? inspeccion.historicoIncidentes : [];
+    const tablaIncidentes = (inspeccion.sinIncidentes || !incidentes.length)
+        ? `<tr><td style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">NO REPORTADOS</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">NO REPORTADOS</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">N/A</td></tr>`
+        : incidentes.map(x => `<tr><td style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(x.riesgo)}</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(x.incidente)}</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(x.consecuencias)}</td></tr>`).join("");
+
+    let campos = [];
+    if (inspeccion.sectorInspeccion === "Residencial") {
+        campos = [
+            ["Tipo de instalación", inspeccion.tipoInstalacion], ["Torres", inspeccion.cantidadTorres],
+            ["Niveles", inspeccion.cantidadNiveles], ["Sótanos", inspeccion.cantidadSotanos],
+            ["Viviendas", inspeccion.cantidadViviendas], ["Parqueaderos privados", inspeccion.parqueaderosPrivados],
+            ["Parqueaderos visitantes", inspeccion.parqueaderosVisitantes], ["Parqueaderos motos", inspeccion.parqueaderosMotos],
+            ["Parqueaderos uso común", inspeccion.parqueaderosComunes], ["Bicicleteros", inspeccion.bicicleteros]
+        ];
+    } else if (inspeccion.sectorInspeccion === "Industrial") {
+        campos = [["Tipo de instalación", inspeccion.tipoInstalacionIndustrial], ["Actividad principal", inspeccion.actividadPrincipalIndustrial], ["Cantidad de bodegas", inspeccion.cantidadBodegas], ["Área aproximada (m²)", inspeccion.areaIndustrial]];
+    } else if (inspeccion.sectorInspeccion === "Parcelación") {
+        campos = [["Número de lotes", inspeccion.numeroLotesParcelacion], ["Viviendas construidas", inspeccion.viviendasConstruidasParcelacion], ["Viviendas en construcción", inspeccion.viviendasConstruccionParcelacion]];
+    } else if (inspeccion.sectorInspeccion === "Comercial") {
+        campos = [["Tipo de establecimiento", inspeccion.tipoEstablecimientoComercial], ["Actividad comercial", inspeccion.actividadComercial], ["Área aproximada (m²)", inspeccion.areaComercial], ["Número de locales", inspeccion.numeroLocalesComercial], ["Número de niveles", inspeccion.nivelesComercial], ["Parqueaderos", inspeccion.parqueaderosComercial], ["Otra información", inspeccion.otraInformacionComercial]];
+    }
+    campos = campos.filter(x => x[1] !== undefined && x[1] !== null && String(x[1]).trim() !== "");
+    const tituloSector = inspeccion.sectorInspeccion ? `Características de la instalación - ${esc(inspeccion.sectorInspeccion)}` : "Características de la instalación";
+    const caracteristicasInstalacionHTML = campos.length ? `
+        <h3 style="color:#123b5d;">${tituloSector}</h3>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:9pt;">
+            ${campos.map(c => `<tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;text-align:justify;width:30%;"><strong>${esc(c[0])}</strong></td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(c[1])}</td></tr>`).join("")}
+        </table>` : "";
+
     ventana.innerHTML = `
-
-       
-            width:90%;
-            max-width:1000px;
-            margin:40px auto;
-            background:white;
-            padding:25px;
-            border-radius:10px;
-            box-shadow:0 4px 20px rgba(0,0,0,0.25);
-        ">
-
-           
-                display:flex;
-                justify-content:space-between;
-                align-items:center;
-                margin-bottom:20px;
-            ">
-
-                <h2 style="
-                    margin:0;
-                    color:#123b5d;
-                ">
-                    Consulta de inspección
-                </h2>
-
-                <button
-                    type="button"
-                    class="boton-secundario"
-                    onclick="document.getElementById('ventanaVerInspeccion').remove()"
-                >
-                    Cerrar
-                </button>
-
+        <div style="width:90%;max-width:1000px;margin:40px auto;background:white;padding:25px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.25);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h2 style="margin:0;color:#123b5d;">Consulta de inspección</h2>
+                <button type="button" class="boton-secundario" onclick="document.getElementById('ventanaVerInspeccion').remove()">Cerrar</button>
             </div>
-
-            <h3 style="color:#123b5d;">
-                Información del cliente
-            </h3>
-
-            <table style="
-                width:100%;
-                border-collapse:collapse;
-                margin-bottom:20px;
-            ">
-
-                <tr>
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Cliente</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.cliente || ""}
-                    </td>
-
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>NIT</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.nit || ""}
-                    </td>
-                </tr>
-
-                <tr>
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Dirección</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.direccion || ""}
-                    </td>
-
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Ciudad</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.ciudad || ""}
-                    </td>
-                </tr>
-
-                <tr>
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Contacto</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.contacto || ""}
-                    </td>
-
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Teléfono</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.telefono || ""}
-                    </td>
-                </tr>
-
-                <tr>
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Correo</strong>
-                    </td>
-                    <td colspan="3" style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.correo || ""}
-                    </td>
-                                </tr>
-
-                        </table>
-
-${caracteristicasInstalacionHTML}
-
-            <h3 style="color:#123b5d;">
-                Información de la inspección
-            </h3>
-
-            <table style="
-                width:100%;
-                border-collapse:collapse;
-                margin-bottom:20px;
-            ">
-
-                <tr>
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Fecha</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.fecha || ""}
-                    </td>
-
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Inspector</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.inspector || ""}
-                    </td>
-                </tr>
-
-                <tr>
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Director</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.director || ""}
-                    </td>
-
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Tipo de inspección</strong>
-                    </td>
-                    <td style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.tipo || ""}
-                    </td>
-                </tr>
-
-                <tr>
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Objetivo</strong>
-                    </td>
-                    <td colspan="3" style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.objetivo || ""}
-                    </td>
-                </tr>
-
-                <tr>
-                    <td style="padding:8px;border:1px solid #999;">
-                        <strong>Entorno</strong>
-                    </td>
-                    <td colspan="3" style="padding:8px;border:1px solid #999;">
-                        ${inspeccion.entorno || ""}
-                    </td>
-                </tr>
-
+            <h3 style="color:#123b5d;">Información del cliente</h3>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:9pt;">
+                <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Cliente</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(inspeccion.cliente)}</td><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">NIT</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.nit)}</td></tr>
+                <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Dirección</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(inspeccion.direccion)}</td><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Ciudad</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.ciudad)}</td></tr>
+                <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Contacto</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(inspeccion.contacto)}</td><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Teléfono</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.telefono)}</td></tr>
+                <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Correo</td><td colspan="3" style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(inspeccion.correo)}</td></tr>
             </table>
-
-            <h3 style="color:#123b5d;">
-                Histórico de incidentes
-            </h3>
-
-            <table style="
-                width:100%;
-                border-collapse:collapse;
-                margin-bottom:20px;
-            ">
-
-                <thead>
-                    <tr style="
-                        background:#123b5d;
-                        color:white;
-                    ">
-
-                        <th style="padding:8px;border:1px solid #999;">
-                            Riesgos materializados
-                        </th>
-
-                        <th style="padding:8px;border:1px solid #999;">
-                            Incidente
-                        </th>
-
-                        <th style="padding:8px;border:1px solid #999;">
-                            Consecuencias
-                        </th>
-
-                    </tr>
-                </thead>
-
-                <tbody>
-                    ${tablaIncidentes}
-                </tbody>
-
+            ${caracteristicasInstalacionHTML}
+            <h3 style="color:#123b5d;">Información de la inspección</h3>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:9pt;">
+                <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Fecha</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.fecha)}</td><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Inspector</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.inspector)}</td></tr>
+                <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Director</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.director)}</td><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Tipo de inspección</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.tipo)}</td></tr>
+                <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Objetivo</td><td colspan="3" style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(inspeccion.objetivo)}</td></tr>
+                <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Entorno</td><td colspan="3" style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(inspeccion.entorno)}</td></tr>
             </table>
-
-        </div>
-    `;
-
+            <h3 style="color:#123b5d;">Histórico de incidentes</h3>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:9pt;">
+                <thead><tr style="background:#000;color:white;"><th style="padding:8px;border:1px solid #B8B8B8;text-align:center;">Riesgos materializados</th><th style="padding:8px;border:1px solid #B8B8B8;text-align:center;">Incidente</th><th style="padding:8px;border:1px solid #B8B8B8;text-align:center;">Consecuencias</th></tr></thead>
+                <tbody>${tablaIncidentes}</tbody>
+            </table>
+        </div>`;
     document.body.appendChild(ventana);
 }
 let indiceInspeccionEditando = null;
@@ -11095,7 +10899,7 @@ async function generarWordPlantillaMaestra() {
         function runWord(valor, opciones={}) {
             const r=[];
             if(opciones.bold) r.push("<w:b/><w:bCs/>");
-            r.push(`<w:rFonts w:ascii="${opciones.font||'Cambria'}" w:hAnsi="${opciones.font||'Cambria'}" w:cs="${opciones.font||'Cambria'}"/>`);
+            r.push(`<w:rFonts w:ascii="${opciones.font||'Century Gothic'}" w:hAnsi="${opciones.font||'Century Gothic'}" w:cs="${opciones.font||'Century Gothic'}"/>`);
             r.push(`<w:sz w:val="${opciones.size||'18'}"/><w:szCs w:val="${opciones.size||'18'}"/>`);
             if(opciones.color) r.push(`<w:color w:val="${opciones.color}"/>`);
             return `<w:r><w:rPr>${r.join('')}</w:rPr><w:t xml:space="preserve">${textoWord(valor)}</w:t></w:r>`;
@@ -11114,7 +10918,7 @@ async function generarWordPlantillaMaestra() {
             const valign=opciones.vAlign ? `<w:vAlign w:val="${opciones.vAlign}"/>` : "";
             const margins=`<w:tcMar><w:top w:w="80" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tcMar>`;
             const borders=`<w:tcBorders><w:top w:val="single" w:sz="6" w:color="B8B8B8"/><w:left w:val="single" w:sz="6" w:color="B8B8B8"/><w:bottom w:val="single" w:sz="6" w:color="B8B8B8"/><w:right w:val="single" w:sz="6" w:color="B8B8B8"/></w:tcBorders>`;
-            return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${span}${shade}${valign}${margins}${borders}</w:tcPr>${parrafoWord(valor,{font:'Century Gothic',size:opciones.size||'16',bold:!!opciones.bold,color:opciones.color||'000000',align:opciones.align||'left',line:240})}</w:tc>`;
+            return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${span}${shade}${valign}${margins}${borders}</w:tcPr>${parrafoWord(valor,{font:'Century Gothic',size:opciones.size||'18',bold:!!opciones.bold,color:opciones.color||'000000',align:opciones.align||'left',line:240})}</w:tc>`;
         }
 
         // CAMPO VISUAL 03 — INTERVENCIÓN 04
@@ -11204,9 +11008,9 @@ async function generarWordPlantillaMaestra() {
         // Solo cambia la presentación del contenido generado; no toca la plantilla maestra.
         function titulo(texto,nivel=1){
             if(nivel===1){
-                return `<w:p><w:pPr><w:spacing w:before="180" w:after="110" w:line="270" w:lineRule="auto"/><w:keepNext/><w:shd w:fill="F2C500"/><w:ind w:left="100"/><w:pBdr><w:bottom w:val="single" w:sz="18" w:space="1" w:color="F2C500"/></w:pBdr></w:pPr>${runWord(texto,{font:'Cambria',size:'24',bold:true,color:'333333'})}</w:p>`;
+                return `<w:p><w:pPr><w:spacing w:before="180" w:after="110" w:line="270" w:lineRule="auto"/><w:keepNext/><w:shd w:fill="F2C500"/><w:ind w:left="100"/><w:pBdr><w:bottom w:val="single" w:sz="18" w:space="1" w:color="F2C500"/></w:pBdr></w:pPr>${runWord(texto,{font:'Century Gothic',size:'24',bold:true,color:'333333'})}</w:p>`;
             }
-            return parrafoWord(texto,{font:'Cambria',size:'21',bold:true,color:'000000',before:130,after:80,line:250,keepNext:true});
+            return parrafoWord(texto,{font:'Century Gothic',size:'21',bold:true,color:'000000',before:130,after:80,line:250,keepNext:true});
         }
         function tablaCabeceras(headers,widths) {
             return `<w:tr><w:trPr><w:tblHeader/></w:trPr>${headers.map((h,i)=>celdaWord(h,{width:widths[i]||2200,shading:'000000',bold:true,color:'FFFFFF',align:'center',size:'16'})).join('')}</w:tr>`;
@@ -11216,7 +11020,16 @@ async function generarWordPlantillaMaestra() {
             const sumaOriginal=(widths||[]).reduce((a,b)=>a+Number(b||0),0)||8838;
             const factor=ANCHO_TABLA_MAESTRA/sumaOriginal;
             const anchos=(widths&&widths.length) ? widths.map((w,i)=> i===widths.length-1 ? ANCHO_TABLA_MAESTRA-widths.slice(0,-1).reduce((a,b)=>a+Math.round(Number(b||0)*factor),0) : Math.round(Number(w||0)*factor)) : Array(cols).fill(Math.floor(ANCHO_TABLA_MAESTRA/cols));
-            const body=rows.length ? rows.map(row=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${row.map((v,i)=>celdaWord(v,{width:anchos[i]||Math.floor(ANCHO_TABLA_MAESTRA/cols),size:'16',align:i===0?'left':'center'})).join('')}</w:tr>`).join('') : `<w:tr>${celdaWord('No se registró información.',{width:ANCHO_TABLA_MAESTRA,colspan:cols,align:'center',color:'666666'})}</w:tr>`;
+            const alineaciones = (() => {
+                const h = headers.map(x => String(x || '').toUpperCase().trim());
+                if (h[0] === 'ASPECTO / CATEGORÍA') return ['both','center','center'];
+                if (h[0] === 'PERFIL') return ['both','center','center','both'];
+                if (h[0] === '#' && h.includes('TRATAMIENTO')) return Array(cols).fill('center');
+                if (h[0] === 'ETAPA') return Array(cols).fill('both');
+                if (h[0] === 'RIESGO MATERIALIZADO') return Array(cols).fill('both');
+                return Array(cols).fill('both');
+            })();
+            const body=rows.length ? rows.map(row=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${row.map((v,i)=>celdaWord(v,{width:anchos[i]||Math.floor(ANCHO_TABLA_MAESTRA/cols),size:'16',align:alineaciones[i]||'both'})).join('')}</w:tr>`).join('') : `<w:tr>${celdaWord('No se registró información.',{width:ANCHO_TABLA_MAESTRA,colspan:cols,align:'center',color:'666666'})}</w:tr>`;
             return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B8B8B8"/><w:left w:val="single" w:sz="6" w:color="B8B8B8"/><w:bottom w:val="single" w:sz="6" w:color="B8B8B8"/><w:right w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideH w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideV w:val="single" w:sz="6" w:color="B8B8B8"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${tablaCabeceras(headers,anchos)}${body}</w:tbl>`;
         }
         // CAM-PLANTILLA-13C — Mapa de calor Word con colores por nivel de riesgo.
@@ -11273,8 +11086,8 @@ async function generarWordPlantillaMaestra() {
             return texto ? texto : respaldo;
         }
         function camposDiligenciados(lista){ return lista.filter(([,v])=>limpio(v)); }
-        function listaParrafos(items){ return items.map((x,i)=>parrafoWord(`${i+1}. ${x}`,{font:'Cambria',size:'18',after:60,line:260})).join(''); }
-        function bloqueTexto(tituloTexto,texto){ return titulo(tituloTexto,2)+parrafoWord(texto||"",{font:'Cambria',size:'18',after:80,line:276}); }
+        function listaParrafos(items){ return items.map((x,i)=>parrafoWord(`${i+1}. ${x}`,{font:'Century Gothic',size:'18',after:60,line:260})).join(''); }
+        function bloqueTexto(tituloTexto,texto){ return titulo(tituloTexto,2)+parrafoWord(texto||"",{font:'Century Gothic',size:'18',after:80,line:276}); }
 
         // Cargar la plantilla desde la copia embebida evita el error "Failed to fetch"
         // cuando el HTML se abre desde file:// o se descarga sin el DOCX acompañante.
@@ -11389,13 +11202,13 @@ async function generarWordPlantillaMaestra() {
             : `La inspección de ${clienteResumen} registra ${hallazgosVariables.length} hallazgo(s) y ${matrizParaInforme.length} riesgo(s) en la matriz disponible. ${CAM14_RECOMENDACIONES_PERMANENTES.length} recomendaciones permanentes de SG-SST y planeación se integran en una sección diferenciada. ${porcentajeChecklistResumen === null ? "No hay resultado de checklist disponible para esta inspección." : `El checklist registra ${porcentajeChecklistResumen}% (${perfilChecklistResumen}).`} La priorización debe basarse en los niveles consignados en la matriz y en las evidencias registradas; el porcentaje del checklist no representa por sí solo el nivel global de riesgo.`;
 
         let cuerpo = titulo("RESUMEN EJECUTIVO", 1)
-            + parrafoWord(textoResumenEjecutivo, {font:"Cambria",size:"18",after:100,line:260})
+            + parrafoWord(textoResumenEjecutivo, {font:"Century Gothic",size:"18",after:100,line:260})
             + tablaGenerica(["INDICADOR", "RESULTADO", "LECTURA"], filasResumenISO, [2450, 1750, 4838])
             + titulo("Riesgos prioritarios y medidas registradas", 2)
             + tablaGenerica(["RIESGO / HALLAZGO", "NIVEL", "TRATAMIENTO / RECOMENDACIÓN"], filasPrioridadesResumen, [3600, 1300, 4138]);
         if (!esDiagnosticoInicial) {
             cuerpo += titulo("Marco de lectura — proceso de gestión del riesgo", 2)
-                + parrafoWord("La organización del informe toma como referencia metodológica las etapas de gestión del riesgo descritas en ISO 31000:2018. Esta referencia no constituye certificación ni declaración de conformidad integral con la norma.", {font:"Cambria",size:"17",after:80,line:250})
+                + parrafoWord("La organización del informe toma como referencia metodológica las etapas de gestión del riesgo descritas en ISO 31000:2018. Esta referencia no constituye certificación ni declaración de conformidad integral con la norma.", {font:"Century Gothic",size:"17",after:80,line:250})
                 + tablaGenerica(["ETAPA", "APLICACIÓN EN ESTE INFORME"], [
                     ["Contexto y criterios", "Objetivo, alcance, características observadas y metodología."],
                     ["Identificación", "Hallazgos, elementos o peligros registrados y evidencias disponibles."],
@@ -11490,8 +11303,8 @@ async function generarWordPlantillaMaestra() {
                 const cabeceraGeo=`<w:tr><w:trPr><w:tblHeader/></w:trPr>${celdaWord("GOOGLE MAPS",{width:anchoGeo,shading:"000000",bold:true,color:"FFFFFF",align:"center",size:"16"})}${celdaWord("FOTO DE CONTEXTO",{width:ANCHO_TABLA_MAESTRA-anchoGeo,shading:"000000",bold:true,color:"FFFFFF",align:"center",size:"16"})}</w:tr>`;
                 const imagenMaps=await agregarImagenWord(inspeccion.imagenGoogleMaps,"georeferenciacion","Google Maps",7.5,4.8);
                 const imagenContexto=await agregarImagenWord(inspeccion.imagenGoogleEarth,"contexto","Foto de contexto",7.5,4.8);
-                const contenidoMaps=imagenMaps||parrafoWord("Imagen no cargada",{font:"Cambria",size:"16",color:"666666",align:"center"});
-                const contenidoContexto=imagenContexto||parrafoWord("Imagen no cargada",{font:"Cambria",size:"16",color:"666666",align:"center"});
+                const contenidoMaps=imagenMaps||parrafoWord("Imagen no cargada",{font:"Century Gothic",size:"16",color:"666666",align:"center"});
+                const contenidoContexto=imagenContexto||parrafoWord("Imagen no cargada",{font:"Century Gothic",size:"16",color:"666666",align:"center"});
                 const filaImagenesGeo=`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWordContenido(contenidoMaps,{width:anchoGeo,vAlign:"center"})}${celdaWordContenido(contenidoContexto,{width:ANCHO_TABLA_MAESTRA-anchoGeo,vAlign:"center"})}</w:tr>`;
                 cuerpo+=`<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B8B8B8"/><w:left w:val="single" w:sz="6" w:color="B8B8B8"/><w:bottom w:val="single" w:sz="6" w:color="B8B8B8"/><w:right w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideH w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideV w:val="single" w:sz="6" w:color="B8B8B8"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${anchoGeo}"/><w:gridCol w:w="${ANCHO_TABLA_MAESTRA-anchoGeo}"/></w:tblGrid>${cabeceraGeo}${filaImagenesGeo}</w:tbl>`;
             }
@@ -11541,7 +11354,7 @@ async function generarWordPlantillaMaestra() {
                 ["SUFICIENTE","51% - 75,9%","Con observaciones menores","Plan de seguimiento encaminado a esas observaciones menores detectadas."],
                 ["REGULAR","26% - 50,9%","Requiere seguimiento","Es necesario el diseño de estrategias tendientes a la corrección de aquellos aspectos calificados por mejorar."],
                 ["DÉBIL","0% - 25,9%","Con observaciones mayores","Es necesario intervenir los aspectos de manera inmediata, con el ánimo de disminuir la probabilidad de materialización de las amenazas."]
-            ],[1300,1300,1900,4338])+parrafoWord(`Perfil obtenido: ${perfil} — Resultado: ${porcentajeGeneral}%`,{font:'Cambria',size:'18',bold:true,color:'C00000',before:80,after:80});
+            ],[1300,1300,1900,4338])+parrafoWord(`Perfil obtenido: ${perfil} — Resultado: ${porcentajeGeneral}%`,{font:'Century Gothic',size:'18',bold:true,color:'C00000',before:80,after:80});
         }
 
         // 09. MATRIZ DE RIESGOS
@@ -11561,42 +11374,86 @@ async function generarWordPlantillaMaestra() {
             });
             cuerpo+=titulo("10. Mapa de calor — distribución de riesgos",1)
                 +tablaMapaCalorWord(celdas)
-                +parrafoWord("Los números dentro del mapa corresponden al número de riesgo de la matriz. Las filas representan impacto y las columnas probabilidad.",{font:'Cambria',size:'16',color:'666666',before:60,after:60})
+                +parrafoWord("Los números dentro del mapa corresponden al número de riesgo de la matriz. Las filas representan impacto y las columnas probabilidad.",{font:'Century Gothic',size:'16',color:'666666',before:60,after:60})
                 +leyendaMapaCalorWord()
-                +parrafoWord("La clasificación visual corresponde al producto de probabilidad por impacto: bajo 1–4, medio 5–9, alto 10–14 y crítico 15–25.",{font:'Cambria',size:'15',color:'C00000',bold:true,before:40,after:80});
+                +parrafoWord("La clasificación visual corresponde al producto de probabilidad por impacto: bajo 1–4, medio 5–9, alto 10–14 y crítico 15–25.",{font:'Century Gothic',size:'15',color:'C00000',bold:true,before:40,after:80});
         }
 
-        // 11. HALLAZGOS — integración gráfica del registro fotográfico.
-        // Medida fija por fotografía: 3,8 cm de ancho x 2,6 cm de alto.
+        // CAM-INFORME-ESTILO-05 — HALLAZGOS WORD: 3 columnas + franja de área + fotografías 7,5x5 / 3,8x2,6 cm.
+        // 11. HALLAZGOS — tabla Word alineada con el informe aprobado.
+        // Estructura: HALLAZGOS | ACCIÓN PREVENTIVA | REGISTRO FOTOGRÁFICO.
+        // Cada familia/área se presenta como una fila amarilla de agrupación.
+        // La Plantilla Maestra Word NO se modifica; solo se agrega contenido.
         if(hallazgosInforme.length){
-            const headers=["#","ÁREA","HALLAZGO","ACCIÓN PREVENTIVA / RECOMENDACIÓN","REGISTRO FOTOGRÁFICO"];
-            // CAM-INFORME-01 — Distribución automática de fotografías en cuadrícula.
-            // Se reserva una columna fotográfica suficiente para dos imágenes de 3,8 cm.
-            // Se conserva la estructura de la tabla principal y las relaciones de imagen existentes.
-            const anchos=[450,850,2200,2574,4700];
-            const headerXml=tablaCabeceras(headers,anchos);
-            const anchoInternoFotos=Math.max(1000,anchos[4]-300);
-            const anchoCeldaFoto=Math.floor(anchoInternoFotos/2);
-            const bordesFotos='<w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders>';
-            function celdaFotoWord(contenido,width,span=1){
-                return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${span===2?'<w:gridSpan w:val="2"/>':''}<w:tcMar><w:top w:w="30" w:type="dxa"/><w:left w:w="20" w:type="dxa"/><w:bottom w:w="30" w:type="dxa"/><w:right w:w="20" w:type="dxa"/></w:tcMar><w:vAlign w:val="center"/></w:tcPr>${contenido||'<w:p/>'}<w:p/></w:tc>`;
+            const headers=["HALLAZGOS","ACCIÓN PREVENTIVA","REGISTRO FOTOGRÁFICO"];
+            const anchosHallazgos=[3771,3232,3771]; // 35% / 30% / 35% de la huella maestra — distribución equilibrada aprobada
+            const bordesHallazgos='<w:tblBorders><w:top w:val="single" w:sz="6" w:color="B8B8B8"/><w:left w:val="single" w:sz="6" w:color="B8B8B8"/><w:bottom w:val="single" w:sz="6" w:color="B8B8B8"/><w:right w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideH w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideV w:val="single" w:sz="6" w:color="B8B8B8"/></w:tblBorders>';
+
+            const headerXmlHallazgos = tablaCabeceras(headers, anchosHallazgos);
+
+            function filaAreaHallazgosWord(area){
+                return `<w:tr><w:trPr><w:cantSplit/></w:trPr>${
+                    celdaWord(area || "Sin área", {
+                        width:ANCHO_TABLA_MAESTRA,
+                        colspan:3,
+                        shading:"F2C500",
+                        bold:true,
+                        color:"111111",
+                        align:"center",
+                        size:"15"
+                    })
+                }</w:tr>`;
             }
-            function tablaFotosWord(filas){
-                return `<w:tbl><w:tblPr><w:tblW w:w="${anchoInternoFotos}" w:type="dxa"/><w:tblLayout w:type="fixed"/>${bordesFotos}</w:tblPr><w:tblGrid><w:gridCol w:w="${anchoCeldaFoto}"/><w:gridCol w:w="${anchoInternoFotos-anchoCeldaFoto}"/></w:tblGrid>${filas.join('')}</w:tbl><w:p/>`;
+
+            function celdaFotosHallazgosWord(contenido,width,span=1){
+                return `<w:tc><w:tcPr>
+                    <w:tcW w:w="${width}" w:type="dxa"/>
+                    ${span===2?'<w:gridSpan w:val="2"/>':''}
+                    <w:tcMar><w:top w:w="30" w:type="dxa"/><w:left w:w="20" w:type="dxa"/><w:bottom w:w="30" w:type="dxa"/><w:right w:w="20" w:type="dxa"/></w:tcMar>
+                    <w:vAlign w:val="center"/>
+                </w:tcPr>${contenido||'<w:p/>'}</w:tc>`;
             }
-            let rowsXml="";
+
+            function tablaFotosHallazgosWord(filas){
+                const anchoFotos=anchosHallazgos[2]-80;
+                const anchoFotoA=Math.floor(anchoFotos/2);
+                const anchoFotoB=anchoFotos-anchoFotoA;
+                return `<w:tbl>
+                    <w:tblPr><w:tblW w:w="${anchoFotos}" w:type="dxa"/><w:tblLayout w:type="fixed"/>
+                    <w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders></w:tblPr>
+                    <w:tblGrid><w:gridCol w:w="${anchoFotoA}"/><w:gridCol w:w="${anchoFotoB}"/></w:tblGrid>
+                    ${filas.join("")}
+                </w:tbl><w:p/>`;
+            }
+
+            let rowsXmlHallazgos="";
+            let areaActual="";
+
             for(const [i,h] of hallazgosInforme.entries()){
+                const area = String(h.area || h.categoria || "Sin área").trim() || "Sin área";
+
+                if(area !== areaActual){
+                    rowsXmlHallazgos += filaAreaHallazgosWord(area);
+                    areaActual=area;
+                }
+
                 const textoHallazgo=h.hallazgo||h.descripcion||h.observacion||"";
                 const recomendacion=h.accion||h.accionPreventiva||h.recomendacion||"";
-                let fotosContenido=parrafoWord("Sin evidencia fotográfica",{font:'Cambria',size:'16',color:'666666',align:'center',line:220});
+                let fotosContenido=parrafoWord("Sin evidencia fotográfica",{
+                    font:"Century Gothic",size:"16",color:"666666",align:"center",line:220
+                });
+
                 const fotos=Array.isArray(h.fotos)?h.fotos:[];
                 if(fotos.length){
                     const filasFotos=[];
                     const imagenes=[];
+
                     for(let j=0;j<fotos.length;j++){
-                        // Recuperar la imagen de forma asíncrona antes de incorporarla al DOCX.
                         const referenciaFoto=fotos[j];
-                        const dataUrlFoto=(typeof referenciaFoto==="string"&&referenciaFoto.startsWith("data:"))?referenciaFoto:await obtenerDataUrlMedia(referenciaFoto);
+                        const dataUrlFoto=(typeof referenciaFoto==="string"&&referenciaFoto.startsWith("data:"))
+                            ? referenciaFoto
+                            : await obtenerDataUrlMedia(referenciaFoto);
+
                         const imagenHallazgo=await agregarImagenWord(
                             dataUrlFoto,
                             `hallazgo_${i+1}_${j+1}`,
@@ -11604,25 +11461,75 @@ async function generarWordPlantillaMaestra() {
                             fotos.length===1?7.5:3.8,
                             fotos.length===1?5:2.6
                         );
+
                         if(imagenHallazgo) imagenes.push(imagenHallazgo);
                     }
+
                     if(imagenes.length===1){
-                        filasFotos.push(`<w:tr>${celdaFotoWord(imagenes[0],anchoInternoFotos,2)}</w:tr>`);
+                        filasFotos.push(
+                            `<w:tr><w:trPr><w:cantSplit/></w:trPr>${
+                                celdaFotosHallazgosWord(imagenes[0],anchosHallazgos[2],2)
+                            }</w:tr>`
+                        );
                     }else if(imagenes.length>1){
                         for(let j=0;j<imagenes.length;j+=2){
                             const img1=imagenes[j];
                             const img2=imagenes[j+1]||"";
-                            filasFotos.push(`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaFotoWord(img1,anchoCeldaFoto)}${celdaFotoWord(img2,anchoInternoFotos-anchoCeldaFoto)}</w:tr>`);
+                            filasFotos.push(
+                                `<w:tr><w:trPr><w:cantSplit/></w:trPr>${
+                                    celdaFotosHallazgosWord(img1,Math.floor((anchosHallazgos[2]-80)/2))
+                                }${
+                                    celdaFotosHallazgosWord(img2,anchosHallazgos[2]-80-Math.floor((anchosHallazgos[2]-80)/2))
+                                }</w:tr>`
+                            );
                         }
                     }else{
-                        filasFotos.push(`<w:tr>${celdaFotoWord(parrafoWord("No fue posible recuperar la evidencia fotográfica",{font:'Cambria',size:'16',color:'C00000',align:'center',line:220}),anchoInternoFotos,2)}</w:tr>`);
+                        filasFotos.push(
+                            `<w:tr><w:trPr><w:cantSplit/></w:trPr>${
+                                celdaFotosHallazgosWord(
+                                    parrafoWord("No fue posible recuperar la evidencia fotográfica",{
+                                        font:"Century Gothic",size:"16",color:"C00000",align:"center",line:220
+                                    }),
+                                    anchosHallazgos[2],2
+                                )
+                            }</w:tr>`
+                        );
                     }
-                    fotosContenido=tablaFotosWord(filasFotos);
+
+                    fotosContenido=tablaFotosHallazgosWord(filasFotos);
                 }
-                rowsXml+=`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(String(i+1),{width:anchos[0],size:'16',align:'center'})}${celdaWord(h.area||h.categoria||"",{width:anchos[1],size:'16',align:'center'})}${celdaWord(textoHallazgo,{width:anchos[2],size:'16',align:'left'})}${celdaWord(recomendacion,{width:anchos[3],size:'16',align:'left'})}${celdaWordContenido(fotosContenido,{width:anchos[4],vAlign:'center'})}</w:tr>`;
+
+                rowsXmlHallazgos += `<w:tr><w:trPr><w:cantSplit/></w:trPr>
+                    ${celdaWord(textoHallazgo,{
+                        width:anchosHallazgos[0],
+                        size:"16",
+                        align:"both"
+                    })}
+                    ${celdaWord(recomendacion,{
+                        width:anchosHallazgos[1],
+                        size:"16",
+                        align:"both"
+                    })}
+                    ${celdaWordContenido(fotosContenido,{
+                        width:anchosHallazgos[2],
+                        vAlign:"center"
+                    })}
+                </w:tr>`;
             }
-            const tablaHallazgos=`<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B8B8B8"/><w:left w:val="single" w:sz="6" w:color="B8B8B8"/><w:bottom w:val="single" w:sz="6" w:color="B8B8B8"/><w:right w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideH w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideV w:val="single" w:sz="6" w:color="B8B8B8"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${headerXml}${rowsXml}</w:tbl>`;
-            cuerpo+=titulo("11. Hallazgos, evidencias y medidas de tratamiento",1)+tablaHallazgos;
+
+            const tablaHallazgosWord = `<w:tbl>
+                <w:tblPr>
+                    <w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/>
+                    <w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/>
+                    <w:tblLayout w:type="fixed"/>
+                    ${bordesHallazgos}
+                </w:tblPr>
+                <w:tblGrid>${anchosHallazgos.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>
+                ${headerXmlHallazgos}
+                ${rowsXmlHallazgos}
+            </w:tbl>`;
+
+            cuerpo += titulo("11. Hallazgos, evidencias y medidas de tratamiento",1) + tablaHallazgosWord;
         }
 
         // Guardar las relaciones y tipos de contenido de imágenes dentro del mismo
@@ -11664,10 +11571,10 @@ async function generarWordPlantillaMaestra() {
         const filasPlan = planTrabajo.map(fila => `<w:tr><w:trPr><w:cantSplit/></w:trPr>${fila.map((v,i)=>celdaWord(v,{width:anchosPlan[i],size:"14",align:i===0?"center":"left"})).join("")}</w:tr>`).join("");
         const tablaPlanTrabajoWord = `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/>${bordesPlan}</w:tblPr><w:tblGrid>${anchosPlan.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>${filaTituloPlan}${filaCabeceraPlan}${filasPlan}</w:tbl>`;
         cuerpo += tablaPlanTrabajoWord;
-        cuerpo += parrafoWord("La información antes descrita no implica que todos los riesgos hayan sido identificados o que no existan otros riesgos.", {font:"Cambria",size:"16",after:60,line:230});
-        cuerpo += parrafoWord("Las imágenes de referencia son tomadas de GOOGLE MAPS / GOOGLE EARTH / BUSCADOR EN LA RED o fotografías con drones, cámaras o equipos móviles. No representan el estado real del predio.", {font:"Cambria",size:"16",after:60,line:230});
-        cuerpo += parrafoWord("Todas las recomendaciones aquí enunciadas deben ser implementadas por personal especializado, y el acatamiento de cualquiera de ellas no implica responsabilidad alguna por parte de COTRASER C.T.A. o sus funcionarios.", {font:"Cambria",size:"16",after:60,line:230});
-        cuerpo += parrafoWord("Este informe es confidencial y es dirigido exclusivamente a un destinatario, se restringe la copia o publicación a otras personas o entidades.", {font:"Cambria",size:"16",bold:true,color:"C00000",after:120,line:230});
+        cuerpo += parrafoWord("La información antes descrita no implica que todos los riesgos hayan sido identificados o que no existan otros riesgos.", {font:"Century Gothic",size:"16",after:60,line:230});
+        cuerpo += parrafoWord("Las imágenes de referencia son tomadas de GOOGLE MAPS / GOOGLE EARTH / BUSCADOR EN LA RED o fotografías con drones, cámaras o equipos móviles. No representan el estado real del predio.", {font:"Century Gothic",size:"16",after:60,line:230});
+        cuerpo += parrafoWord("Todas las recomendaciones aquí enunciadas deben ser implementadas por personal especializado, y el acatamiento de cualquiera de ellas no implica responsabilidad alguna por parte de COTRASER C.T.A. o sus funcionarios.", {font:"Century Gothic",size:"16",after:60,line:230});
+        cuerpo += parrafoWord("Este informe es confidencial y es dirigido exclusivamente a un destinatario, se restringe la copia o publicación a otras personas o entidades.", {font:"Century Gothic",size:"16",bold:true,color:"C00000",after:120,line:230});
 
         // 12. FIRMAS / RESPONSABLES
         cuerpo+=titulo(esDiagnosticoInicial ? "4. Responsables" : "12. Responsables",1)+tabla2([
@@ -11680,47 +11587,10 @@ async function generarWordPlantillaMaestra() {
         documentXml=documentXml.slice(0,posicionSeccion)+cuerpo+documentXml.slice(posicionSeccion);
         zip.file("word/document.xml",documentXml);
 
-        /* =========================================================
-           CAM-INFORME-ESTILO-01 — OPCIÓN B
-           ---------------------------------------------------------
-           Tipografía moderna para el informe Word.
-           Se conserva:
-           - plantilla maestra
-           - estructura y tablas
-           - fotografías y sus relaciones
-           - tamaños de fuente existentes
-           - colores y contenido
-           - lógica de generación
-
-           Intervención exclusivamente visual: se normalizan las
-           fuentes explícitas del paquete Word a Aptos.
-           ========================================================= */
-        const FUENTE_INFORME_OPCION_B = "Aptos";
-        const archivosWordEstiloB = Object.keys(zip.files).filter(
-            nombre => /^word\\/i.test(nombre) && /\\.xml$/i.test(nombre)
-        );
-
-        for (const nombreArchivo of archivosWordEstiloB) {
-            const entradaEstilo = zip.file(nombreArchivo);
-            if (!entradaEstilo) continue;
-
-            let xmlEstilo = await entradaEstilo.async("string");
-
-            // Fuentes explícitas en runs y estilos Word.
-            xmlEstilo = xmlEstilo.replace(
-                /w:(ascii|hAnsi|cs|eastAsia)="[^"]*"/g,
-                (_m, atributo) => `w:${atributo}="${FUENTE_INFORME_OPCION_B}"`
-            );
-
-            // Fuentes heredadas por tema, cuando existan en la plantilla.
-            xmlEstilo = xmlEstilo.replace(
-                /w:(ascii|hAnsi|cs|eastAsia)Theme="[^"]*"/g,
-                ""
-            );
-
-            zip.file(nombreArchivo, xmlEstilo);
-        }
-
+        /* CAM-INFORME-ESTILO-03 — TIPOGRAFÍA DEL CONTENIDO GENERADO
+           La Plantilla Maestra Word se conserva como recipiente sin mutar.
+           La tipografía se aplica únicamente a los runs que genera este informe.
+        */
         const salida=await zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",compression:"STORE"});
         const nombreBase=(inspeccion.cliente||"Inspeccion").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9_-]+/g,"_").replace(/^_+|_+$/g,"")||"Inspeccion";
         const idControl=(inspeccion.idControl||"SIN_ID").toString().replace(/[^a-zA-Z0-9_-]+/g,"_");
@@ -11789,7 +11659,7 @@ function renderizarInformeDiagnosticoInicialPDF(ventana, inspeccion, tituloInfor
     ventana.document.open();
     ventana.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${e(tituloInforme)}</title>
         <style>
-            *{box-sizing:border-box} html,body{margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;color:#222;background:#eef2f5}
+            *{box-sizing:border-box} html,body{margin:0;padding:0;font-family:"Century Gothic",Arial,sans-serif;color:#222;background:#eef2f5}
             .hoja{width:180mm;max-width:calc(100% - 32px);margin:16px auto;padding:12mm 0;background:#fff}
             .encabezado{width:100%;border-collapse:collapse;table-layout:fixed;margin:0 0 18px}
             .encabezado td,.encabezado th{border:1px solid #555;padding:8px;text-align:center;vertical-align:middle}
@@ -11799,7 +11669,7 @@ function renderizarInformeDiagnosticoInicialPDF(ventana, inspeccion, tituloInfor
             .resumen-ejecutivo{border:1px solid #cbd8e2;border-top:4px solid #123b5d;background:#f7fafc;padding:10px 12px;margin:0 0 16px;page-break-inside:avoid}
             .resumen-ejecutivo h2{margin:0 0 8px}.resumen-ejecutivo p{font-size:11px;line-height:1.45;margin:5px 0 10px}
             .resumen-tabla{margin:8px 0 2px!important}
-            table.datos,table.incidentes,table.riesgo{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11px;margin:8px 0 18px}
+            table.datos,table.incidentes,table.riesgo{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8pt;margin:8px 0 18px}
             .datos th,.datos td,.incidentes th,.incidentes td,.riesgo th,.riesgo td{border:1px solid #999;padding:7px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
             .datos th,.incidentes th{background:#123b5d;color:white}.riesgo th{width:34%;background:#f1f4f7;color:#123b5d}
             .tabla-plan-trabajo{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9px;margin:16px 0 10px}
@@ -11815,7 +11685,7 @@ function renderizarInformeDiagnosticoInicialPDF(ventana, inspeccion, tituloInfor
             @media print{html,body{background:#fff}.hoja{max-width:none;width:180mm;margin:0 auto;padding:0}.botones{display:none}}
         
 /* CAM-PLANTILLA-14 — paleta institucional COTRASER aplicada al informe generado */
-body{font-family:Cambria,Georgia,serif!important;color:#000!important}
+body{font-family:"Century Gothic",Arial,sans-serif!important;color:#000!important}
 h2{color:#000!important;background:#F2C500!important;border-bottom:2px solid #F2C500!important;padding:5px 8px!important}
 h3{color:#000!important;border-bottom:1px solid #F2C500!important}
 .resumen-ejecutivo-pdf{border:1px solid #B8B8B8!important;border-top:4px solid #F2C500!important;background:#FFFFFF!important}
@@ -11826,54 +11696,6 @@ h3{color:#000!important;border-bottom:1px solid #F2C500!important}
 .tabla-hallazgos th,.tabla-hallazgos td{border-color:#B8B8B8!important}
 .tabla-hallazgos .fila-area td{background:#F2C500!important;color:#000000!important}
 .tabla-hallazgos .fotos img{border-color:#F2C500!important}
-
-
-/* CAM-INFORME-ESTILO-03 — ESTILO DEL INFORME APROBADO
-   Intervención SOLO sobre el informe generado.
-   Plantilla Maestra Word: NO SE MODIFICA.
-   Tipografía: Century Gothic.
-   Cuerpo/tablas: 8 pt. Títulos de sección: 12 pt. Subtítulos: 10.5 pt.
-   Fotografías: única 7.5 x 5 cm; múltiples 3.8 x 2.6 cm.
-*/
-body{font-family:"Century Gothic",Arial,sans-serif!important;font-size:8pt!important;color:#000!important}
-.hoja{font-family:"Century Gothic",Arial,sans-serif!important}
-.encabezado,.encabezado table{font-family:"Century Gothic",Arial,sans-serif!important}
-.encabezado .titulo{font-family:"Century Gothic",Arial,sans-serif!important;font-size:12pt!important;color:#000!important}
-.encabezado .codigo{font-size:8pt!important;color:#000!important}
-.encabezado td,.encabezado th{border-color:#555!important}
-h2{font-family:"Century Gothic",Arial,sans-serif!important;font-size:12pt!important;line-height:1.15!important;font-weight:700!important;color:#000!important;background:#F2C500!important;border:0!important;border-bottom:2px solid #F2C500!important;padding:5px 8px!important;margin:16px 0 8px!important}
-h3{font-family:"Century Gothic",Arial,sans-serif!important;font-size:10.5pt!important;line-height:1.2!important;font-weight:700!important;color:#000!important;background:transparent!important;border:0!important;text-align:center!important;margin:10px 0 7px!important}
-p,li,div{font-family:"Century Gothic",Arial,sans-serif!important}
-table{font-family:"Century Gothic",Arial,sans-serif!important;font-size:8pt!important;border-collapse:collapse!important}
-th{font-family:"Century Gothic",Arial,sans-serif!important;font-size:8pt!important;font-weight:700!important;background:#000!important;color:#fff!important;border:1px solid #B8B8B8!important;padding:4px 5px!important;vertical-align:middle!important}
-td{font-family:"Century Gothic",Arial,sans-serif!important;font-size:8pt!important;color:#000!important;border:1px solid #B8B8B8!important;padding:4px 5px!important;vertical-align:top!important}
-.datos th,.incidentes th,.tabla-resumen-prioridades th,.tabla-hallazgos th,.tabla-plan-trabajo thead th{background:#000!important;color:#fff!important}
-.datos td:first-child,.riesgo th,.tabla-resumen-ejecutivo th{background:#F1F3F5!important;color:#000!important;font-weight:700!important}
-.riesgo th{width:34%!important}
-.tabla-plan-trabajo thead th{background:#000!important;color:#fff!important}
-.tabla-plan-trabajo,.tabla-resumen-prioridades,.tabla-resumen-ejecutivo,.datos,.incidentes,.riesgo{font-size:8pt!important}
-.tabla-plan-trabajo th,.tabla-plan-trabajo td,.tabla-resumen-prioridades th,.tabla-resumen-prioridades td{padding:4px 5px!important;border:1px solid #B8B8B8!important}
-.resumen-ejecutivo-pdf{font-family:"Century Gothic",Arial,sans-serif!important;border:1px solid #B8B8B8!important;border-top:4px solid #F2C500!important;background:#fff!important;padding:10px!important}
-.resumen-ejecutivo-pdf h2{margin:0 0 8px!important}
-.resumen-ejecutivo-pdf p,.nota-resumen{font-size:8pt!important;line-height:1.35!important;color:#000!important}
-.tabla-resumen-prioridades th{background:#000!important;color:#fff!important}
-.tabla-resumen-prioridades td{text-align:left!important}
-.riesgo td{text-align:left!important}
-.tabla-hallazgos{font-size:8pt!important;border:1px solid #B8B8B8!important}
-.tabla-hallazgos th{background:#000!important;color:#fff!important;font-size:8pt!important;padding:4px!important}
-.tabla-hallazgos td{font-size:8pt!important;padding:4px 5px!important;border-color:#B8B8B8!important;line-height:1.2!important}
-.tabla-hallazgos .fila-area td{background:#F2C500!important;color:#000!important;font-size:8pt!important;font-weight:700!important;text-align:center!important}
-.tabla-hallazgos .dato-elemento{font-size:8pt!important}
-.tabla-hallazgos .dato-estado{font-size:7.5pt!important}
-.tabla-hallazgos .sin-foto{font-size:8pt!important}
-.tabla-fotos-hallazgo.foto-unica img{width:7.5cm!important;height:5cm!important;max-width:7.5cm!important;max-height:5cm!important;object-fit:contain!important}
-.tabla-fotos-hallazgo.fotos-multiples img{width:3.8cm!important;height:2.6cm!important;max-width:3.8cm!important;max-height:2.6cm!important;object-fit:contain!important}
-.tabla-fotos-hallazgo td{padding:2px!important;border:0!important}
-.tabla-hallazgos .col-fotografias{padding:3px!important}
-.notas-informe{font-size:8pt!important;line-height:1.3!important}
-.firmas{font-size:8pt!important}
-.firma{font-size:8pt!important}
-.botones{font-family:"Century Gothic",Arial,sans-serif!important}
 
 </style></head><body>
         <div class="hoja">
@@ -12428,15 +12250,15 @@ function riesgosEnCelda(probabilidad, impacto) {
         if (Array.isArray(hallazgo.fotos) && hallazgo.fotos.length) {
             const filasFotos = [];
             const esFotoUnica = hallazgo.fotos.length === 1;
-            const anchoFotoPx = esFotoUnica ? 283 : 144; // referencia aproximada para compatibilidad
-            const altoFotoPx = esFotoUnica ? 189 : 98;   // referencia aproximada para compatibilidad
+            const anchoFotoPx = esFotoUnica ? 283 : 144; // aprox. 7,5 cm o 3,8 cm
+            const altoFotoPx = esFotoUnica ? 189 : 98;   // aprox. 5 cm o 2,6 cm
 
             if (esFotoUnica) {
                 filasFotos.push(`
                     <tr><td colspan="2" style="text-align:center;vertical-align:middle;">
                         <img src="${(typeof hallazgo.fotos[0] === "string" && hallazgo.fotos[0].startsWith("data:")) ? hallazgo.fotos[0] : obtenerImagenDeFoto(hallazgo.fotos[0])}"
                              width="${anchoFotoPx}" height="${altoFotoPx}"
-                             style="width:${esFotoUnica ? '7.5cm' : '3.8cm'};height:${esFotoUnica ? '5cm' : '2.6cm'};max-width:${esFotoUnica ? '7.5cm' : '3.8cm'};max-height:${esFotoUnica ? '5cm' : '2.6cm'};object-fit:contain;display:block;margin:0 auto;"
+                             style="width:100%;max-width:${anchoFotoPx}px;height:auto;max-height:${altoFotoPx}px;object-fit:contain;display:block;margin:0 auto;"
                              alt="Registro fotográfico">
                     </td></tr>
                 `);
@@ -12449,13 +12271,13 @@ function riesgosEnCelda(probabilidad, impacto) {
                             <td style="text-align:center;vertical-align:middle;">
                                 <img src="${(typeof foto1 === "string" && foto1.startsWith("data:")) ? foto1 : obtenerImagenDeFoto(foto1)}"
                                      width="${anchoFotoPx}" height="${altoFotoPx}"
-                                     style="width:${esFotoUnica ? '7.5cm' : '3.8cm'};height:${esFotoUnica ? '5cm' : '2.6cm'};max-width:${esFotoUnica ? '7.5cm' : '3.8cm'};max-height:${esFotoUnica ? '5cm' : '2.6cm'};object-fit:contain;display:block;margin:0 auto;"
+                                     style="width:100%;max-width:${anchoFotoPx}px;height:auto;max-height:${altoFotoPx}px;object-fit:contain;display:block;margin:0 auto;"
                                      alt="Registro fotográfico">
                             </td>
                             <td style="text-align:center;vertical-align:middle;">
                                 ${foto2 ? `<img src="${(typeof foto2 === "string" && foto2.startsWith("data:")) ? foto2 : obtenerImagenDeFoto(foto2)}"
                                      width="${anchoFotoPx}" height="${altoFotoPx}"
-                                     style="width:${esFotoUnica ? '7.5cm' : '3.8cm'};height:${esFotoUnica ? '5cm' : '2.6cm'};max-width:${esFotoUnica ? '7.5cm' : '3.8cm'};max-height:${esFotoUnica ? '5cm' : '2.6cm'};object-fit:contain;display:block;margin:0 auto;"
+                                     style="width:100%;max-width:${anchoFotoPx}px;height:auto;max-height:${altoFotoPx}px;object-fit:contain;display:block;margin:0 auto;"
                                      alt="Registro fotográfico">` : ""}
                             </td>
                         </tr>
@@ -13251,10 +13073,8 @@ matrizParaInforme.forEach((riesgo, indice) => {
     page-break-inside:avoid !important;
 }
 
-.tabla-hallazgos td.col-hallazgo,
-.tabla-hallazgos td.col-recomendacion {
-    text-align:left;
-}
+.tabla-hallazgos td.col-hallazgo { text-align:center; }
+.tabla-hallazgos td.col-recomendacion { text-align:justify; }
 
 .tabla-hallazgos td.col-fotografias {
     padding:4px;
@@ -13328,9 +13148,10 @@ matrizParaInforme.forEach((riesgo, indice) => {
 
 .tabla-hallazgos .fotos img {
     display:block !important;
-    width:100% !important;
-    max-width:100% !important;
-    height:92px !important;
+    width:auto !important;
+    max-width:3.8cm !important;
+    height:auto !important;
+    max-height:2.6cm !important;
     object-fit:contain !important;
     margin:0 auto !important;
     border:1px solid #70ad47 !important;
@@ -13841,7 +13662,7 @@ matrizParaInforme.forEach((riesgo, indice) => {
                                   
             
 /* CAM-PLANTILLA-14 — paleta institucional COTRASER aplicada al informe generado */
-body{font-family:Cambria,Georgia,serif!important;color:#000!important}
+body{font-family:"Century Gothic",Arial,sans-serif!important;color:#000!important}
 h2{color:#000!important;background:#F2C500!important;border-bottom:2px solid #F2C500!important;padding:5px 8px!important}
 h3{color:#000!important;border-bottom:1px solid #F2C500!important}
 .resumen-ejecutivo-pdf{border:1px solid #B8B8B8!important;border-top:4px solid #F2C500!important;background:#FFFFFF!important}
