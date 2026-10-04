@@ -5,6 +5,7 @@ TECCHNEX — CAM-ENSAMBLADO-OBS-LAB / CAM-WORD-LOCAL-01 + CAM-PDF-FALLBACK-01 / 
 Base: última versión de GitHub aportada por el usuario.
 Integración: bóveda fotográfica IndexedDB de CAM-ALMACENAMIENTO-01B.
 Correcciones: precarga dirigida de fotografías para informes y respaldo/restauración.
+// CAM-INFORME-ESTILO-01: Opción B — tipografía moderna Aptos aplicada al Word.
 Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva trabajo offline.
 -->
 <head>
@@ -25,7 +26,7 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
         }
 
         body {
-            font-family: Arial, Helvetica, sans-serif;
+            font-family: Aptos, Arial, Helvetica, sans-serif;
             background: #f4f6f8;
             color: #1f2937;
         }
@@ -11678,6 +11679,47 @@ async function generarWordPlantillaMaestra() {
         if(posicionSeccion<0) throw new Error("La plantilla maestra no contiene la configuración de sección esperada.");
         documentXml=documentXml.slice(0,posicionSeccion)+cuerpo+documentXml.slice(posicionSeccion);
         zip.file("word/document.xml",documentXml);
+
+        /* =========================================================
+           CAM-INFORME-ESTILO-01 — OPCIÓN B
+           ---------------------------------------------------------
+           Tipografía moderna para el informe Word.
+           Se conserva:
+           - plantilla maestra
+           - estructura y tablas
+           - fotografías y sus relaciones
+           - tamaños de fuente existentes
+           - colores y contenido
+           - lógica de generación
+
+           Intervención exclusivamente visual: se normalizan las
+           fuentes explícitas del paquete Word a Aptos.
+           ========================================================= */
+        const FUENTE_INFORME_OPCION_B = "Aptos";
+        const archivosWordEstiloB = Object.keys(zip.files).filter(
+            nombre => /^word\\/i.test(nombre) && /\\.xml$/i.test(nombre)
+        );
+
+        for (const nombreArchivo of archivosWordEstiloB) {
+            const entradaEstilo = zip.file(nombreArchivo);
+            if (!entradaEstilo) continue;
+
+            let xmlEstilo = await entradaEstilo.async("string");
+
+            // Fuentes explícitas en runs y estilos Word.
+            xmlEstilo = xmlEstilo.replace(
+                /w:(ascii|hAnsi|cs|eastAsia)="[^"]*"/g,
+                (_m, atributo) => `w:${atributo}="${FUENTE_INFORME_OPCION_B}"`
+            );
+
+            // Fuentes heredadas por tema, cuando existan en la plantilla.
+            xmlEstilo = xmlEstilo.replace(
+                /w:(ascii|hAnsi|cs|eastAsia)Theme="[^"]*"/g,
+                ""
+            );
+
+            zip.file(nombreArchivo, xmlEstilo);
+        }
 
         const salida=await zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",compression:"STORE"});
         const nombreBase=(inspeccion.cliente||"Inspeccion").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9_-]+/g,"_").replace(/^_+|_+$/g,"")||"Inspeccion";
