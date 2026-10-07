@@ -8704,6 +8704,25 @@ mostrarFotosHallazgoEditando();
 
     if (ventana) {
         ventana.style.display = "flex";
+
+        // CAM-HALLAZGOS-EDIT-01 — Al editar un hallazgo,
+        // desplazar automáticamente la ventana al primer campo editable.
+        setTimeout(() => {
+            const primerCampoEditable = document.getElementById("hallazgoArea");
+
+            if (primerCampoEditable) {
+                primerCampoEditable.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center"
+                });
+
+                try {
+                    primerCampoEditable.focus({ preventScroll: true });
+                } catch (e) {
+                    primerCampoEditable.focus();
+                }
+            }
+        }, 100);
     }
 }
 
@@ -11737,6 +11756,13 @@ h3{color:#000!important;border-bottom:1px solid #F2C500!important}
 
 function generarInforme(ventana) {
 
+    // CAM-INFORME-FECHA-ELABORACION-01 — fecha real de generación del informe.
+    const fechaElaboracionInforme = new Intl.DateTimeFormat("es-CO", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric"
+    }).format(new Date());
+
     const inspecciones =
         JSON.parse(localStorage.getItem("inspecciones")) || [];
 
@@ -13792,6 +13818,24 @@ h3{color:#000!important;border-bottom:1px solid #F2C500!important}
 
     </table>
 
+    <!-- CAM-INFORME-FECHA-ELABORACION-01
+         Fecha dinámica del momento en que se genera el informe.
+         No modifica la fecha estática/versionada del encabezado.
+    -->
+    <div style="
+        width:100%;
+        box-sizing:border-box;
+        margin:0 0 18px 0;
+        padding:9px 12px;
+        border:1px solid #777;
+        background:#f1f1f1;
+        text-align:center;
+        font-size:12px;
+        font-weight:bold;
+        color:#123b5d;
+    ">
+        Fecha de elaboración: ${escapar(fechaElaboracionInforme)}
+    </div>
 
     <table style="
         width:100%;
@@ -13892,7 +13936,7 @@ ${resumenEjecutivoHTML}
                     </tr>
 
                     <tr>
-                        <td>Fecha</td>
+                        <td>Fecha de la inspección</td>
                         <td>${escapar(inspeccion.fecha)}</td>
                     </tr>
 
