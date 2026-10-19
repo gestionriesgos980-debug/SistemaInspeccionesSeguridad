@@ -746,6 +746,13 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
                     de las inspecciones realizadas.
                 </p>
             </div>
+            <!-- CAM-AGENDA-SUPERVISION-02: agenda interactiva, sin descarga externa. -->
+            <div class="modulo" style="background:#e8fbff;border:2px solid #0891b2;border-top:7px solid #0891b2;">
+                <h3 style="color:#087f9d;">🗓️ Agenda de visitas de supervisión</h3>
+                <p>Programar visitas, consultar próximas supervisiones y registrar su estado y seguimiento.</p>
+                <button type="button" onclick="CAMAgenda.abrir()" style="display:inline-block;margin-top:8px;background:#087f9d;color:#fff;border:0;padding:9px 13px;border-radius:6px;font-weight:bold;font-size:13px;cursor:pointer;">📅 Abrir agenda</button>
+            </div>
+
 
             <!-- ======================================================
                  CAM-ARCHIVOS-01 — CENTRO ÚNICO DE ARCHIVOS
@@ -15376,6 +15383,67 @@ if ("serviceWorker" in navigator) {
             });
     });
 }
+</script>
+
+
+<!-- CAM-AGENDA-SUPERVISION-02: interfaz independiente; persistencia local del navegador. -->
+<style>
+#camAgendaOverlay{position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.58);display:none;overflow:auto;padding:22px;box-sizing:border-box;font-family:Arial,sans-serif;color:#123b5d}
+#camAgendaPanel{max-width:1150px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 16px 48px #0004;padding:22px}
+#camAgendaPanel *{box-sizing:border-box} #camAgendaPanel input,#camAgendaPanel select,#camAgendaPanel textarea{width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:6px;font:inherit;background:white;color:#172033}
+#camAgendaPanel label{display:block;font-size:13px;font-weight:700;margin:0 0 5px} .cam-ag-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.cam-ag-wide{grid-column:1/-1}
+.cam-ag-btn{border:0;border-radius:6px;padding:9px 13px;cursor:pointer;font-weight:700;background:#123b5d;color:white}.cam-ag-btn.secondary{background:#e2e8f0;color:#123b5d}.cam-ag-btn.danger{background:#b91c1c}.cam-ag-table{width:100%;border-collapse:collapse;margin-top:14px;font-size:13px}.cam-ag-table th,.cam-ag-table td{padding:9px;border-bottom:1px solid #e2e8f0;text-align:left;vertical-align:top}.cam-ag-table th{background:#eff6ff}.cam-ag-status{display:inline-block;border-radius:12px;padding:3px 8px;background:#dbeafe;color:#1d4ed8}.cam-ag-actions{display:flex;gap:5px;flex-wrap:wrap}.cam-ag-small{font-size:12px;padding:6px 8px}
+@media(max-width:760px){#camAgendaOverlay{padding:8px}#camAgendaPanel{padding:13px}.cam-ag-grid{grid-template-columns:1fr 1fr}.cam-ag-table{display:block;overflow-x:auto}}@media(max-width:480px){.cam-ag-grid{grid-template-columns:1fr}}
+</style>
+<div id="camAgendaOverlay" role="dialog" aria-modal="true" aria-labelledby="camAgendaTitle">
+ <section id="camAgendaPanel">
+  <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:15px">
+   <div><h2 id="camAgendaTitle" style="margin:0 0 5px;color:#123b5d">Agenda de visitas de supervisión</h2><div style="color:#64748b;font-size:13px">Programación y seguimiento de visitas, independiente de las inspecciones realizadas.</div></div>
+   <button type="button" class="cam-ag-btn secondary" onclick="CAMAgenda.cerrar()">Cerrar ✕</button>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:15px"><button type="button" class="cam-ag-btn" onclick="CAMAgenda.nueva()">＋ Programar visita</button><button type="button" class="cam-ag-btn secondary" onclick="CAMAgenda.exportar()">Exportar agenda CSV</button></div>
+  <form id="camAgendaForm" class="cam-ag-grid">
+   <input type="hidden" id="camAgId">
+   <div><label for="camAgCliente">Cliente / empresa *</label><input id="camAgCliente" required maxlength="160" placeholder="Nombre del cliente"></div>
+   <div><label for="camAgSede">Sede / ubicación</label><input id="camAgSede" maxlength="160" placeholder="Sede o dirección"></div>
+   <div><label for="camAgResponsable">Responsable de supervisión *</label><input id="camAgResponsable" required maxlength="120" placeholder="Nombre del responsable"></div>
+   <div><label for="camAgFecha">Fecha *</label><input id="camAgFecha" type="date" required></div>
+   <div><label for="camAgHora">Hora</label><input id="camAgHora" type="time"></div>
+   <div><label for="camAgEstado">Estado</label><select id="camAgEstado"><option>Programada</option><option>Realizada</option><option>Reprogramada</option><option>Cancelada</option></select></div>
+   <div class="cam-ag-wide"><label for="camAgObjetivo">Objetivo / alcance de la visita</label><textarea id="camAgObjetivo" rows="2" maxlength="1200" placeholder="Qué se revisará durante la supervisión"></textarea></div>
+   <div class="cam-ag-wide"><label for="camAgObservaciones">Observaciones / compromisos / próxima acción</label><textarea id="camAgObservaciones" rows="2" maxlength="2000" placeholder="Acuerdos, seguimiento o notas"></textarea></div>
+   <div class="cam-ag-wide" style="display:flex;gap:8px;flex-wrap:wrap"><button type="submit" class="cam-ag-btn">Guardar visita</button><button type="button" class="cam-ag-btn secondary" onclick="CAMAgenda.limpiar()">Limpiar formulario</button><span id="camAgMensaje" role="status" style="align-self:center;font-size:13px"></span></div>
+  </form>
+  <hr style="border:0;border-top:1px solid #e2e8f0;margin:20px 0">
+  <div class="cam-ag-grid" style="margin-bottom:10px"><div class="cam-ag-wide"><label for="camAgBuscar">Buscar por cliente, sede o responsable</label><input id="camAgBuscar" placeholder="Escriba para filtrar la agenda" oninput="CAMAgenda.renderizar()"></div></div>
+  <div id="camAgResumen" style="font-size:13px;color:#475569"></div>
+  <table class="cam-ag-table"><thead><tr><th>Fecha y hora</th><th>Cliente / sede</th><th>Responsable</th><th>Estado</th><th>Objetivo / seguimiento</th><th>Acciones</th></tr></thead><tbody id="camAgFilas"></tbody></table>
+  <p style="font-size:12px;color:#64748b;margin-top:12px">Los datos se guardan en el almacenamiento local de este navegador y perfil. No se sincronizan automáticamente entre equipos. Exporte periódicamente la agenda como respaldo.</p>
+ </section>
+</div>
+<script>
+(function(){
+ const KEY='tecchnex_agenda_supervision_v1';
+ const $=id=>document.getElementById(id);
+ const safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ function leer(){try{const x=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(x)?x:[]}catch(e){return []}}
+ function guardar(a){localStorage.setItem(KEY,JSON.stringify(a))}
+ function fechaHoy(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+ function limpiar(){ $('camAgendaForm').reset();$('camAgId').value='';$('camAgFecha').value=fechaHoy();$('camAgEstado').value='Programada';$('camAgMensaje').textContent=''; }
+ function abrir(){ $('camAgendaOverlay').style.display='block';if(!$('camAgFecha').value)limpiar();renderizar() }
+ function cerrar(){ $('camAgendaOverlay').style.display='none' }
+ function nueva(){limpiar();$('camAgCliente').focus()}
+ function editar(id){const v=leer().find(x=>x.id===id);if(!v)return; $('camAgId').value=v.id; $('camAgCliente').value=v.cliente||'';$('camAgSede').value=v.sede||'';$('camAgResponsable').value=v.responsable||'';$('camAgFecha').value=v.fecha||'';$('camAgHora').value=v.hora||'';$('camAgEstado').value=v.estado||'Programada';$('camAgObjetivo').value=v.objetivo||'';$('camAgObservaciones').value=v.observaciones||'';$('camAgMensaje').textContent='Editando visita';$('camAgendaForm').scrollIntoView({behavior:'smooth',block:'start'}) }
+ function renderizar(){const filtro=($('camAgBuscar')?.value||'').toLocaleLowerCase('es');const todos=leer().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')||(a.hora||'').localeCompare(b.hora||''));const arr=todos.filter(v=>[v.cliente,v.sede,v.responsable,v.objetivo,v.observaciones,v.estado].join(' ').toLocaleLowerCase('es').includes(filtro));$('camAgResumen').textContent=`${arr.length} visita(s) en pantalla · ${todos.filter(v=>v.estado==='Programada'||v.estado==='Reprogramada').length} pendiente(s) de realizar`;
+ const tbody=$('camAgFilas');if(!arr.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#64748b;padding:22px">No hay visitas que coincidan. Programe una visita con el botón superior.</td></tr>';return}
+ tbody.innerHTML=arr.map(v=>`<tr><td>${safe(v.fecha||'—')}<br>${safe(v.hora||'Sin hora')}</td><td><strong>${safe(v.cliente)}</strong><br>${safe(v.sede||'Sin sede')}</td><td>${safe(v.responsable)}</td><td><span class="cam-ag-status">${safe(v.estado)}</span></td><td>${safe(v.objetivo||'—')}<br><small>${safe(v.observaciones||'')}</small></td><td><div class="cam-ag-actions"><button type="button" class="cam-ag-btn cam-ag-small" data-edit="${safe(v.id)}">Editar</button><button type="button" class="cam-ag-btn danger cam-ag-small" data-del="${safe(v.id)}">Eliminar</button></div></td></tr>`).join('');
+ }
+ $('camAgendaForm').addEventListener('submit',function(e){e.preventDefault();const cliente=$('camAgCliente').value.trim(),responsable=$('camAgResponsable').value.trim();if(!cliente||!responsable){$('camAgMensaje').textContent='Complete cliente y responsable.';return}const a=leer(),id=$('camAgId').value||('visita-'+Date.now()+'-'+Math.random().toString(36).slice(2,7));const v={id,cliente,sede:$('camAgSede').value.trim(),responsable,fecha:$('camAgFecha').value,hora:$('camAgHora').value,estado:$('camAgEstado').value,objetivo:$('camAgObjetivo').value.trim(),observaciones:$('camAgObservaciones').value.trim(),actualizado:new Date().toISOString()};const i=a.findIndex(x=>x.id===id);if(i>=0)a[i]=v;else a.push(v);try{guardar(a);$('camAgMensaje').textContent='Visita guardada.';limpiar();renderizar()}catch(err){$('camAgMensaje').textContent='No se pudo guardar: revise el almacenamiento del navegador.';console.error('CAM Agenda:',err)}});
+ $('camAgFilas').addEventListener('click',function(e){const eb=e.target.closest('[data-edit]'),db=e.target.closest('[data-del]');if(eb)editar(eb.dataset.edit);if(db){const v=leer().find(x=>x.id===db.dataset.del);if(v&&confirm(`¿Eliminar la visita de ${v.cliente} del ${v.fecha||'sin fecha'}?`)){guardar(leer().filter(x=>x.id!==v.id));renderizar()}}});
+ function exportar(){const a=leer();if(!a.length){alert('No hay visitas para exportar.');return}const cols=['fecha','hora','cliente','sede','responsable','estado','objetivo','observaciones'];const csv=[cols.join(','),...a.map(v=>cols.map(k=>'"'+String(v[k]??'').replace(/"/g,'""')+'"').join(','))].join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='TECCHNEX_Agenda_Supervision.csv';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url)}
+ window.CAMAgenda={abrir,cerrar,nueva,limpiar,renderizar,exportar};
+ $('camAgendaOverlay').addEventListener('click',e=>{if(e.target===$('camAgendaOverlay'))cerrar()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('camAgendaOverlay').style.display==='block')cerrar()});
+})();
 </script>
 
 </body>
