@@ -927,12 +927,12 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
                     </div>
 
                     <div class="campo">
-                        <label>Inspector *</label>
+                        <label>Analista de riesgos *</label>
                         <input type="text" id="inspector" required>
                     </div>
 
                     <div class="campo">
-                        <label>Director / Responsable</label>
+                        <label>Director Operativo</label>
                         <input type="text" id="director">
                     </div>
 
@@ -2326,29 +2326,67 @@ async function procesarBibliotecaArchivoOM31(tipo, archivo) {
         const clave = tipo === "riesgos"
             ? CLAVE_BIBLIOTECA_RIESGOS_OM20
             : CLAVE_BIBLIOTECA_RECOMENDACIONES;
-
-        let biblioteca = Array.isArray(datos)
-            ? datos
-            : (tipo === "riesgos"
-                ? datos?.bibliotecaRiesgos
-                : datos?.bibliotecaRecomendaciones);
-
-        if (!Array.isArray(biblioteca)) {
-            throw new Error("El archivo no contiene una biblioteca válida.");
-        }
-
-        biblioteca = biblioteca.filter(item => item && typeof item === "object");
-        if (!biblioteca.length) {
-            throw new Error("La biblioteca está vacía.");
-        }
-
-        localStorage.setItem(clave, JSON.stringify(biblioteca));
-
         const nombre = tipo === "riesgos" ? "riesgos" : "hallazgos";
-        alert(`Biblioteca de ${nombre} cargada correctamente.\n\nRegistros importados: ${biblioteca.length}`);
 
-        // Si la biblioteca correspondiente está abierta, refrescarla sin
-        // reconstruir ni modificar su lógica de edición/consulta.
+        // Acepta un arreglo directo, un respaldo general o la sección "datos".
+        const contenedores = [datos, datos?.datos, datos?.respaldo, datos?.informacion];
+        let entrantes = null;
+        for (const contenedor of contenedores) {
+            if (Array.isArray(contenedor)) {
+                entrantes = contenedor;
+                break;
+            }
+            if (contenedor && typeof contenedor === "object") {
+                const posible = tipo === "riesgos"
+                    ? (contenedor.bibliotecaRiesgos ?? contenedor.riesgos)
+                    : (contenedor.bibliotecaRecomendaciones ?? contenedor.bibliotecaHallazgos ?? contenedor.recomendaciones);
+                if (Array.isArray(posible)) {
+                    entrantes = posible;
+                    break;
+                }
+            }
+        }
+
+        if (!Array.isArray(entrantes)) {
+            throw new Error("El archivo no contiene una biblioteca de " + nombre + " reconocible.");
+        }
+
+        entrantes = entrantes.filter(item => item && typeof item === "object" && !Array.isArray(item));
+        if (!entrantes.length) throw new Error("El archivo no contiene registros válidos.");
+
+        const actuales = JSON.parse(localStorage.getItem(clave) || "[]");
+        const bibliotecaActual = Array.isArray(actuales) ? actuales : [];
+        const claveRegistro = item => {
+            if (item.id !== undefined && item.id !== null && String(item.id).trim()) {
+                return "id:" + String(item.id).trim().toLowerCase();
+            }
+            const campos = tipo === "riesgos"
+                ? [item.area, item.peligro, item.riesgo, item.descripcion]
+                : [item.categoria, item.titulo, item.hallazgo, item.recomendacion, item.descripcion];
+            return "contenido:" + campos.map(v => String(v ?? "").trim().toLowerCase().replace(/\s+/g, " ")).join("|");
+        };
+
+        // Importación acumulativa: no borra registros actuales ni toca otros datos del sistema.
+        const vistos = new Set(bibliotecaActual.map(claveRegistro));
+        const nuevos = [];
+        let duplicados = 0;
+        for (const item of entrantes) {
+            const firma = claveRegistro(item);
+            if (vistos.has(firma)) {
+                duplicados++;
+                continue;
+            }
+            vistos.add(firma);
+            nuevos.push(item);
+        }
+
+        const confirmacion = `Archivo: ${archivo.name}\nBiblioteca: ${nombre}\nRegistros válidos: ${entrantes.length}\nRegistros nuevos: ${nuevos.length}\nDuplicados omitidos: ${duplicados}\n\nSe conservarán todos los registros actuales. ¿Desea continuar?`;
+        if (!window.confirm(confirmacion)) return;
+
+        localStorage.setItem(clave, JSON.stringify([...bibliotecaActual, ...nuevos]));
+
+        alert(`Carga de biblioteca finalizada.\n\nRegistros del archivo: ${entrantes.length}\nRegistros agregados: ${nuevos.length}\nDuplicados omitidos: ${duplicados}\nRegistros totales: ${bibliotecaActual.length + nuevos.length}\n\nLa demás información del sistema no fue modificada.`);
+
         if (tipo === "riesgos" && document.getElementById("contenidoBibliotecaRiesgosOM20")) {
             renderizarBibliotecaRiesgosOM20();
         }
@@ -2400,6 +2438,10 @@ function abrirBibliotecaRecomendacionesOM22() {
                     <button type="button" onclick="abrirEditorBibliotecaRecomendacionOM20()"
                         style="background:#1d70b7;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
                         ➕ Agregar registro
+                    </button>
+                    <button type="button" onclick="seleccionarBibliotecaArchivoOM31('hallazgos')"
+                        style="background:#0f766e;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
+                        📥 Cargar archivo
                     </button>
                     <button type="button" onclick="abrirBibliotecaRiesgosOM20()"
                         style="background:#475569;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
@@ -2699,6 +2741,10 @@ function abrirBibliotecaRiesgosOM20() {
                     <button type="button" onclick="abrirEditorBibliotecaRiesgoOM20()"
                         style="background:#1d70b7;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
                         ➕ Agregar riesgo
+                    </button>
+                    <button type="button" onclick="seleccionarBibliotecaArchivoOM31('riesgos')"
+                        style="background:#0f766e;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
+                        📥 Cargar archivo
                     </button>
                 </div>
                 <div id="contenidoBibliotecaRiesgosOM20"></div>
@@ -5665,7 +5711,7 @@ function mostrarInspeccionesClienteOM16(indiceCliente) {
                     <tr style="background:#123b5d;color:#fff;">
                         <th style="padding:8px;border:1px solid #9ca3af;">ID de inspección</th>
                         <th style="padding:8px;border:1px solid #9ca3af;">Fecha</th>
-                        <th style="padding:8px;border:1px solid #9ca3af;">Inspector</th>
+                        <th style="padding:8px;border:1px solid #9ca3af;">Analista de riesgos</th>
                         <th style="padding:8px;border:1px solid #9ca3af;">Tipo de inspección</th>
                         <th style="padding:8px;border:1px solid #9ca3af;">Vigencia</th>
                         <th style="padding:8px;border:1px solid #9ca3af;">Acciones</th>
@@ -6657,7 +6703,7 @@ function verInspeccion(indice) {
             ${caracteristicasInstalacionHTML}
             <h3 style="color:#123b5d;">Información de la inspección</h3>
             <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:9pt;">
-                <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Fecha</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.fecha)}</td><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Inspector</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.inspector)}</td></tr>
+                <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Fecha</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.fecha)}</td><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Analista de riesgos</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.inspector)}</td></tr>
                 <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Director</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.director)}</td><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Tipo de inspección</td><td style="padding:8px;border:1px solid #B8B8B8;text-align:center;">${esc(inspeccion.tipo)}</td></tr>
                 <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Objetivo</td><td colspan="3" style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(inspeccion.objetivo)}</td></tr>
                 <tr><td style="padding:8px;border:1px solid #B8B8B8;background:#EEF1F4;font-weight:bold;">Entorno</td><td colspan="3" style="padding:8px;border:1px solid #B8B8B8;text-align:justify;">${esc(inspeccion.entorno)}</td></tr>
@@ -11604,7 +11650,7 @@ async function generarWordPlantillaMaestra() {
 
         // 12. FIRMAS / RESPONSABLES
         cuerpo+=titulo(esDiagnosticoInicial ? "4. Responsables" : "12. Responsables",1)+tabla2([
-            fila2("Realizado por",inspeccion.inspector||""),
+            fila2("Analista de riesgos",inspeccion.inspector||""),
             fila2("Responsable del cliente",inspeccion.director||"")
         ]);
 
@@ -11665,8 +11711,8 @@ function renderizarInformeDiagnosticoInicialPDF(ventana, inspeccion, tituloInfor
         ["Cliente", inspeccion.cliente], ["NIT", inspeccion.nit],
         ["Dirección", inspeccion.direccion], ["Ciudad / municipio", inspeccion.ciudad],
         ["Puesto", inspeccion.nombrePuesto], ["Sector", inspeccion.sectorInspeccion],
-        ["Fecha de visita", inspeccion.fecha], ["Inspector", inspeccion.inspector],
-        ["Director / responsable", inspeccion.director], ["Tipo de inspección", inspeccion.tipo]
+        ["Fecha de visita", inspeccion.fecha], ["Analista de riesgos", inspeccion.inspector],
+        ["Director Operativo", inspeccion.director], ["Tipo de inspección", inspeccion.tipo]
     ].filter(([_, valor]) => valor !== undefined && valor !== null && String(valor).trim() !== "");
     const filasCampos = campos.map(([etiqueta, valor]) => `<tr><th>${e(etiqueta)}</th><td>${e(valor)}</td></tr>`).join("");
     const nivelResumenPDF = String(datosDiagnostico.nivelRiesgo || "No registrado").trim() || "No registrado";
@@ -13948,7 +13994,7 @@ ${resumenEjecutivoHTML}
                     </tr>
 
                     <tr>
-                        <td>Inspector</td>
+                        <td>Analista de riesgos</td>
                         <td>${escapar(inspeccion.inspector)}</td>
                     </tr>
 
