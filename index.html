@@ -37,8 +37,8 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
         */
         header.hero-tecchnex {
             background: #0b3152;
-            height: clamp(52px, 4vw, 68px);
-            min-height: 52px;
+            height: clamp(112px, 10vw, 150px);
+            min-height: 112px;
             padding: 0;
             margin: 0;
             overflow: hidden;
@@ -51,7 +51,7 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
             width: 100%;
             height: 100%;
             object-fit: cover;
-            object-position: center 48%;
+            object-position: center 50%;
         }
 
         header.hero-tecchnex .cabecera-compacta {
@@ -109,11 +109,11 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
         }
 
         @media (max-width: 900px) {
-            header.hero-tecchnex { height: 54px; min-height: 54px; }
+            header.hero-tecchnex { height: 100px; min-height: 100px; }
         }
 
         @media (max-width: 600px) {
-            header.hero-tecchnex { height: 46px; min-height: 46px; }
+            header.hero-tecchnex { height: 82px; min-height: 82px; }
         }
 
         .texto-accesible-header {
@@ -659,13 +659,9 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
 
 <div class="contenedor">
 
-    <div class="barra-superior">
-        <h2>Panel principal</h2>
+    <!-- CAM-VISUAL-BANNER-02: el banner reemplaza la barra de título y el botón redundante.
+         La tarjeta "Nueva inspección" del panel conserva el acceso a esa función. -->
 
-        <button class="boton-principal" onclick="abrirNuevaInspeccion()">
-            + Nueva inspección
-        </button>
-    </div>
 
     <!--
         CAM-VISUAL-IDENTIDAD-02 / CORRECCIÓN QUIRÚRGICA
