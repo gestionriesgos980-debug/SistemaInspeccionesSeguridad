@@ -36,14 +36,22 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
            Intervención quirúrgica: solo identidad visual del encabezado.
         */
         header.hero-tecchnex {
-            background: linear-gradient(110deg, #0b3152 0%, #123b5d 58%, #1769aa 100%);
-            min-height: 86px;
-            padding: 8px 22px;
+            background: #0b3152;
+            height: clamp(82px, 7.2vw, 124px);
+            min-height: 82px;
+            padding: 0;
             margin: 0;
             overflow: hidden;
             line-height: normal;
-            display: flex;
-            align-items: center;
+            display: block;
+        }
+
+        header.hero-tecchnex .banner-compacto {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center 48%;
         }
 
         header.hero-tecchnex .cabecera-compacta {
@@ -101,17 +109,11 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
         }
 
         @media (max-width: 900px) {
-            header.hero-tecchnex { padding: 7px 14px; min-height: 72px; }
-            header.hero-tecchnex .cabecera-compacta { gap: 12px; }
-            header.hero-tecchnex .logo-compacto { width: 150px; max-width: 150px; }
-            header.hero-tecchnex .acciones-cabecera { display:none; }
+            header.hero-tecchnex { height: 88px; min-height: 88px; }
         }
 
         @media (max-width: 600px) {
-            header.hero-tecchnex { min-height: 64px; }
-            header.hero-tecchnex .logo-compacto { width: 120px; max-width: 120px; }
-            header.hero-tecchnex .titulo-cabecera h1 { font-size: 16px; }
-            header.hero-tecchnex .titulo-cabecera p { font-size: 10px; }
+            header.hero-tecchnex { height: 66px; min-height: 66px; }
         }
 
         .texto-accesible-header {
@@ -646,20 +648,9 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
 <body>
 
 <header class="hero-tecchnex" aria-label="Identidad TECCHNEX">
-    <div class="cabecera-compacta">
-        <img class="logo-compacto"
-             src="tecchnex-logo-compact.png"
-             alt="TECCHNEX — De la necesidad a la solución">
-        <div class="titulo-cabecera">
-            <h1>Sistema de Inspecciones de Seguridad</h1>
-            <p>Gestión de riesgos, hallazgos y generación de informes</p>
-        </div>
-        <div class="acciones-cabecera" aria-hidden="true">
-            <div class="accion-cabecera">⚙</div>
-            <div class="accion-cabecera">?</div>
-            <div class="accion-cabecera">↪</div>
-        </div>
-    </div>
+    <img class="banner-compacto"
+         src="tecchnex-banner-aprobado.png"
+         alt="TECCHNEX — Sistema de Inspecciones de Seguridad. Gestión de riesgos, hallazgos y generación de informes">
     <div class="texto-accesible-header">
         <h1>Sistema de Inspecciones de Seguridad</h1>
         <p>Gestión de riesgos, hallazgos y generación de informes</p>
@@ -2326,67 +2317,29 @@ async function procesarBibliotecaArchivoOM31(tipo, archivo) {
         const clave = tipo === "riesgos"
             ? CLAVE_BIBLIOTECA_RIESGOS_OM20
             : CLAVE_BIBLIOTECA_RECOMENDACIONES;
+
+        let biblioteca = Array.isArray(datos)
+            ? datos
+            : (tipo === "riesgos"
+                ? datos?.bibliotecaRiesgos
+                : datos?.bibliotecaRecomendaciones);
+
+        if (!Array.isArray(biblioteca)) {
+            throw new Error("El archivo no contiene una biblioteca válida.");
+        }
+
+        biblioteca = biblioteca.filter(item => item && typeof item === "object");
+        if (!biblioteca.length) {
+            throw new Error("La biblioteca está vacía.");
+        }
+
+        localStorage.setItem(clave, JSON.stringify(biblioteca));
+
         const nombre = tipo === "riesgos" ? "riesgos" : "hallazgos";
+        alert(`Biblioteca de ${nombre} cargada correctamente.\n\nRegistros importados: ${biblioteca.length}`);
 
-        // Acepta un arreglo directo, un respaldo general o la sección "datos".
-        const contenedores = [datos, datos?.datos, datos?.respaldo, datos?.informacion];
-        let entrantes = null;
-        for (const contenedor of contenedores) {
-            if (Array.isArray(contenedor)) {
-                entrantes = contenedor;
-                break;
-            }
-            if (contenedor && typeof contenedor === "object") {
-                const posible = tipo === "riesgos"
-                    ? (contenedor.bibliotecaRiesgos ?? contenedor.riesgos)
-                    : (contenedor.bibliotecaRecomendaciones ?? contenedor.bibliotecaHallazgos ?? contenedor.recomendaciones);
-                if (Array.isArray(posible)) {
-                    entrantes = posible;
-                    break;
-                }
-            }
-        }
-
-        if (!Array.isArray(entrantes)) {
-            throw new Error("El archivo no contiene una biblioteca de " + nombre + " reconocible.");
-        }
-
-        entrantes = entrantes.filter(item => item && typeof item === "object" && !Array.isArray(item));
-        if (!entrantes.length) throw new Error("El archivo no contiene registros válidos.");
-
-        const actuales = JSON.parse(localStorage.getItem(clave) || "[]");
-        const bibliotecaActual = Array.isArray(actuales) ? actuales : [];
-        const claveRegistro = item => {
-            if (item.id !== undefined && item.id !== null && String(item.id).trim()) {
-                return "id:" + String(item.id).trim().toLowerCase();
-            }
-            const campos = tipo === "riesgos"
-                ? [item.area, item.peligro, item.riesgo, item.descripcion]
-                : [item.categoria, item.titulo, item.hallazgo, item.recomendacion, item.descripcion];
-            return "contenido:" + campos.map(v => String(v ?? "").trim().toLowerCase().replace(/\s+/g, " ")).join("|");
-        };
-
-        // Importación acumulativa: no borra registros actuales ni toca otros datos del sistema.
-        const vistos = new Set(bibliotecaActual.map(claveRegistro));
-        const nuevos = [];
-        let duplicados = 0;
-        for (const item of entrantes) {
-            const firma = claveRegistro(item);
-            if (vistos.has(firma)) {
-                duplicados++;
-                continue;
-            }
-            vistos.add(firma);
-            nuevos.push(item);
-        }
-
-        const confirmacion = `Archivo: ${archivo.name}\nBiblioteca: ${nombre}\nRegistros válidos: ${entrantes.length}\nRegistros nuevos: ${nuevos.length}\nDuplicados omitidos: ${duplicados}\n\nSe conservarán todos los registros actuales. ¿Desea continuar?`;
-        if (!window.confirm(confirmacion)) return;
-
-        localStorage.setItem(clave, JSON.stringify([...bibliotecaActual, ...nuevos]));
-
-        alert(`Carga de biblioteca finalizada.\n\nRegistros del archivo: ${entrantes.length}\nRegistros agregados: ${nuevos.length}\nDuplicados omitidos: ${duplicados}\nRegistros totales: ${bibliotecaActual.length + nuevos.length}\n\nLa demás información del sistema no fue modificada.`);
-
+        // Si la biblioteca correspondiente está abierta, refrescarla sin
+        // reconstruir ni modificar su lógica de edición/consulta.
         if (tipo === "riesgos" && document.getElementById("contenidoBibliotecaRiesgosOM20")) {
             renderizarBibliotecaRiesgosOM20();
         }
@@ -2438,10 +2391,6 @@ function abrirBibliotecaRecomendacionesOM22() {
                     <button type="button" onclick="abrirEditorBibliotecaRecomendacionOM20()"
                         style="background:#1d70b7;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
                         ➕ Agregar registro
-                    </button>
-                    <button type="button" onclick="seleccionarBibliotecaArchivoOM31('hallazgos')"
-                        style="background:#0f766e;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
-                        📥 Cargar archivo
                     </button>
                     <button type="button" onclick="abrirBibliotecaRiesgosOM20()"
                         style="background:#475569;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
@@ -2741,10 +2690,6 @@ function abrirBibliotecaRiesgosOM20() {
                     <button type="button" onclick="abrirEditorBibliotecaRiesgoOM20()"
                         style="background:#1d70b7;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
                         ➕ Agregar riesgo
-                    </button>
-                    <button type="button" onclick="seleccionarBibliotecaArchivoOM31('riesgos')"
-                        style="background:#0f766e;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
-                        📥 Cargar archivo
                     </button>
                 </div>
                 <div id="contenidoBibliotecaRiesgosOM20"></div>
