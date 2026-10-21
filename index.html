@@ -36,22 +36,14 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
            Intervención quirúrgica: solo identidad visual del encabezado.
         */
         header.hero-tecchnex {
-            background: #0b3152;
-            height: clamp(56px, 5vw, 75px);
-            min-height: 56px;
-            padding: 0;
+            background: linear-gradient(110deg, #0b3152 0%, #123b5d 58%, #1769aa 100%);
+            min-height: 86px;
+            padding: 8px 22px;
             margin: 0;
             overflow: hidden;
             line-height: normal;
-            display: block;
-        }
-
-        header.hero-tecchnex .banner-compacto {
-            display: block;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            object-position: center 50%;
+            display: flex;
+            align-items: center;
         }
 
         header.hero-tecchnex .cabecera-compacta {
@@ -109,11 +101,17 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
         }
 
         @media (max-width: 900px) {
-            header.hero-tecchnex { height: 50px; min-height: 50px; }
+            header.hero-tecchnex { padding: 7px 14px; min-height: 72px; }
+            header.hero-tecchnex .cabecera-compacta { gap: 12px; }
+            header.hero-tecchnex .logo-compacto { width: 150px; max-width: 150px; }
+            header.hero-tecchnex .acciones-cabecera { display:none; }
         }
 
         @media (max-width: 600px) {
-            header.hero-tecchnex { height: 41px; min-height: 41px; }
+            header.hero-tecchnex { min-height: 64px; }
+            header.hero-tecchnex .logo-compacto { width: 120px; max-width: 120px; }
+            header.hero-tecchnex .titulo-cabecera h1 { font-size: 16px; }
+            header.hero-tecchnex .titulo-cabecera p { font-size: 10px; }
         }
 
         .texto-accesible-header {
@@ -648,9 +646,20 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
 <body>
 
 <header class="hero-tecchnex" aria-label="Identidad TECCHNEX">
-    <img class="banner-compacto"
-         src="tecchnex-banner-aprobado.png"
-         alt="TECCHNEX — Sistema de Inspecciones de Seguridad. Gestión de riesgos, hallazgos y generación de informes">
+    <div class="cabecera-compacta">
+        <img class="logo-compacto"
+             src="tecchnex-logo-compact.png"
+             alt="TECCHNEX — De la necesidad a la solución">
+        <div class="titulo-cabecera">
+            <h1>Sistema de Inspecciones de Seguridad</h1>
+            <p>Gestión de riesgos, hallazgos y generación de informes</p>
+        </div>
+        <div class="acciones-cabecera" aria-hidden="true">
+            <div class="accion-cabecera">⚙</div>
+            <div class="accion-cabecera">?</div>
+            <div class="accion-cabecera">↪</div>
+        </div>
+    </div>
     <div class="texto-accesible-header">
         <h1>Sistema de Inspecciones de Seguridad</h1>
         <p>Gestión de riesgos, hallazgos y generación de informes</p>
@@ -659,9 +668,13 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
 
 <div class="contenedor">
 
-    <!-- CAM-VISUAL-BANNER-02: el banner reemplaza la barra de título y el botón redundante.
-         La tarjeta "Nueva inspección" del panel conserva el acceso a esa función. -->
+    <div class="barra-superior">
+        <h2>Panel principal</h2>
 
+        <button class="boton-principal" onclick="abrirNuevaInspeccion()">
+            + Nueva inspección
+        </button>
+    </div>
 
     <!--
         CAM-VISUAL-IDENTIDAD-02 / CORRECCIÓN QUIRÚRGICA
@@ -2313,29 +2326,67 @@ async function procesarBibliotecaArchivoOM31(tipo, archivo) {
         const clave = tipo === "riesgos"
             ? CLAVE_BIBLIOTECA_RIESGOS_OM20
             : CLAVE_BIBLIOTECA_RECOMENDACIONES;
-
-        let biblioteca = Array.isArray(datos)
-            ? datos
-            : (tipo === "riesgos"
-                ? datos?.bibliotecaRiesgos
-                : datos?.bibliotecaRecomendaciones);
-
-        if (!Array.isArray(biblioteca)) {
-            throw new Error("El archivo no contiene una biblioteca válida.");
-        }
-
-        biblioteca = biblioteca.filter(item => item && typeof item === "object");
-        if (!biblioteca.length) {
-            throw new Error("La biblioteca está vacía.");
-        }
-
-        localStorage.setItem(clave, JSON.stringify(biblioteca));
-
         const nombre = tipo === "riesgos" ? "riesgos" : "hallazgos";
-        alert(`Biblioteca de ${nombre} cargada correctamente.\n\nRegistros importados: ${biblioteca.length}`);
 
-        // Si la biblioteca correspondiente está abierta, refrescarla sin
-        // reconstruir ni modificar su lógica de edición/consulta.
+        // Acepta un arreglo directo, un respaldo general o la sección "datos".
+        const contenedores = [datos, datos?.datos, datos?.respaldo, datos?.informacion];
+        let entrantes = null;
+        for (const contenedor of contenedores) {
+            if (Array.isArray(contenedor)) {
+                entrantes = contenedor;
+                break;
+            }
+            if (contenedor && typeof contenedor === "object") {
+                const posible = tipo === "riesgos"
+                    ? (contenedor.bibliotecaRiesgos ?? contenedor.riesgos)
+                    : (contenedor.bibliotecaRecomendaciones ?? contenedor.bibliotecaHallazgos ?? contenedor.recomendaciones);
+                if (Array.isArray(posible)) {
+                    entrantes = posible;
+                    break;
+                }
+            }
+        }
+
+        if (!Array.isArray(entrantes)) {
+            throw new Error("El archivo no contiene una biblioteca de " + nombre + " reconocible.");
+        }
+
+        entrantes = entrantes.filter(item => item && typeof item === "object" && !Array.isArray(item));
+        if (!entrantes.length) throw new Error("El archivo no contiene registros válidos.");
+
+        const actuales = JSON.parse(localStorage.getItem(clave) || "[]");
+        const bibliotecaActual = Array.isArray(actuales) ? actuales : [];
+        const claveRegistro = item => {
+            if (item.id !== undefined && item.id !== null && String(item.id).trim()) {
+                return "id:" + String(item.id).trim().toLowerCase();
+            }
+            const campos = tipo === "riesgos"
+                ? [item.area, item.peligro, item.riesgo, item.descripcion]
+                : [item.categoria, item.titulo, item.hallazgo, item.recomendacion, item.descripcion];
+            return "contenido:" + campos.map(v => String(v ?? "").trim().toLowerCase().replace(/\s+/g, " ")).join("|");
+        };
+
+        // Importación acumulativa: no borra registros actuales ni toca otros datos del sistema.
+        const vistos = new Set(bibliotecaActual.map(claveRegistro));
+        const nuevos = [];
+        let duplicados = 0;
+        for (const item of entrantes) {
+            const firma = claveRegistro(item);
+            if (vistos.has(firma)) {
+                duplicados++;
+                continue;
+            }
+            vistos.add(firma);
+            nuevos.push(item);
+        }
+
+        const confirmacion = `Archivo: ${archivo.name}\nBiblioteca: ${nombre}\nRegistros válidos: ${entrantes.length}\nRegistros nuevos: ${nuevos.length}\nDuplicados omitidos: ${duplicados}\n\nSe conservarán todos los registros actuales. ¿Desea continuar?`;
+        if (!window.confirm(confirmacion)) return;
+
+        localStorage.setItem(clave, JSON.stringify([...bibliotecaActual, ...nuevos]));
+
+        alert(`Carga de biblioteca finalizada.\n\nRegistros del archivo: ${entrantes.length}\nRegistros agregados: ${nuevos.length}\nDuplicados omitidos: ${duplicados}\nRegistros totales: ${bibliotecaActual.length + nuevos.length}\n\nLa demás información del sistema no fue modificada.`);
+
         if (tipo === "riesgos" && document.getElementById("contenidoBibliotecaRiesgosOM20")) {
             renderizarBibliotecaRiesgosOM20();
         }
@@ -2387,6 +2438,10 @@ function abrirBibliotecaRecomendacionesOM22() {
                     <button type="button" onclick="abrirEditorBibliotecaRecomendacionOM20()"
                         style="background:#1d70b7;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
                         ➕ Agregar registro
+                    </button>
+                    <button type="button" onclick="seleccionarBibliotecaArchivoOM31('hallazgos')"
+                        style="background:#0f766e;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
+                        📥 Cargar archivo
                     </button>
                     <button type="button" onclick="abrirBibliotecaRiesgosOM20()"
                         style="background:#475569;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
@@ -2686,6 +2741,10 @@ function abrirBibliotecaRiesgosOM20() {
                     <button type="button" onclick="abrirEditorBibliotecaRiesgoOM20()"
                         style="background:#1d70b7;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
                         ➕ Agregar riesgo
+                    </button>
+                    <button type="button" onclick="seleccionarBibliotecaArchivoOM31('riesgos')"
+                        style="background:#0f766e;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer;font-weight:bold;">
+                        📥 Cargar archivo
                     </button>
                 </div>
                 <div id="contenidoBibliotecaRiesgosOM20"></div>
@@ -11045,48 +11104,52 @@ async function generarWordPlantillaMaestra() {
             const body=rows.length ? rows.map(row=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${row.map((v,i)=>celdaWord(v,{width:anchos[i]||Math.floor(ANCHO_TABLA_MAESTRA/cols),size:'16',align:alineaciones[i]||'both'})).join('')}</w:tr>`).join('') : `<w:tr>${celdaWord('No se registró información.',{width:ANCHO_TABLA_MAESTRA,colspan:cols,align:'center',color:'666666'})}</w:tr>`;
             return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B8B8B8"/><w:left w:val="single" w:sz="6" w:color="B8B8B8"/><w:bottom w:val="single" w:sz="6" w:color="B8B8B8"/><w:right w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideH w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideV w:val="single" w:sz="6" w:color="B8B8B8"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${tablaCabeceras(headers,anchos)}${body}</w:tbl>`;
         }
-        // CAM-PLANTILLA-13C — Mapa de calor Word con colores por nivel de riesgo.
-        // Filas = impacto (5 a 1); columnas = probabilidad (1 a 5).
-        // Las celdas se colorean por puntuación probabilidad × impacto,
-        // incluso cuando no hay un riesgo registrado en esa coordenada.
+        // CAM-MAPA-CALOR-REF-01 — Mapa de calor Word basado en la referencia visual aprobada.
+        // La matriz conserva datos de riesgo dinámicos; las etiquetas y convenciones replican el documento MAPA DE CALOR.
+        // CAM-WORD-FIDELIDAD-01: el mapa del Word replica la orientación,
+        // puntuación y paleta del mapa que ve el usuario en el informe HTML.
+        // Filas = probabilidad (5 a 1); columnas = impacto (1 a 5).
         function colorCeldaMapaCalor(puntuacion){
-            if(puntuacion>=15) return "F4CCCC"; // Crítico: rojo
-            if(puntuacion>=10) return "FCE4D6"; // Alto: naranja suave
-            if(puntuacion>=5) return "FFF2CC";  // Medio: amarillo
-            return "D9EAD3";                    // Bajo: verde
+            if(puntuacion>=15) return "D32F2F"; // Crítico
+            if(puntuacion>=10) return "F57C00"; // Alto
+            if(puntuacion>=5) return "FBC02D";  // Medio
+            return "66BB6A";                    // Bajo
         }
         function tablaMapaCalorWord(celdas){
-            const anchos=[2200,1715,1715,1715,1715,1714];
-            const encabezados=tablaCabeceras(["IMPACTO / PROBABILIDAD","1","2","3","4","5"],anchos);
+            const anchos=[1600,1835,1835,1835,1835,1834];
+            anchos[anchos.length-1] += ANCHO_TABLA_MAESTRA - anchos.reduce((s,n)=>s+n,0);
+            const encabezados=tablaCabeceras(["PROBABILIDAD / IMPACTO","1","2","3","4","5"],anchos);
             const filas=[];
-            for(let impacto=5;impacto>=1;impacto--){
-                const celdasFila=[celdaWord(String(impacto),{width:anchos[0],shading:"000000",bold:true,color:"FFFFFF",align:"center",size:"16"})];
-                for(let probabilidad=1;probabilidad<=5;probabilidad++){
+            for(let probabilidad=5;probabilidad>=1;probabilidad--){
+                const celdasFila=[celdaWord(String(probabilidad),{width:anchos[0],shading:"123B5D",bold:true,color:"FFFFFF",align:"center",size:"16"})];
+                for(let impacto=1;impacto<=5;impacto++){
                     const puntuacion=probabilidad*impacto;
                     const ids=celdas[`${probabilidad}-${impacto}`]||[];
-                    celdasFila.push(celdaWord(ids.join(", "),{
-                        width:anchos[probabilidad],
+                    // Se muestra el puntaje en cada casilla y, debajo, el/los números de riesgo.
+                    const valor=ids.length ? `${puntuacion} · ${ids.join(", ")}` : String(puntuacion);
+                    celdasFila.push(celdaWord(valor,{
+                        width:anchos[impacto],
                         shading:colorCeldaMapaCalor(puntuacion),
                         bold:ids.length>0,
-                        color:"222222",
+                        color:"123B5D",
                         align:"center",
-                        size:"16"
+                        size:ids.length ? "17" : "16"
                     }));
                 }
                 filas.push(`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdasFila.join("")}</w:tr>`);
             }
-            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="A6A6A6"/><w:left w:val="single" w:sz="6" w:color="A6A6A6"/><w:bottom w:val="single" w:sz="6" w:color="A6A6A6"/><w:right w:val="single" w:sz="6" w:color="A6A6A6"/><w:insideH w:val="single" w:sz="6" w:color="A6A6A6"/><w:insideV w:val="single" w:sz="6" w:color="A6A6A6"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>${encabezados}${filas.join("")}</w:tbl>`;
+            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="A6A6A6"/><w:left w:val="single" w:sz="6" w:color="A6A6A6"/><w:bottom w:val="single" w:sz="6" w:color="A6A6A6"/><w:right w:val="single" w:sz="6" w:color="A6A6A6"/><w:insideH w:val="single" w:sz="6" w:color="FFFFFF"/><w:insideV w:val="single" w:sz="6" w:color="FFFFFF"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>${encabezados}${filas.join("")}</w:tbl>`;
         }
         function leyendaMapaCalorWord(){
             const items=[
-                ["BAJO (1–4)","D9EAD3"],
-                ["MEDIO (5–9)","FFF2CC"],
-                ["ALTO (10–14)","FCE4D6"],
-                ["CRÍTICO (15–25)","F4CCCC"]
+                ["BAJO (1–4)","66BB6A"],
+                ["MEDIO (5–9)","FBC02D"],
+                ["ALTO (10–14)","F57C00"],
+                ["CRÍTICO (15–25)","D32F2F"]
             ];
             const widths=[2694,2693,2693,2694];
-            const celdas=items.map((item,i)=>celdaWord(item[0],{width:widths[i],shading:item[1],bold:true,color:"222222",align:"center",size:"15"})).join("");
-            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="4" w:color="A6A6A6"/><w:left w:val="single" w:sz="4" w:color="A6A6A6"/><w:bottom w:val="single" w:sz="4" w:color="A6A6A6"/><w:right w:val="single" w:sz="4" w:color="A6A6A6"/><w:insideV w:val="single" w:sz="4" w:color="A6A6A6"/></w:tblBorders></w:tblPr><w:tblGrid>${widths.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid><w:tr>${celdas}</w:tr></w:tbl>`;
+            const celdas=items.map((item,i)=>celdaWord(item[0],{width:widths[i],shading:item[1],bold:true,color:"123B5D",align:"center",size:"15"})).join("");
+            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="4" w:color="A6A6A6"/><w:left w:val="single" w:sz="4" w:color="A6A6A6"/><w:bottom w:val="single" w:sz="4" w:color="A6A6A6"/><w:right w:val="single" w:sz="4" w:color="A6A6A6"/><w:insideV w:val="single" w:sz="4" w:color="FFFFFF"/></w:tblBorders></w:tblPr><w:tblGrid>${widths.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid><w:tr>${celdas}</w:tr></w:tbl>`;
         }
 
         function limpio(v){ return v!==undefined && v!==null && String(v).trim()!==""; }
@@ -11358,6 +11421,40 @@ async function generarWordPlantillaMaestra() {
                 });
             });
             cuerpo+=titulo("7. Revisión de controles existentes — lista de chequeo",1)+tablaGenerica(["ASPECTO / CATEGORÍA","ESTADO","RESULTADO"],rows,[5000,2200,1638]);
+
+            // CAM-CONSOLIDADO-WORD-01: incluir el consolidado visible en el informe HTML.
+            const categoriasConsolidado = Object.keys(datosChecklist);
+            const filasConsolidadoCategorias = categoriasConsolidado.map(categoria => {
+                let porcentaje = resultadosCategorias[categoria];
+                if (porcentaje === undefined || porcentaje === null || porcentaje === "") {
+                    const items = Array.isArray(datosChecklist[categoria]) ? datosChecklist[categoria] : [];
+                    const respuestas = respuestasChecklist[categoria] || {};
+                    let puntos = 0, maximo = 0;
+                    items.forEach(item => {
+                        const valor = String(respuestas[item] ?? "").trim().toUpperCase();
+                        if (!valor || valor === "NA" || valor === "NO APLICA") return;
+                        const n = Number(valor);
+                        if (Number.isFinite(n) && n >= 0 && n <= 2) { puntos += n; maximo += 2; }
+                    });
+                    porcentaje = maximo ? Math.round((puntos / maximo) * 100) : 0;
+                }
+                return [categoria, `${Math.round(Number(porcentaje) || 0)}%`];
+            });
+            if (filasConsolidadoCategorias.length) {
+                const anchosConsolidado = [Math.round(ANCHO_TABLA_MAESTRA * 0.82), ANCHO_TABLA_MAESTRA - Math.round(ANCHO_TABLA_MAESTRA * 0.82)];
+                const encabezadoConsolidado = `<w:tr><w:trPr><w:tblHeader/></w:trPr>${celdaWord("ÁREA DE EVALUACIÓN",{width:anchosConsolidado[0],shading:"123B5D",bold:true,color:"FFFFFF",align:"left",size:"16"})}${celdaWord("RESULTADO",{width:anchosConsolidado[1],shading:"123B5D",bold:true,color:"FFFFFF",align:"center",size:"16"})}</w:tr>`;
+                const cuerpoConsolidado = filasConsolidadoCategorias.map(fila => `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(fila[0],{width:anchosConsolidado[0],size:"16",align:"left"})}${celdaWord(fila[1],{width:anchosConsolidado[1],size:"16",align:"center"})}</w:tr>`).join("");
+                const tablaConsolidado = `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="A6A6A6"/><w:left w:val="single" w:sz="6" w:color="A6A6A6"/><w:bottom w:val="single" w:sz="6" w:color="A6A6A6"/><w:right w:val="single" w:sz="6" w:color="A6A6A6"/><w:insideH w:val="single" w:sz="6" w:color="A6A6A6"/><w:insideV w:val="single" w:sz="6" w:color="A6A6A6"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${anchosConsolidado[0]}"/><w:gridCol w:w="${anchosConsolidado[1]}"/></w:tblGrid>${encabezadoConsolidado}${cuerpoConsolidado}</w:tbl>`;
+                let sumaPonderada = 0, sumaItems = 0;
+                filasConsolidadoCategorias.forEach((fila, i) => {
+                    const pct = Number(String(fila[1]).replace("%", ""));
+                    const cantidad = (datosChecklist[categoriasConsolidado[i]] || []).length;
+                    if (Number.isFinite(pct) && cantidad > 0) { sumaPonderada += pct * cantidad; sumaItems += cantidad; }
+                });
+                const resultadoGeneral = sumaItems ? Math.round(sumaPonderada / sumaItems) : 0;
+                const bloqueResultadoGeneral = `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="8" w:color="123B5D"/><w:left w:val="single" w:sz="8" w:color="123B5D"/><w:bottom w:val="single" w:sz="8" w:color="123B5D"/><w:right w:val="single" w:sz="8" w:color="123B5D"/></w:tblBorders><w:shd w:fill="F3F6F9"/></w:tblPr><w:tblGrid><w:gridCol w:w="${ANCHO_TABLA_MAESTRA}"/></w:tblGrid><w:tr>${celdaWordContenido(parrafoWord("RESULTADO GENERAL DE LA LISTA DE CHEQUEO",{font:"Century Gothic",size:"16",bold:true,color:"123B5D",align:"center",after:40}),{width:ANCHO_TABLA_MAESTRA})}</w:tr><w:tr>${celdaWordContenido(parrafoWord(`${resultadoGeneral}%`,{font:"Century Gothic",size:"30",bold:true,color:"123B5D",align:"center"}),{width:ANCHO_TABLA_MAESTRA})}</w:tr></w:tbl>`;
+                cuerpo += titulo("Consolidado de resultados por categoría",2) + tablaConsolidado + bloqueResultadoGeneral;
+            }
             let totalPuntos=0,totalMaximo=0;
             Object.keys(datosChecklist).forEach(c=>{const pct=Number(resultadosCategorias[c]);if(!isNaN(pct)){const n=datosChecklist[c].length;totalPuntos+=pct*n;totalMaximo+=n;}});
             const porcentajeGeneral=totalMaximo?Math.round(totalPuntos/totalMaximo):0;
@@ -11387,9 +11484,9 @@ async function generarWordPlantillaMaestra() {
             });
             cuerpo+=titulo("10. Mapa de calor — distribución de riesgos",1)
                 +tablaMapaCalorWord(celdas)
-                +parrafoWord("Los números dentro del mapa corresponden al número de riesgo de la matriz. Las filas representan impacto y las columnas probabilidad.",{font:'Century Gothic',size:'16',color:'666666',before:60,after:60})
+                +parrafoWord("Los números dentro del mapa corresponden al número de riesgo de la matriz. Las filas representan probabilidad y las columnas impacto.",{font:'Century Gothic',size:'16',color:'666666',before:60,after:60})
                 +leyendaMapaCalorWord()
-                +parrafoWord("La clasificación visual corresponde al producto de probabilidad por impacto: bajo 1–4, medio 5–9, alto 10–14 y crítico 15–25.",{font:'Century Gothic',size:'15',color:'C00000',bold:true,before:40,after:80});
+                +parrafoWord("La clasificación visual corresponde al producto de probabilidad por impacto: riesgo bajo 1–4, moderado 5–9, alto 10–14 y extremo 15–25.",{font:'Century Gothic',size:'15',color:'C00000',bold:true,before:40,after:80});
         }
 
         // CAM-INFORME-ESTILO-05 — HALLAZGOS WORD: 3 columnas + franja de área + fotografías 7,5x5 / 3,8x2,6 cm.
@@ -11450,8 +11547,16 @@ async function generarWordPlantillaMaestra() {
                     areaActual=area;
                 }
 
-                const textoHallazgo=h.hallazgo||h.descripcion||h.observacion||"";
-                const recomendacion=h.accion||h.accionPreventiva||h.recomendacion||"";
+                let textoHallazgo=h.hallazgo||h.descripcion||h.observacion||"";
+                let recomendacion=h.accion||h.accionPreventiva||h.recomendacion||"";
+                const recomendacionBusqueda = String(recomendacion).toLocaleLowerCase("es");
+                const hallazgoBusqueda = String(textoHallazgo).toLocaleLowerCase("es");
+                if (recomendacionBusqueda.includes("red de apoyo") && (recomendacionBusqueda.includes("vigilantes") || recomendacionBusqueda.includes("sospechoso"))) {
+                    textoHallazgo = "Se desconoce la existencia frente de seguridad en la zona que facilite la articulación comunitaria. Crear este espacio de trabajo colaborativo ayudaría a articular estrategias contra la delincuencia, consolidar lazos de comunicación y proteger el bienestar de la copropiedad, mitigar la delincuencia en el sector y a reforzar la comunicación en beneficio de los residentes.";
+                    recomendacion = "Se recomienda crear una red de apoyo entre los vigilantes que prestan servicios cercanos a la copropiedad, con la finalidad de establecer un canal de comunicación, que les permita generar Alertas, cuando se observe personal sospechoso en el sector o atención de alguna emergencia.";
+                } else if (hallazgoBusqueda.includes("se contactó a vigilante") || hallazgoBusqueda.includes("frente de seguridad") || hallazgoBusqueda.includes("articulación comunitaria")) {
+                    textoHallazgo = "Se desconoce la existencia frente de seguridad en la zona que facilite la articulación comunitaria. Crear este espacio de trabajo colaborativo ayudaría a articular estrategias contra la delincuencia, consolidar lazos de comunicación y proteger el bienestar de la copropiedad, mitigar la delincuencia en el sector y a reforzar la comunicación en beneficio de los residentes.";
+                }
                 let fotosContenido=parrafoWord("Sin evidencia fotográfica",{
                     font:"Century Gothic",size:"16",color:"666666",align:"center",line:220
                 });
@@ -11516,12 +11621,14 @@ async function generarWordPlantillaMaestra() {
                     ${celdaWord(textoHallazgo,{
                         width:anchosHallazgos[0],
                         size:"16",
-                        align:"both"
+                        align:"left",
+                        vAlign:"center"
                     })}
                     ${celdaWord(recomendacion,{
                         width:anchosHallazgos[1],
                         size:"16",
-                        align:"both"
+                        align:"left",
+                        vAlign:"center"
                     })}
                     ${celdaWordContenido(fotosContenido,{
                         width:anchosHallazgos[2],
@@ -13093,8 +13200,12 @@ matrizParaInforme.forEach((riesgo, indice) => {
     page-break-inside:avoid !important;
 }
 
-.tabla-hallazgos td.col-hallazgo { text-align:center; }
-.tabla-hallazgos td.col-recomendacion { text-align:justify; }
+/* CAM-HALLAZGOS-ALINEACION-01: texto a la izquierda y centrado verticalmente. */
+.tabla-hallazgos td.col-hallazgo,
+.tabla-hallazgos td.col-recomendacion {
+    text-align:left !important;
+    vertical-align:middle !important;
+}
 
 .tabla-hallazgos td.col-fotografias {
     padding:4px;
