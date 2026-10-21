@@ -11125,15 +11125,15 @@ async function generarWordPlantillaMaestra() {
                 for(let impacto=1;impacto<=5;impacto++){
                     const puntuacion=probabilidad*impacto;
                     const ids=celdas[`${probabilidad}-${impacto}`]||[];
-                    // Se muestra el puntaje en cada casilla y, debajo, el/los números de riesgo.
-                    const valor=ids.length ? `${puntuacion} · ${ids.join(", ")}` : String(puntuacion);
+                    // CAM-MAPA-CALOR-CODIGOS-01: prefijo R- distingue el código del riesgo del puntaje.
+                    const valor=ids.length ? `${puntuacion} · R-${ids.join(", R-")}` : String(puntuacion);
                     celdasFila.push(celdaWord(valor,{
                         width:anchos[impacto],
                         shading:colorCeldaMapaCalor(puntuacion),
                         bold:ids.length>0,
                         color:"123B5D",
                         align:"center",
-                        size:ids.length ? "17" : "16"
+                        size:ids.length ? "13" : "16"
                     }));
                 }
                 filas.push(`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdasFila.join("")}</w:tr>`);
@@ -11484,7 +11484,7 @@ async function generarWordPlantillaMaestra() {
             });
             cuerpo+=titulo("10. Mapa de calor — distribución de riesgos",1)
                 +tablaMapaCalorWord(celdas)
-                +parrafoWord("Los números dentro del mapa corresponden al número de riesgo de la matriz. Las filas representan probabilidad y las columnas impacto.",{font:'Century Gothic',size:'16',color:'666666',before:60,after:60})
+                +parrafoWord("El valor principal corresponde a probabilidad × impacto. Los códigos R- identifican los riesgos de la matriz. Las filas representan probabilidad y las columnas impacto.",{font:'Century Gothic',size:'16',color:'666666',before:60,after:60})
                 +leyendaMapaCalorWord()
                 +parrafoWord("La clasificación visual corresponde al producto de probabilidad por impacto: riesgo bajo 1–4, moderado 5–9, alto 10–14 y extremo 15–25.",{font:'Century Gothic',size:'15',color:'C00000',bold:true,before:40,after:80});
         }
@@ -12259,15 +12259,18 @@ function riesgosEnCelda(probabilidad, impacto) {
                     background:white;
                     color:#123b5d;
                     border:2px solid #123b5d;
-                    border-radius:50%;
-                    width:24px;
-                    height:24px;
-                    line-height:20px;
+                    border-radius:12px;
+                    min-width:34px;
+                    height:22px;
+                    line-height:18px;
+                    padding:0 4px;
+                    box-sizing:border-box;
                     text-align:center;
+                    font-size:10px;
                     font-weight:bold;
                     margin:2px;
                 ">
-                    ${numero}
+                    R-${numero}
                 </span>
             `;
 
@@ -12275,6 +12278,7 @@ function riesgosEnCelda(probabilidad, impacto) {
     }
 
 
+    // CAM-MAPA-CALOR-CODIGOS-01: cada riesgo se rotula R-n; el valor superior sigue siendo P × I.
     let filasMapaCalor = "";
 
     for (let probabilidad = 5;
@@ -15225,7 +15229,7 @@ ESTADO: EN DESARROLLO
         font-size:11px;
         color:#555;
     ">
-        <strong>Los números dentro del mapa corresponden al número de riesgo de la matriz.</strong>
+        <strong>El valor principal corresponde a probabilidad × impacto. Los códigos R- identifican cada riesgo de la matriz.</strong>
     </div>
 
     <div style="
