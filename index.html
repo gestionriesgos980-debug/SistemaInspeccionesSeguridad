@@ -10977,6 +10977,10 @@ async function generarWordPlantillaMaestra() {
             if(puntuacion>=5) return "FBC02D";  // Medio
             return "66BB6A";                    // Bajo
         }
+        // CAM-MAPA-CALOR-WORD-02: reproducir la jerarquía visual del mapa HTML:
+        // puntaje arriba y cada código R-n en una etiqueta independiente debajo.
+        // WordprocessingML no permite esquinas ovaladas en el borde de texto; se utiliza
+        // fondo blanco, borde azul y espaciado compacto para mantener alta legibilidad.
         function tablaMapaCalorWord(celdas){
             const anchos=[1600,1835,1835,1835,1835,1834];
             anchos[anchos.length-1] += ANCHO_TABLA_MAESTRA - anchos.reduce((s,n)=>s+n,0);
@@ -10987,20 +10991,25 @@ async function generarWordPlantillaMaestra() {
                 for(let impacto=1;impacto<=5;impacto++){
                     const puntuacion=probabilidad*impacto;
                     const ids=celdas[`${probabilidad}-${impacto}`]||[];
-                    // CAM-MAPA-CALOR-CODIGOS-01: prefijo R- distingue el código del riesgo del puntaje.
-                    const valor=ids.length ? `${puntuacion} · R-${ids.join(", R-")}` : String(puntuacion);
-                    celdasFila.push(celdaWord(valor,{
-                        width:anchos[impacto],
-                        shading:colorCeldaMapaCalor(puntuacion),
-                        bold:ids.length>0,
-                        color:"123B5D",
-                        align:"center",
-                        size:ids.length ? "13" : "16"
-                    }));
+                    const valor=`<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="${ids.length ? 30 : 0}"/></w:pPr>${runWord(String(puntuacion),{font:"Century Gothic",size:ids.length?"14":"16",bold:ids.length>0,color:"123B5D"})}</w:p>`;
+                    // Etiquetas compactas sin tablas anidadas: se agrupan hasta dos por línea
+                    // para evitar que Word ensanche las celdas o genere cuadros vacíos.
+                    const etiquetas=ids.length ? (() => {
+                        const lineas=[];
+                        for(let i=0;i<ids.length;i+=2){
+                            const grupo=ids.slice(i,i+2);
+                            lineas.push(`<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="0" w:line="220" w:lineRule="auto"/><w:keepLines/></w:pPr>${grupo.map((id,indice)=>`${indice ? '<w:r><w:rPr><w:sz w:val="8"/></w:rPr><w:t xml:space="preserve">  </w:t></w:r>' : ''}<w:r><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:sz w:val="13"/><w:color w:val="123B5D"/><w:shd w:val="clear" w:color="auto" w:fill="FFFFFF"/><w:bdr w:val="single" w:sz="10" w:space="2" w:color="123B5D"/></w:rPr><w:t xml:space="preserve"> R-${id} </w:t></w:r>`).join("")}</w:p>`);
+                        }
+                        return lineas.join("");
+                    })() : "";
+                    const width=anchos[impacto];
+                    const shade=colorCeldaMapaCalor(puntuacion);
+                    const cell=`<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/><w:shd w:fill="${shade}"/><w:vAlign w:val="center"/><w:tcMar><w:top w:w="60" w:type="dxa"/><w:left w:w="45" w:type="dxa"/><w:bottom w:w="60" w:type="dxa"/><w:right w:w="45" w:type="dxa"/></w:tcMar><w:tcBorders><w:top w:val="single" w:sz="4" w:color="FFFFFF"/><w:left w:val="single" w:sz="4" w:color="FFFFFF"/><w:bottom w:val="single" w:sz="4" w:color="FFFFFF"/><w:right w:val="single" w:sz="4" w:color="FFFFFF"/></w:tcBorders></w:tcPr>${valor}${etiquetas}</w:tc>`;
+                    celdasFila.push(cell);
                 }
                 filas.push(`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdasFila.join("")}</w:tr>`);
             }
-            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="A6A6A6"/><w:left w:val="single" w:sz="6" w:color="A6A6A6"/><w:bottom w:val="single" w:sz="6" w:color="A6A6A6"/><w:right w:val="single" w:sz="6" w:color="A6A6A6"/><w:insideH w:val="single" w:sz="6" w:color="FFFFFF"/><w:insideV w:val="single" w:sz="6" w:color="FFFFFF"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>${encabezados}${filas.join("")}</w:tbl>`;
+            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="A6A6A6"/><w:left w:val="single" w:sz="6" w:color="A6A6A6"/><w:bottom w:val="single" w:sz="6" w:color="A6A6A6"/><w:insideH w:val="single" w:sz="6" w:color="FFFFFF"/><w:insideV w:val="single" w:sz="6" w:color="FFFFFF"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>${encabezados}${filas.join("")}</w:tbl>`;
         }
         function leyendaMapaCalorWord(){
             const items=[
