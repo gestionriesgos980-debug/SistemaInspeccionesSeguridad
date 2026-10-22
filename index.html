@@ -10977,10 +10977,6 @@ async function generarWordPlantillaMaestra() {
             if(puntuacion>=5) return "FBC02D";  // Medio
             return "66BB6A";                    // Bajo
         }
-        // CAM-MAPA-CALOR-WORD-02: reproducir la jerarquía visual del mapa HTML:
-        // puntaje arriba y cada código R-n en una etiqueta independiente debajo.
-        // WordprocessingML no permite esquinas ovaladas en el borde de texto; se utiliza
-        // fondo blanco, borde azul y espaciado compacto para mantener alta legibilidad.
         function tablaMapaCalorWord(celdas){
             const anchos=[1600,1835,1835,1835,1835,1834];
             anchos[anchos.length-1] += ANCHO_TABLA_MAESTRA - anchos.reduce((s,n)=>s+n,0);
@@ -10991,25 +10987,20 @@ async function generarWordPlantillaMaestra() {
                 for(let impacto=1;impacto<=5;impacto++){
                     const puntuacion=probabilidad*impacto;
                     const ids=celdas[`${probabilidad}-${impacto}`]||[];
-                    const valor=`<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="${ids.length ? 30 : 0}"/></w:pPr>${runWord(String(puntuacion),{font:"Century Gothic",size:ids.length?"14":"16",bold:ids.length>0,color:"123B5D"})}</w:p>`;
-                    // Etiquetas compactas sin tablas anidadas: se agrupan hasta dos por línea
-                    // para evitar que Word ensanche las celdas o genere cuadros vacíos.
-                    const etiquetas=ids.length ? (() => {
-                        const lineas=[];
-                        for(let i=0;i<ids.length;i+=2){
-                            const grupo=ids.slice(i,i+2);
-                            lineas.push(`<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="0" w:line="220" w:lineRule="auto"/><w:keepLines/></w:pPr>${grupo.map((id,indice)=>`${indice ? '<w:r><w:rPr><w:sz w:val="8"/></w:rPr><w:t xml:space="preserve">  </w:t></w:r>' : ''}<w:r><w:rPr><w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic"/><w:b/><w:sz w:val="13"/><w:color w:val="123B5D"/><w:shd w:val="clear" w:color="auto" w:fill="FFFFFF"/><w:bdr w:val="single" w:sz="10" w:space="2" w:color="123B5D"/></w:rPr><w:t xml:space="preserve"> R-${id} </w:t></w:r>`).join("")}</w:p>`);
-                        }
-                        return lineas.join("");
-                    })() : "";
-                    const width=anchos[impacto];
-                    const shade=colorCeldaMapaCalor(puntuacion);
-                    const cell=`<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/><w:shd w:fill="${shade}"/><w:vAlign w:val="center"/><w:tcMar><w:top w:w="60" w:type="dxa"/><w:left w:w="45" w:type="dxa"/><w:bottom w:w="60" w:type="dxa"/><w:right w:w="45" w:type="dxa"/></w:tcMar><w:tcBorders><w:top w:val="single" w:sz="4" w:color="FFFFFF"/><w:left w:val="single" w:sz="4" w:color="FFFFFF"/><w:bottom w:val="single" w:sz="4" w:color="FFFFFF"/><w:right w:val="single" w:sz="4" w:color="FFFFFF"/></w:tcBorders></w:tcPr>${valor}${etiquetas}</w:tc>`;
-                    celdasFila.push(cell);
+                    // CAM-MAPA-CALOR-CODIGOS-01: prefijo R- distingue el código del riesgo del puntaje.
+                    const valor=ids.length ? `${puntuacion} · R-${ids.join(", R-")}` : String(puntuacion);
+                    celdasFila.push(celdaWord(valor,{
+                        width:anchos[impacto],
+                        shading:colorCeldaMapaCalor(puntuacion),
+                        bold:ids.length>0,
+                        color:"123B5D",
+                        align:"center",
+                        size:ids.length ? "13" : "16"
+                    }));
                 }
                 filas.push(`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdasFila.join("")}</w:tr>`);
             }
-            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="A6A6A6"/><w:left w:val="single" w:sz="6" w:color="A6A6A6"/><w:bottom w:val="single" w:sz="6" w:color="A6A6A6"/><w:insideH w:val="single" w:sz="6" w:color="FFFFFF"/><w:insideV w:val="single" w:sz="6" w:color="FFFFFF"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>${encabezados}${filas.join("")}</w:tbl>`;
+            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="A6A6A6"/><w:left w:val="single" w:sz="6" w:color="A6A6A6"/><w:bottom w:val="single" w:sz="6" w:color="A6A6A6"/><w:right w:val="single" w:sz="6" w:color="A6A6A6"/><w:insideH w:val="single" w:sz="6" w:color="FFFFFF"/><w:insideV w:val="single" w:sz="6" w:color="FFFFFF"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>${encabezados}${filas.join("")}</w:tbl>`;
         }
         function leyendaMapaCalorWord(){
             const items=[
@@ -11240,6 +11231,41 @@ async function generarWordPlantillaMaestra() {
             return imagenWordXML(rId,docPrId++,nombre,anchoMaxCm,altoMaxCm,relacionAspecto);
         }
 
+        // CAM-MAPA-CALOR-IMAGEN-01: mapa renderizado a PNG para preservar la apariencia al exportar a Word.
+        async function crearImagenMapaCalorWord(celdas){
+            const ancho=1400, x0=8, y0=8, colEtiqueta=180, anchoCelda=240, altoCabecera=62, altoFila=82, altoLeyenda=72;
+            const alto=y0+altoCabecera+5*altoFila+altoLeyenda+8;
+            const colores={bajo:"#66BB6A",medio:"#FBC02D",alto:"#F57C00",critico:"#D32F2F",azul:"#123B5D"};
+            const colorPuntaje=p=>p>=15?colores.critico:p>=10?colores.alto:p>=5?colores.medio:colores.bajo;
+            const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+            let svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${ancho}" height="${alto}" viewBox="0 0 ${ancho} ${alto}"><rect width="100%" height="100%" fill="#FFFFFF"/>`;
+            svg+=`<rect x="${x0}" y="${y0}" width="${colEtiqueta}" height="${altoCabecera}" fill="#000000" stroke="#FFFFFF" stroke-width="2"/><text x="${x0+colEtiqueta/2}" y="${y0+25}" font-family="Arial,sans-serif" font-size="19" font-weight="bold" text-anchor="middle" fill="#FFFFFF">PROBABILIDAD /</text><text x="${x0+colEtiqueta/2}" y="${y0+48}" font-family="Arial,sans-serif" font-size="19" font-weight="bold" text-anchor="middle" fill="#FFFFFF">IMPACTO</text>`;
+            for(let imp=1;imp<=5;imp++){const x=x0+colEtiqueta+(imp-1)*anchoCelda;svg+=`<rect x="${x}" y="${y0}" width="${anchoCelda}" height="${altoCabecera}" fill="#000000" stroke="#FFFFFF" stroke-width="2"/><text x="${x+anchoCelda/2}" y="${y0+38}" font-family="Arial,sans-serif" font-size="21" font-weight="bold" text-anchor="middle" fill="#FFFFFF">${imp}</text>`;}
+            for(let prob=5;prob>=1;prob--){
+                const row=5-prob,y=y0+altoCabecera+row*altoFila;
+                svg+=`<rect x="${x0}" y="${y}" width="${colEtiqueta}" height="${altoFila}" fill="#123B5D" stroke="#FFFFFF" stroke-width="2"/><text x="${x0+colEtiqueta/2}" y="${y+altoFila/2+7}" font-family="Arial,sans-serif" font-size="21" font-weight="bold" text-anchor="middle" fill="#FFFFFF">${prob}</text>`;
+                for(let imp=1;imp<=5;imp++){
+                    const x=x0+colEtiqueta+(imp-1)*anchoCelda,punt=prob*imp,ids=celdas[`${prob}-${imp}`]||[];
+                    svg+=`<rect x="${x}" y="${y}" width="${anchoCelda}" height="${altoFila}" fill="${colorPuntaje(punt)}" stroke="#FFFFFF" stroke-width="2"/><text x="${x+anchoCelda/2}" y="${ids.length?y+20:y+altoFila/2+7}" font-family="Arial,sans-serif" font-size="19" font-weight="${ids.length?'bold':'normal'}" text-anchor="middle" fill="#123B5D">${punt}</text>`;
+                    if(ids.length){
+                        const pillW=58,pillH=22,gapX=8,gapY=3,perRow=3,countRows=Math.ceil(ids.length/perRow);
+                        const firstY=y+29+Math.max(0,(altoFila-29-(countRows*pillH+(countRows-1)*gapY))/2);
+                        ids.forEach((id,i)=>{const rowTag=Math.floor(i/perRow),colTag=i%perRow,countThisRow=Math.min(perRow,ids.length-rowTag*perRow),totalW=countThisRow*pillW+(countThisRow-1)*gapX,startX=x+(anchoCelda-totalW)/2,px=startX+colTag*(pillW+gapX),py=firstY+rowTag*(pillH+gapY);svg+=`<rect x="${px}" y="${py}" width="${pillW}" height="${pillH}" rx="11" ry="11" fill="#FFFFFF" stroke="#123B5D" stroke-width="3"/><text x="${px+pillW/2}" y="${py+15}" font-family="Arial,sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#123B5D">${esc("R-"+id)}</text>`;});
+                    }
+                }
+            }
+            const leyY=y0+altoCabecera+5*altoFila+12,leyW=(ancho-2*x0)/4,leyenda=[["BAJO (1–4)",colores.bajo],["MEDIO (5–9)",colores.medio],["ALTO (10–14)",colores.alto],["CRÍTICO (15–25)",colores.critico]];
+            leyenda.forEach((it,i)=>{const x=x0+i*leyW;svg+=`<rect x="${x}" y="${leyY}" width="${leyW}" height="38" fill="${it[1]}" stroke="#FFFFFF" stroke-width="2"/><text x="${x+leyW/2}" y="${leyY+25}" font-family="Arial,sans-serif" font-size="17" font-weight="bold" text-anchor="middle" fill="#123B5D">${it[0]}</text>`;});
+            svg+="</svg>";
+            const url=URL.createObjectURL(new Blob([svg],{type:"image/svg+xml;charset=utf-8"}));
+            try{
+                const img=await new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(new Error("No fue posible renderizar el mapa de calor como imagen."));image.src=url;});
+                const canvas=document.createElement("canvas");canvas.width=ancho*2;canvas.height=alto*2;
+                const ctx=canvas.getContext("2d");ctx.fillStyle="#FFFFFF";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.scale(2,2);ctx.drawImage(img,0,0,ancho,alto);
+                return canvas.toDataURL("image/png");
+            }finally{URL.revokeObjectURL(url);}
+        }
+
         // 04. GEOREFERENCIACIÓN — imágenes integradas dentro del documento Word.
         const geo=camposDiligenciados([["Latitud",inspeccion.latitud||""],["Longitud",inspeccion.longitud||""]]);
         const tieneImagenesGeo=!!(inspeccion.imagenGoogleMaps||inspeccion.imagenGoogleEarth);
@@ -11353,10 +11379,11 @@ async function generarWordPlantillaMaestra() {
                     (celdas[k]||(celdas[k]=[])).push(String(i+1));
                 }
             });
+            const mapaCalorDataUrl=await crearImagenMapaCalorWord(celdas);
+            const mapaCalorImagen=await agregarImagenWord(mapaCalorDataUrl,"mapa_calor","Mapa de calor de riesgos",17.2,8.2);
             cuerpo+=titulo("10. Mapa de calor — distribución de riesgos",1)
-                +tablaMapaCalorWord(celdas)
+                +(mapaCalorImagen||tablaMapaCalorWord(celdas))
                 +parrafoWord("El valor principal corresponde a probabilidad × impacto. Los códigos R- identifican los riesgos de la matriz. Las filas representan probabilidad y las columnas impacto.",{font:'Century Gothic',size:'16',color:'666666',before:60,after:60})
-                +leyendaMapaCalorWord()
                 +parrafoWord("La clasificación visual corresponde al producto de probabilidad por impacto: riesgo bajo 1–4, moderado 5–9, alto 10–14 y extremo 15–25.",{font:'Century Gothic',size:'15',color:'C00000',bold:true,before:40,after:80});
         }
 
