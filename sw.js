@@ -1,9 +1,10 @@
-const CACHE_NAME = "inspecciones-seguridad-v1";
+const CACHE_NAME = "inspecciones-seguridad-v2";
 
 const ARCHIVOS = [
     "./",
     "./index.html",
-    "./manifest.json"
+    "./manifest.json",
+    "./tecchnex-banner-compacto.jpg"
 ];
 
 self.addEventListener("install", event => {

@@ -31,99 +31,33 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
             color: #1f2937;
         }
 
-        /* CAM-VISUAL-IDENTIDAD-01
-           Encabezado corporativo aprobado TECCHNEX.
-           Intervención quirúrgica: solo identidad visual del encabezado.
+        /* CAM-VISUAL-IDENTIDAD-03: banner panorámico compacto TECCHNEX.
+           Conserva los bloques de marca y evita recortar el contenido del banner.
         */
         header.hero-tecchnex {
-            background: linear-gradient(110deg, #0b3152 0%, #123b5d 58%, #1769aa 100%);
-            min-height: 86px;
-            padding: 8px 22px;
+            width: 100%;
+            height: clamp(132px, 9vw, 170px);
+            min-height: 0;
+            padding: 0;
             margin: 0;
             overflow: hidden;
-            line-height: normal;
-            display: flex;
-            align-items: center;
-        }
-
-        header.hero-tecchnex .cabecera-compacta {
-            width: 100%;
-            display: flex;
-            align-items: center;
-            gap: 22px;
-        }
-
-        header.hero-tecchnex .logo-compacto {
-            width: 205px;
-            max-width: 205px;
-            height: auto;
-            flex: 0 0 auto;
+            line-height: 0;
+            background: #07365d;
             display: block;
+        }
+
+        header.hero-tecchnex .banner-tecchnex {
+            display: block;
+            width: 100%;
+            height: 100%;
+            /* Banner panorámico: ocupa menos alto sin ocultar sus elementos. */
+            object-fit: fill;
+            object-position: center;
             border: 0;
-        }
-
-        header.hero-tecchnex .titulo-cabecera {
-            color: #fff;
-            flex: 1 1 auto;
-            min-width: 0;
-        }
-
-        header.hero-tecchnex .titulo-cabecera h1 {
-            font-size: clamp(20px, 2.15vw, 32px);
-            line-height: 1.05;
-            margin: 0 0 5px;
-            font-weight: 800;
-        }
-
-        header.hero-tecchnex .titulo-cabecera p {
-            font-size: clamp(11px, 1.15vw, 17px);
-            line-height: 1.15;
-            margin: 0;
-            opacity: .92;
-        }
-
-        header.hero-tecchnex .acciones-cabecera {
-            display: flex;
-            gap: 8px;
-            flex: 0 0 auto;
-        }
-
-        header.hero-tecchnex .accion-cabecera {
-            width: 38px;
-            height: 38px;
-            border-radius: 10px;
-            border: 1px solid rgba(255,255,255,.28);
-            background: rgba(255,255,255,.12);
-            color: #fff;
-            display: grid;
-            place-items: center;
-            font-size: 18px;
-        }
-
-        @media (max-width: 900px) {
-            header.hero-tecchnex { padding: 7px 14px; min-height: 72px; }
-            header.hero-tecchnex .cabecera-compacta { gap: 12px; }
-            header.hero-tecchnex .logo-compacto { width: 150px; max-width: 150px; }
-            header.hero-tecchnex .acciones-cabecera { display:none; }
         }
 
         @media (max-width: 600px) {
-            header.hero-tecchnex { min-height: 64px; }
-            header.hero-tecchnex .logo-compacto { width: 120px; max-width: 120px; }
-            header.hero-tecchnex .titulo-cabecera h1 { font-size: 16px; }
-            header.hero-tecchnex .titulo-cabecera p { font-size: 10px; }
-        }
-
-        .texto-accesible-header {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            white-space: nowrap;
-            border: 0;
+            header.hero-tecchnex { height: 112px; }
         }
 
         .contenedor {
@@ -645,25 +579,10 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
 
 <body>
 
-<header class="hero-tecchnex" aria-label="Identidad TECCHNEX">
-    <div class="cabecera-compacta">
-        <img class="logo-compacto"
-             src="tecchnex-logo-compact.png"
-             alt="TECCHNEX — De la necesidad a la solución">
-        <div class="titulo-cabecera">
-            <h1>Sistema de Inspecciones de Seguridad</h1>
-            <p>Gestión de riesgos, hallazgos y generación de informes</p>
-        </div>
-        <div class="acciones-cabecera" aria-hidden="true">
-            <div class="accion-cabecera">⚙</div>
-            <div class="accion-cabecera">?</div>
-            <div class="accion-cabecera">↪</div>
-        </div>
-    </div>
-    <div class="texto-accesible-header">
-        <h1>Sistema de Inspecciones de Seguridad</h1>
-        <p>Gestión de riesgos, hallazgos y generación de informes</p>
-    </div>
+<header class="hero-tecchnex" aria-label="Sistema de Inspecciones de Seguridad TECCHNEX">
+    <img class="banner-tecchnex"
+         src="tecchnex-banner-compacto.jpg"
+         alt="TECCHNEX — Sistema de Inspecciones de Seguridad: gestión de riesgos, hallazgos y generación de informes">
 </header>
 
 <div class="contenedor">
@@ -8314,13 +8233,13 @@ function abrirBibliotecaRecomendacionesParaHallazgoOM20() {
         <div style="max-width:1050px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 10px 35px rgba(0,0,0,.3);overflow:hidden;">
             <div style="background:#123b5d;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
                 <div>
-                    <strong style="font-size:18px;">📚 Seleccionar recomendación</strong>
-                    <div style="font-size:13px;opacity:.9;margin-top:4px;">Biblioteca de recomendaciones · Hallazgos</div>
+                    <strong style="font-size:18px;">📚 Biblioteca completa de hallazgos</strong>
+                    <div style="font-size:13px;opacity:.9;margin-top:4px;">Busque por palabra clave y seleccione un hallazgo para cargarlo en la inspección junto con su recomendación.</div>
                 </div>
                 <button type="button" onclick="document.getElementById('ventanaBibliotecaHallazgoOM20')?.remove()" style="background:transparent;color:#fff;border:0;font-size:28px;cursor:pointer;">&times;</button>
             </div>
             <div style="padding:18px;">
-                <input id="buscadorBibliotecaHallazgoOM20" type="search" placeholder="Buscar por área, tema, palabra clave o recomendación..."
+                <input id="buscadorBibliotecaHallazgoOM20" type="search" placeholder="Buscar por área, elemento, descripción, nivel, palabra clave o recomendación..."
                     oninput="renderizarBibliotecaHallazgoOM20()"
                     style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:7px;box-sizing:border-box;margin-bottom:14px;">
                 <div id="contenidoBibliotecaHallazgoOM20"></div>
@@ -8333,91 +8252,35 @@ function abrirBibliotecaRecomendacionesParaHallazgoOM20() {
 }
 
 function renderizarBibliotecaHallazgoOM20() {
-
     const contenedor = document.getElementById("contenidoBibliotecaHallazgoOM20");
     if (!contenedor) return;
-
     const biblioteca = obtenerBibliotecaRecomendaciones();
-    const buscador = normalizarTextoOM12(
-        document.getElementById("buscadorBibliotecaHallazgoOM20")?.value || ""
-    );
+    const buscador = normalizarTextoOM12(document.getElementById("buscadorBibliotecaHallazgoOM20")?.value || "").trim();
 
-    // CAM-WORD-10 — La biblioteca de Hallazgos NO muestra toda la biblioteca.
-    // Solo presenta recomendaciones cuya(s) palabra(s) clave coinciden con
-    // el contenido actual del hallazgo. El buscador únicamente refina esas
-    // coincidencias; nunca vuelve a abrir la lista completa.
-    const area = document.getElementById("hallazgoArea")?.value || "";
-    const elemento = document.getElementById("hallazgoElemento")?.value || "";
-    const descripcion = document.getElementById("hallazgoDescripcion")?.value || "";
-    const textoHallazgo = normalizarTextoOM12(
-        `${area} ${elemento} ${descripcion}`
-    );
-
-    const resultados = biblioteca
-        .map((item, indice) => {
-            const palabrasClave = Array.isArray(item.palabrasClave)
-                ? item.palabrasClave
-                : [];
-
-            const coincidencias = palabrasClave.filter(palabra => {
-                const clave = normalizarTextoOM12(palabra).trim();
-                return clave && textoHallazgo.includes(clave);
-            });
-
-            return { item, indice, coincidencias };
-        })
-        .filter(resultado => resultado.coincidencias.length > 0)
-        .filter(resultado => {
+    // CAM-WORD-11: mostrar la biblioteca completa; el buscador filtra todos los campos.
+    const resultados = biblioteca.map((item, indice) => ({ item, indice }))
+        .filter(({ item }) => {
             if (!buscador) return true;
             const texto = normalizarTextoOM12([
-                resultado.item.area,
-                resultado.item.tema,
-                resultado.item.descripcionHallazgo || resultado.item.hallazgo || "",
-                resultado.item.nivel || "",
-                ...(resultado.item.palabrasClave || []),
-                resultado.item.recomendacion,
-                resultado.item.fuente
+                item.area, item.tema, item.elemento, item.descripcionHallazgo,
+                item.hallazgo, item.nivel, ...(Array.isArray(item.palabrasClave) ? item.palabrasClave : []),
+                item.recomendacion, item.fuente
             ].join(" "));
             return texto.includes(buscador);
-        })
-        .sort((a, b) => b.coincidencias.length - a.coincidencias.length);
+        });
 
-    if (!textoHallazgo.trim()) {
-        contenedor.innerHTML = `
-            <div style="padding:15px;text-align:center;color:#64748b;border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;">
-                Escriba el <strong>elemento</strong> o la <strong>descripción del hallazgo</strong> para mostrar únicamente las recomendaciones relacionadas mediante palabras clave.
-            </div>
-        `;
+    if (!resultados.length) {
+        contenedor.innerHTML = `<div style="padding:16px;text-align:center;color:#64748b;border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;">${biblioteca.length ? "No se encontraron registros con esa palabra clave." : "La biblioteca todavía no contiene registros guardados."}</div>`;
         return;
     }
-
-    contenedor.innerHTML = resultados.length ? resultados.map(({ item, indice, coincidencias }) => `
-        <div style="border:1px solid #d1d5db;border-radius:8px;padding:12px;margin-bottom:9px;background:#fff;">
-            <div style="font-weight:bold;color:#123b5d;font-size:13px;">
-                ${escaparTextoOM12(item.area || "")} · ${escaparTextoOM12(item.tema || item.elemento || "")}
-            </div>
-            <div style="font-size:12px;color:#64748b;margin-top:4px;">
-                Coincidencia: ${escaparTextoOM12(coincidencias.join(", "))}
-            </div>
-            ${item.descripcionHallazgo || item.hallazgo ? `
-                <div style="font-size:12px;color:#334155;margin-top:7px;">
-                    <strong>Hallazgo de referencia:</strong> ${escaparTextoOM12(item.descripcionHallazgo || item.hallazgo)}
-                </div>
-            ` : ""}
-            <div style="font-size:13px;line-height:1.45;margin:7px 0;">
-                <strong>Recomendación:</strong> ${escaparTextoOM12(item.recomendacion || "")}
-            </div>
-            <button type="button" onclick="usarRecomendacionBibliotecaDesdeHallazgoOM20(${indice})"
-                style="background:#1d70b7;color:#fff;border:0;padding:7px 11px;border-radius:5px;cursor:pointer;font-weight:bold;">
-                Usar esta recomendación
-            </button>
-        </div>
-    `).join("") : `
-        <div style="padding:15px;text-align:center;color:#64748b;border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;">
-            No hay recomendaciones vinculadas por palabras clave al hallazgo actual.
-            <br><small style="display:block;margin-top:6px;">Puede agregar palabras clave a la recomendación desde la administración de la biblioteca.</small>
-        </div>
-    `;
+    contenedor.innerHTML = `<div style="font-size:12px;color:#64748b;margin-bottom:10px;">${resultados.length} registro(s) disponible(s)</div>` + resultados.map(({item, indice}) => `
+        <div style="border:1px solid #d1d5db;border-radius:8px;padding:13px;margin-bottom:10px;background:#fff;">
+            <div style="font-weight:bold;color:#123b5d;font-size:14px;">${escaparTextoOM12(item.area || "Área no especificada")} · ${escaparTextoOM12(item.tema || item.elemento || "Hallazgo")}</div>
+            <div style="font-size:13px;line-height:1.5;color:#334155;margin-top:8px;"><strong>Hallazgo:</strong> ${escaparTextoOM12(item.descripcionHallazgo || item.hallazgo || "Este registro no contiene descripción de hallazgo.")}</div>
+            ${item.nivel ? `<div style="font-size:12px;color:#475569;margin-top:5px;"><strong>Nivel:</strong> ${escaparTextoOM12(item.nivel)}</div>` : ""}
+            <div style="font-size:13px;line-height:1.5;margin-top:7px;"><strong>Recomendación:</strong> ${escaparTextoOM12(item.recomendacion || "Sin recomendación registrada")}</div>
+            <button type="button" onclick="usarRecomendacionBibliotecaDesdeHallazgoOM20(${indice})" style="margin-top:10px;background:#1d70b7;color:#fff;border:0;padding:8px 12px;border-radius:6px;cursor:pointer;font-weight:bold;">✓ Usar este hallazgo en la inspección</button>
+        </div>`).join("");
 }
 
 function usarRecomendacionBibliotecaDesdeHallazgoOM20(indice) {
@@ -8431,6 +8294,8 @@ function usarRecomendacionBibliotecaDesdeHallazgoOM20(indice) {
     // Los registros antiguos siguen funcionando como recomendaciones simples.
     // Los registros completos también recuperan el hallazgo que les dio origen.
     if (recomendacion.descripcionHallazgo || recomendacion.hallazgo) {
+        const campoArea = document.getElementById("hallazgoArea");
+        if (campoArea && recomendacion.area) campoArea.value = recomendacion.area;
         const campoElemento = document.getElementById("hallazgoElemento");
         const campoDescripcion = document.getElementById("hallazgoDescripcion");
         const campoNivel = document.getElementById("hallazgoNivel");
@@ -9255,16 +9120,13 @@ actualizarContadores();
             style="margin-bottom:18px; padding:12px; border:1px solid #d1d5db; border-radius:8px; background:#ffffff;">
         </div>
 
+        <!-- CAMBIO V5: el inspector escribe libremente el área o categoría. Se conserva el ID para mantener compatibilidad. -->
         <label>Área o categoría</label>
-        <select id="hallazgoArea" onchange="mostrarRecomendacionesSugeridas()">
-            <option value="">Seleccione un área</option>
-            <option>Control de Accesos</option>
-            <option>Seguridad Perimetral</option>
-            <option>Sistemas Electrónicos de Seguridad</option>
-            <option>Gestión de Autocuidado</option>
-            <option>Planeación Estratégica</option>
-            <option>SG-SST / Medio ambiente / Otros</option>
-        </select>
+        <input
+            type="text"
+            id="hallazgoArea"
+            placeholder="Escriba el área o categoría inspeccionada"
+            oninput="mostrarRecomendacionesSugeridas()">
 
         <label>Elemento inspeccionado</label>
         <input
