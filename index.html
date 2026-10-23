@@ -2022,21 +2022,54 @@ function render(){
  const sum=document.createElement('summary');sum.textContent=g[0]+' · '+g[1].filter((_,ii)=>state.answers[gi+'-'+ii]).length+'/'+g[1].length+' respondidos';details.appendChild(sum);
  g[1].forEach((q,ii)=>{const key=gi+'-'+ii,item=document.createElement('div');item.className='cam-v-item';
  item.innerHTML='<div class="cam-v-item-title">'+(gi+1)+'.'+(ii+1)+' '+esc(q)+'</div><div class="cam-v-status">'+[['C','Cumple'],['P','Parcial'],['NC','No cumple'],['NA','No aplica'],['NV','No verificado']].map(([v,l])=>'<label><input type="radio" name="camv-'+key+'" value="'+v+'" '+(state.answers[key]===v?'checked':'')+'> '+l+'</label>').join('')+'</div><textarea rows="2" data-note="'+key+'" placeholder="Observación, ubicación o evidencia (opcional)">'+esc(state.notes[key]||'')+'</textarea>';
- item.querySelectorAll('input[type=radio]').forEach(r=>r.addEventListener('change',()=>{state.answers[key]=r.value;updateSummary()}));
- item.querySelector('textarea').addEventListener('input',e=>{state.notes[key]=e.target.value});
+ item.querySelectorAll('input[type=radio]').forEach(r=>r.addEventListener('change',()=>{state.answers[key]=r.value;updateSummary();persistCurrent(false)}));
+ item.querySelector('textarea').addEventListener('input',e=>{state.notes[key]=e.target.value;persistCurrent(false)});
  details.appendChild(item)});
  host.appendChild(details)});
  updateSummary()
 }
 function data(){return {schema:'TECCHNEX-VULNERABILIDADES-1',id:state.id||('VUL-'+Date.now()),actualizado:new Date().toISOString(),...readMeta(),respuestas:state.answers,observacionesPorPregunta:state.notes}}
 function updateSummary(){const vals=Object.values(state.answers),total=allSections().reduce((n,g)=>n+g[1].length,0),reviewed=vals.length,nc=vals.filter(v=>v==='NC').length,partial=vals.filter(v=>v==='P').length;$('camVulnResumen').innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:5px 0 10px"><span style="background:#e2e8f0;padding:6px 9px;border-radius:6px">Revisados: '+reviewed+'/'+total+'</span><span style="background:#fee2e2;padding:6px 9px;border-radius:6px">No cumple: '+nc+'</span><span style="background:#fef3c7;padding:6px 9px;border-radius:6px">Parcial: '+partial+'</span></div>'}
-function abrir(){ $('camVulnOverlay').style.display='block';cargarInspecciones();let d;try{d=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){} if(d){state={id:d.id||null,answers:d.respuestas||{},notes:d.observacionesPorPregunta||{}};loadMeta(d)}else{loadMeta({fecha:new Date().toISOString().slice(0,10)});state={id:null,answers:{},notes:{}}}render()}
-function cerrar(){$('camVulnOverlay').style.display='none'}
-function guardar(){try{const d=data();localStorage.setItem(KEY,JSON.stringify(d));state.id=d.id;$('camVulnMensaje').textContent='Lista guardada en este navegador. Recuerde exportar JSON para trasladarla o respaldarla.';updateSummary()}catch(e){$('camVulnMensaje').textContent='No se pudo guardar. Verifique el almacenamiento del navegador.'}}
-function nueva(){if(!confirm('¿Crear una nueva evaluación? Primero exporte la actual si desea conservarla.'))return;state={id:null,answers:{},notes:{}};loadMeta({fecha:new Date().toISOString().slice(0,10)});$('camVulnMensaje').textContent='Nueva evaluación sin guardar.';render()}
+const RECORDS_KEY=KEY+'_registros_v2';
+function readRecords(){try{const r=JSON.parse(localStorage.getItem(RECORDS_KEY)||'[]');return Array.isArray(r)?r:[]}catch(e){return []}}
+function recordKey(d){return [d.sector||'Residencial',d.inspeccionIndice===null||d.inspeccionIndice===undefined?'sin-inspeccion':d.inspeccionIndice,String(d.lugar||'').trim().toLowerCase()].join('|')}
+function findSaved(meta){const k=recordKey(meta);return readRecords().find(r=>recordKey(r)===k)||null}
+function persistCurrent(showMessage){
+ try{
+  const d=data();if(!state.id)state.id=d.id;
+  d.id=state.id;d.claveRegistro=recordKey(d);
+  const records=readRecords();const k=recordKey(d);const pos=records.findIndex(r=>recordKey(r)===k);
+  if(pos>=0)records[pos]=d;else records.push(d);
+  localStorage.setItem(RECORDS_KEY,JSON.stringify(records));
+  localStorage.setItem(KEY,JSON.stringify(d));
+  if(showMessage)$('camVulnMensaje').textContent='Lista guardada automáticamente en este navegador.';
+  return true;
+ }catch(e){if(showMessage)$('camVulnMensaje').textContent='No se pudo guardar. Verifique el almacenamiento disponible del navegador.';return false}
+}
+function loadRecord(d){if(d){state={id:d.id||null,answers:d.respuestas||{},notes:d.observacionesPorPregunta||{}};loadMeta(d)}else{state={id:null,answers:{},notes:{}};loadMeta({fecha:new Date().toISOString().slice(0,10),sector:$('camVulnSector').value,inspeccionIndice:$('camVulnInspeccion').value===''?null:Number($('camVulnInspeccion').value)})}}
+function abrir(){
+ $('camVulnOverlay').style.display='block';cargarInspecciones();
+ let legacy=null;try{legacy=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){}
+ const selected=legacy&&legacy.inspeccionIndice!==undefined?legacy.inspeccionIndice:null;
+ cargarInspecciones(selected);
+ const sector=(legacy&&legacy.sector)||$('camVulnSector').value||'Residencial';
+ $('camVulnSector').value=sector;
+ let d=findSaved({sector,inspeccionIndice:selected,lugar:legacy&&legacy.lugar||''});
+ if(!d&&legacy&&legacy.schema==='TECCHNEX-VULNERABILIDADES-1'){
+   d=legacy;
+   const rs=readRecords();if(!rs.some(r=>recordKey(r)===recordKey(d))){rs.push(d);try{localStorage.setItem(RECORDS_KEY,JSON.stringify(rs))}catch(e){}}
+ }
+ if(d)loadRecord(d);else loadRecord(null);
+ render();$('camVulnMensaje').textContent=d?'Evaluación recuperada del almacenamiento local.':'Nueva evaluación. Las respuestas se guardarán automáticamente.';
+}
+function cerrar(){persistCurrent(false);$('camVulnOverlay').style.display='none'}
+function guardar(){if(persistCurrent(true))updateSummary()}
+function nueva(){if(!confirm('¿Crear una nueva evaluación? La evaluación actual se guardará antes de iniciar otra.'))return;persistCurrent(false);state={id:null,answers:{},notes:{}};loadMeta({fecha:new Date().toISOString().slice(0,10),sector:$('camVulnSector').value,inspeccionIndice:$('camVulnInspeccion').value===''?null:Number($('camVulnInspeccion').value)});$('camVulnMensaje').textContent='Nueva evaluación. Las respuestas se guardarán automáticamente.';render()}
 function exportarJSON(){const d=data(),blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='TECCHNEX_Vulnerabilidades_'+(d.sector||'sector')+'_'+(d.fecha||'sin-fecha')+'.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)}
 function exportarTexto(){const d=data(),sections=allSections();let out='TECCHNEX — ANÁLISIS DE VULNERABILIDADES\nSector: '+d.sector+'\nEstablecimiento: '+d.lugar+'\nCiudad: '+d.ciudad+'\nAnalista de Riesgos: '+d.inspector+'\nFecha: '+d.fecha+'\nJornada: '+d.jornada+'\n\n';sections.forEach((g,gi)=>{out+=g[0]+'\n';g[1].forEach((q,ii)=>{const k=gi+'-'+ii;out+=(gi+1)+'.'+(ii+1)+' '+q+'\nEstado: '+(state.answers[k]||'Pendiente')+'\nObservación: '+(state.notes[k]||'—')+'\n'})});out+='Observaciones generales: '+d.observaciones;const blob=new Blob([out],{type:'text/plain;charset=utf-8'});if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(out).then(()=>$('camVulnMensaje').textContent='Resumen copiado.').catch(()=>downloadText(out))}else downloadText(out);function downloadText(t){const u=URL.createObjectURL(new Blob([t],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download='TECCHNEX_Resumen_Vulnerabilidades.txt';a.click();URL.revokeObjectURL(u)}}
-$('camVulnSector').addEventListener('change',()=>{state={id:null,answers:{},notes:{}};render();$('camVulnMensaje').textContent='Cambió el sector. Las respuestas de la evaluación anterior se han separado; guarde o exporte antes de cambiar de sector.'});
+$('camVulnSector').addEventListener('change',()=>{const meta={sector:$('camVulnSector').value,inspeccionIndice:$('camVulnInspeccion').value===''?null:Number($('camVulnInspeccion').value),lugar:$('camVulnLugar').value.trim()};loadRecord(findSaved(meta));render();$('camVulnMensaje').textContent='Sector actualizado. La evaluación anterior se conserva y esta evaluación se guarda por separado.'});
+$('camVulnInspeccion').addEventListener('change',()=>{const meta={sector:$('camVulnSector').value,inspeccionIndice:$('camVulnInspeccion').value===''?null:Number($('camVulnInspeccion').value),lugar:$('camVulnLugar').value.trim()};loadRecord(findSaved(meta));render();$('camVulnMensaje').textContent='Inspección actualizada. Se recuperaron los datos guardados para esta selección, si existen.'});
+['camVulnLugar','camVulnCiudad','camVulnInspector','camVulnFecha','camVulnJornada','camVulnObservaciones'].forEach(id=>{const el=$(id);el.addEventListener('change',()=>persistCurrent(false));el.addEventListener('input',()=>persistCurrent(false))});
 $('camVulnOverlay').addEventListener('click',e=>{if(e.target===$('camVulnOverlay'))cerrar()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('camVulnOverlay').style.display==='block')cerrar()});
 window.CAMVulnerabilidades={abrir,cerrar,guardar,nueva,exportarJSON,exportarTexto};
@@ -11145,41 +11178,6 @@ async function generarWordPlantillaMaestra() {
         // puntaje arriba y cada código R-n en una etiqueta independiente debajo.
         // WordprocessingML no permite esquinas ovaladas en el borde de texto; se utiliza
         // fondo blanco, borde azul y espaciado compacto para mantener alta legibilidad.
-        // CAM-MAPA-CALOR-IMAGEN-01: renderiza el mapa como imagen PNG para incrustarlo
-        // en Word. Usa la misma matriz, puntuaciones, códigos y paleta del informe HTML.
-        async function generarImagenMapaCalorWord(celdas){
-            const ancho=1500, alto=600, x0=190, y0=95, celdaW=250, celdaH=78;
-            const color=(p)=>p>=15?'#D32F2F':p>=10?'#F57C00':p>=5?'#FBC02D':'#66BB6A';
-            const txt=(x,y,t,size=24,fill='#123B5D',weight='400')=>`<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" font-family="Arial, Helvetica, sans-serif" font-size="${size}" fill="${fill}" font-weight="${weight}">${String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</text>`;
-            let svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${ancho}" height="${alto}" viewBox="0 0 ${ancho} ${alto}"><rect width="100%" height="100%" fill="#FFFFFF"/>`;
-            svg+=`<rect x="${x0}" y="20" width="${celdaW*5}" height="75" fill="#000000"/>`;
-            svg+=txt(x0/2,48,'PROBABILIDAD /',21,'#FFFFFF','700')+txt(x0/2,73,'IMPACTO',21,'#FFFFFF','700');
-            for(let imp=1;imp<=5;imp++) svg+=txt(x0+(imp-.5)*celdaW,58,String(imp),25,'#FFFFFF','700');
-            for(let p=5;p>=1;p--){
-                const row=5-p, y=y0+row*celdaH;
-                svg+=`<rect x="25" y="${y}" width="${x0-25}" height="${celdaH}" fill="#123B5D" stroke="#FFFFFF" stroke-width="2"/>`;
-                svg+=txt((25+x0)/2,y+celdaH/2,String(p),25,'#FFFFFF','700');
-                for(let imp=1;imp<=5;imp++){
-                    const x=x0+(imp-1)*celdaW, score=p*imp, ids=celdas[`${p}-${imp}`]||[];
-                    svg+=`<rect x="${x}" y="${y}" width="${celdaW}" height="${celdaH}" fill="${color(score)}" stroke="#FFFFFF" stroke-width="2"/>`;
-                    if(ids.length){
-                        svg+=txt(x+celdaW/2,y+25,String(score),22,'#123B5D','700');
-                        const label='R-'+ids.join(', R-');
-                        const size=label.length>22?15:label.length>15?17:20;
-                        svg+=txt(x+celdaW/2,y+52,label,size,'#123B5D','700');
-                    }else svg+=txt(x+celdaW/2,y+celdaH/2,String(score),23,'#123B5D');
-                }
-            }
-            svg+='</svg>';
-            const data='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
-            return await new Promise((resolve,reject)=>{
-                const img=new Image();
-                img.onload=()=>{try{const canvas=document.createElement('canvas');canvas.width=ancho;canvas.height=alto;const ctx=canvas.getContext('2d');ctx.fillStyle='#FFFFFF';ctx.fillRect(0,0,ancho,alto);ctx.drawImage(img,0,0,ancho,alto);resolve(canvas.toDataURL('image/png'));}catch(e){reject(e);}};
-                img.onerror=()=>reject(new Error('No se pudo renderizar la imagen del mapa de calor.'));
-                img.src=data;
-            });
-        }
-
         function tablaMapaCalorWord(celdas){
             const anchos=[1600,1835,1835,1835,1835,1834];
             anchos[anchos.length-1] += ANCHO_TABLA_MAESTRA - anchos.reduce((s,n)=>s+n,0);
@@ -11303,7 +11301,25 @@ async function generarWordPlantillaMaestra() {
         // CAM-ISO31000-02 — RESUMEN EJECUTIVO DINÁMICO.
         // Se presenta también en Diagnóstico inicial. Solo resume datos registrados;
         // no calcula ni inventa un nivel global de riesgo.
-        const evaluacionVulnerabilidadesResumen = (() => { try { return JSON.parse(localStorage.getItem("tecchnex_lista_vulnerabilidades_multisector_v1") || "null"); } catch (_) { return null; } })();
+        // CAM-VULN-14: recuperar la evaluación asociada desde el registro histórico o la clave heredada.
+        function obtenerEvaluacionVulnerabilidadesAsociada(indiceInspeccion) {
+            const KEY_VULN = "tecchnex_lista_vulnerabilidades_multisector_v1";
+            const RECORDS_KEY_VULN = KEY_VULN + "_registros_v2";
+            const coincide = d => d && Number(d.inspeccionIndice) === Number(indiceInspeccion);
+            try {
+                const historicas = JSON.parse(localStorage.getItem(RECORDS_KEY_VULN) || "[]");
+                if (Array.isArray(historicas)) {
+                    const asociada = historicas.slice().reverse().find(coincide);
+                    if (asociada) return asociada;
+                }
+            } catch (_) {}
+            try {
+                const heredada = JSON.parse(localStorage.getItem(KEY_VULN) || "null");
+                if (coincide(heredada)) return heredada;
+            } catch (_) {}
+            return null;
+        }
+        const evaluacionVulnerabilidadesResumen = obtenerEvaluacionVulnerabilidadesAsociada(indice);
         const evaluacionTecnicaAsociadaResumen = !!(evaluacionVulnerabilidadesResumen && Number(evaluacionVulnerabilidadesResumen.inspeccionIndice) === Number(indice));
         const porcentajeChecklistResumen = evaluacionTecnicaAsociadaResumen ? null : (() => {
             let puntos = 0, maximo = 0;
@@ -11484,7 +11500,7 @@ async function generarWordPlantillaMaestra() {
         // Si existe una evaluación técnica asociada a esta inspección, sus resultados sustituyen
         // en el informe la lista de chequeo tradicional. Los datos antiguos se conservan intactos.
         let evaluacionVulnerabilidadesWord = null;
-        try { evaluacionVulnerabilidadesWord = JSON.parse(localStorage.getItem("tecchnex_lista_vulnerabilidades_multisector_v1") || "null"); } catch (_) {}
+        try { evaluacionVulnerabilidadesWord = obtenerEvaluacionVulnerabilidadesAsociada(indice); } catch (_) {}
         const tieneVulnerabilidadesAsociadas = !!(evaluacionVulnerabilidadesWord && Number(evaluacionVulnerabilidadesWord.inspeccionIndice) === Number(indice));
         if (tieneVulnerabilidadesAsociadas) {
             const ev = evaluacionVulnerabilidadesWord;
@@ -11530,6 +11546,41 @@ async function generarWordPlantillaMaestra() {
             cuerpo+=titulo("9. Análisis y evaluación de riesgos — matriz",1)+tablaGenerica(["#","Área","Elemento / Peligro","Probabilidad","Impacto","Puntuación","Nivel","Tratamiento"],matrizParaInforme.map((r,i)=>[String(i+1),r.area||"",r.peligro||"",r.probabilidad||"",r.impacto||"",r.puntuacion||"",r.nivel||"",r.tratamiento||""]),[500,1100,1900,900,800,900,900,1838]);
         }
 
+        // CAM-MAPA-CALOR-IMAGEN-01: mapa renderizado a PNG para preservar la apariencia al exportar a Word.
+        async function crearImagenMapaCalorWord(celdas){
+            const ancho=1400, x0=8, y0=8, colEtiqueta=180, anchoCelda=240, altoCabecera=62, altoFila=82, altoLeyenda=72;
+            const alto=y0+altoCabecera+5*altoFila+altoLeyenda+8;
+            const colores={bajo:"#66BB6A",medio:"#FBC02D",alto:"#F57C00",critico:"#D32F2F",azul:"#123B5D"};
+            const colorPuntaje=p=>p>=15?colores.critico:p>=10?colores.alto:p>=5?colores.medio:colores.bajo;
+            const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+            let svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${ancho}" height="${alto}" viewBox="0 0 ${ancho} ${alto}"><rect width="100%" height="100%" fill="#FFFFFF"/>`;
+            svg+=`<rect x="${x0}" y="${y0}" width="${colEtiqueta}" height="${altoCabecera}" fill="#000000" stroke="#FFFFFF" stroke-width="2"/><text x="${x0+colEtiqueta/2}" y="${y0+25}" font-family="Arial,sans-serif" font-size="19" font-weight="bold" text-anchor="middle" fill="#FFFFFF">PROBABILIDAD /</text><text x="${x0+colEtiqueta/2}" y="${y0+48}" font-family="Arial,sans-serif" font-size="19" font-weight="bold" text-anchor="middle" fill="#FFFFFF">IMPACTO</text>`;
+            for(let imp=1;imp<=5;imp++){const x=x0+colEtiqueta+(imp-1)*anchoCelda;svg+=`<rect x="${x}" y="${y0}" width="${anchoCelda}" height="${altoCabecera}" fill="#000000" stroke="#FFFFFF" stroke-width="2"/><text x="${x+anchoCelda/2}" y="${y0+38}" font-family="Arial,sans-serif" font-size="21" font-weight="bold" text-anchor="middle" fill="#FFFFFF">${imp}</text>`;}
+            for(let prob=5;prob>=1;prob--){
+                const row=5-prob,y=y0+altoCabecera+row*altoFila;
+                svg+=`<rect x="${x0}" y="${y}" width="${colEtiqueta}" height="${altoFila}" fill="#123B5D" stroke="#FFFFFF" stroke-width="2"/><text x="${x0+colEtiqueta/2}" y="${y+altoFila/2+7}" font-family="Arial,sans-serif" font-size="21" font-weight="bold" text-anchor="middle" fill="#FFFFFF">${prob}</text>`;
+                for(let imp=1;imp<=5;imp++){
+                    const x=x0+colEtiqueta+(imp-1)*anchoCelda,punt=prob*imp,ids=celdas[`${prob}-${imp}`]||[];
+                    svg+=`<rect x="${x}" y="${y}" width="${anchoCelda}" height="${altoFila}" fill="${colorPuntaje(punt)}" stroke="#FFFFFF" stroke-width="2"/><text x="${x+anchoCelda/2}" y="${ids.length?y+20:y+altoFila/2+7}" font-family="Arial,sans-serif" font-size="19" font-weight="${ids.length?'bold':'normal'}" text-anchor="middle" fill="#123B5D">${punt}</text>`;
+                    if(ids.length){
+                        const pillW=58,pillH=22,gapX=8,gapY=3,perRow=3,countRows=Math.ceil(ids.length/perRow);
+                        const firstY=y+29+Math.max(0,(altoFila-29-(countRows*pillH+(countRows-1)*gapY))/2);
+                        ids.forEach((id,i)=>{const rowTag=Math.floor(i/perRow),colTag=i%perRow,countThisRow=Math.min(perRow,ids.length-rowTag*perRow),totalW=countThisRow*pillW+(countThisRow-1)*gapX,startX=x+(anchoCelda-totalW)/2,px=startX+colTag*(pillW+gapX),py=firstY+rowTag*(pillH+gapY);svg+=`<rect x="${px}" y="${py}" width="${pillW}" height="${pillH}" rx="11" ry="11" fill="#FFFFFF" stroke="#123B5D" stroke-width="3"/><text x="${px+pillW/2}" y="${py+15}" font-family="Arial,sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#123B5D">${esc("R-"+id)}</text>`;});
+                    }
+                }
+            }
+            const leyY=y0+altoCabecera+5*altoFila+12,leyW=(ancho-2*x0)/4,leyenda=[["BAJO (1–4)",colores.bajo],["MEDIO (5–9)",colores.medio],["ALTO (10–14)",colores.alto],["CRÍTICO (15–25)",colores.critico]];
+            leyenda.forEach((it,i)=>{const x=x0+i*leyW;svg+=`<rect x="${x}" y="${leyY}" width="${leyW}" height="38" fill="${it[1]}" stroke="#FFFFFF" stroke-width="2"/><text x="${x+leyW/2}" y="${leyY+25}" font-family="Arial,sans-serif" font-size="17" font-weight="bold" text-anchor="middle" fill="#123B5D">${it[0]}</text>`;});
+            svg+="</svg>";
+            const url=URL.createObjectURL(new Blob([svg],{type:"image/svg+xml;charset=utf-8"}));
+            try{
+                const img=await new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(new Error("No fue posible renderizar el mapa de calor como imagen."));image.src=url;});
+                const canvas=document.createElement("canvas");canvas.width=ancho*2;canvas.height=alto*2;
+                const ctx=canvas.getContext("2d");ctx.fillStyle="#FFFFFF";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.scale(2,2);ctx.drawImage(img,0,0,ancho,alto);
+                return canvas.toDataURL("image/png");
+            }finally{URL.revokeObjectURL(url);}
+        }
+
         // 10. MAPA DE CALOR — matriz coloreada y leyenda por nivel de riesgo.
         if(matrizParaInforme.length){
             const celdas={};
@@ -11540,10 +11591,10 @@ async function generarWordPlantillaMaestra() {
                     (celdas[k]||(celdas[k]=[])).push(String(i+1));
                 }
             });
-            cuerpo+=titulo("10. Mapa de calor — distribución de riesgos",1);
-            // La imagen se genera con los datos del informe actual y se incrusta como PNG nativo en Word.
-            const mapaCalorPNG=await generarImagenMapaCalorWord(celdas);
-            cuerpo+=await agregarImagenWord(mapaCalorPNG,"mapa_calor","Mapa de calor — distribución de riesgos",18.3,7.6)
+            const mapaCalorDataUrl=await crearImagenMapaCalorWord(celdas);
+            const mapaCalorImagen=await agregarImagenWord(mapaCalorDataUrl,"mapa_calor","Mapa de calor de riesgos",17.2,8.2);
+            cuerpo+=titulo("10. Mapa de calor — distribución de riesgos",1)
+                +(mapaCalorImagen||tablaMapaCalorWord(celdas))
                 +parrafoWord("El valor principal corresponde a probabilidad × impacto. Los códigos R- identifican los riesgos de la matriz. Las filas representan probabilidad y las columnas impacto.",{font:'Century Gothic',size:'16',color:'666666',before:60,after:60})
                 +leyendaMapaCalorWord()
                 +parrafoWord("La clasificación visual corresponde al producto de probabilidad por impacto: riesgo bajo 1–4, moderado 5–9, alto 10–14 y extremo 15–25.",{font:'Century Gothic',size:'15',color:'C00000',bold:true,before:40,after:80});
