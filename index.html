@@ -665,6 +665,13 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
                     de las inspecciones realizadas.
                 </p>
             </div>
+            <!-- CAM-VULN-MULTISECTOR-01: nueva lista de chequeo por sector, independiente de los módulos existentes. -->
+            <div class="modulo" style="background:#eff6ff;border:2px solid #60a5fa;border-top:7px solid #2563eb;" onclick="CAMVulnerabilidades.abrir()">
+                <h3 style="color:#1d4ed8;">🛡️ Análisis de vulnerabilidades</h3>
+                <p>Instrumento técnico para el análisis preventivo de riesgos y vulnerabilidades en sectores residencial, comercial e industrial. Sus resultados se incorporan al informe asociado.</p>
+                <button type="button" onclick="event.stopPropagation();CAMVulnerabilidades.abrir();" style="margin-top:8px;background:#1d4ed8;color:#fff;border:0;padding:9px 13px;border-radius:6px;font-weight:bold;cursor:pointer;">Abrir lista de chequeo</button>
+            </div>
+
             <!-- CAM-AGENDA-ANALISIS-02: se elimina la tarjeta duplicada; las alertas abren la agenda. -->
             <!-- CAM-AGENDA-ALERTAS-01: resumen automático de visitas pendientes en el tablero principal. -->
             <div id="camAgendaAlertasCard" class="modulo" style="background:#fffaf0;border:2px solid #f59e0b;border-top:7px solid #d97706;">
@@ -766,7 +773,7 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
             </div>
 
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:9px;">
-                <button type="button" id="btnChecklistOM22" class="boton-principal" onclick="abrirListaChequeo(indiceInspeccionEditando)" disabled>📋 Lista de chequeo</button>
+                <!-- CAM-VULN-V6: se retira el acceso visible a la lista de chequeo tradicional; se conservan los datos históricos y la lógica interna por compatibilidad. -->
                 <button type="button" id="btnMatrizOM22" class="boton-principal" onclick="abrirMatrizRiesgosClienteOM22Activo()" disabled>📊 Matriz de riesgos</button>
                 <button type="button" id="btnHallazgosOM22" class="boton-principal" onclick="abrirHallazgos(indiceInspeccionEditando)" disabled>⚠️ Hallazgos</button>
                 <button type="button" id="btnEditarOM22" class="boton-principal" onclick="editarInspeccion(indiceInspeccionEditando)" disabled>✏️ Editar</button>
@@ -847,7 +854,7 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
                     </div>
 
                     <div class="campo">
-                        <label>Analista de riesgos *</label>
+                        <label>Analista de Riesgos *</label>
                         <input type="text" id="inspector" required>
                     </div>
 
@@ -1898,6 +1905,143 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
     </div>
 
 </div>
+
+
+
+<!-- CAM-VULN-MULTISECTOR-01: formulario de chequeo especializado. Almacenamiento separado para no alterar inspecciones existentes. -->
+<style>
+#camVulnOverlay{display:none;position:fixed;inset:0;z-index:10050;background:rgba(15,23,42,.68);overflow:auto;padding:18px}
+#camVulnPanel{max-width:1050px;margin:20px auto;background:#fff;border-radius:14px;box-shadow:0 20px 60px #0004;overflow:hidden;color:#172033}
+#camVulnPanel header{background:#123b5d;color:#fff;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+#camVulnPanel header h2{margin:0;font-size:22px}
+#camVulnPanel .cam-v-body{padding:18px;display:grid;gap:14px}
+#camVulnPanel .cam-v-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+#camVulnPanel label{font-weight:600;font-size:13px;display:grid;gap:5px}
+#camVulnPanel input,#camVulnPanel select,#camVulnPanel textarea{font:inherit;padding:9px;border:1px solid #cbd5e1;border-radius:7px;min-width:0;width:100%;box-sizing:border-box}
+#camVulnPanel .cam-v-section{border:1px solid #dbe4ee;border-radius:10px;overflow:hidden}
+#camVulnPanel .cam-v-section summary{padding:13px;background:#f1f5f9;font-weight:700;cursor:pointer}
+#camVulnPanel .cam-v-item{padding:13px;border-top:1px solid #e2e8f0;display:grid;gap:9px}
+#camVulnPanel .cam-v-item-title{font-weight:600;font-size:14px}
+#camVulnPanel .cam-v-status{display:flex;gap:12px;flex-wrap:wrap}
+#camVulnPanel .cam-v-status label{display:flex;align-items:center;gap:4px;font-weight:500}
+#camVulnPanel .cam-v-status input{width:auto}
+#camVulnPanel .cam-v-actions{display:flex;gap:9px;flex-wrap:wrap}
+#camVulnPanel button{border:0;border-radius:7px;padding:10px 14px;font-weight:700;cursor:pointer}
+#camVulnPanel .primary{background:#123b5d;color:white}
+#camVulnPanel .secondary{background:#e2e8f0;color:#172033}
+#camVulnPanel .cam-v-muted{color:#64748b;font-size:12px}
+@media(max-width:600px){#camVulnOverlay{padding:6px}#camVulnPanel{margin:4px auto}#camVulnPanel header{padding:14px}#camVulnPanel .cam-v-body{padding:10px}}
+</style>
+<div id="camVulnOverlay" role="dialog" aria-modal="true" aria-labelledby="camVulnTitle">
+ <section id="camVulnPanel">
+  <header><div><h2 id="camVulnTitle">Análisis de vulnerabilidades</h2><div style="font-size:12px;opacity:.85;margin-top:4px">Instrumento técnico de análisis preventivo · TECCHNEX</div></div><button type="button" class="secondary" onclick="CAMVulnerabilidades.cerrar()" aria-label="Cerrar">✕</button></header>
+  <div class="cam-v-body">
+   <div class="cam-v-grid">
+    <label>Sector<select id="camVulnSector"><option value="Residencial">Residencial</option><option value="Comercial">Comercial / Mall</option><option value="Industrial">Industrial</option></select></label>
+    <label>Inspección asociada<select id="camVulnInspeccion"><option value="">Seleccione una inspección registrada</option></select></label>
+    <label>Nombre del establecimiento<input id="camVulnLugar" placeholder="Nombre del conjunto, mall o planta"></label>
+    <label>Ciudad<input id="camVulnCiudad" placeholder="Ciudad"></label>
+    <label>Analista de Riesgos responsable<input id="camVulnInspector" placeholder="Nombre del analista de riesgos"></label>
+    <label>Fecha<input id="camVulnFecha" type="date"></label>
+    <label>Jornada<select id="camVulnJornada"><option>Diurna</option><option>Nocturna</option><option>Ambas</option></select></label>
+   </div>
+   <div class="cam-v-muted"><strong>Enfoque técnico:</strong> esta evaluación técnica sustituye la lista de chequeo tradicional en el informe cuando está asociada a la evaluación seleccionada. Identifique el activo o área, describa la condición observada, documente evidencia autorizada y relacione la posible amenaza y consecuencia. Estados: C = Cumple; P = Parcial; NC = No cumple; NA = No aplica; NV = No verificado. Una respuesta NC o P señala una condición por analizar, no asigna automáticamente un nivel de riesgo.</div>
+   <div id="camVulnResumen" aria-live="polite"></div>
+   <div id="camVulnPreguntas"></div>
+   <label>Observaciones generales<textarea id="camVulnObservaciones" rows="3" placeholder="Contexto general de la inspección"></textarea></label>
+   <div class="cam-v-actions">
+    <button type="button" class="primary" onclick="CAMVulnerabilidades.guardar()">Guardar lista</button>
+    <button type="button" class="secondary" onclick="CAMVulnerabilidades.exportarJSON()">Exportar JSON</button>
+    <button type="button" class="secondary" onclick="CAMVulnerabilidades.exportarTexto()">Copiar resumen</button>
+    <button type="button" class="secondary" onclick="CAMVulnerabilidades.nueva()">Nueva evaluación</button>
+    <button type="button" class="secondary" onclick="CAMVulnerabilidades.cerrar()">Cerrar</button>
+   </div>
+   <div id="camVulnMensaje" role="status" class="cam-v-muted"></div>
+  </div>
+ </section>
+</div>
+<script>
+(function(){
+'use strict';
+const KEY='tecchnex_lista_vulnerabilidades_multisector_v1';
+const $=id=>document.getElementById(id);
+const shared=[
+['Perímetro y entorno',[
+'¿Se identifican las amenazas externas y las condiciones de seguridad del entorno?',
+'¿El perímetro, cerramientos y accesos exteriores se encuentran en condiciones adecuadas?',
+'¿La iluminación exterior y la visibilidad permiten detectar situaciones anómalas?',
+'¿Se inspeccionan y documentan periódicamente las condiciones perimetrales?']],
+['Accesos y circulación',[
+'¿Los accesos peatonales y vehiculares tienen procedimientos de control definidos?',
+'¿Se controla el ingreso de visitantes, contratistas, proveedores y personal temporal?',
+'¿Las áreas restringidas están identificadas y su acceso está limitado a personal autorizado?',
+'¿Las salidas y rutas de evacuación permanecen accesibles y sin obstrucciones?']],
+['Vigilancia y operación',[
+'¿Los procedimientos de vigilancia, rondas y respuesta están documentados?',
+'¿Se registran las novedades y se realiza entrega formal entre turnos?',
+'¿El personal conoce los procedimientos de escalamiento y atención de incidentes?',
+'¿Se revisan incidentes anteriores y se verifican las acciones correctivas?']],
+['Seguridad electrónica',[
+'¿Los sistemas de CCTV cubren las áreas de interés definidas por el análisis de riesgos?',
+'¿Las cámaras, alarmas y medios de comunicación están operativos?',
+'¿El acceso a grabaciones y configuraciones está limitado a personal autorizado?',
+'¿Existen mantenimiento documentado y procedimientos ante fallas tecnológicas?']],
+['Emergencias y continuidad',[
+'¿Existe un plan de emergencias vigente y conocido por el personal pertinente?',
+'¿Los sistemas de detección, alarma y respuesta tienen inspecciones y mantenimiento?',
+'¿Se realizan simulacros y se registran oportunidades de mejora?',
+'¿Existen procedimientos para mantener funciones esenciales durante una interrupción?']],
+['Gestión y evidencias',[
+'¿Las responsabilidades de administración, seguridad y mantenimiento están definidas?',
+'¿Se documentan las vulnerabilidades con ubicación y evidencia autorizada?',
+'¿Se asignan responsables y plazos para las acciones correctivas?',
+'¿Se verifica la eficacia de las medidas implementadas?']]
+];
+const sector={
+Residencial:[
+['Portería y convivencia',['¿La portería controla el ingreso de residentes, visitantes y domicilios?','¿Existe un procedimiento para menores extraviados y personas vulnerables?','¿Las zonas comunes, piscinas, gimnasios y salones tienen controles adecuados?','¿Se gestionan parqueaderos, bicicletas y bienes comunes para prevenir hurtos?']],
+['Rondas y áreas comunes',['¿Las rondas cubren perímetro, parqueaderos y zonas de baja afluencia?','¿Se registran los puntos de ronda y las novedades relevantes?','¿Los cuartos técnicos, cubiertas y depósitos están protegidos?','¿Existen procedimientos de atención de riñas, violencia o alteraciones de convivencia?']]
+],
+Comercial:[
+['Operación del mall',['¿Los accesos públicos, entradas de servicio y zonas de carga tienen controles diferenciados?','¿Se evalúan riesgos de hurto, agresión y aglomeraciones en zonas de alta afluencia?','¿Las cajas, manejo de valores, bodegas y locales sensibles tienen controles apropiados?','¿Se gestionan paquetes sospechosos, objetos perdidos y alertas de seguridad?']],
+['Visitantes y locales',['¿Los contratistas y proveedores cuentan con registro y autorización?','¿Las zonas de comidas, entretenimiento y eventos tienen procedimientos de seguridad?','¿Se revisan parqueaderos, pasillos, escaleras y puntos de encuentro?','¿Existe coordinación de emergencias entre administración, locales y vigilancia?']]
+],
+Industrial:[
+['Protección industrial',['¿Los portones y accesos de vehículos tienen validación y registro de ingreso?','¿Las bodegas e inventarios cuentan con controles de acceso y trazabilidad?','¿Las áreas de producción, cuartos técnicos y maquinaria están restringidas según su función?','¿Se controlan llaves, herramientas críticas y activos de alto valor?']],
+['Amenazas y continuidad industrial',['¿Se evalúan sabotaje, intrusión, robo interno y amenazas a la continuidad?','¿Las áreas con sustancias peligrosas tienen controles de acceso y respuesta?','¿Se coordinan seguridad física, SST, mantenimiento y respuesta a emergencias?','¿Existen procedimientos para fallas eléctricas, incendio, derrames o interrupción operativa?']]
+]};
+let state={id:null,answers:{},notes:{}};
+function allSections(){return [...shared,...sector[$('camVulnSector').value]]}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function readMeta(){const sel=$('camVulnInspeccion');const idx=sel.value===''?null:Number(sel.value);let inspecciones=[];try{inspecciones=JSON.parse(localStorage.getItem('inspecciones')||'[]')}catch(e){}const insp=Number.isInteger(idx)&&idx>=0?inspecciones[idx]:null;return {sector:$('camVulnSector').value,inspeccionIndice:idx,inspeccionCliente:insp?(insp.cliente||insp.nombreCliente||''):'',inspeccionTipo:insp?(insp.tipo||''):'',lugar:$('camVulnLugar').value.trim(),ciudad:$('camVulnCiudad').value.trim(),inspector:$('camVulnInspector').value.trim(),fecha:$('camVulnFecha').value,jornada:$('camVulnJornada').value,observaciones:$('camVulnObservaciones').value.trim()}}
+function cargarInspecciones(seleccion){const sel=$('camVulnInspeccion');let arr=[];try{arr=JSON.parse(localStorage.getItem('inspecciones')||'[]')}catch(e){}sel.innerHTML='<option value="">Seleccione una inspección registrada</option>';arr.forEach((x,i)=>{const op=document.createElement('option');op.value=String(i);op.textContent=(x.cliente||x.nombreCliente||'Cliente sin nombre')+' — '+(x.tipo||'Inspección')+' — #'+(i+1);sel.appendChild(op)});sel.value=seleccion!==undefined&&seleccion!==null&&arr[seleccion]?String(seleccion):''}
+function loadMeta(d){$('camVulnSector').value=d.sector||'Residencial';cargarInspecciones(d.inspeccionIndice);$('camVulnLugar').value=d.lugar||'';$('camVulnCiudad').value=d.ciudad||'';$('camVulnInspector').value=d.inspector||'';$('camVulnFecha').value=d.fecha||new Date().toISOString().slice(0,10);$('camVulnJornada').value=d.jornada||'Diurna';$('camVulnObservaciones').value=d.observaciones||''}
+function render(){
+ const old=allSections(),host=$('camVulnPreguntas');host.innerHTML='';
+ old.forEach((g,gi)=>{const details=document.createElement('details');details.className='cam-v-section';details.open=gi===0;
+ const sum=document.createElement('summary');sum.textContent=g[0]+' · '+g[1].filter((_,ii)=>state.answers[gi+'-'+ii]).length+'/'+g[1].length+' respondidos';details.appendChild(sum);
+ g[1].forEach((q,ii)=>{const key=gi+'-'+ii,item=document.createElement('div');item.className='cam-v-item';
+ item.innerHTML='<div class="cam-v-item-title">'+(gi+1)+'.'+(ii+1)+' '+esc(q)+'</div><div class="cam-v-status">'+[['C','Cumple'],['P','Parcial'],['NC','No cumple'],['NA','No aplica'],['NV','No verificado']].map(([v,l])=>'<label><input type="radio" name="camv-'+key+'" value="'+v+'" '+(state.answers[key]===v?'checked':'')+'> '+l+'</label>').join('')+'</div><textarea rows="2" data-note="'+key+'" placeholder="Observación, ubicación o evidencia (opcional)">'+esc(state.notes[key]||'')+'</textarea>';
+ item.querySelectorAll('input[type=radio]').forEach(r=>r.addEventListener('change',()=>{state.answers[key]=r.value;updateSummary()}));
+ item.querySelector('textarea').addEventListener('input',e=>{state.notes[key]=e.target.value});
+ details.appendChild(item)});
+ host.appendChild(details)});
+ updateSummary()
+}
+function data(){return {schema:'TECCHNEX-VULNERABILIDADES-1',id:state.id||('VUL-'+Date.now()),actualizado:new Date().toISOString(),...readMeta(),respuestas:state.answers,observacionesPorPregunta:state.notes}}
+function updateSummary(){const vals=Object.values(state.answers),total=allSections().reduce((n,g)=>n+g[1].length,0),reviewed=vals.length,nc=vals.filter(v=>v==='NC').length,partial=vals.filter(v=>v==='P').length;$('camVulnResumen').innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:5px 0 10px"><span style="background:#e2e8f0;padding:6px 9px;border-radius:6px">Revisados: '+reviewed+'/'+total+'</span><span style="background:#fee2e2;padding:6px 9px;border-radius:6px">No cumple: '+nc+'</span><span style="background:#fef3c7;padding:6px 9px;border-radius:6px">Parcial: '+partial+'</span></div>'}
+function abrir(){ $('camVulnOverlay').style.display='block';cargarInspecciones();let d;try{d=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){} if(d){state={id:d.id||null,answers:d.respuestas||{},notes:d.observacionesPorPregunta||{}};loadMeta(d)}else{loadMeta({fecha:new Date().toISOString().slice(0,10)});state={id:null,answers:{},notes:{}}}render()}
+function cerrar(){$('camVulnOverlay').style.display='none'}
+function guardar(){try{const d=data();localStorage.setItem(KEY,JSON.stringify(d));state.id=d.id;$('camVulnMensaje').textContent='Lista guardada en este navegador. Recuerde exportar JSON para trasladarla o respaldarla.';updateSummary()}catch(e){$('camVulnMensaje').textContent='No se pudo guardar. Verifique el almacenamiento del navegador.'}}
+function nueva(){if(!confirm('¿Crear una nueva evaluación? Primero exporte la actual si desea conservarla.'))return;state={id:null,answers:{},notes:{}};loadMeta({fecha:new Date().toISOString().slice(0,10)});$('camVulnMensaje').textContent='Nueva evaluación sin guardar.';render()}
+function exportarJSON(){const d=data(),blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='TECCHNEX_Vulnerabilidades_'+(d.sector||'sector')+'_'+(d.fecha||'sin-fecha')+'.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)}
+function exportarTexto(){const d=data(),sections=allSections();let out='TECCHNEX — ANÁLISIS DE VULNERABILIDADES\nSector: '+d.sector+'\nEstablecimiento: '+d.lugar+'\nCiudad: '+d.ciudad+'\nAnalista de Riesgos: '+d.inspector+'\nFecha: '+d.fecha+'\nJornada: '+d.jornada+'\n\n';sections.forEach((g,gi)=>{out+=g[0]+'\n';g[1].forEach((q,ii)=>{const k=gi+'-'+ii;out+=(gi+1)+'.'+(ii+1)+' '+q+'\nEstado: '+(state.answers[k]||'Pendiente')+'\nObservación: '+(state.notes[k]||'—')+'\n'})});out+='Observaciones generales: '+d.observaciones;const blob=new Blob([out],{type:'text/plain;charset=utf-8'});if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(out).then(()=>$('camVulnMensaje').textContent='Resumen copiado.').catch(()=>downloadText(out))}else downloadText(out);function downloadText(t){const u=URL.createObjectURL(new Blob([t],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download='TECCHNEX_Resumen_Vulnerabilidades.txt';a.click();URL.revokeObjectURL(u)}}
+$('camVulnSector').addEventListener('change',()=>{state={id:null,answers:{},notes:{}};render();$('camVulnMensaje').textContent='Cambió el sector. Las respuestas de la evaluación anterior se han separado; guarde o exporte antes de cambiar de sector.'});
+$('camVulnOverlay').addEventListener('click',e=>{if(e.target===$('camVulnOverlay'))cerrar()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('camVulnOverlay').style.display==='block')cerrar()});
+window.CAMVulnerabilidades={abrir,cerrar,guardar,nueva,exportarJSON,exportarTexto};
+})();
+</script>
 
 <script>
 
@@ -6160,7 +6304,7 @@ const diferencia =
                                         padding:8px;
                                         border:1px solid #999;
                                     ">
-                                        Inspector
+                                        Analista de Riesgos
                                     </th>
 
                                     <th style="
@@ -6668,7 +6812,6 @@ function actualizarPanelModularInspeccionOM22(indice) {
     const idElemento = document.getElementById("idInspeccionActivoOM22");
     const estadoElemento = document.getElementById("estadoInspeccionOM22");
     const botones = [
-        "btnChecklistOM22",
         "btnMatrizOM22",
         "btnHallazgosOM22",
         "btnEditarOM22",
@@ -11002,6 +11145,41 @@ async function generarWordPlantillaMaestra() {
         // puntaje arriba y cada código R-n en una etiqueta independiente debajo.
         // WordprocessingML no permite esquinas ovaladas en el borde de texto; se utiliza
         // fondo blanco, borde azul y espaciado compacto para mantener alta legibilidad.
+        // CAM-MAPA-CALOR-IMAGEN-01: renderiza el mapa como imagen PNG para incrustarlo
+        // en Word. Usa la misma matriz, puntuaciones, códigos y paleta del informe HTML.
+        async function generarImagenMapaCalorWord(celdas){
+            const ancho=1500, alto=600, x0=190, y0=95, celdaW=250, celdaH=78;
+            const color=(p)=>p>=15?'#D32F2F':p>=10?'#F57C00':p>=5?'#FBC02D':'#66BB6A';
+            const txt=(x,y,t,size=24,fill='#123B5D',weight='400')=>`<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" font-family="Arial, Helvetica, sans-serif" font-size="${size}" fill="${fill}" font-weight="${weight}">${String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</text>`;
+            let svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${ancho}" height="${alto}" viewBox="0 0 ${ancho} ${alto}"><rect width="100%" height="100%" fill="#FFFFFF"/>`;
+            svg+=`<rect x="${x0}" y="20" width="${celdaW*5}" height="75" fill="#000000"/>`;
+            svg+=txt(x0/2,48,'PROBABILIDAD /',21,'#FFFFFF','700')+txt(x0/2,73,'IMPACTO',21,'#FFFFFF','700');
+            for(let imp=1;imp<=5;imp++) svg+=txt(x0+(imp-.5)*celdaW,58,String(imp),25,'#FFFFFF','700');
+            for(let p=5;p>=1;p--){
+                const row=5-p, y=y0+row*celdaH;
+                svg+=`<rect x="25" y="${y}" width="${x0-25}" height="${celdaH}" fill="#123B5D" stroke="#FFFFFF" stroke-width="2"/>`;
+                svg+=txt((25+x0)/2,y+celdaH/2,String(p),25,'#FFFFFF','700');
+                for(let imp=1;imp<=5;imp++){
+                    const x=x0+(imp-1)*celdaW, score=p*imp, ids=celdas[`${p}-${imp}`]||[];
+                    svg+=`<rect x="${x}" y="${y}" width="${celdaW}" height="${celdaH}" fill="${color(score)}" stroke="#FFFFFF" stroke-width="2"/>`;
+                    if(ids.length){
+                        svg+=txt(x+celdaW/2,y+25,String(score),22,'#123B5D','700');
+                        const label='R-'+ids.join(', R-');
+                        const size=label.length>22?15:label.length>15?17:20;
+                        svg+=txt(x+celdaW/2,y+52,label,size,'#123B5D','700');
+                    }else svg+=txt(x+celdaW/2,y+celdaH/2,String(score),23,'#123B5D');
+                }
+            }
+            svg+='</svg>';
+            const data='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+            return await new Promise((resolve,reject)=>{
+                const img=new Image();
+                img.onload=()=>{try{const canvas=document.createElement('canvas');canvas.width=ancho;canvas.height=alto;const ctx=canvas.getContext('2d');ctx.fillStyle='#FFFFFF';ctx.fillRect(0,0,ancho,alto);ctx.drawImage(img,0,0,ancho,alto);resolve(canvas.toDataURL('image/png'));}catch(e){reject(e);}};
+                img.onerror=()=>reject(new Error('No se pudo renderizar la imagen del mapa de calor.'));
+                img.src=data;
+            });
+        }
+
         function tablaMapaCalorWord(celdas){
             const anchos=[1600,1835,1835,1835,1835,1834];
             anchos[anchos.length-1] += ANCHO_TABLA_MAESTRA - anchos.reduce((s,n)=>s+n,0);
@@ -11012,26 +11190,20 @@ async function generarWordPlantillaMaestra() {
                 for(let impacto=1;impacto<=5;impacto++){
                     const puntuacion=probabilidad*impacto;
                     const ids=celdas[`${probabilidad}-${impacto}`]||[];
-                    const valor=`<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="${ids.length ? 30 : 0}"/></w:pPr>${runWord(String(puntuacion),{font:"Century Gothic",size:ids.length?"14":"16",bold:ids.length>0,color:"123B5D"})}</w:p>`;
-                    // CAM-MAPA-CALOR-WORD-03: etiquetas ovaladas VML para Word.
-                    // Se agrupan hasta dos códigos por línea, sin tablas anidadas ni celdas vacías.
-                    const etiquetas=ids.length ? (() => {
-                        const lineas=[];
-                        for(let i=0;i<ids.length;i+=2){
-                            const grupo=ids.slice(i,i+2);
-                            const runs=grupo.map(id=>`<w:r><w:rPr><w:noProof/></w:rPr><w:pict><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" style="width:32pt;height:13pt" arcsize="50%" fillcolor="#FFFFFF" strokecolor="#123B5D" strokeweight="1pt"><v:fill color="#FFFFFF"/><v:stroke color="#123B5D" weight="1pt"/><v:textbox inset="2pt,0pt,2pt,0pt"><div xmlns="http://www.w3.org/1999/xhtml" style="text-align:center;white-space:nowrap"><span style="font-family:'Century Gothic';font-size:7pt;font-weight:bold;color:#123B5D">R-${id}</span></div></v:textbox></v:roundrect></w:pict></w:r>`).join('<w:r><w:rPr><w:sz w:val="6"/></w:rPr><w:t xml:space="preserve">  </w:t></w:r>');
-                            lineas.push(`<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="0" w:line="260" w:lineRule="auto"/><w:keepLines/></w:pPr>${runs}</w:p>`);
-                        }
-                        return lineas.join("");
-                    })() : "";
-                    const width=anchos[impacto];
-                    const shade=colorCeldaMapaCalor(puntuacion);
-                    const cell=`<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/><w:shd w:fill="${shade}"/><w:vAlign w:val="center"/><w:tcMar><w:top w:w="60" w:type="dxa"/><w:left w:w="45" w:type="dxa"/><w:bottom w:w="60" w:type="dxa"/><w:right w:w="45" w:type="dxa"/></w:tcMar><w:tcBorders><w:top w:val="single" w:sz="4" w:color="FFFFFF"/><w:left w:val="single" w:sz="4" w:color="FFFFFF"/><w:bottom w:val="single" w:sz="4" w:color="FFFFFF"/><w:right w:val="single" w:sz="4" w:color="FFFFFF"/></w:tcBorders></w:tcPr>${valor}${etiquetas}</w:tc>`;
-                    celdasFila.push(cell);
+                    // CAM-MAPA-CALOR-CODIGOS-01: prefijo R- distingue el código del riesgo del puntaje.
+                    const valor=ids.length ? `${puntuacion} · R-${ids.join(", R-")}` : String(puntuacion);
+                    celdasFila.push(celdaWord(valor,{
+                        width:anchos[impacto],
+                        shading:colorCeldaMapaCalor(puntuacion),
+                        bold:ids.length>0,
+                        color:"123B5D",
+                        align:"center",
+                        size:ids.length ? "13" : "16"
+                    }));
                 }
                 filas.push(`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdasFila.join("")}</w:tr>`);
             }
-            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="A6A6A6"/><w:left w:val="single" w:sz="6" w:color="A6A6A6"/><w:bottom w:val="single" w:sz="6" w:color="A6A6A6"/><w:insideH w:val="single" w:sz="6" w:color="FFFFFF"/><w:insideV w:val="single" w:sz="6" w:color="FFFFFF"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>${encabezados}${filas.join("")}</w:tbl>`;
+            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="A6A6A6"/><w:left w:val="single" w:sz="6" w:color="A6A6A6"/><w:bottom w:val="single" w:sz="6" w:color="A6A6A6"/><w:right w:val="single" w:sz="6" w:color="A6A6A6"/><w:insideH w:val="single" w:sz="6" w:color="FFFFFF"/><w:insideV w:val="single" w:sz="6" w:color="FFFFFF"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>${encabezados}${filas.join("")}</w:tbl>`;
         }
         function leyendaMapaCalorWord(){
             const items=[
@@ -11090,11 +11262,11 @@ async function generarWordPlantillaMaestra() {
                 '<w:document xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"'
             );
         }
-        if (!/\\sxmlns:v="/.test(raizDocumento)) {
-            raizDocumento = raizDocumento.replace(/<w:document\\b/, '<w:document xmlns:v="urn:schemas-microsoft-com:vml"');
+        if (!/\sxmlns:v="/.test(raizDocumento)) {
+            raizDocumento = raizDocumento.replace(/<w:document\b/, '<w:document xmlns:v="urn:schemas-microsoft-com:vml"');
         }
-        if (!/\\sxmlns:o="/.test(raizDocumento)) {
-            raizDocumento = raizDocumento.replace(/<w:document\\b/, '<w:document xmlns:o="urn:schemas-microsoft-com:office:office"');
+        if (!/\sxmlns:o="/.test(raizDocumento)) {
+            raizDocumento = raizDocumento.replace(/<w:document\b/, '<w:document xmlns:o="urn:schemas-microsoft-com:office:office"');
         }
         documentXml = raizDocumento + documentXml.slice(aperturaDocumento[0].length);
 
@@ -11131,7 +11303,9 @@ async function generarWordPlantillaMaestra() {
         // CAM-ISO31000-02 — RESUMEN EJECUTIVO DINÁMICO.
         // Se presenta también en Diagnóstico inicial. Solo resume datos registrados;
         // no calcula ni inventa un nivel global de riesgo.
-        const porcentajeChecklistResumen = (() => {
+        const evaluacionVulnerabilidadesResumen = (() => { try { return JSON.parse(localStorage.getItem("tecchnex_lista_vulnerabilidades_multisector_v1") || "null"); } catch (_) { return null; } })();
+        const evaluacionTecnicaAsociadaResumen = !!(evaluacionVulnerabilidadesResumen && Number(evaluacionVulnerabilidadesResumen.inspeccionIndice) === Number(indice));
+        const porcentajeChecklistResumen = evaluacionTecnicaAsociadaResumen ? null : (() => {
             let puntos = 0, maximo = 0;
             Object.keys(datosChecklist || {}).forEach(categoria => {
                 const valorRegistrado = resultadosCategorias[categoria];
@@ -11156,7 +11330,7 @@ async function generarWordPlantillaMaestra() {
             : (matrizParaInforme.length ? `${riesgosConNivel} de ${matrizParaInforme.length} riesgos con nivel consignado` : "No hay matriz de riesgos registrada");
         const filasResumenISO = [
             ["Tipo de inspección", textoDisponible(inspeccion.tipo, "No registrado"), "Alcance indicado en el registro de inspección."],
-            ["Resultado del checklist", porcentajeChecklistResumen === null ? (esDiagnosticoInicial ? "No aplica" : "No disponible") : `${porcentajeChecklistResumen}% — ${perfilChecklistResumen}`, "Se presenta por separado; no equivale al nivel global de riesgo."],
+            [evaluacionTecnicaAsociadaResumen ? "Instrumento preventivo técnico" : "Resultado del checklist", evaluacionTecnicaAsociadaResumen ? "Análisis de vulnerabilidades asociado" : (porcentajeChecklistResumen === null ? (esDiagnosticoInicial ? "No aplica" : "No disponible") : `${porcentajeChecklistResumen}% — ${perfilChecklistResumen}`), evaluacionTecnicaAsociadaResumen ? "La evaluación técnica es la fuente principal de resultados; la matriz conserva la valoración del riesgo." : "Se presenta por separado; no equivale al nivel global de riesgo."],
             [esDiagnosticoInicial ? "Nivel evidenciado durante la visita" : "Riesgos registrados en la matriz", esDiagnosticoInicial ? nivelResumen : String(matrizParaInforme.length), esDiagnosticoInicial ? textoDisponible(datosDiagnosticoResumen.observaciones, "No se registró observación sustentadora.") : `${riesgosConNivel} con nivel consignado; ${riesgosConTratamiento} con tratamiento registrado.`],
             ["Riesgos altos o críticos registrados", esDiagnosticoInicial ? "No aplica a esta modalidad" : String(riesgosAltosCriticos), "Conteo basado únicamente en la clasificación escrita en la matriz."],
             ["Hallazgos documentados", String(hallazgosVariables.length), `${hallazgosAltosCriticos} con nivel Alto o Crítico consignado.`]
@@ -11174,7 +11348,7 @@ async function generarWordPlantillaMaestra() {
         const clienteResumen = textoDisponible(inspeccion.cliente, "la organización");
         const textoResumenEjecutivo = esDiagnosticoInicial
             ? `El diagnóstico inicial de ${clienteResumen} registra el nivel de riesgo evidenciado como “${nivelResumen}”. La observación que sustenta la calificación se presenta en los indicadores anteriores. Se integran además ${CAM14_RECOMENDACIONES_PERMANENTES.length} recomendaciones permanentes de SG-SST y planeación en una sección diferenciada. Este diagnóstico no incorpora resultado de checklist ni matriz de riesgos, salvo que esos datos estén registrados por separado.`
-            : `La inspección de ${clienteResumen} registra ${hallazgosVariables.length} hallazgo(s) y ${matrizParaInforme.length} riesgo(s) en la matriz disponible. ${CAM14_RECOMENDACIONES_PERMANENTES.length} recomendaciones permanentes de SG-SST y planeación se integran en una sección diferenciada. ${porcentajeChecklistResumen === null ? "No hay resultado de checklist disponible para esta inspección." : `El checklist registra ${porcentajeChecklistResumen}% (${perfilChecklistResumen}).`} La priorización debe basarse en los niveles consignados en la matriz y en las evidencias registradas; el porcentaje del checklist no representa por sí solo el nivel global de riesgo.`;
+            : `La inspección de ${clienteResumen} registra ${hallazgosVariables.length} hallazgo(s) y ${matrizParaInforme.length} riesgo(s) en la matriz disponible. ${CAM14_RECOMENDACIONES_PERMANENTES.length} recomendaciones permanentes de SG-SST y planeación se integran en una sección diferenciada. ${porcentajeChecklistResumen === null ? "No hay resultado del instrumento preventivo asociado a esta evaluación." : `El checklist tradicional registra ${porcentajeChecklistResumen}% (${perfilChecklistResumen}).`} La priorización debe basarse en los niveles consignados en la matriz y en las evidencias registradas; el porcentaje del checklist no representa por sí solo el nivel global de riesgo.`;
 
         let cuerpo = titulo("RESUMEN EJECUTIVO", 1)
             + parrafoWord(textoResumenEjecutivo, {font:"Century Gothic",size:"18",after:100,line:260})
@@ -11198,7 +11372,7 @@ async function generarWordPlantillaMaestra() {
             ["Cliente",inspeccion.cliente],["NIT",inspeccion.nit],["Dirección",inspeccion.direccion],["Ciudad",inspeccion.ciudad],
             ["Contacto",inspeccion.contacto],["Teléfono",inspeccion.telefono],["Correo",inspeccion.correo],["Fecha",inspeccion.fecha],
             ["Puesto",inspeccion.nombrePuesto],["Sector",inspeccion.sectorInspeccion],
-            ["Inspector",inspeccion.inspector],["Director Operativo",inspeccion.director],["Tipo de inspección",inspeccion.tipo]
+            ["Analista de Riesgos",inspeccion.inspector],["Director Operativo",inspeccion.director],["Tipo de inspección",inspeccion.tipo]
         ]);
         cuerpo += titulo("1. Información general de la inspección",1)+tabla4(info);
         if(!esDiagnosticoInicial && limpio(inspeccion.objetivo)) cuerpo+=tabla2([fila2("Objetivo",inspeccion.objetivo,{size:'18'})]);
@@ -11303,68 +11477,53 @@ async function generarWordPlantillaMaestra() {
             "Identificar condiciones que puedan favorecer la materialización de riesgos y establecer medidas preventivas y de mitigación.",
             "Formular recomendaciones orientadas al fortalecimiento de las condiciones de seguridad de la copropiedad."
         ];
-        const metodologia="Para la realización del presente estudio de seguridad se empleó una visita a la copropiedad, con toma de fotografías, entrevistas y aplicación de lista de chequeo.\nLos parámetros de observación comprenden Control de Accesos, Seguridad Perimetral, Sistemas Electrónicos de Seguridad, Gestión de Autocuidado, Planeación Estratégica y SG-SST, Medio Ambiente y otros aspectos.";
-        cuerpo+=titulo("6. Contexto, objetivos y metodología de la inspección",1)+bloqueTexto("Objetivo General",objetivoGeneral)+titulo("Objetivos Específicos",2)+listaParrafos(objetivos)+bloqueTexto("Metodología",metodologia);
+        const metodologia="Para la elaboración del presente Informe Preventivo de Seguridad se recopila información mediante observación del entorno, revisión de controles, entrevistas y análisis de vulnerabilidades. Se identifican activos expuestos, amenazas pertinentes, brechas de control y posibles consecuencias, con soporte en evidencias disponibles. Los resultados orientan la valoración de riesgos y las medidas preventivas; las respuestas de evaluación no asignan automáticamente un nivel de riesgo.";
+        cuerpo+=titulo("6. Contexto, objetivos y metodología del análisis preventivo",1)+bloqueTexto("Objetivo General",objetivoGeneral)+titulo("Objetivos Específicos",2)+listaParrafos(objetivos)+bloqueTexto("Metodología",metodologia);
 
-        // 07. CHECKLIST
-        if(Object.keys(datosChecklist).length){
-            const rows=[];
-            Object.keys(datosChecklist).forEach(categoria=>{
-                const resultado=Number(resultadosCategorias[categoria]??0);
-                rows.push([categoria,"RESULTADO DE CATEGORÍA",`${resultado}%`]);
-                (datosChecklist[categoria]||[]).forEach(item=>{
-                    const valor=String((respuestasChecklist[categoria]||{})[item]??"").trim();
-                    if(!valor || valor.toUpperCase()==="NA" || valor.toUpperCase()==="NO APLICA") return;
-                    let estado=valor; if(valor==="2") estado="BUENO"; else if(valor==="1") estado="REGULAR"; else if(valor==="0") estado="MALO";
-                    rows.push([item,estado,`${resultado}%`]);
-                });
-            });
-            cuerpo+=titulo("7. Revisión de controles existentes — lista de chequeo",1)+tablaGenerica(["ASPECTO / CATEGORÍA","ESTADO","RESULTADO"],rows,[5000,2200,1638]);
-
-            // CAM-CONSOLIDADO-WORD-01: incluir el consolidado visible en el informe HTML.
-            const categoriasConsolidado = Object.keys(datosChecklist);
-            const filasConsolidadoCategorias = categoriasConsolidado.map(categoria => {
-                let porcentaje = resultadosCategorias[categoria];
-                if (porcentaje === undefined || porcentaje === null || porcentaje === "") {
-                    const items = Array.isArray(datosChecklist[categoria]) ? datosChecklist[categoria] : [];
-                    const respuestas = respuestasChecklist[categoria] || {};
-                    let puntos = 0, maximo = 0;
-                    items.forEach(item => {
-                        const valor = String(respuestas[item] ?? "").trim().toUpperCase();
-                        if (!valor || valor === "NA" || valor === "NO APLICA") return;
-                        const n = Number(valor);
-                        if (Number.isFinite(n) && n >= 0 && n <= 2) { puntos += n; maximo += 2; }
-                    });
-                    porcentaje = maximo ? Math.round((puntos / maximo) * 100) : 0;
-                }
-                return [categoria, `${Math.round(Number(porcentaje) || 0)}%`];
-            });
-            if (filasConsolidadoCategorias.length) {
-                const anchosConsolidado = [Math.round(ANCHO_TABLA_MAESTRA * 0.82), ANCHO_TABLA_MAESTRA - Math.round(ANCHO_TABLA_MAESTRA * 0.82)];
-                const encabezadoConsolidado = `<w:tr><w:trPr><w:tblHeader/></w:trPr>${celdaWord("ÁREA DE EVALUACIÓN",{width:anchosConsolidado[0],shading:"123B5D",bold:true,color:"FFFFFF",align:"left",size:"16"})}${celdaWord("RESULTADO",{width:anchosConsolidado[1],shading:"123B5D",bold:true,color:"FFFFFF",align:"center",size:"16"})}</w:tr>`;
-                const cuerpoConsolidado = filasConsolidadoCategorias.map(fila => `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(fila[0],{width:anchosConsolidado[0],size:"16",align:"left"})}${celdaWord(fila[1],{width:anchosConsolidado[1],size:"16",align:"center"})}</w:tr>`).join("");
-                const tablaConsolidado = `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="A6A6A6"/><w:left w:val="single" w:sz="6" w:color="A6A6A6"/><w:bottom w:val="single" w:sz="6" w:color="A6A6A6"/><w:right w:val="single" w:sz="6" w:color="A6A6A6"/><w:insideH w:val="single" w:sz="6" w:color="A6A6A6"/><w:insideV w:val="single" w:sz="6" w:color="A6A6A6"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${anchosConsolidado[0]}"/><w:gridCol w:w="${anchosConsolidado[1]}"/></w:tblGrid>${encabezadoConsolidado}${cuerpoConsolidado}</w:tbl>`;
-                let sumaPonderada = 0, sumaItems = 0;
-                filasConsolidadoCategorias.forEach((fila, i) => {
-                    const pct = Number(String(fila[1]).replace("%", ""));
-                    const cantidad = (datosChecklist[categoriasConsolidado[i]] || []).length;
-                    if (Number.isFinite(pct) && cantidad > 0) { sumaPonderada += pct * cantidad; sumaItems += cantidad; }
-                });
-                const resultadoGeneral = sumaItems ? Math.round(sumaPonderada / sumaItems) : 0;
-                const bloqueResultadoGeneral = `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="8" w:color="123B5D"/><w:left w:val="single" w:sz="8" w:color="123B5D"/><w:bottom w:val="single" w:sz="8" w:color="123B5D"/><w:right w:val="single" w:sz="8" w:color="123B5D"/></w:tblBorders><w:shd w:fill="F3F6F9"/></w:tblPr><w:tblGrid><w:gridCol w:w="${ANCHO_TABLA_MAESTRA}"/></w:tblGrid><w:tr>${celdaWordContenido(parrafoWord("RESULTADO GENERAL DE LA LISTA DE CHEQUEO",{font:"Century Gothic",size:"16",bold:true,color:"123B5D",align:"center",after:40}),{width:ANCHO_TABLA_MAESTRA})}</w:tr><w:tr>${celdaWordContenido(parrafoWord(`${resultadoGeneral}%`,{font:"Century Gothic",size:"30",bold:true,color:"123B5D",align:"center"}),{width:ANCHO_TABLA_MAESTRA})}</w:tr></w:tbl>`;
-                cuerpo += titulo("Consolidado de resultados por categoría",2) + tablaConsolidado + bloqueResultadoGeneral;
-            }
-            let totalPuntos=0,totalMaximo=0;
-            Object.keys(datosChecklist).forEach(c=>{const pct=Number(resultadosCategorias[c]);if(!isNaN(pct)){const n=datosChecklist[c].length;totalPuntos+=pct*n;totalMaximo+=n;}});
-            const porcentajeGeneral=totalMaximo?Math.round(totalPuntos/totalMaximo):0;
-            const perfil=porcentajeGeneral>=76?"BUENO":porcentajeGeneral>=51?"SUFICIENTE":porcentajeGeneral>=26?"REGULAR":"DÉBIL";
-            cuerpo+=titulo("8. Resultado del checklist — perfil de criticidad",1)+tablaGenerica(["PERFIL","RANGO","CLASIFICACIÓN","DESCRIPCIÓN"],[
-                ["BUENO","76% - 100%","Conforme","Se recomienda monitoreo y seguimiento general a cada aspecto, con el fin de darle continuidad a las fortalezas identificadas."],
-                ["SUFICIENTE","51% - 75,9%","Con observaciones menores","Plan de seguimiento encaminado a esas observaciones menores detectadas."],
-                ["REGULAR","26% - 50,9%","Requiere seguimiento","Es necesario el diseño de estrategias tendientes a la corrección de aquellos aspectos calificados por mejorar."],
-                ["DÉBIL","0% - 25,9%","Con observaciones mayores","Es necesario intervenir los aspectos de manera inmediata, con el ánimo de disminuir la probabilidad de materialización de las amenazas."]
-            ],[1300,1300,1900,4338])+parrafoWord(`Perfil obtenido: ${perfil} — Resultado: ${porcentajeGeneral}%`,{font:'Century Gothic',size:'18',bold:true,color:'C00000',before:80,after:80});
+        // 07. INSTRUMENTO PRINCIPAL DEL INFORME PREVENTIVO
+        // Si existe una evaluación técnica asociada a esta inspección, sus resultados sustituyen
+        // en el informe la lista de chequeo tradicional. Los datos antiguos se conservan intactos.
+        let evaluacionVulnerabilidadesWord = null;
+        try { evaluacionVulnerabilidadesWord = JSON.parse(localStorage.getItem("tecchnex_lista_vulnerabilidades_multisector_v1") || "null"); } catch (_) {}
+        const tieneVulnerabilidadesAsociadas = !!(evaluacionVulnerabilidadesWord && Number(evaluacionVulnerabilidadesWord.inspeccionIndice) === Number(indice));
+        if (tieneVulnerabilidadesAsociadas) {
+            const ev = evaluacionVulnerabilidadesWord;
+            const respuestasEv = ev.respuestas || {};
+            const notasEv = ev.observacionesPorPregunta || {};
+            const gruposEv = [
+                ["Perímetro y entorno",["¿Se identifican las amenazas externas y las condiciones de seguridad del entorno?","¿El perímetro, cerramientos y accesos exteriores se encuentran en condiciones adecuadas?","¿La iluminación exterior y la visibilidad permiten detectar situaciones anómalas?","¿Se inspeccionan y documentan periódicamente las condiciones perimetrales?"]],
+                ["Accesos y circulación",["¿Los accesos peatonales y vehiculares tienen procedimientos de control definidos?","¿Se controla el ingreso de visitantes, contratistas, proveedores y personal temporal?","¿Las áreas restringidas están identificadas y su acceso está limitado a personal autorizado?","¿Las salidas y rutas de evacuación permanecen accesibles y sin obstrucciones?"]],
+                ["Vigilancia y operación",["¿Los procedimientos de vigilancia, rondas y respuesta están documentados?","¿Se registran las novedades y se realiza entrega formal entre turnos?","¿El personal conoce los procedimientos de escalamiento y atención de incidentes?","¿Se revisan incidentes anteriores y se verifican las acciones correctivas?"]],
+                ["Seguridad electrónica",["¿Los sistemas de CCTV cubren las áreas de interés definidas por el análisis de riesgos?","¿Las cámaras, alarmas y medios de comunicación están operativos?","¿El acceso a grabaciones y configuraciones está limitado a personal autorizado?","¿Existen mantenimiento documentado y procedimientos ante fallas tecnológicas?"]],
+                ["Emergencias y continuidad",["¿Existe un plan de emergencias vigente y conocido por el personal pertinente?","¿Los sistemas de detección, alarma y respuesta tienen inspecciones y mantenimiento?","¿Se realizan simulacros y se registran oportunidades de mejora?","¿Existen procedimientos para mantener funciones esenciales durante una interrupción?"]],
+                ["Gestión y evidencias",["¿Las responsabilidades de administración, seguridad y mantenimiento están definidas?","¿Se documentan las vulnerabilidades con ubicación y evidencia autorizada?","¿Se asignan responsables y plazos para las acciones correctivas?","¿Se verifica la eficacia de las medidas implementadas?"]]
+            ];
+            const sectorEv = {
+                "Residencial":[["Portería y convivencia",["¿La portería controla el ingreso de residentes, visitantes y domicilios?","¿Existe un procedimiento para menores extraviados y personas vulnerables?","¿Las zonas comunes, piscinas, gimnasios y salones tienen controles adecuados?","¿Se gestionan parqueaderos, bicicletas y bienes comunes para prevenir hurtos?"]],["Rondas y áreas comunes",["¿Las rondas cubren perímetro, parqueaderos y zonas de baja afluencia?","¿Se registran los puntos de ronda y las novedades relevantes?","¿Los cuartos técnicos, cubiertas y depósitos están protegidos?","¿Existen procedimientos de atención de riñas, violencia o alteraciones de convivencia?"]]],
+                "Comercial":[["Operación del mall",["¿Los accesos públicos, entradas de servicio y zonas de carga tienen controles diferenciados?","¿Se evalúan riesgos de hurto, agresión y aglomeraciones en zonas de alta afluencia?","¿Las cajas, manejo de valores, bodegas y locales sensibles tienen controles apropiados?","¿Se gestionan paquetes sospechosos, objetos perdidos y alertas de seguridad?"]],["Visitantes y locales",["¿Los contratistas y proveedores cuentan con registro y autorización?","¿Las zonas de comidas, entretenimiento y eventos tienen procedimientos de seguridad?","¿Se revisan parqueaderos, pasillos, escaleras y puntos de encuentro?","¿Existe coordinación de emergencias entre administración, locales y vigilancia?"]]],
+                "Industrial":[["Protección industrial",["¿Los portones y accesos de vehículos tienen validación y registro de ingreso?","¿Las bodegas e inventarios cuentan con controles de acceso y trazabilidad?","¿Las áreas de producción, cuartos técnicos y maquinaria están restringidas según su función?","¿Se controlan llaves, herramientas críticas y activos de alto valor?"]],["Amenazas y continuidad industrial",["¿Se evalúan sabotaje, intrusión, robo interno y amenazas a la continuidad?","¿Las áreas con sustancias peligrosas tienen controles de acceso y respuesta?","¿Se coordinan seguridad física, SST, mantenimiento y respuesta a emergencias?","¿Existen procedimientos para fallas eléctricas, incendio, derrames o interrupción operativa?"]]]
+            };
+            const todosEv = gruposEv.concat(sectorEv[ev.sector] || []);
+            const etiquetaEv = {C:"Cumple",P:"Parcial",NC:"No cumple",NA:"No aplica",NV:"No verificado"};
+            const filasEv = [];
+            let totalEv = 0, ncEv = 0, parcialEv = 0, pendientesEv = 0;
+            todosEv.forEach((grupo, gi) => grupo[1].forEach((pregunta, ii) => {
+                const clave = gi + "-" + ii, estado = respuestasEv[clave] || "", nota = notasEv[clave] || "";
+                totalEv++; if (estado === "NC") ncEv++; if (estado === "P") parcialEv++; if (!estado) pendientesEv++;
+                if (estado || nota.trim()) filasEv.push([grupo[0], pregunta, etiquetaEv[estado] || "Pendiente", nota || "Sin observación registrada"]);
+            }));
+            if (!filasEv.length) filasEv.push(["Evaluación", "No hay respuestas ni observaciones registradas", "Pendiente", "Completar el instrumento para documentar resultados técnicos."]);
+            cuerpo += titulo("7. Análisis técnico de riesgos y vulnerabilidades",1)
+                + parrafoWord(`Sector evaluado: ${ev.sector || "No consignado"}. Establecimiento: ${ev.lugar || ev.inspeccionCliente || inspeccion.cliente || "No consignado"}. Ciudad: ${ev.ciudad || inspeccion.ciudad || "No consignada"}. Fecha: ${ev.fecha || inspeccion.fecha || "No consignada"}. Analista de Riesgos: ${ev.inspector || inspeccion.inspector || "No consignado"}.`,{font:"Century Gothic",size:"17",after:80,line:250})
+                + parrafoWord(`Se registraron ${totalEv-pendientesEv} respuestas de ${totalEv}; ${ncEv} condiciones No cumple y ${parcialEv} condiciones Parcial; ${pendientesEv} preguntas permanecen pendientes. Estos conteos describen respuestas y no representan por sí solos un nivel de riesgo.`,{font:"Century Gothic",size:"17",after:80,line:250})
+                + tablaGenerica(["ÁREA","ASPECTO EVALUADO","RESULTADO","OBSERVACIÓN / EVIDENCIA"],filasEv,[1450,3550,1200,2788])
+                + titulo("Criterio de interpretación técnica",2)
+                + parrafoWord("Las condiciones registradas deben analizarse en relación con los activos expuestos, las amenazas pertinentes, los controles existentes, la posibilidad de ocurrencia y las consecuencias potenciales. La valoración y priorización se documentan en la matriz de riesgos con la metodología vigente de TECCHNEX; una respuesta NC o Parcial no asigna automáticamente un nivel de riesgo.",{font:"Century Gothic",size:"17",after:80,line:250});
+        } else {
+            cuerpo += titulo("7. Análisis técnico de riesgos y vulnerabilidades",1)
+                + parrafoWord("No hay una evaluación técnica de vulnerabilidades asociada a esta evaluación. La lista de chequeo tradicional no se presenta como sustituto del análisis preventivo. Abra el módulo Análisis de vulnerabilidades, vincule la evaluación correspondiente y guárdela antes de generar el informe.",{font:"Century Gothic",size:"17",after:80,line:250});
         }
+
 
         // 09. MATRIZ DE RIESGOS
         if(matrizParaInforme.length){
@@ -11381,8 +11540,10 @@ async function generarWordPlantillaMaestra() {
                     (celdas[k]||(celdas[k]=[])).push(String(i+1));
                 }
             });
-            cuerpo+=titulo("10. Mapa de calor — distribución de riesgos",1)
-                +tablaMapaCalorWord(celdas)
+            cuerpo+=titulo("10. Mapa de calor — distribución de riesgos",1);
+            // La imagen se genera con los datos del informe actual y se incrusta como PNG nativo en Word.
+            const mapaCalorPNG=await generarImagenMapaCalorWord(celdas);
+            cuerpo+=await agregarImagenWord(mapaCalorPNG,"mapa_calor","Mapa de calor — distribución de riesgos",18.3,7.6)
                 +parrafoWord("El valor principal corresponde a probabilidad × impacto. Los códigos R- identifican los riesgos de la matriz. Las filas representan probabilidad y las columnas impacto.",{font:'Century Gothic',size:'16',color:'666666',before:60,after:60})
                 +leyendaMapaCalorWord()
                 +parrafoWord("La clasificación visual corresponde al producto de probabilidad por impacto: riesgo bajo 1–4, moderado 5–9, alto 10–14 y extremo 15–25.",{font:'Century Gothic',size:'15',color:'C00000',bold:true,before:40,after:80});
@@ -11752,6 +11913,29 @@ h3{color:#000!important;border-bottom:1px solid #F2C500!important}
     ventana.document.close();
     const informes = Number(localStorage.getItem("informesGenerados") || 0) + 1;
     localStorage.setItem("informesGenerados", String(informes));
+}
+
+function obtenerSeccionAnalisisVulnerabilidadesTECCHNEX(indiceInspeccion) {
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem("tecchnex_lista_vulnerabilidades_multisector_v1") || "null"); } catch (e) {}
+    if (!d || Number(d.inspeccionIndice) !== Number(indiceInspeccion)) return '<section class="bloque-pdf analisis-vulnerabilidades-pdf"><h2>Análisis técnico de vulnerabilidades</h2><p>No se encontró una evaluación técnica vinculada a esta evaluación. La lista de chequeo anterior no se mostrará en su lugar. Abra «Análisis de vulnerabilidades», seleccione la evaluación correcta y guarde antes de generar el informe.</p></section>';
+    const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    const respuestas = d.respuestas || {}, notas = d.observacionesPorPregunta || {};
+    const grupos = [
+      ["Perímetro y entorno",["¿Se identifican las amenazas externas y las condiciones de seguridad del entorno?","¿El perímetro, cerramientos y accesos exteriores se encuentran en condiciones adecuadas?","¿La iluminación exterior y la visibilidad permiten detectar situaciones anómalas?","¿Se inspeccionan y documentan periódicamente las condiciones perimetrales?"]],
+      ["Accesos y circulación",["¿Los accesos peatonales y vehiculares tienen procedimientos de control definidos?","¿Se controla el ingreso de visitantes, contratistas, proveedores y personal temporal?","¿Las áreas restringidas están identificadas y su acceso está limitado a personal autorizado?","¿Las salidas y rutas de evacuación permanecen accesibles y sin obstrucciones?"]],
+      ["Vigilancia y operación",["¿Los procedimientos de vigilancia, rondas y respuesta están documentados?","¿Se registran las novedades y se realiza entrega formal entre turnos?","¿El personal conoce los procedimientos de escalamiento y atención de incidentes?","¿Se revisan incidentes anteriores y se verifican las acciones correctivas?"]],
+      ["Seguridad electrónica",["¿Los sistemas de CCTV cubren las áreas de interés definidas por el análisis de riesgos?","¿Las cámaras, alarmas y medios de comunicación están operativos?","¿El acceso a grabaciones y configuraciones está limitado a personal autorizado?","¿Existen mantenimiento documentado y procedimientos ante fallas tecnológicas?"]],
+      ["Emergencias y continuidad",["¿Existe un plan de emergencias vigente y conocido por el personal pertinente?","¿Los sistemas de detección, alarma y respuesta tienen inspecciones y mantenimiento?","¿Se realizan simulacros y se registran oportunidades de mejora?","¿Existen procedimientos para mantener funciones esenciales durante una interrupción?"]],
+      ["Gestión y evidencias",["¿Las responsabilidades de administración, seguridad y mantenimiento están definidas?","¿Se documentan las vulnerabilidades con ubicación y evidencia autorizada?","¿Se asignan responsables y plazos para las acciones correctivas?","¿Se verifica la eficacia de las medidas implementadas?"]]
+    ];
+    const sector = {Residencial:[["Portería y convivencia",["¿La portería controla el ingreso de residentes, visitantes y domicilios?","¿Existe un procedimiento para menores extraviados y personas vulnerables?","¿Las zonas comunes, piscinas, gimnasios y salones tienen controles adecuados?","¿Se gestionan parqueaderos, bicicletas y bienes comunes para prevenir hurtos?"]],["Rondas y áreas comunes",["¿Las rondas cubren perímetro, parqueaderos y zonas de baja afluencia?","¿Se registran los puntos de ronda y las novedades relevantes?","¿Los cuartos técnicos, cubiertas y depósitos están protegidos?","¿Existen procedimientos de atención de riñas, violencia o alteraciones de convivencia?"]]],Comercial:[["Operación del mall",["¿Los accesos públicos, entradas de servicio y zonas de carga tienen controles diferenciados?","¿Se evalúan riesgos de hurto, agresión y aglomeraciones en zonas de alta afluencia?","¿Las cajas, manejo de valores, bodegas y locales sensibles tienen controles apropiados?","¿Se gestionan paquetes sospechosos, objetos perdidos y alertas de seguridad?"]],["Visitantes y locales",["¿Los contratistas y proveedores cuentan con registro y autorización?","¿Las zonas de comidas, entretenimiento y eventos tienen procedimientos de seguridad?","¿Se revisan parqueaderos, pasillos, escaleras y puntos de encuentro?","¿Existe coordinación de emergencias entre administración, locales y vigilancia?"]]],Industrial:[["Protección industrial",["¿Los portones y accesos de vehículos tienen validación y registro de ingreso?","¿Las bodegas e inventarios cuentan con controles de acceso y trazabilidad?","¿Las áreas de producción, cuartos técnicos y maquinaria están restringidas según su función?","¿Se controlan llaves, herramientas críticas y activos de alto valor?"]],["Amenazas y continuidad industrial",["¿Se evalúan sabotaje, intrusión, robo interno y amenazas a la continuidad?","¿Las áreas con sustancias peligrosas tienen controles de acceso y respuesta?","¿Se coordinan seguridad física, SST, mantenimiento y respuesta a emergencias?","¿Existen procedimientos para fallas eléctricas, incendio, derrames o interrupción operativa?"]]]};
+    const all = grupos.concat(sector[d.sector] || []);
+    const labels = {C:"Cumple",P:"Parcial",NC:"No cumple",NA:"No aplica",NV:"No verificado"};
+    let total=0, nc=0, parcial=0, pendientes=0, rows="";
+    all.forEach((g,gi)=>g[1].forEach((q,ii)=>{const k=gi+'-'+ii,v=respuestas[k]||"",note=notas[k]||"";total++;if(v==="NC")nc++;if(v==="P")parcial++;if(!v)pendientes++;if(v==="NC"||v==="P"||note.trim())rows+=`<tr><td>${esc(g[0])}</td><td>${esc(q)}</td><td>${esc(labels[v]||"Pendiente")}</td><td>${esc(note||"Sin observación registrada")}</td><td>${v==="NC"?"Condición no conforme: validar exposición, amenaza y consecuencia.":v==="P"?"Control parcial: determinar brecha y eficacia del control.":"Revisar evidencia y contexto antes de concluir."}</td></tr>`;}));
+    if (!rows) rows='<tr><td colspan="5">No se registraron respuestas NC, parciales ni observaciones para detallar.</td></tr>';
+    return `<section class="bloque-pdf analisis-vulnerabilidades-pdf"><h2>Análisis técnico de vulnerabilidades</h2><p><strong>Sector:</strong> ${esc(d.sector)} · <strong>Establecimiento:</strong> ${esc(d.lugar||d.inspeccionCliente||"No consignado")} · <strong>Ciudad:</strong> ${esc(d.ciudad||"No consignada")} · <strong>Analista de Riesgos:</strong> ${esc(d.inspector||"No consignado")} · <strong>Fecha:</strong> ${esc(d.fecha||"No consignada")} · <strong>Jornada:</strong> ${esc(d.jornada||"No consignada")}</p><p>Instrumento principal de análisis preventivo asociado a esta evaluación; sustituye la lista de chequeo tradicional en el informe cuando está vinculada a la inspección seleccionada. Se registran ${total-pendientes} respuestas, incluidas ${nc} condiciones No cumple y ${parcial} condiciones Parcial; quedan ${pendientes} preguntas pendientes. Estos conteos describen respuestas y no equivalen por sí solos a una calificación del riesgo.</p><table class="tabla-vulnerabilidades"><thead><tr><th>Área</th><th>Aspecto evaluado</th><th>Resultado</th><th>Observación / evidencia registrada</th><th>Lectura técnica preliminar</th></tr></thead><tbody>${rows}</tbody></table><h3>Criterio técnico de interpretación</h3><p>Las condiciones identificadas deben analizarse considerando el activo expuesto, la amenaza pertinente, la probabilidad o posibilidad de ocurrencia, las consecuencias y la eficacia de los controles existentes. El nivel de riesgo debe consignarse y justificarse en la matriz de riesgos de la inspección; no se asigna automáticamente a partir de una respuesta de checklist.</p><p><strong>Observaciones generales:</strong> ${esc(d.observaciones||"Sin observaciones generales registradas.")}</p></section>`;
 }
 
 function generarInforme(ventana) {
@@ -12630,6 +12814,8 @@ matrizParaInforme.forEach((riesgo, indice) => {
         `;
     }
 
+    const seccionAnalisisVulnerabilidadesPDF = obtenerSeccionAnalisisVulnerabilidadesTECCHNEX(indiceSeleccionado);
+
     // CAM-ISO31000-02 — Resumen ejecutivo PDF con datos existentes.
     const checklistDisponibleResumenPDF = Object.keys(datosChecklist || {}).length > 0 &&
         Object.keys(resultadosCategorias || {}).some(c => {
@@ -12641,7 +12827,7 @@ matrizParaInforme.forEach((riesgo, indice) => {
     const hallazgosAltosCriticosResumenPDF = hallazgosVariablesPDF.filter(h => /cr[ií]tico|alto/i.test(String(h.nivel || ""))).length;
     const filasResumenPDF = `
         <tr><th>Tipo de inspección</th><td>${escapar(inspeccion.tipo || "No registrado")}</td></tr>
-        <tr><th>Resultado del checklist</th><td>${checklistDisponibleResumenPDF ? `${porcentajeGeneral}% — ${escapar(perfilCriticidad)}` : "No disponible"} <span class="nota-resumen">(no equivale por sí solo al nivel global de riesgo)</span></td></tr>
+        <tr><th>Instrumento preventivo</th><td>${seccionAnalisisVulnerabilidadesPDF ? "Análisis técnico de vulnerabilidades asociado" : "Pendiente de asociar evaluación técnica"} <span class="nota-resumen">(la valoración del riesgo se consulta en la matriz)</span></td></tr>
         <tr><th>Riesgos registrados en la matriz</th><td>${matrizParaInforme.length}; ${riesgosConNivelResumenPDF} con nivel consignado.</td></tr>
         <tr><th>Riesgos altos o críticos</th><td>${riesgosAltosCriticosResumenPDF} según el nivel escrito en la matriz.</td></tr>
         <tr><th>Hallazgos documentados</th><td>${hallazgosVariablesPDF.length}; ${hallazgosAltosCriticosResumenPDF} con nivel Alto o Crítico consignado.</td></tr>` +
@@ -12657,7 +12843,7 @@ matrizParaInforme.forEach((riesgo, indice) => {
     const resumenEjecutivoHTML = `
         <section class="bloque-pdf resumen-ejecutivo-pdf">
             <h2>Resumen ejecutivo</h2>
-            <p>La inspección de <strong>${escapar(inspeccion.cliente || "la organización")}</strong> corresponde a <strong>${escapar(inspeccion.tipo || "un tipo de inspección no registrado")}</strong>. Se resumen los hallazgos registrados y, en un bloque diferenciado, se integran cuatro recomendaciones permanentes de SG-SST y planeación. La priorización debe leerse junto con las evidencias y los niveles consignados, sin interpretar el porcentaje del checklist como nivel global de riesgo.</p>
+            <p>El análisis preventivo de seguridad de <strong>${escapar(inspeccion.cliente || "la organización")}</strong> corresponde a <strong>${escapar(inspeccion.tipo || "un alcance no registrado")}</strong>. Se resumen los hallazgos registrados y, en un bloque diferenciado, se integran las recomendaciones permanentes de SG-SST y planeación. La priorización debe leerse junto con las evidencias y los niveles consignados; las respuestas del instrumento preventivo no constituyen por sí solas un nivel global de riesgo.</p>
             <table class="datos tabla-resumen-ejecutivo"><tbody>${filasResumenPDF}</tbody></table>
             <h3>Riesgos prioritarios y medidas registradas</h3>
             <table class="tabla-resumen-prioridades"><thead><tr><th>Riesgo / hallazgo</th><th>Nivel</th><th>Tratamiento / recomendación</th></tr></thead><tbody>${filasPrioridadesPDF}</tbody></table>
@@ -12693,6 +12879,13 @@ matrizParaInforme.forEach((riesgo, indice) => {
                 .tabla-resumen-prioridades th,.tabla-resumen-prioridades td{border:1px solid #999;padding:6px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
                 .tabla-resumen-prioridades th{background:#123b5d;color:#fff}
                 .nota-resumen{font-size:9px;color:#5b6570}
+                .analisis-vulnerabilidades-pdf{margin:16px 0;page-break-inside:auto}
+                .analisis-vulnerabilidades-pdf h2{color:#123b5d;border-bottom:2px solid #123b5d;padding-bottom:6px}
+                .tabla-vulnerabilidades{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8px;margin:8px 0}
+                .tabla-vulnerabilidades th,.tabla-vulnerabilidades td{border:1px solid #aab7c4;padding:5px;vertical-align:top;overflow-wrap:anywhere}
+                .tabla-vulnerabilidades th{background:#123b5d;color:#fff;text-align:center}
+                .tabla-vulnerabilidades tr{page-break-inside:avoid}
+
 
                 body {
 
@@ -13899,6 +14092,7 @@ h3{color:#000!important;border-bottom:1px solid #F2C500!important}
           
 
 ${resumenEjecutivoHTML}
+${seccionAnalisisVulnerabilidadesPDF}
 
 <div class="bloque-pdf">
 
@@ -14589,8 +14783,7 @@ ESTADO: EN DESARROLLO
         line-height:1.5;
     ">
         Para la realización del presente estudio de seguridad se empleó
-        una visita a la copropiedad, con toma de fotografías, entrevistas
-        y aplicación de lista de chequeo.
+        un análisis preventivo de seguridad mediante caracterización de la instalación, revisión de controles, observación del entorno, entrevistas y evaluación técnica de vulnerabilidades.
     </p>
 
     <p style="
@@ -14627,426 +14820,12 @@ ESTADO: EN DESARROLLO
     </table>
 </section>
 
-<h2>
-    3. Revisión de controles existentes — lista de chequeo
-</h2>
+<section class="bloque-pdf">
+    <h2>3. Análisis técnico de riesgos y vulnerabilidades</h2>
+    <p>El instrumento principal de este Informe Preventivo de Seguridad es la evaluación técnica de vulnerabilidades. Sus resultados se presentan en el bloque de análisis técnico incluido al inicio del informe.</p>
+    <p>La lista de chequeo tradicional y su porcentaje de cumplimiento no se utilizan como sustituto de la valoración del riesgo. Si no aparece una evaluación técnica asociada, debe vincularse y guardarse desde el módulo «Análisis de vulnerabilidades» antes de generar nuevamente el informe.</p>
+</section>
 
-<!--
-========================================================
-TECCHNEX - CAMBIO #006
-MÓDULO: Sistema de Inspecciones de Seguridad
-SECCIÓN: Generación del informe PDF
-FUNCIÓN / SECCIÓN: Resultado de la lista de chequeo
-OBJETIVO: Mejorar la secuencia visual del informe.
-CAMBIO: Reubicar "Consolidado de resultados por categoría"
-debajo de "EVALUACIÓN DE ESQUEMAS DE SEGURIDAD EXISTENTES".
-NO SE MODIFICAN DATOS NI CÁLCULOS.
-ESTADO: EN DESARROLLO
-========================================================
--->
-
-<div style="
-    margin-top:15px;
-    margin-bottom:20px;
-">
-
-    <h3 style="
-        margin-bottom:10px;
-        color:#123b5d;
-    ">
-        EVALUACIÓN DE ESQUEMAS DE SEGURIDAD EXISTENTES
-    </h3>
-
-    <table style="
-        width:100%;
-        border-collapse:collapse;
-        font-size:10px;
-    ">
-
-        <thead>
-
-    <tr>
-
-        <th style="
-            background:#123b5d;
-            color:white;
-            padding:7px;
-            border:1px solid #aaa;
-        ">
-            ITEMS EVALUADOS
-        </th>
-
-        <th style="
-            background:#123b5d;
-            color:white;
-            padding:7px;
-            border:1px solid #aaa;
-            text-align:center;
-        ">
-            ESTADO
-        </th>
-
-        <th style="
-            background:#123b5d;
-            color:white;
-            padding:7px;
-            border:1px solid #aaa;
-            text-align:center;
-        ">
-            % OBTENIDO
-        </th>
-
-        <th style="
-            background:#123b5d;
-            color:white;
-            padding:7px;
-            border:1px solid #aaa;
-            text-align:center;
-        ">
-            % ESPERADO
-        </th>
-
-    </tr>
-
-</thead>
-
-<tbody>
-
-    ${filasChecklistDetallado}
-
-</tbody>
-
-    </table>
-
-</div>
-
-<div style="
-    margin-top:15px;
-    margin-bottom:20px;
-">
-
-    <h3 style="
-        margin-bottom:10px;
-        color:#123b5d;
-    ">
-        Consolidado de resultados por categoría
-    </h3>
-
-    <table style="
-        width:100%;
-        border-collapse:collapse;
-        font-size:12px;
-    ">
-
-        <thead>
-
-            <tr>
-
-                <th style="
-                    background:#123b5d;
-                    color:white;
-                    padding:9px;
-                    border:1px solid #aaa;
-                    text-align:left;
-                ">
-                    Área de evaluación
-                </th>
-
-                <th style="
-                    width:150px;
-                    background:#123b5d;
-                    color:white;
-                    padding:9px;
-                    border:1px solid #aaa;
-                    text-align:center;
-                ">
-                    Resultado
-                </th>
-
-            </tr>
-
-        </thead>
-
-                <tbody>
-
-${filasCategorias}
-
-</tbody>
-
-</table>
-
-</div>
-<!--
-========================================================
-TECCHNEX - CAMBIO #005
-MÓDULO: Sistema de Inspecciones de Seguridad
-SECCIÓN: Generación del informe PDF
-FUNCIÓN / SECCIÓN: Resultado general de la lista de chequeo
-OBJETIVO: Mejorar la jerarquía visual del resultado general
-de la inspección sin modificar su cálculo ni sus datos.
-CAMBIO: Presentación destacada del porcentaje general.
-ESTADO: EN DESARROLLO
-========================================================
--->
-
-<div class="resultado">
-    <div style="
-        margin-top:20px;
-        margin-bottom:25px;
-        padding:18px 20px;
-        border:2px solid #123b5d;
-        background:#f4f7fa;
-        text-align:center;
-        border-radius:4px;
-    ">
-        <div style="
-            font-size:15px;
-            font-weight:bold;
-            color:#123b5d;
-            margin-bottom:6px;
-        ">
-            RESULTADO GENERAL DE LA LISTA DE CHEQUEO
-        </div>
-
-        <div style="
-            font-size:28px;
-            font-weight:bold;
-            color:#123b5d;
-            line-height:1.2;
-        ">
-            ${porcentajeGeneral}%
-        </div>
-    </div>
-    
-      <div style="
-    margin-top:20px;
-    margin-bottom:20px;
-">
-
-    <h3 style="
-        margin-bottom:10px;
-        color:#123b5d;
-    ">
-        RESULTADO DEL CHECKLIST — PERFIL DE CUMPLIMIENTO
-    </h3>
-
-    <table style="
-        width:100%;
-        border-collapse:collapse;
-        font-size:10px;
-    ">
-
-        <thead>
-            <tr>
-                <th style="
-                    background:#123b5d;
-                    color:white;
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    PERFIL
-                </th>
-
-                <th style="
-                    background:#123b5d;
-                    color:white;
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    RANGO
-                </th>
-
-                <th style="
-                    background:#123b5d;
-                    color:white;
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    CLASIFICACIÓN
-                </th>
-
-                <th style="
-                    background:#123b5d;
-                    color:white;
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    DESCRIPCIÓN
-                </th>
-            </tr>
-        </thead>
-
-        <tbody>
-
-            <tr>
-                <td style="
-                    background:${perfilCriticidad === "BUENO" ? "#70ad47" : "#eeeeee"};
-                    color:${perfilCriticidad === "BUENO" ? "#ffffff" : "#000000"};
-                    text-align:center;
-                    font-weight:bold;
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    BUENO
-                </td>
-
-                <td style="
-                    text-align:center;
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    76% - 100%
-                </td>
-
-                <td style="
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    Conforme
-                </td>
-
-                <td style="
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    Se recomienda monitoreo y seguimiento general a cada aspecto,
-                    con el fin de darle continuidad a las fortalezas identificadas.
-                    Las amenazas son reconocidas, pero el riesgo está controlado.
-                </td>
-            </tr>
-
-            <tr>
-                <td style="
-                    background:${perfilCriticidad === "SUFICIENTE" ? "#ffc000" : "#eeeeee"};
-                    color:#000000;
-                    text-align:center;
-                    font-weight:bold;
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    SUFICIENTE
-                </td>
-
-                <td style="
-                    text-align:center;
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    51% - 75,9%
-                </td>
-
-                <td style="
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    Con observaciones menores
-                </td>
-
-                <td style="
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    Plan de seguimiento encaminado a esas observaciones menores
-                    detectadas. Se conocen las amenazas y se tiene controlado el riesgo.
-                </td>
-            </tr>
-
-            <tr>
-                <td style="
-                    background:${perfilCriticidad === "REGULAR" ? "#f4b183" : "#eeeeee"};
-                    color:#000000;
-                    text-align:center;
-                    font-weight:bold;
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    REGULAR
-                </td>
-
-                <td style="
-                    text-align:center;
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    26% - 50,9%
-                </td>
-
-                <td style="
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    Requiere seguimiento
-                </td>
-
-                <td style="
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    Es necesario el diseño de estrategias tendientes a la corrección
-                    de aquellos aspectos calificados por mejorar, garantizar un plan
-                    de seguimiento para el cumplimiento de las actividades planteadas.
-                </td>
-            </tr>
-
-            <tr>
-                <td style="
-                    background:${perfilCriticidad === "DÉBIL" ? "#c00000" : "#eeeeee"};
-                    color:${perfilCriticidad === "DÉBIL" ? "#ffffff" : "#000000"};
-                    text-align:center;
-                    font-weight:bold;
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    DÉBIL
-                </td>
-
-                <td style="
-                    text-align:center;
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    0% - 25,9%
-                </td>
-
-                <td style="
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    Con observaciones mayores
-                </td>
-
-                <td style="
-                    padding:7px;
-                    border:1px solid #aaa;
-                ">
-                    El panorama de seguridad se percibe como crítico, por lo tanto,
-                    es necesario intervenir los aspectos de manera inmediata, con el
-                    ánimo de disminuir la probabilidad de materialización de las amenazas.
-                </td>
-            </tr>
-
-        </tbody>
-
-    </table>
-
-    <div style="
-        margin-top:8px;
-        padding:8px;
-        border:1px solid #aaa;
-        background:#fafafa;
-        font-size:11px;
-    ">
-        <strong>Perfil obtenido:</strong>
-        ${escapar(perfilCriticidad)}
-        &nbsp;&nbsp;
-        <strong>Resultado:</strong>
-        ${porcentajeGeneral}%
-        <br><br>
-        ${escapar(descripcionCriticidad)}
-    </div>
-
-</div>                   
-            
                <div class="salto-pagina-pdf"></div>
                <h2>
     4. Análisis y evaluación de riesgos
