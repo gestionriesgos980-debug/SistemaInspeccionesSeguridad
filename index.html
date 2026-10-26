@@ -2058,17 +2058,7 @@ function abrir(){
  render();$('camVulnMensaje').textContent=d?'Evaluación recuperada del almacenamiento local.':'Nueva evaluación. Las respuestas se guardarán automáticamente.';
 }
 function cerrar(){persistCurrent(false);$('camVulnOverlay').style.display='none'}
-// CAM-CACHE-CHK-01: después de guardar, volver al inicio del checklist para mostrar el cierre y permitir editar.
-function guardar(){
- if(persistCurrent(true)){
-  updateSummary();
-  const overlay=$('camVulnOverlay');
-  if(overlay){
-   if(typeof overlay.scrollTo==='function')overlay.scrollTo({top:0,behavior:'smooth'});
-   else overlay.scrollTop=0;
-  }
- }
-}
+function guardar(){if(persistCurrent(true))updateSummary()}
 function nueva(){if(!confirm('¿Crear una nueva evaluación? La evaluación actual se guardará antes de iniciar otra.'))return;persistCurrent(false);state={id:null,answers:{},notes:{}};loadMeta({fecha:new Date().toISOString().slice(0,10),sector:$('camVulnSector').value,inspeccionIndice:$('camVulnInspeccion').value===''?null:Number($('camVulnInspeccion').value)});$('camVulnMensaje').textContent='Nueva evaluación. Las respuestas se guardarán automáticamente.';render()}
 function exportarJSON(){const d=data(),blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='TECCHNEX_Vulnerabilidades_'+(d.sector||'sector')+'_'+(d.fecha||'sin-fecha')+'.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)}
 function exportarTexto(){const d=data(),sections=allSections();let out='TECCHNEX — ANÁLISIS DE VULNERABILIDADES\nSector: '+d.sector+'\nEstablecimiento: '+d.lugar+'\nCiudad: '+d.ciudad+'\nAnalista de Riesgos: '+d.inspector+'\nFecha: '+d.fecha+'\nJornada: '+d.jornada+'\n\n';sections.forEach((g,gi)=>{out+=g[0]+'\n';g[1].forEach((q,ii)=>{const k=gi+'-'+ii;out+=(gi+1)+'.'+(ii+1)+' '+q+'\nEstado: '+(state.answers[k]||'Pendiente')+'\nObservación: '+(state.notes[k]||'—')+'\n'})});out+='Observaciones generales: '+d.observaciones;const blob=new Blob([out],{type:'text/plain;charset=utf-8'});if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(out).then(()=>$('camVulnMensaje').textContent='Resumen copiado.').catch(()=>downloadText(out))}else downloadText(out);function downloadText(t){const u=URL.createObjectURL(new Blob([t],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download='TECCHNEX_Resumen_Vulnerabilidades.txt';a.click();URL.revokeObjectURL(u)}}
@@ -8764,18 +8754,53 @@ function renderizarHallazgosRegistrados() {
                             <div><strong>Elemento:</strong> ${hallazgo.elemento || "Sin especificar"}</div>
                             <div><strong>Nivel:</strong> ${hallazgo.nivel || "Sin especificar"}</div>
                             <div style="margin-top:6px;"><strong>Descripción:</strong> ${hallazgo.descripcion || "Sin descripción"}</div>
-                            <button
-                                type="button"
-                                onclick="editarHallazgo(${indiceReal})"
-                                style="margin-top:10px;background:#1d70b7;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;">
-                                ✏️ Editar hallazgo
-                            </button>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+                                <button
+                                    type="button"
+                                    onclick="editarHallazgo(${indiceReal})"
+                                    style="background:#1d70b7;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;">
+                                    ✏️ Editar hallazgo
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="eliminarHallazgo(${indiceReal})"
+                                    style="background:#b42318;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;">
+                                    🗑️ Eliminar hallazgo
+                                </button>
+                            </div>
                         </div>
                     `;
                 }).join("")}
             </div>
         `)
         .join("");
+}
+
+function eliminarHallazgo(indice) {
+    const hallazgos = JSON.parse(localStorage.getItem("hallazgos")) || [];
+    const hallazgo = hallazgos[indice];
+
+    if (!hallazgo) {
+        alert("No se encontró el hallazgo que desea eliminar.");
+        return;
+    }
+
+    const descripcion = String(hallazgo.descripcion || "este hallazgo").trim();
+    if (!confirm(`¿Desea eliminar definitivamente este hallazgo?\n\n${descripcion}\n\nEsta acción no se puede deshacer.`)) {
+        return;
+    }
+
+    // Elimina solo el registro elegido; no limpia el almacenamiento completo
+    // ni modifica hallazgos de otras inspecciones.
+    hallazgos.splice(indice, 1);
+    localStorage.setItem("hallazgos", JSON.stringify(hallazgos));
+
+    if (typeof indiceHallazgoEditando !== "undefined" && indiceHallazgoEditando === indice) {
+        indiceHallazgoEditando = null;
+        fotosHallazgoEditando = [];
+    }
+
+    renderizarHallazgosRegistrados();
 }
 
 function editarHallazgo(indice) {
@@ -9172,14 +9197,13 @@ async function guardarHallazgo() {
             : null;
     const idControlActivoHallazgo =
         String(inspeccionActivaHallazgo?.idControl || "").trim();
-    const yaUsaRelacionEstable = Boolean(idControlActivoHallazgo) &&
-        hallazgos.some(h =>
-            String(h?.idControlInspeccion || "").trim() === idControlActivoHallazgo
-        );
+    // CAM-HALLAZGOS-02 — Los hallazgos nuevos siempre quedan vinculados
+    // al idControl de la inspección activa, incluso si es su primer hallazgo.
+    // Al editar se conserva la relación original cuando ya existe.
     const idControlHallazgoEstable =
         indiceHallazgoEditando !== null && hallazgos[indiceHallazgoEditando]?.idControlInspeccion
             ? hallazgos[indiceHallazgoEditando].idControlInspeccion
-            : (yaUsaRelacionEstable ? idControlActivoHallazgo : "");
+            : idControlActivoHallazgo;
 
     // Incluye tanto las fotografías existentes (si se edita) como todas las
     // fotografías nuevas agregadas desde cámara o galería antes de guardar.
@@ -10963,13 +10987,20 @@ function obtenerHallazgosInformeCAM14(hallazgos, incluirPermanentes = true) {
 function obtenerRegistrosDeInspeccion(registros, inspeccion, indice) {
     const lista = Array.isArray(registros) ? registros : [];
     const idControl = String(inspeccion?.idControl || "").trim();
+
+    // CAM-HALLAZGOS-01 — Si la inspección tiene identificador estable,
+    // no volver al índice numérico cuando no hay coincidencias. Ese fallback
+    // podía recuperar hallazgos históricos de otra inspección tras cambios
+    // en el orden de la lista. Los registros históricos permanecen guardados.
     if (idControl) {
-        const vinculados = lista.filter(registro =>
+        return lista.filter(registro =>
             String(registro?.idControlInspeccion || "").trim() === idControl
         );
-        if (vinculados.length) return vinculados;
     }
+
+    // Compatibilidad con inspecciones antiguas que aún no tienen idControl.
     return lista.filter(registro =>
+        !String(registro?.idControlInspeccion || "").trim() &&
         Number(registro?.inspeccion) === Number(indice)
     );
 }
