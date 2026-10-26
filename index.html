@@ -665,13 +665,6 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
                     de las inspecciones realizadas.
                 </p>
             </div>
-            <!-- CAM-VULN-MULTISECTOR-01: nueva lista de chequeo por sector, independiente de los módulos existentes. -->
-            <div class="modulo" style="background:#eff6ff;border:2px solid #60a5fa;border-top:7px solid #2563eb;" onclick="CAMVulnerabilidades.abrir()">
-                <h3 style="color:#1d4ed8;">🛡️ Análisis de vulnerabilidades</h3>
-                <p>Instrumento técnico para el análisis preventivo de riesgos y vulnerabilidades en sectores residencial, comercial e industrial. Sus resultados se incorporan al informe asociado.</p>
-                <button type="button" onclick="event.stopPropagation();CAMVulnerabilidades.abrir();" style="margin-top:8px;background:#1d4ed8;color:#fff;border:0;padding:9px 13px;border-radius:6px;font-weight:bold;cursor:pointer;">Abrir lista de chequeo</button>
-            </div>
-
             <!-- CAM-AGENDA-ANALISIS-02: se elimina la tarjeta duplicada; las alertas abren la agenda. -->
             <!-- CAM-AGENDA-ALERTAS-01: resumen automático de visitas pendientes en el tablero principal. -->
             <div id="camAgendaAlertasCard" class="modulo" style="background:#fffaf0;border:2px solid #f59e0b;border-top:7px solid #d97706;">
@@ -778,6 +771,8 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
                 <button type="button" id="btnHallazgosOM22" class="boton-principal" onclick="abrirHallazgos(indiceInspeccionEditando)" disabled>⚠️ Hallazgos</button>
                 <button type="button" id="btnEditarOM22" class="boton-principal" onclick="editarInspeccion(indiceInspeccionEditando)" disabled>✏️ Editar</button>
                 <button type="button" id="btnEliminarOM22" class="boton-principal" onclick="eliminarInspeccion(indiceInspeccionEditando)" disabled style="background:#b91c1c;">🗑️ Eliminar</button>
+                <!-- CAM-VULN-MENU-02: acceso al análisis desde la inspección activa. -->
+                <button type="button" id="btnAnalisisVulnerabilidadesOM22" class="boton-principal" onclick="CAMVulnerabilidades.abrir()" disabled style="background:#1d4ed8;color:#fff;">🛡️ Análisis de vulnerabilidades</button>
             </div>
         </div>
 
@@ -6848,7 +6843,9 @@ function actualizarPanelModularInspeccionOM22(indice) {
         "btnMatrizOM22",
         "btnHallazgosOM22",
         "btnEditarOM22",
-        "btnEliminarOM22"
+        "btnEliminarOM22",
+        // CAM-VULN-BTN-FIX-01: habilitar el análisis cuando hay inspección guardada.
+        "btnAnalisisVulnerabilidadesOM22"
     ];
 
     const inspecciones =
@@ -11967,9 +11964,31 @@ h3{color:#000!important;border-bottom:1px solid #F2C500!important}
 }
 
 function obtenerSeccionAnalisisVulnerabilidadesTECCHNEX(indiceInspeccion) {
+    // CAM-VULN-15 — Recuperación de la evaluación asociada para informes PDF.
+    // Busca primero el historial por inspección; después los datos incrustados en la inspección;
+    // finalmente consulta la clave heredada. No modifica el guardado ni el diseño del informe.
+    const KEY_VULN = "tecchnex_lista_vulnerabilidades_multisector_v1";
+    const RECORDS_KEY_VULN = KEY_VULN + "_registros_v2";
+    const coincide = x => x && Number(x.inspeccionIndice) === Number(indiceInspeccion);
     let d = null;
-    try { d = JSON.parse(localStorage.getItem("tecchnex_lista_vulnerabilidades_multisector_v1") || "null"); } catch (e) {}
-    if (!d || Number(d.inspeccionIndice) !== Number(indiceInspeccion)) return '<section class="bloque-pdf analisis-vulnerabilidades-pdf"><h2>Análisis técnico de vulnerabilidades</h2><p>No se encontró una evaluación técnica vinculada a esta evaluación. La lista de chequeo anterior no se mostrará en su lugar. Abra «Análisis de vulnerabilidades», seleccione la evaluación correcta y guarde antes de generar el informe.</p></section>';
+    try {
+        const registros = JSON.parse(localStorage.getItem(RECORDS_KEY_VULN) || "[]");
+        if (Array.isArray(registros)) d = registros.slice().reverse().find(coincide) || null;
+    } catch (e) {}
+    if (!d) {
+        try {
+            const inspecciones = JSON.parse(localStorage.getItem("inspecciones") || "[]");
+            const inspeccion = Array.isArray(inspecciones) ? inspecciones[Number(indiceInspeccion)] : null;
+            if (inspeccion && coincide(inspeccion.evaluacionVulnerabilidades)) d = inspeccion.evaluacionVulnerabilidades;
+        } catch (e) {}
+    }
+    if (!d) {
+        try {
+            const heredada = JSON.parse(localStorage.getItem(KEY_VULN) || "null");
+            if (coincide(heredada)) d = heredada;
+        } catch (e) {}
+    }
+    if (!d) return '<section class="bloque-pdf analisis-vulnerabilidades-pdf"><h2>Análisis técnico de vulnerabilidades</h2><p>No se encontró una evaluación técnica vinculada a esta inspección. Abra «Análisis de vulnerabilidades», seleccione la inspección correcta y guarde la evaluación antes de generar el informe.</p></section>';
     const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
     const respuestas = d.respuestas || {}, notas = d.observacionesPorPregunta || {};
     const grupos = [
@@ -15204,14 +15223,25 @@ document.addEventListener("DOMContentLoaded", function () {
 
 <script>
 if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js")
-            .then(() => {
-                console.log("Service Worker registrado correctamente.");
-            })
-            .catch(error => {
-                console.error("Error al registrar Service Worker:", error);
+    window.addEventListener("load", async () => {
+        try {
+            const registro = await navigator.serviceWorker.register("./sw.js", {
+                updateViaCache: "none"
             });
+            // Solicita comprobar si GitHub Pages ya publica una versión nueva.
+            await registro.update();
+            registro.addEventListener("updatefound", () => {
+                const instalando = registro.installing;
+                if (instalando) instalando.addEventListener("statechange", () => {
+                    if (instalando.state === "activated") {
+                        console.log("TECCHNEX: versión actualizada.");
+                    }
+                });
+            });
+            console.log("Service Worker registrado; actualización comprobada.");
+        } catch (error) {
+            console.error("Error al registrar/actualizar Service Worker:", error);
+        }
     });
 }
 </script>
