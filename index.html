@@ -2058,7 +2058,17 @@ function abrir(){
  render();$('camVulnMensaje').textContent=d?'Evaluación recuperada del almacenamiento local.':'Nueva evaluación. Las respuestas se guardarán automáticamente.';
 }
 function cerrar(){persistCurrent(false);$('camVulnOverlay').style.display='none'}
-function guardar(){if(persistCurrent(true))updateSummary()}
+// CAM-CACHE-CHK-01: después de guardar, volver al inicio del checklist para mostrar el cierre y permitir editar.
+function guardar(){
+ if(persistCurrent(true)){
+  updateSummary();
+  const overlay=$('camVulnOverlay');
+  if(overlay){
+   if(typeof overlay.scrollTo==='function')overlay.scrollTo({top:0,behavior:'smooth'});
+   else overlay.scrollTop=0;
+  }
+ }
+}
 function nueva(){if(!confirm('¿Crear una nueva evaluación? La evaluación actual se guardará antes de iniciar otra.'))return;persistCurrent(false);state={id:null,answers:{},notes:{}};loadMeta({fecha:new Date().toISOString().slice(0,10),sector:$('camVulnSector').value,inspeccionIndice:$('camVulnInspeccion').value===''?null:Number($('camVulnInspeccion').value)});$('camVulnMensaje').textContent='Nueva evaluación. Las respuestas se guardarán automáticamente.';render()}
 function exportarJSON(){const d=data(),blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='TECCHNEX_Vulnerabilidades_'+(d.sector||'sector')+'_'+(d.fecha||'sin-fecha')+'.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)}
 function exportarTexto(){const d=data(),sections=allSections();let out='TECCHNEX — ANÁLISIS DE VULNERABILIDADES\nSector: '+d.sector+'\nEstablecimiento: '+d.lugar+'\nCiudad: '+d.ciudad+'\nAnalista de Riesgos: '+d.inspector+'\nFecha: '+d.fecha+'\nJornada: '+d.jornada+'\n\n';sections.forEach((g,gi)=>{out+=g[0]+'\n';g[1].forEach((q,ii)=>{const k=gi+'-'+ii;out+=(gi+1)+'.'+(ii+1)+' '+q+'\nEstado: '+(state.answers[k]||'Pendiente')+'\nObservación: '+(state.notes[k]||'—')+'\n'})});out+='Observaciones generales: '+d.observaciones;const blob=new Blob([out],{type:'text/plain;charset=utf-8'});if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(out).then(()=>$('camVulnMensaje').textContent='Resumen copiado.').catch(()=>downloadText(out))}else downloadText(out);function downloadText(t){const u=URL.createObjectURL(new Blob([t],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download='TECCHNEX_Resumen_Vulnerabilidades.txt';a.click();URL.revokeObjectURL(u)}}
