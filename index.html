@@ -2093,7 +2093,11 @@ $('camVulnInspeccion').addEventListener('change',()=>{const meta={sector:$('camV
 ['camVulnLugar','camVulnCiudad','camVulnInspector','camVulnFecha','camVulnJornada','camVulnObservaciones'].forEach(id=>{const el=$(id);el.addEventListener('change',()=>persistCurrent(false));el.addEventListener('input',()=>persistCurrent(false))});
 $('camVulnOverlay').addEventListener('click',e=>{if(e.target===$('camVulnOverlay'))cerrar()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('camVulnOverlay').style.display==='block')cerrar()});
-window.CAMVulnerabilidades={abrir,cerrar,guardar,nueva,exportarJSON,exportarTexto};
+// CAM-VULN-INFORME-CATALOGO-01: el informe consulta el mismo catálogo que muestra la evaluación.
+window.CAMVulnerabilidades={
+ abrir,cerrar,guardar,nueva,exportarJSON,exportarTexto,
+ obtenerSecciones:(nombreSector)=>[...shared,...(sector[nombreSector]||[])]
+};
 })();
 </script>
 
@@ -4517,7 +4521,15 @@ async function crearRespaldo() {
 
                 // CAM-AGENDA-JSON-01: incluir las visitas de supervisión en el respaldo general.
                 agendaSupervision:
-                    JSON.parse(localStorage.getItem("tecchnex_agenda_supervision_v1") || "[]")
+                    JSON.parse(localStorage.getItem("tecchnex_agenda_supervision_v1") || "[]"),
+
+                // CAM-RESPALDO-VULNERABILIDADES-01:
+                // la evaluación técnica multisector se guarda en claves independientes
+                // y debe viajar junto con la inspección, sin modificar la plantilla Word.
+                evaluacionesVulnerabilidades:
+                    JSON.parse(localStorage.getItem("tecchnex_lista_vulnerabilidades_multisector_v1_registros_v2") || "[]"),
+                evaluacionVulnerabilidadesActual:
+                    JSON.parse(localStorage.getItem("tecchnex_lista_vulnerabilidades_multisector_v1") || "null")
             }
         };
 
@@ -4544,6 +4556,8 @@ async function crearRespaldo() {
 
         alert(
             "Respaldo creado correctamente.\n\n" +
+            "Evaluaciones técnicas incluidas: " +
+                (Array.isArray(respaldo.datos.evaluacionesVulnerabilidades) ? respaldo.datos.evaluacionesVulnerabilidades.length : 0) + "\n" +
             "Fotografías incluidas: " + mediosRespaldo.length
         );
     } catch (error) {
@@ -4580,6 +4594,40 @@ async function exportarInspeccionSeleccionada() {
         const matrizTodos = JSON.parse(localStorage.getItem("matrizRiesgos") || "[]");
         const matricesClientesTodas = JSON.parse(localStorage.getItem("matricesRiesgosClientes") || "[]");
         const resultadosTodos = JSON.parse(localStorage.getItem("resultadosChecklistCategorias") || "{}");
+
+        // CAM-RESPALDO-VULNERABILIDADES-01: incluir la evaluación técnica real,
+        // distinta del checklist tradicional que se conserva por compatibilidad.
+        const claveEvaluacionesVuln = "tecchnex_lista_vulnerabilidades_multisector_v1_registros_v2";
+        const claveEvaluacionVulnActual = "tecchnex_lista_vulnerabilidades_multisector_v1";
+        let evaluacionesVulnTodas = [];
+        let evaluacionVulnActual = null;
+        try {
+            const guardadas = JSON.parse(localStorage.getItem(claveEvaluacionesVuln) || "[]");
+            if (Array.isArray(guardadas)) evaluacionesVulnTodas = guardadas;
+        } catch (_) {}
+        try { evaluacionVulnActual = JSON.parse(localStorage.getItem(claveEvaluacionVulnActual) || "null"); } catch (_) {}
+        const inspeccionKey = String(inspeccion.idControl || "").trim().toLowerCase();
+        const evaluacionVulnerabilidades = evaluacionesVulnTodas.slice().reverse().find(ev =>
+            ev && Number(ev.inspeccionIndice) === indice
+        ) || (
+            inspeccion.evaluacionVulnerabilidades &&
+            typeof inspeccion.evaluacionVulnerabilidades === "object"
+                ? inspeccion.evaluacionVulnerabilidades
+                : null
+        ) || (
+            evaluacionVulnActual && Number(evaluacionVulnActual.inspeccionIndice) === indice
+                ? evaluacionVulnActual
+                : null
+        );
+        const evaluacionVulnerabilidadesExportar = evaluacionVulnerabilidades
+            ? {
+                ...evaluacionVulnerabilidades,
+                inspeccionIndice: indice,
+                inspeccionCliente: evaluacionVulnerabilidades.inspeccionCliente || inspeccion.cliente || "",
+                inspeccionTipo: evaluacionVulnerabilidades.inspeccionTipo || inspeccion.tipo || "",
+                inspeccionIdControl: inspeccionKey || evaluacionVulnerabilidades.inspeccionIdControl || ""
+            }
+            : null;
 
         const checklists = obtenerRegistrosDeInspeccion(checklistsTodos, inspeccion, indice);
         const hallazgos = obtenerRegistrosDeInspeccion(hallazgosTodos, inspeccion, indice);
@@ -4619,7 +4667,9 @@ async function exportarInspeccionSeleccionada() {
                 matrizRiesgos,
                 matricesRiesgosClientes,
                 resultadosChecklistCategorias,
-                mediosFotograficos
+                mediosFotograficos,
+                // La evaluación técnica multisector contiene las respuestas por pregunta y observaciones.
+                evaluacionVulnerabilidades: evaluacionVulnerabilidadesExportar
             }
         };
 
@@ -4647,6 +4697,7 @@ async function exportarInspeccionSeleccionada() {
             "\nChecklist: " + checklists.length +
             "\nHallazgos: " + hallazgos.length +
             "\nRegistros de matriz de riesgos: " + matrizRiesgos.length +
+            "\nEvaluación técnica: " + (evaluacionVulnerabilidadesExportar ? (Object.keys(evaluacionVulnerabilidadesExportar.respuestas || {}).length + " respuestas guardadas") : "no encontrada") +
             "\nFotografías incluidas: " + mediosFotograficos.length +
             "\n\nLos datos originales no fueron modificados."
         );
@@ -4709,6 +4760,10 @@ function importarInspeccionIndividual() {
                 const matrizImportada = Array.isArray(datos.matrizRiesgos) ? datos.matrizRiesgos : [];
                 const mediosImportados = Array.isArray(datos.mediosFotograficos) ? datos.mediosFotograficos : [];
                 const matricesClienteImportadas = Array.isArray(datos.matricesRiesgosClientes) ? datos.matricesRiesgosClientes : [];
+                const evaluacionVulnerabilidadesImportada =
+                    datos.evaluacionVulnerabilidades && typeof datos.evaluacionVulnerabilidades === "object"
+                        ? datos.evaluacionVulnerabilidades
+                        : null;
 
                 const inspeccionesActuales = JSON.parse(localStorage.getItem("inspecciones") || "[]");
                 if (!Array.isArray(inspeccionesActuales)) {
@@ -4761,6 +4816,7 @@ function importarInspeccionIndividual() {
                     "Checklist: " + checklistsImportados.length + "\n" +
                     "Hallazgos: " + hallazgosImportados.length + "\n" +
                     "Registros de matriz de riesgos: " + matrizImportada.length + "\n" +
+                    "Evaluación técnica: " + (evaluacionVulnerabilidadesImportada ? (Object.keys(evaluacionVulnerabilidadesImportada.respuestas || {}).length + " respuestas guardadas") : "no incluida en este archivo") + "\n" +
                     "Fotografías incluidas: " + mediosImportados.filter(medio => medio?.dataUrl).length + "\n\n" +
                     "La inspección se agregará a los datos actuales; no reemplazará las demás inspecciones.\n\n" +
                     "¿Desea continuar?";
@@ -4785,6 +4841,22 @@ function importarInspeccionIndividual() {
                 }
 
                 const nuevoIndice = inspeccionesActuales.length;
+
+                // CAM-RESPALDO-VULNERABILIDADES-01: remapear la evaluación al índice
+                // nuevo y enlazarla a la inspección importada, sin cambiar la plantilla Word.
+                let evaluacionVulnerabilidadesNueva = null;
+                if (evaluacionVulnerabilidadesImportada) {
+                    evaluacionVulnerabilidadesNueva = {
+                        ...evaluacionVulnerabilidadesImportada,
+                        inspeccionIndice: nuevoIndice,
+                        inspeccionCliente: evaluacionVulnerabilidadesImportada.inspeccionCliente || inspeccionImportada.cliente || "",
+                        inspeccionTipo: evaluacionVulnerabilidadesImportada.inspeccionTipo || inspeccionImportada.tipo || "",
+                        inspeccionIdControl: idControl,
+                        actualizado: new Date().toISOString()
+                    };
+                    inspeccionImportada.evaluacionVulnerabilidades = evaluacionVulnerabilidadesNueva;
+                }
+
                 const hallazgosNuevos = [];
                 for (const hallazgo of hallazgosImportados) {
                     const nuevoHallazgo = {
@@ -4902,6 +4974,29 @@ function importarInspeccionIndividual() {
                     resultadosChecklistCategorias: resultadosCombinados,
                     ultimoNumeroInspeccion: String(ultimoNumero)
                 };
+                // Si el archivo contiene evaluación técnica, conservar el historial local y añadirla.
+                // Si no la contiene (archivo antiguo), no tocar estas claves locales.
+                if (evaluacionVulnerabilidadesNueva) {
+                    const claveRegistrosVuln = "tecchnex_lista_vulnerabilidades_multisector_v1_registros_v2";
+                    const claveActualVuln = "tecchnex_lista_vulnerabilidades_multisector_v1";
+                    let registrosVulnActuales = [];
+                    try {
+                        const existentes = JSON.parse(localStorage.getItem(claveRegistrosVuln) || "[]");
+                        if (Array.isArray(existentes)) registrosVulnActuales = existentes;
+                    } catch (_) {}
+                    const identidad = d => [
+                        String(d?.inspeccionIndice ?? ""),
+                        String(d?.sector || ""),
+                        String(d?.lugar || "").trim().toLocaleLowerCase("es")
+                    ].join("|");
+                    const claveNueva = identidad(evaluacionVulnerabilidadesNueva);
+                    const posVuln = registrosVulnActuales.findIndex(d => identidad(d) === claveNueva);
+                    if (posVuln >= 0) registrosVulnActuales[posVuln] = evaluacionVulnerabilidadesNueva;
+                    else registrosVulnActuales.push(evaluacionVulnerabilidadesNueva);
+                    clavesGuardar[claveRegistrosVuln] = registrosVulnActuales;
+                    clavesGuardar[claveActualVuln] = evaluacionVulnerabilidadesNueva;
+                }
+
                 const clavesLocalStorage = Object.keys(clavesGuardar);
                 const valoresAnteriores = {};
                 for (const clave of clavesLocalStorage) valoresAnteriores[clave] = localStorage.getItem(clave);
@@ -5066,6 +5161,24 @@ localStorage.setItem(
         datos.resultadosChecklistCategorias || []
     )
 );
+
+// CAM-RESPALDO-VULNERABILIDADES-01:
+// restaurar la evaluación técnica real. Los respaldos antiguos que no la incluyen
+// no deben borrar una evaluación que siga en el navegador.
+const claveRegistrosVulnRespaldo = "tecchnex_lista_vulnerabilidades_multisector_v1_registros_v2";
+const claveActualVulnRespaldo = "tecchnex_lista_vulnerabilidades_multisector_v1";
+const registrosVulnRespaldo = datos.evaluacionesVulnerabilidades;
+const actualVulnRespaldo = datos.evaluacionVulnerabilidadesActual;
+if (Array.isArray(registrosVulnRespaldo) && registrosVulnRespaldo.length > 0) {
+    localStorage.setItem(claveRegistrosVulnRespaldo, JSON.stringify(registrosVulnRespaldo));
+} else if (!Array.isArray(registrosVulnRespaldo)) {
+    console.warn("CAM-RESPALDO-VULNERABILIDADES-01: el respaldo es antiguo y no trae el historial de evaluaciones técnicas; se conserva el historial local.");
+}
+if (actualVulnRespaldo && typeof actualVulnRespaldo === "object") {
+    localStorage.setItem(claveActualVulnRespaldo, JSON.stringify(actualVulnRespaldo));
+} else if (Array.isArray(registrosVulnRespaldo) && registrosVulnRespaldo.length > 0) {
+    localStorage.setItem(claveActualVulnRespaldo, JSON.stringify(registrosVulnRespaldo[registrosVulnRespaldo.length - 1]));
+}
 
 localStorage.setItem(
     "ultimoNumeroInspeccion",
@@ -8467,6 +8580,16 @@ if (indiceExistente !== -1) {
         "Lista de chequeo guardada correctamente."
     );
     cerrarListaChequeo();
+
+    // CAM-CHECKLIST-VUELTA-INICIO-01:
+    // después de guardar, cerrar la lista y devolver la página principal al inicio.
+    const ventanaChecklistGuardada = document.getElementById("ventanaChecklist");
+    if (ventanaChecklistGuardada) {
+        ventanaChecklistGuardada.scrollTop = 0;
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
 }
 
 const ventanaChecklist =
@@ -11812,6 +11935,16 @@ async function generarWordPlantillaMaestra() {
             const KEY_VULN = "tecchnex_lista_vulnerabilidades_multisector_v1";
             const RECORDS_KEY_VULN = KEY_VULN + "_registros_v2";
             const coincide = d => d && Number(d.inspeccionIndice) === Number(indiceInspeccion);
+
+            // CAM-RESPALDO-VULNERABILIDADES-01: preferir el registro vinculado dentro
+            // de la propia inspección importada/restaurada, si existe.
+            try {
+                const inspecciones = JSON.parse(localStorage.getItem("inspecciones") || "[]");
+                const inspeccion = Array.isArray(inspecciones) ? inspecciones[Number(indiceInspeccion)] : null;
+                const asociadaEnInspeccion = inspeccion && inspeccion.evaluacionVulnerabilidades;
+                if (coincide(asociadaEnInspeccion)) return asociadaEnInspeccion;
+            } catch (_) {}
+
             try {
                 const historicas = JSON.parse(localStorage.getItem(RECORDS_KEY_VULN) || "[]");
                 if (Array.isArray(historicas)) {
@@ -12012,21 +12145,15 @@ async function generarWordPlantillaMaestra() {
             const ev = evaluacionVulnerabilidadesWord;
             const respuestasEv = ev.respuestas || {};
             const notasEv = ev.observacionesPorPregunta || {};
-            const gruposEv = [
-                ["Perímetro y entorno",["¿Se identifican las amenazas externas y las condiciones de seguridad del entorno?","¿El perímetro, cerramientos y accesos exteriores se encuentran en condiciones adecuadas?","¿La iluminación exterior y la visibilidad permiten detectar situaciones anómalas?","¿Se inspeccionan y documentan periódicamente las condiciones perimetrales?"]],
-                ["Accesos y circulación",["¿Los accesos peatonales y vehiculares tienen procedimientos de control definidos?","¿Se controla el ingreso de visitantes, contratistas, proveedores y personal temporal?","¿Las áreas restringidas están identificadas y su acceso está limitado a personal autorizado?","¿Las salidas y rutas de evacuación permanecen accesibles y sin obstrucciones?"]],
-                ["Vigilancia y operación",["¿Los procedimientos de vigilancia, rondas y respuesta están documentados?","¿Se registran las novedades y se realiza entrega formal entre turnos?","¿El personal conoce los procedimientos de escalamiento y atención de incidentes?","¿Se revisan incidentes anteriores y se verifican las acciones correctivas?"]],
-                ["Seguridad electrónica",["¿Los sistemas de CCTV cubren las áreas de interés definidas por el análisis de riesgos?","¿Las cámaras, alarmas y medios de comunicación están operativos?","¿El acceso a grabaciones y configuraciones está limitado a personal autorizado?","¿Existen mantenimiento documentado y procedimientos ante fallas tecnológicas?"]],
-                ["Emergencias y continuidad",["¿Existe un plan de emergencias vigente y conocido por el personal pertinente?","¿Los sistemas de detección, alarma y respuesta tienen inspecciones y mantenimiento?","¿Se realizan simulacros y se registran oportunidades de mejora?","¿Existen procedimientos para mantener funciones esenciales durante una interrupción?"]],
-                ["Gestión y evidencias",["¿Las responsabilidades de administración, seguridad y mantenimiento están definidas?","¿Se documentan las vulnerabilidades con ubicación y evidencia autorizada?","¿Se asignan responsables y plazos para las acciones correctivas?","¿Se verifica la eficacia de las medidas implementadas?"]]
-            ];
-            const sectorEv = {
-                "Residencial":[["Portería y convivencia",["¿La portería controla el ingreso de residentes, visitantes y domicilios?","¿Existe un procedimiento para menores extraviados y personas vulnerables?","¿Las zonas comunes, piscinas, gimnasios y salones tienen controles adecuados?","¿Se gestionan parqueaderos, bicicletas y bienes comunes para prevenir hurtos?"]],["Rondas y áreas comunes",["¿Las rondas cubren perímetro, parqueaderos y zonas de baja afluencia?","¿Se registran los puntos de ronda y las novedades relevantes?","¿Los cuartos técnicos, cubiertas y depósitos están protegidos?","¿Existen procedimientos de atención de riñas, violencia o alteraciones de convivencia?"]]],
-                "Comercial":[["Operación del mall",["¿Los accesos públicos, entradas de servicio y zonas de carga tienen controles diferenciados?","¿Se evalúan riesgos de hurto, agresión y aglomeraciones en zonas de alta afluencia?","¿Las cajas, manejo de valores, bodegas y locales sensibles tienen controles apropiados?","¿Se gestionan paquetes sospechosos, objetos perdidos y alertas de seguridad?"]],["Visitantes y locales",["¿Los contratistas y proveedores cuentan con registro y autorización?","¿Las zonas de comidas, entretenimiento y eventos tienen procedimientos de seguridad?","¿Se revisan parqueaderos, pasillos, escaleras y puntos de encuentro?","¿Existe coordinación de emergencias entre administración, locales y vigilancia?"]]],
-                "Industrial":[["Protección industrial",["¿Los portones y accesos de vehículos tienen validación y registro de ingreso?","¿Las bodegas e inventarios cuentan con controles de acceso y trazabilidad?","¿Las áreas de producción, cuartos técnicos y maquinaria están restringidas según su función?","¿Se controlan llaves, herramientas críticas y activos de alto valor?"]],["Amenazas y continuidad industrial",["¿Se evalúan sabotaje, intrusión, robo interno y amenazas a la continuidad?","¿Las áreas con sustancias peligrosas tienen controles de acceso y respuesta?","¿Se coordinan seguridad física, SST, mantenimiento y respuesta a emergencias?","¿Existen procedimientos para fallas eléctricas, incendio, derrames o interrupción operativa?"]]]
-            };
-            const todosEv = gruposEv.concat(sectorEv[ev.sector] || []);
+            // CAM-VULN-INFORME-CATALOGO-01: usa el mismo catálogo y orden que la evaluación guardada.
+            const todosEv = (window.CAMVulnerabilidades && typeof window.CAMVulnerabilidades.obtenerSecciones === "function")
+                ? window.CAMVulnerabilidades.obtenerSecciones(ev.sector)
+                : [];
             const etiquetaEv = {C:"Cumple",P:"Parcial",NC:"No cumple",NA:"No aplica",NV:"No verificado"};
+            if (!todosEv.length) {
+                cuerpo += titulo("7. Análisis técnico de riesgos y vulnerabilidades",1)
+                    + parrafoWord("No se pudo cargar el catálogo de preguntas correspondiente a la evaluación. Verifique la versión del módulo antes de emitir el informe.",{font:"Century Gothic",size:"17",after:80,line:250});
+            } else {
             const filasEv = [];
             let totalEv = 0, ncEv = 0, parcialEv = 0, pendientesEv = 0;
             todosEv.forEach((grupo, gi) => grupo[1].forEach((pregunta, ii) => {
@@ -12038,12 +12165,18 @@ async function generarWordPlantillaMaestra() {
                 if (estado || nota.trim()) filasEv.push([grupo[0], pregunta, etiquetaEv[estado] || "Pendiente", nota || "Sin observación registrada"]);
             }));
             if (!filasEv.length) filasEv.push(["Evaluación", "No hay respuestas ni observaciones registradas", "Pendiente", "Completar el instrumento para documentar resultados técnicos."]);
+            // CAM-INFORME-APARIENCIA-02: metadata del informe en líneas independientes.
+            // Solo modifica el contenido generado; la plantilla Word maestra permanece intacta.
             cuerpo += titulo("7. Análisis técnico de riesgos y vulnerabilidades",1)
-                + parrafoWord(`Sector evaluado: ${ev.sector || "No consignado"}. Establecimiento: ${ev.lugar || ev.inspeccionCliente || inspeccion.cliente || "No consignado"}. Ciudad: ${ev.ciudad || inspeccion.ciudad || "No consignada"}. Fecha: ${ev.fecha || inspeccion.fecha || "No consignada"}. Analista de Riesgos: ${ev.inspector || inspeccion.inspector || "No consignado"}.`,{font:"Century Gothic",size:"17",after:80,line:250})
+                + parrafoWord(`Sector evaluado: ${ev.sector || "No consignado"}.`,{font:"Century Gothic",size:"17",after:35,line:250})
+                + parrafoWord(`Establecimiento: ${ev.lugar || ev.inspeccionCliente || inspeccion.cliente || "No consignado"}.`,{font:"Century Gothic",size:"17",after:35,line:250})
+                + parrafoWord(`Ciudad: ${ev.ciudad || inspeccion.ciudad || "No consignada"}. Fecha: ${ev.fecha || inspeccion.fecha || "No consignada"}.`,{font:"Century Gothic",size:"17",after:35,line:250})
+                + parrafoWord(`Analista de Riesgos: ${ev.inspector || inspeccion.inspector || "No consignado"}.`,{font:"Century Gothic",size:"17",after:70,line:250})
                 + parrafoWord(`Se registraron ${totalEv-pendientesEv} respuestas de ${totalEv}; ${ncEv} condiciones No cumple y ${parcialEv} condiciones Parcial; ${pendientesEv} preguntas permanecen pendientes. Estos conteos describen respuestas y no representan por sí solos un nivel de riesgo.`,{font:"Century Gothic",size:"17",after:80,line:250})
                 + tablaGenerica(["ÁREA","ASPECTO EVALUADO","RESULTADO","OBSERVACIÓN / EVIDENCIA"],filasEv,[1450,3550,1200,2788])
                 + titulo("Criterio de interpretación técnica",2)
                 + parrafoWord("Las condiciones registradas deben analizarse en relación con los activos expuestos, las amenazas pertinentes, los controles existentes, la posibilidad de ocurrencia y las consecuencias potenciales. La valoración y priorización se documentan en la matriz de riesgos con la metodología vigente de TECCHNEX; una respuesta NC o Parcial no asigna automáticamente un nivel de riesgo.",{font:"Century Gothic",size:"17",after:80,line:250});
+            }
         } else {
             cuerpo += titulo("7. Análisis técnico de riesgos y vulnerabilidades",1)
                 + parrafoWord("No hay una evaluación técnica de vulnerabilidades asociada a esta evaluación. La lista de chequeo tradicional no se presenta como sustituto del análisis preventivo. Abra el módulo Análisis de vulnerabilidades, vincule la evaluación correspondiente y guárdela antes de generar el informe.",{font:"Century Gothic",size:"17",after:80,line:250});
@@ -12503,16 +12636,13 @@ function obtenerSeccionAnalisisVulnerabilidadesTECCHNEX(indiceInspeccion) {
     if (!d) return '<section class="bloque-pdf analisis-vulnerabilidades-pdf"><h2>Análisis técnico de vulnerabilidades</h2><p>No se encontró una evaluación técnica vinculada a esta inspección. Abra «Análisis de vulnerabilidades», seleccione la inspección correcta y guarde la evaluación antes de generar el informe.</p></section>';
     const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
     const respuestas = d.respuestas || {}, notas = d.observacionesPorPregunta || {};
-    const grupos = [
-      ["Perímetro y entorno",["¿Se identifican las amenazas externas y las condiciones de seguridad del entorno?","¿El perímetro, cerramientos y accesos exteriores se encuentran en condiciones adecuadas?","¿La iluminación exterior y la visibilidad permiten detectar situaciones anómalas?","¿Se inspeccionan y documentan periódicamente las condiciones perimetrales?"]],
-      ["Accesos y circulación",["¿Los accesos peatonales y vehiculares tienen procedimientos de control definidos?","¿Se controla el ingreso de visitantes, contratistas, proveedores y personal temporal?","¿Las áreas restringidas están identificadas y su acceso está limitado a personal autorizado?","¿Las salidas y rutas de evacuación permanecen accesibles y sin obstrucciones?"]],
-      ["Vigilancia y operación",["¿Los procedimientos de vigilancia, rondas y respuesta están documentados?","¿Se registran las novedades y se realiza entrega formal entre turnos?","¿El personal conoce los procedimientos de escalamiento y atención de incidentes?","¿Se revisan incidentes anteriores y se verifican las acciones correctivas?"]],
-      ["Seguridad electrónica",["¿Los sistemas de CCTV cubren las áreas de interés definidas por el análisis de riesgos?","¿Las cámaras, alarmas y medios de comunicación están operativos?","¿El acceso a grabaciones y configuraciones está limitado a personal autorizado?","¿Existen mantenimiento documentado y procedimientos ante fallas tecnológicas?"]],
-      ["Emergencias y continuidad",["¿Existe un plan de emergencias vigente y conocido por el personal pertinente?","¿Los sistemas de detección, alarma y respuesta tienen inspecciones y mantenimiento?","¿Se realizan simulacros y se registran oportunidades de mejora?","¿Existen procedimientos para mantener funciones esenciales durante una interrupción?"]],
-      ["Gestión y evidencias",["¿Las responsabilidades de administración, seguridad y mantenimiento están definidas?","¿Se documentan las vulnerabilidades con ubicación y evidencia autorizada?","¿Se asignan responsables y plazos para las acciones correctivas?","¿Se verifica la eficacia de las medidas implementadas?"]]
-    ];
-    const sector = {Residencial:[["Portería y convivencia",["¿La portería controla el ingreso de residentes, visitantes y domicilios?","¿Existe un procedimiento para menores extraviados y personas vulnerables?","¿Las zonas comunes, piscinas, gimnasios y salones tienen controles adecuados?","¿Se gestionan parqueaderos, bicicletas y bienes comunes para prevenir hurtos?"]],["Rondas y áreas comunes",["¿Las rondas cubren perímetro, parqueaderos y zonas de baja afluencia?","¿Se registran los puntos de ronda y las novedades relevantes?","¿Los cuartos técnicos, cubiertas y depósitos están protegidos?","¿Existen procedimientos de atención de riñas, violencia o alteraciones de convivencia?"]]],Comercial:[["Operación del mall",["¿Los accesos públicos, entradas de servicio y zonas de carga tienen controles diferenciados?","¿Se evalúan riesgos de hurto, agresión y aglomeraciones en zonas de alta afluencia?","¿Las cajas, manejo de valores, bodegas y locales sensibles tienen controles apropiados?","¿Se gestionan paquetes sospechosos, objetos perdidos y alertas de seguridad?"]],["Visitantes y locales",["¿Los contratistas y proveedores cuentan con registro y autorización?","¿Las zonas de comidas, entretenimiento y eventos tienen procedimientos de seguridad?","¿Se revisan parqueaderos, pasillos, escaleras y puntos de encuentro?","¿Existe coordinación de emergencias entre administración, locales y vigilancia?"]]],Industrial:[["Protección industrial",["¿Los portones y accesos de vehículos tienen validación y registro de ingreso?","¿Las bodegas e inventarios cuentan con controles de acceso y trazabilidad?","¿Las áreas de producción, cuartos técnicos y maquinaria están restringidas según su función?","¿Se controlan llaves, herramientas críticas y activos de alto valor?"]],["Amenazas y continuidad industrial",["¿Se evalúan sabotaje, intrusión, robo interno y amenazas a la continuidad?","¿Las áreas con sustancias peligrosas tienen controles de acceso y respuesta?","¿Se coordinan seguridad física, SST, mantenimiento y respuesta a emergencias?","¿Existen procedimientos para fallas eléctricas, incendio, derrames o interrupción operativa?"]]]};
-    const all = grupos.concat(sector[d.sector] || []);
+    // CAM-VULN-INFORME-CATALOGO-01: reutiliza las mismas preguntas e índices de la evaluación.
+    const all = (window.CAMVulnerabilidades && typeof window.CAMVulnerabilidades.obtenerSecciones === "function")
+        ? window.CAMVulnerabilidades.obtenerSecciones(d.sector)
+        : [];
+    if (!all.length) {
+        return '<section class="bloque-pdf analisis-vulnerabilidades-pdf"><h2>Análisis técnico de vulnerabilidades</h2><p>No se pudo cargar el catálogo de preguntas de esta evaluación. Verifique la versión del módulo antes de generar el informe.</p></section>';
+    }
     const labels = {C:"Cumple",P:"Parcial",NC:"No cumple",NA:"No aplica",NV:"No verificado"};
     let total=0, nc=0, parcial=0, pendientes=0, rows="";
     all.forEach((g,gi)=>g[1].forEach((q,ii)=>{const k=gi+'-'+ii,v=respuestas[k]||"",note=notas[k]||"";
@@ -12520,7 +12650,19 @@ function obtenerSeccionAnalisisVulnerabilidadesTECCHNEX(indiceInspeccion) {
         if(v==="NA") return;
         total++;if(v==="NC")nc++;if(v==="P")parcial++;if(!v)pendientes++;if(v==="NC"||v==="P"||note.trim())rows+=`<tr><td>${esc(g[0])}</td><td>${esc(q)}</td><td>${esc(labels[v]||"Pendiente")}</td><td>${esc(note||"Sin observación registrada")}</td><td>${v==="NC"?"Condición no conforme: validar exposición, amenaza y consecuencia.":v==="P"?"Control parcial: determinar brecha y eficacia del control.":"Revisar evidencia y contexto antes de concluir."}</td></tr>`;}));
     if (!rows) rows='<tr><td colspan="5">No se registraron respuestas NC, parciales ni observaciones para detallar.</td></tr>';
-    return `<section class="bloque-pdf analisis-vulnerabilidades-pdf"><h2>Análisis técnico de vulnerabilidades</h2><p><strong>Sector:</strong> ${esc(d.sector)} · <strong>Establecimiento:</strong> ${esc(d.lugar||d.inspeccionCliente||"No consignado")} · <strong>Ciudad:</strong> ${esc(d.ciudad||"No consignada")} · <strong>Analista de Riesgos:</strong> ${esc(d.inspector||"No consignado")} · <strong>Fecha:</strong> ${esc(d.fecha||"No consignada")} · <strong>Jornada:</strong> ${esc(d.jornada||"No consignada")}</p><p>Instrumento principal de análisis preventivo asociado a esta evaluación; sustituye la lista de chequeo tradicional en el informe cuando está vinculada a la inspección seleccionada. Se registran ${total-pendientes} respuestas, incluidas ${nc} condiciones No cumple y ${parcial} condiciones Parcial; quedan ${pendientes} preguntas pendientes. Estos conteos describen respuestas y no equivalen por sí solos a una calificación del riesgo.</p><table class="tabla-vulnerabilidades"><thead><tr><th>Área</th><th>Aspecto evaluado</th><th>Resultado</th><th>Observación / evidencia registrada</th><th>Lectura técnica preliminar</th></tr></thead><tbody>${rows}</tbody></table><h3>Criterio técnico de interpretación</h3><p>Las condiciones identificadas deben analizarse considerando el activo expuesto, la amenaza pertinente, la probabilidad o posibilidad de ocurrencia, las consecuencias y la eficacia de los controles existentes. El nivel de riesgo debe consignarse y justificarse en la matriz de riesgos de la inspección; no se asigna automáticamente a partir de una respuesta de checklist.</p><p><strong>Observaciones generales:</strong> ${esc(d.observaciones||"Sin observaciones generales registradas.")}</p></section>`;
+    // CAM-INFORME-APARIENCIA-02: mismo orden visual del bloque Word, dentro del informe generado.
+    return `<section class="bloque-pdf analisis-vulnerabilidades-pdf">
+        <h2>7. Análisis técnico de riesgos y vulnerabilidades</h2>
+        <p><strong>Sector evaluado:</strong> ${esc(d.sector||"No consignado")}.</p>
+        <p><strong>Establecimiento:</strong> ${esc(d.lugar||d.inspeccionCliente||"No consignado")}.</p>
+        <p><strong>Ciudad:</strong> ${esc(d.ciudad||"No consignada")}. <strong>Fecha:</strong> ${esc(d.fecha||"No consignada")}.</p>
+        <p><strong>Analista de Riesgos:</strong> ${esc(d.inspector||"No consignado")}.</p>
+        <p>Se registraron ${total-pendientes} respuestas de ${total}; ${nc} condiciones No cumple y ${parcial} condiciones Parcial; ${pendientes} preguntas permanecen pendientes. Estos conteos describen respuestas y no representan por sí solos un nivel de riesgo.</p>
+        <table class="tabla-vulnerabilidades"><thead><tr><th>Área</th><th>Aspecto evaluado</th><th>Resultado</th><th>Observación / evidencia registrada</th><th>Lectura técnica preliminar</th></tr></thead><tbody>${rows}</tbody></table>
+        <h3>Criterio técnico de interpretación</h3>
+        <p>Las condiciones identificadas deben analizarse considerando el activo expuesto, la amenaza pertinente, la probabilidad o posibilidad de ocurrencia, las consecuencias y la eficacia de los controles existentes. El nivel de riesgo debe consignarse y justificarse en la matriz de riesgos de la inspección; no se asigna automáticamente a partir de una respuesta de checklist.</p>
+        <p><strong>Observaciones generales:</strong> ${esc(d.observaciones||"Sin observaciones generales registradas.")}</p>
+    </section>`;
 }
 
 function generarInforme(ventana) {
@@ -13465,7 +13607,7 @@ matrizParaInforme.forEach((riesgo, indice) => {
                 .tabla-resumen-prioridades th{background:#123b5d;color:#fff}
                 .nota-resumen{font-size:9px;color:#5b6570}
                 .analisis-vulnerabilidades-pdf{margin:16px 0;page-break-inside:auto}
-                .analisis-vulnerabilidades-pdf h2{color:#123b5d;border-bottom:2px solid #123b5d;padding-bottom:6px}
+                .analisis-vulnerabilidades-pdf h2{color:#333;background:#F2C500;border-bottom:0;padding:6px 8px;margin:12px 0 9px;font-weight:700}
                 .tabla-vulnerabilidades{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8px;margin:8px 0}
                 .tabla-vulnerabilidades th,.tabla-vulnerabilidades td{border:1px solid #aab7c4;padding:5px;vertical-align:top;overflow-wrap:anywhere}
                 .tabla-vulnerabilidades th{background:#123b5d;color:#fff;text-align:center}
