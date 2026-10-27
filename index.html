@@ -855,7 +855,7 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
 
                     <div class="campo">
                         <label>Director Operativo</label>
-                        <input type="text" id="director">
+                        <select id="director" aria-label="Director operativo" style="padding:11px;border:1px solid #d1d5db;border-radius:6px;font:inherit;background:#fff;"><option value="">Seleccione un director operativo...</option></select>
                     </div>
 
                     <!--
@@ -2322,6 +2322,8 @@ function agregarServicioSeguridad(tipo) {
         document.getElementById("contacto").value = cliente.administrador || "";
         document.getElementById("telefono").value = cliente.telefonoAdmin || cliente.telefonoPuesto || "";
         document.getElementById("correo").value = cliente.correo || "";
+        cargarDirectorInspeccionOM16(cliente.director || "");
+        document.getElementById("director").value = cliente.director || "";
         const formulario = document.getElementById("formInspeccion");
         formulario.dataset.idClienteOM17 = cliente.idCliente || "";
         formulario.dataset.codigoClienteOM17 = cliente.codigo || "";
@@ -2398,6 +2400,7 @@ function agregarServicioSeguridad(tipo) {
         indiceInspeccionEditando = null;
         limpiarDatosOM26();
         actualizarPanelModularInspeccionOM22(null);
+        cargarDirectorInspeccionOM16("");
         prepararSelectorClienteOM17();
         const selector = document.getElementById("clienteDirectorioOM17");
         if (selector) selector.value = "";
@@ -4066,22 +4069,130 @@ async function guardarMediaEnBoveda(foto) {
     };
 }
 
-async function cargarMediaEnCache(referencia) {
-    if (!referencia || !referencia.mediaId) {
-        return;
+// CAM-FOTOGRAFIAS-LAB-RECUPERACION-01
+// Intenta recuperar una fotografía referenciada desde otra bóveda IndexedDB
+// disponible en el mismo origen. No borra ni modifica los hallazgos originales.
+async function buscarMediaEnOtrasBovedas(mediaId) {
+    if (!mediaId || typeof indexedDB.databases !== "function") return null;
+
+    let bases = [];
+    try {
+        bases = await indexedDB.databases();
+    } catch (error) {
+        console.warn("No fue posible enumerar otras bóvedas de medios.", error);
+        return null;
     }
 
-    if (tecchnexMediaCache.has(referencia.mediaId)) {
-        return;
+    for (const info of bases) {
+        const nombreDB = info && info.name;
+        if (!nombreDB || nombreDB === TECCHNEX_MEDIA_DB) continue;
+
+        let dbAlterna = null;
+        try {
+            dbAlterna = await new Promise((resolve, reject) => {
+                const solicitud = indexedDB.open(nombreDB);
+                solicitud.onsuccess = () => resolve(solicitud.result);
+                solicitud.onerror = () => reject(solicitud.error || new Error("No se pudo abrir la bóveda alternativa."));
+                solicitud.onblocked = () => reject(new Error("La bóveda alternativa está bloqueada."));
+            });
+
+            for (const nombreStore of Array.from(dbAlterna.objectStoreNames || [])) {
+                const registro = await new Promise((resolve, reject) => {
+                    const tx = dbAlterna.transaction(nombreStore, "readonly");
+                    const store = tx.objectStore(nombreStore);
+                    const solicitud = store.get(mediaId);
+                    solicitud.onsuccess = () => {
+                        if (solicitud.result) {
+                            resolve(solicitud.result);
+                            return;
+                        }
+                        // Compatibilidad con bóvedas antiguas cuyo identificador no era la key primaria.
+                        if (typeof store.getAll !== "function") {
+                            resolve(null);
+                            return;
+                        }
+                        const todas = store.getAll();
+                        todas.onsuccess = () => resolve(
+                            (todas.result || []).find(item =>
+                                String(item?.id || item?.mediaId || item?.key || "") === String(mediaId)
+                            ) || null
+                        );
+                        todas.onerror = () => reject(todas.error || new Error("No se pudo revisar la bóveda alternativa."));
+                    };
+                    solicitud.onerror = () => reject(solicitud.error || new Error("No se pudo consultar la bóveda alternativa."));
+                });
+
+                if (!registro) continue;
+
+                let blob = [registro.blob, registro.imageBlob, registro.imagenBlob, registro.file, registro.archivo]
+                    .find(valor => typeof Blob !== "undefined" && valor instanceof Blob) || null;
+                let dataUrl = [registro.dataUrl, registro.imagen, registro.data, registro.image, registro.base64, registro.src]
+                    .find(valor => typeof valor === "string" && /^data:image\//i.test(valor)) || "";
+
+                if (!blob && dataUrl) {
+                    try { blob = blobDesdeDataUrl(dataUrl); } catch (_) { blob = null; }
+                }
+                if (!dataUrl && blob) {
+                    try { dataUrl = await dataUrlDesdeBlob(blob); } catch (_) { dataUrl = ""; }
+                }
+                if (!blob || !dataUrl || !/^data:image\//i.test(dataUrl)) continue;
+
+                // Repara la bóveda activa con el mismo ID para mantener intactas las referencias.
+                try {
+                    const dbActual = await abrirBovedaMedia();
+                    await new Promise((resolve, reject) => {
+                        const tx = dbActual.transaction(TECCHNEX_MEDIA_STORE, "readwrite");
+                        tx.objectStore(TECCHNEX_MEDIA_STORE).put({
+                            id: mediaId,
+                            blob,
+                            timestamp: registro.timestamp || new Date().toISOString(),
+                            hashSha256: registro.hashSha256 || "",
+                            idControl: registro.idControl || "",
+                            hallazgo: registro.hallazgo || ""
+                        });
+                        tx.oncomplete = resolve;
+                        tx.onerror = () => reject(tx.error || new Error("No se pudo reparar la bóveda activa."));
+                        tx.onabort = () => reject(tx.error || new Error("Se canceló la reparación de la bóveda activa."));
+                    });
+                } catch (errorPersistencia) {
+                    // Aunque no se pueda persistir, la imagen recuperada puede usarse en esta sesión.
+                    console.warn("Fotografía recuperada solo para esta sesión.", errorPersistencia);
+                }
+
+                tecchnexMediaCache.set(mediaId, dataUrl);
+                return dataUrl;
+            }
+        } catch (error) {
+            console.warn(`No se pudo revisar la bóveda alternativa "${nombreDB}".`, error);
+        } finally {
+            try { if (dbAlterna) dbAlterna.close(); } catch (_) {}
+        }
     }
+    return null;
+}
+
+async function cargarMediaEnCache(referencia) {
+    if (!referencia || !referencia.mediaId) return;
+    if (tecchnexMediaCache.has(referencia.mediaId)) return;
 
     const registro = await leerMediaPorId(referencia.mediaId);
-    if (!registro || !registro.blob) {
-        return;
+    if (registro) {
+        const blob = registro.blob || registro.imageBlob || registro.imagenBlob || registro.file || registro.archivo;
+        if (typeof Blob !== "undefined" && blob instanceof Blob) {
+            const dataUrl = await dataUrlDesdeBlob(blob);
+            tecchnexMediaCache.set(referencia.mediaId, dataUrl);
+            return;
+        }
+        const dataUrl = [registro.dataUrl, registro.imagen, registro.data, registro.image, registro.base64, registro.src]
+            .find(valor => typeof valor === "string" && /^data:image\//i.test(valor)) || "";
+        if (dataUrl) {
+            tecchnexMediaCache.set(referencia.mediaId, dataUrl);
+            return;
+        }
     }
 
-    const dataUrl = await dataUrlDesdeBlob(registro.blob);
-    tecchnexMediaCache.set(referencia.mediaId, dataUrl);
+    // Si la referencia no existe en la bóveda activa, buscar en otras bóvedas del mismo origen.
+    await buscarMediaEnOtrasBovedas(referencia.mediaId);
 }
 
 async function migrarFotosAntiguasABoveda() {
@@ -4275,9 +4386,10 @@ async function restaurarMediosDesdeRespaldo(medios) {
 }
 
 async function prepararFotografiasParaInforme(indiceInspeccion) {
-    // CAM-FOTOGRAFIAS-02: preparar y validar las evidencias antes de construir
-    // el informe. Si una imagen no puede recuperarse, no generar un informe
-    // aparentemente válido con fotografías en blanco.
+    // CAM-FOTOGRAFIAS-02 / CAM-FOTOGRAFIAS-LAB-RECUPERACION-01:
+    // preparar y validar evidencias; antes de fallar, cargarMediaEnCache intenta
+    // recuperar referencias desde otras bóvedas IndexedDB del mismo origen.
+    // Si no existe ninguna copia, se conserva el bloqueo para no ocultar evidencia perdida.
     const almacenamientoListo = await tecchnexMediaReady;
     if (!almacenamientoListo) {
         throw new Error("El almacenamiento de fotografías no está disponible. No se generó el informe para evitar evidencias en blanco.");
@@ -5544,8 +5656,31 @@ function abrirDirectorioClientesOM16() {
             <div style="padding:18px 20px;">
                 <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:15px;">
                     <button type="button" class="boton-principal" onclick="mostrarFormularioClienteOM16()">+ Agregar cliente</button>
+                    <button type="button" onclick="abrirGestionDirectoresOM16()" style="background:#0f766e;color:#fff;border:0;border-radius:7px;padding:13px 16px;font-weight:bold;cursor:pointer;">👤 Directores operativos</button>
                     <input id="buscadorClientesOM16" type="search" placeholder="Buscar por cliente, NIT, dirección, código o administrador..." oninput="renderizarDirectorioClientesOM16()" style="flex:1;min-width:240px;padding:11px;border:1px solid #cbd5e1;border-radius:7px;box-sizing:border-box;">
                     <span id="contadorClientesOM16" style="font-weight:bold;color:#123b5d;"></span>
+                </div>
+
+                <!-- CAM-DIRECTORES-OM16-01: catálogo de directores reutilizable desde el Directorio de Clientes. CAM-DIRECTORES-OM16-03 corrige índices al ordenar la lista. -->
+                <div id="gestionDirectoresOM16" style="display:none;margin-bottom:18px;padding:16px;border:1px solid #99f6e4;border-radius:9px;background:#f0fdfa;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+                        <h3 style="margin:0;color:#115e59;">👤 Catálogo de directores operativos</h3>
+                        <button type="button" onclick="cerrarGestionDirectoresOM16()" style="border:0;border-radius:6px;padding:8px 12px;cursor:pointer;">Cerrar</button>
+                    </div>
+                    <p style="margin:8px 0 12px;color:#475569;font-size:13px;">Un director puede estar asignado a varios clientes. Los nombres existentes en el Directorio se incorporan al catálogo inicial.</p>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                        <input id="directorOM16Nombre" type="text" maxlength="120" placeholder="Nombre del director operativo" style="flex:1;min-width:220px;padding:10px;border:1px solid #cbd5e1;border-radius:6px;">
+                        <input id="directorOM16Indice" type="hidden" value="">
+                        <button type="button" onclick="guardarDirectorOperativoOM16()" style="background:#0f766e;color:#fff;border:0;border-radius:6px;padding:10px 14px;font-weight:bold;cursor:pointer;">Guardar director</button>
+                        <button type="button" onclick="limpiarFormularioDirectorOM16()" style="border:0;border-radius:6px;padding:10px 14px;cursor:pointer;">Limpiar</button>
+                    </div>
+                    <div id="mensajeDirectoresOM16" role="status" style="margin-bottom:10px;color:#115e59;font-size:13px;"></div>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                            <thead><tr style="background:#115e59;color:#fff;"><th style="padding:8px;border:1px solid #99f6e4;text-align:left;">Director operativo</th><th style="padding:8px;border:1px solid #99f6e4;">Estado</th><th style="padding:8px;border:1px solid #99f6e4;">Clientes asignados</th><th style="padding:8px;border:1px solid #99f6e4;">Acciones</th></tr></thead>
+                            <tbody id="tablaDirectoresOM16"></tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <div id="formularioClienteOM16" style="display:none;margin-bottom:18px;padding:16px;border:1px solid #cbd5e1;border-radius:9px;background:#f8fafc;">
@@ -5557,7 +5692,7 @@ function abrirDirectorioClientesOM16() {
                         <label>Código<input id="clienteOM16Codigo" type="text"></label>
                         <label>ID / referencia<input id="clienteOM16Id" type="text"></label>
                         <label>Zona<input id="clienteOM16Zona" type="text"></label>
-                        <label>Director<input id="clienteOM16Director" type="text"></label>
+                        <label>Director operativo<select id="clienteOM16Director" style="padding:9px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;"><option value="">Seleccione un director...</option></select><small style="display:block;color:#64748b;margin-top:4px;">Administre los nombres desde «Directores operativos».</small></label>
                         <label>Tel. puesto<input id="clienteOM16TelefonoPuesto" type="text"></label>
                         <label>Dirección<input id="clienteOM16Direccion" type="text"></label>
                         <label>Barrio / municipio<input id="clienteOM16Barrio" type="text"></label>
@@ -5900,6 +6035,267 @@ function mostrarInspeccionesClienteOM16(indiceCliente) {
     fila.style.display = "table-row";
 }
 
+// CAM-DIRECTORES-OM16-01 — Catálogo local compartido por los clientes.
+// No crea tablas en Supabase ni reemplaza la estructura actual del Directorio.
+function leerDirectoresOperativosOM16() {
+    const clave = "directoresOperativosOM16";
+    let directores = [];
+    try {
+        directores = JSON.parse(localStorage.getItem(clave) || "[]");
+        if (!Array.isArray(directores)) directores = [];
+    } catch (_) { directores = []; }
+
+    // Inicialización compatible: incorpora una sola vez los directores ya escritos
+    // en las tarjetas de clientes, evitando perder valores históricos.
+    const clientes = (() => {
+        try { return JSON.parse(localStorage.getItem("directorioClientesOM16") || "[]"); }
+        catch (_) { return []; }
+    })();
+    let cambios = false;
+    clientes.forEach(cliente => {
+        const nombre = String(cliente?.director || "").trim();
+        if (!nombre) return;
+        const existe = directores.some(d => String(d.nombre || "").trim().toLocaleLowerCase() === nombre.toLocaleLowerCase());
+        if (!existe) {
+            directores.push({ id: "DIR-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,7), nombre, activo: true });
+            cambios = true;
+        }
+    });
+    if (cambios || localStorage.getItem(clave) === null) {
+        localStorage.setItem(clave, JSON.stringify(directores));
+    }
+    return directores;
+}
+
+function guardarDirectoresOperativosOM16(directores) {
+    localStorage.setItem("directoresOperativosOM16", JSON.stringify(directores));
+}
+
+// CAM-DIRECTORES-COMPARTIDO-01 — La agenda y la inspección consumen el mismo catálogo.
+function cargarSelectorDirectoresCompartidoOM16(idSelect, valorActual = "") {
+    const select = document.getElementById(idSelect);
+    if (!select) return;
+
+    let directores = [];
+    try {
+        directores = typeof leerDirectoresOperativosOM16 === "function"
+            ? leerDirectoresOperativosOM16()
+            : [];
+    } catch (error) {
+        console.warn("No fue posible cargar el catálogo de directores.", error);
+    }
+    if (!Array.isArray(directores)) directores = [];
+
+    const nombreActual = String(valorActual || "").trim();
+    const existeActual = nombreActual && !directores.some(d =>
+        String(d.nombre || "").trim().toLocaleLowerCase() === nombreActual.toLocaleLowerCase()
+    );
+
+    select.innerHTML = '<option value="">Seleccione un director operativo...</option>';
+    directores
+        .filter(d => d && d.nombre && (d.activo !== false ||
+            String(d.nombre).trim().toLocaleLowerCase() === nombreActual.toLocaleLowerCase()))
+        .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), "es"))
+        .forEach(d => {
+            const option = document.createElement("option");
+            option.value = String(d.nombre).trim();
+            option.textContent = String(d.nombre).trim() + (d.activo === false ? " (Inactivo — asignación histórica)" : "");
+            select.appendChild(option);
+        });
+
+    // Conserva el dato de registros históricos, aunque aún no esté en el catálogo maestro.
+    if (existeActual) {
+        const option = document.createElement("option");
+        option.value = nombreActual;
+        option.textContent = nombreActual + " (Director histórico no catalogado)";
+        select.appendChild(option);
+    }
+    select.value = nombreActual;
+}
+
+function cargarDirectorInspeccionOM16(valorActual = "") {
+    cargarSelectorDirectoresCompartidoOM16("director", valorActual);
+}
+
+function cargarOpcionesDirectoresOM16(valorActual = "") {
+    const select = document.getElementById("clienteOM16Director");
+    if (!select) return;
+    const directores = leerDirectoresOperativosOM16()
+        .sort((a,b) => String(a.nombre || "").localeCompare(String(b.nombre || ""), "es"));
+    select.innerHTML = '<option value="">Seleccione un director...</option>';
+    directores.forEach(director => {
+        if (!director.activo && String(director.nombre) !== String(valorActual)) return;
+        const option = document.createElement("option");
+        option.value = director.nombre;
+        option.textContent = director.nombre + (director.activo ? "" : " (Inactivo — asignación histórica)");
+        select.appendChild(option);
+    });
+    select.value = valorActual || "";
+}
+
+function abrirGestionDirectoresOM16() {
+    leerDirectoresOperativosOM16();
+    const panel = document.getElementById("gestionDirectoresOM16");
+    if (panel) panel.style.display = "block";
+    renderizarDirectoresOperativosOM16();
+    panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function cerrarGestionDirectoresOM16() {
+    const panel = document.getElementById("gestionDirectoresOM16");
+    if (panel) panel.style.display = "none";
+    limpiarFormularioDirectorOM16();
+}
+
+function limpiarFormularioDirectorOM16() {
+    const nombre = document.getElementById("directorOM16Nombre");
+    const indice = document.getElementById("directorOM16Indice");
+    const mensaje = document.getElementById("mensajeDirectoresOM16");
+    if (nombre) nombre.value = "";
+    if (indice) indice.value = "";
+    if (mensaje) mensaje.textContent = "";
+}
+
+function renderizarDirectoresOperativosOM16() {
+    // Conservar el índice real de localStorage al ordenar la vista alfabéticamente.
+    // Los botones deben actuar sobre el registro original, no sobre la posición visual.
+    const directores = leerDirectoresOperativosOM16()
+        .map((director, indiceReal) => ({ director, indiceReal }))
+        .sort((a, b) => String(a.director.nombre || "").localeCompare(String(b.director.nombre || ""), "es"));
+
+    const clientes = (() => {
+        try { return JSON.parse(localStorage.getItem("directorioClientesOM16") || "[]"); }
+        catch (_) { return []; }
+    })();
+    const tbody = document.getElementById("tablaDirectoresOM16");
+    if (!tbody) return;
+    if (!directores.length) {
+        tbody.innerHTML = '<tr><td colspan="4" style="padding:14px;text-align:center;">Aún no hay directores registrados.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = directores.map(({ director: d, indiceReal }) => {
+        const asignados = clientes.filter(c => String(c.director || "").trim().toLocaleLowerCase() === String(d.nombre || "").trim().toLocaleLowerCase()).length;
+        const nombreSeguro = escaparClienteOM16(d.nombre || "");
+        const estado = d.activo ? "Activo" : "Inactivo";
+        return `<tr>
+            <td style="padding:9px;border:1px solid #e2e8f0;">${nombreSeguro}</td>
+            <td style="padding:9px;border:1px solid #e2e8f0;text-align:center;"><span style="color:${d.activo ? "#15803d" : "#64748b"};font-weight:bold;">${estado}</span></td>
+            <td style="padding:9px;border:1px solid #e2e8f0;text-align:center;">${asignados}</td>
+            <td style="padding:9px;border:1px solid #e2e8f0;text-align:center;white-space:nowrap;">
+                <button type="button" onclick="editarDirectorOperativoOM16(${indiceReal})" style="padding:6px 9px;border:0;border-radius:5px;cursor:pointer;">✏️ Editar</button>
+                <button type="button" onclick="alternarEstadoDirectorOM16(${indiceReal})" style="padding:6px 9px;border:0;border-radius:5px;cursor:pointer;">${d.activo ? "Desactivar" : "Activar"}</button>
+                <button type="button" onclick="eliminarDirectorOperativoOM16(${indiceReal})" style="padding:6px 9px;border:0;border-radius:5px;background:#fee2e2;color:#991b1b;cursor:pointer;">🗑️ Eliminar</button>
+            </td>
+        </tr>`;
+    }).join("");
+}
+
+function guardarDirectorOperativoOM16() {
+    const campo = document.getElementById("directorOM16Nombre");
+    const indiceCampo = document.getElementById("directorOM16Indice");
+    const mensaje = document.getElementById("mensajeDirectoresOM16");
+    const nombre = String(campo?.value || "").trim().replace(/\s+/g, " ");
+    if (!nombre) {
+        if (mensaje) mensaje.textContent = "Escriba el nombre del director operativo.";
+        return;
+    }
+    const directores = leerDirectoresOperativosOM16();
+    const indice = indiceCampo?.value === "" ? -1 : Number(indiceCampo.value);
+    const duplicado = directores.findIndex((d, i) => i !== indice && String(d.nombre || "").trim().toLocaleLowerCase() === nombre.toLocaleLowerCase());
+    if (duplicado >= 0) {
+        if (mensaje) mensaje.textContent = "Ese director ya existe en el catálogo. No se creó un duplicado.";
+        return;
+    }
+    if (indice >= 0 && directores[indice]) {
+        const anterior = directores[indice].nombre;
+        directores[indice].nombre = nombre;
+        // Mantiene la asignación de clientes al renombrar el registro.
+        const clientes = JSON.parse(localStorage.getItem("directorioClientesOM16") || "[]");
+        clientes.forEach(c => {
+            if (String(c.director || "").trim().toLocaleLowerCase() === String(anterior || "").trim().toLocaleLowerCase()) c.director = nombre;
+        });
+        guardarDirectorioClientesOM16(clientes);
+    } else {
+        directores.push({ id: "DIR-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,7), nombre, activo: true });
+    }
+    guardarDirectoresOperativosOM16(directores);
+    limpiarFormularioDirectorOM16();
+    renderizarDirectoresOperativosOM16();
+    cargarOpcionesDirectoresOM16(document.getElementById("clienteOM16Director")?.value || "");
+    renderizarDirectorioClientesOM16();
+    if (mensaje) mensaje.textContent = "Catálogo de directores actualizado correctamente.";
+}
+
+function editarDirectorOperativoOM16(indice) {
+    const director = leerDirectoresOperativosOM16()[indice];
+    if (!director) return;
+    const campoNombre = document.getElementById("directorOM16Nombre");
+    campoNombre.value = director.nombre || "";
+    document.getElementById("directorOM16Indice").value = String(indice);
+    document.getElementById("mensajeDirectoresOM16").textContent = "Editando director operativo.";
+
+    // CAM-DIRECTORES-OM16-04 — Llevar la vista directamente al campo de edición.
+    campoNombre.scrollIntoView({ behavior: "smooth", block: "center" });
+    campoNombre.focus({ preventScroll: true });
+    campoNombre.select();
+}
+
+function alternarEstadoDirectorOM16(indice) {
+    const directores = leerDirectoresOperativosOM16();
+    if (!directores[indice]) return;
+    directores[indice].activo = !directores[indice].activo;
+    guardarDirectoresOperativosOM16(directores);
+    renderizarDirectoresOperativosOM16();
+    cargarOpcionesDirectoresOM16(document.getElementById("clienteOM16Director")?.value || "");
+}
+
+// CAM-DIRECTORES-OM16-03 — Eliminar por índice real para evitar afectar otro registro.
+function eliminarDirectorOperativoOM16(indiceReal) {
+    const todos = leerDirectoresOperativosOM16();
+    const director = todos[indiceReal];
+    if (!director) {
+        alert("No se encontró el registro del director. Actualice el catálogo e inténtelo nuevamente.");
+        return;
+    }
+
+    let clientes = [];
+    try { clientes = JSON.parse(localStorage.getItem("directorioClientesOM16") || "[]"); }
+    catch (_) { clientes = []; }
+
+    const asignados = clientes.filter(cliente =>
+        String(cliente.director || "").trim().toLocaleLowerCase() ===
+        String(director.nombre || "").trim().toLocaleLowerCase()
+    ).length;
+
+    if (asignados > 0) {
+        alert(`No se puede eliminar a ${director.nombre} porque está asignado a ${asignados} cliente(s). Primero reasigne esos clientes o desactive el director.`);
+        return;
+    }
+
+    if (!confirm(`¿Confirma que desea eliminar del catálogo al director “${director.nombre}”? Esta acción no se puede deshacer.`)) return;
+
+    // Releer por si algún código previo cambió la lista mientras estaba abierto el diálogo.
+    const actuales = leerDirectoresOperativosOM16();
+    const indiceActual = director.id
+        ? actuales.findIndex(item => item.id === director.id)
+        : actuales.findIndex(item => String(item.nombre || "").trim().toLocaleLowerCase() === String(director.nombre || "").trim().toLocaleLowerCase());
+    if (indiceActual < 0) {
+        alert("El registro cambió y no se eliminó ningún director. Actualice el catálogo e inténtelo nuevamente.");
+        return;
+    }
+
+    actuales.splice(indiceActual, 1);
+    guardarDirectoresOperativosOM16(actuales);
+
+    const indiceEditando = document.getElementById("directorOM16Indice");
+    if (indiceEditando && indiceEditando.value !== "") {
+        limpiarFormularioDirectorOM16();
+    }
+    renderizarDirectoresOperativosOM16();
+    cargarOpcionesDirectoresOM16(document.getElementById("clienteOM16Director")?.value || "");
+    alert("Director eliminado correctamente del catálogo.");
+}
+
 function mostrarFormularioClienteOM16(indice = "") {
     const formulario = document.getElementById("formularioClienteOM16");
     if (!formulario) return;
@@ -5913,6 +6309,7 @@ function mostrarFormularioClienteOM16(indice = "") {
     document.getElementById("clienteOM16Codigo").value = cliente.codigo || "";
     document.getElementById("clienteOM16Id").value = cliente.id || "";
     document.getElementById("clienteOM16Zona").value = cliente.zona || "";
+    cargarOpcionesDirectoresOM16(cliente.director || "");
     document.getElementById("clienteOM16Director").value = cliente.director || "";
     document.getElementById("clienteOM16TelefonoPuesto").value = cliente.telefonoPuesto || "";
     document.getElementById("clienteOM16Direccion").value = cliente.direccion || "";
@@ -7111,6 +7508,7 @@ document.getElementById("bicicleteros").value =
     document.getElementById("inspector").value =
         inspeccion.inspector || "";
 
+    cargarDirectorInspeccionOM16(inspeccion.director || "");
     document.getElementById("director").value =
         inspeccion.director || "";
 
@@ -15381,10 +15779,12 @@ if ("serviceWorker" in navigator) {
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:15px"><button type="button" class="cam-ag-btn" onclick="CAMAgenda.nueva()">＋ Programar visita</button><button type="button" class="cam-ag-btn secondary" onclick="CAMAgenda.exportar()">Exportar agenda CSV</button></div>
   <form id="camAgendaForm" class="cam-ag-grid">
-   <input type="hidden" id="camAgId">
+   <input type="hidden" id="camAgId"><input type="hidden" id="camAgClienteId">
+   <div class="cam-ag-wide"><label for="camAgBuscarDirectorio">Buscar cliente en el Directorio</label><input id="camAgBuscarDirectorio" type="search" autocomplete="off" placeholder="Escriba nombre, código o NIT del cliente…" aria-controls="camAgResultadosDirectorio" aria-expanded="false"><div id="camAgResultadosDirectorio" role="listbox" aria-label="Resultados de clientes" style="display:none;max-height:230px;overflow-y:auto;border:1px solid #cbd5e1;border-radius:8px;background:#fff;margin-top:5px;box-shadow:0 4px 12px rgba(15,23,42,.08)"></div><input type="hidden" id="camAgDirectorioCliente"><small style="display:block;color:#64748b;margin-top:4px">Busque por nombre, código o NIT. Al elegir un resultado se cargarán nombre, dirección, barrio/municipio y director. Puede ajustar los datos para esta visita.</small></div>
    <div><label for="camAgCliente">Cliente / empresa *</label><input id="camAgCliente" required maxlength="160" placeholder="Nombre del cliente"></div>
-   <div><label for="camAgSede">Sede / ubicación</label><input id="camAgSede" maxlength="160" placeholder="Sede o dirección"></div>
-   <div><label for="camAgResponsable">Responsable de supervisión *</label><input id="camAgResponsable" required maxlength="120" placeholder="Nombre del responsable"></div>
+   <div><label for="camAgSede">Sede / ubicación</label><input id="camAgSede" maxlength="200" placeholder="Dirección o sede"></div>
+   <div><label for="camAgBarrioMunicipio">Barrio / municipio</label><input id="camAgBarrioMunicipio" maxlength="160" placeholder="Barrio o municipio"></div>
+   <div><label for="camAgResponsable">Responsable de supervisión (director) *</label><select id="camAgResponsable" required><option value="">Seleccione un director operativo...</option></select></div>
    <div><label for="camAgFecha">Fecha *</label><input id="camAgFecha" type="date" required></div>
    <div><label for="camAgHora">Hora</label><input id="camAgHora" type="time"></div>
    <div><label for="camAgEstado">Estado</label><select id="camAgEstado"><option>Programada</option><option>Realizada</option><option>Reprogramada</option><option>Cancelada</option></select></div>
@@ -15395,7 +15795,7 @@ if ("serviceWorker" in navigator) {
   <hr style="border:0;border-top:1px solid #e2e8f0;margin:20px 0">
   <div class="cam-ag-grid" style="margin-bottom:10px"><div class="cam-ag-wide"><label for="camAgBuscar">Buscar por cliente, sede o responsable</label><input id="camAgBuscar" placeholder="Escriba para filtrar la agenda" oninput="CAMAgenda.renderizar()"></div></div>
   <div id="camAgResumen" style="font-size:13px;color:#475569"></div>
-  <table class="cam-ag-table"><thead><tr><th>Fecha y hora</th><th>Cliente / sede</th><th>Responsable</th><th>Estado</th><th>Objetivo / seguimiento</th><th>Acciones</th></tr></thead><tbody id="camAgFilas"></tbody></table>
+  <table class="cam-ag-table"><thead><tr><th>Fecha y hora</th><th>Cliente / sede / barrio</th><th>Responsable</th><th>Estado</th><th>Objetivo / seguimiento</th><th>Acciones</th></tr></thead><tbody id="camAgFilas"></tbody></table>
   <p style="font-size:12px;color:#64748b;margin-top:12px">Los datos se guardan en el almacenamiento local de este navegador y perfil. No se sincronizan automáticamente entre equipos. Exporte periódicamente la agenda como respaldo.</p>
  </section>
 </div>
@@ -15422,19 +15822,80 @@ if ("serviceWorker" in navigator) {
   detalle.innerHTML=chip(`Pendientes: ${pendientes}`,'#1e3a8a','#dbeafe')+chip(`Vencidas: ${vencidas}`,vencidas?'#991b1b':'#166534',vencidas?'#fee2e2':'#dcfce7')+chip(`Hoy: ${hoyCount}`,'#92400e','#fef3c7')+chip(`Próx. 7 días: ${proximas}`,'#075985','#e0f2fe');
   if(tarjeta){tarjeta.style.background=vencidas?'#fff1f2':(hoyCount?'#fffbeb':'#f8fafc');tarjeta.style.borderColor=vencidas?'#dc2626':(hoyCount?'#f59e0b':'#cbd5e1');tarjeta.style.borderTopColor=vencidas?'#b91c1c':(hoyCount?'#d97706':'#64748b');}
  }
- function limpiar(){ $('camAgendaForm').reset();$('camAgId').value='';$('camAgFecha').value=fechaHoy();$('camAgEstado').value='Programada';$('camAgMensaje').textContent=''; }
- function abrir(){ $('camAgendaOverlay').style.display='block';if(!$('camAgFecha').value)limpiar();renderizar() }
- function cerrar(){ $('camAgendaOverlay').style.display='none' }
+ function clientesDirectorio(){try{return typeof window.inicializarDirectorioClientesOM16==='function'?window.inicializarDirectorioClientesOM16():[]}catch(e){console.warn('CAM Agenda: no se pudo leer el Directorio.',e);return[]}}
+ function cargarOpcionesResponsableAgenda(valorActual=''){
+  if(typeof window.cargarSelectorDirectoresCompartidoOM16==='function'){
+   window.cargarSelectorDirectoresCompartidoOM16('camAgResponsable',valorActual);
+   return;
+  }
+  const select=$('camAgResponsable'); if(!select)return;
+  const prev=String(valorActual||'').trim();
+  select.innerHTML='<option value="">Seleccione un director operativo...</option>';
+  let dirs=[];try{dirs=JSON.parse(localStorage.getItem('directoresOperativosOM16')||'[]')}catch(e){dirs=[]}
+  if(!Array.isArray(dirs))dirs=[];
+  dirs.filter(d=>d&&d.nombre&&(d.activo!==false||String(d.nombre).trim()===prev))
+   .sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre),'es'))
+   .forEach(d=>{const o=document.createElement('option');o.value=String(d.nombre).trim();o.textContent=String(d.nombre).trim()+(d.activo===false?' (Inactivo — asignación histórica)':'');select.appendChild(o)});
+  if(prev&&!Array.from(select.options).some(o=>o.value===prev)){const o=document.createElement('option');o.value=prev;o.textContent=prev+' (Director histórico no catalogado)';select.appendChild(o)}
+  select.value=prev;
+ }
+ let clientesDirectorioCache=[];
+ // CAM-AGENDA-BUSCADOR-CLIENTES-01: búsqueda por texto para Directorios extensos.
+ function cargarOpcionesDirectorio(){
+  const campo=$('camAgBuscarDirectorio'), resultados=$('camAgResultadosDirectorio');
+  if(!campo||!resultados)return;
+  clientesDirectorioCache=clientesDirectorio().filter(c=>c&&String(c.estado||'').toLocaleLowerCase('es')!=='inactivo');
+  campo.value='';
+  resultados.innerHTML='';
+  resultados.style.display='none';
+  campo.setAttribute('aria-expanded','false');
+ }
+ function buscarClientesDirectorio(termino){
+  const resultados=$('camAgResultadosDirectorio'),campo=$('camAgBuscarDirectorio');
+  const q=String(termino||'').trim().toLocaleLowerCase('es');
+  resultados.innerHTML='';
+  if(!q){resultados.style.display='none';campo.setAttribute('aria-expanded','false');return}
+  const encontrados=clientesDirectorioCache.map((c,i)=>({c,i,clave:String(c.idCliente||c.codigo||`indice-${i}`)}))
+   .filter(({c})=>[c.cliente,c.codigo,c.nit,c.direccion,c.barrioMunicipio,c.director].filter(Boolean).join(' ').toLocaleLowerCase('es').includes(q))
+   .slice(0,50);
+  if(!encontrados.length){
+   resultados.innerHTML='<div style="padding:12px;color:#64748b">No se encontraron clientes con ese criterio.</div>';
+  } else {
+   encontrados.forEach(({c,clave})=>{
+    const btn=document.createElement('button');btn.type='button';btn.setAttribute('role','option');
+    btn.style.cssText='display:block;width:100%;text-align:left;padding:10px 12px;border:0;border-bottom:1px solid #e2e8f0;background:#fff;cursor:pointer;color:#123b5d;font:inherit';
+    const titulo=document.createElement('strong');titulo.textContent=c.cliente||'Cliente sin nombre';titulo.style.display='block';
+    const detalle=document.createElement('small');detalle.style.cssText='display:block;color:#64748b;margin-top:3px';
+    detalle.textContent=[c.codigo?'Código: '+c.codigo:'',c.nit?'NIT: '+c.nit:'',c.direccion||'',c.barrioMunicipio||''].filter(Boolean).join(' · ');
+    btn.append(titulo,detalle);
+    btn.addEventListener('mouseenter',()=>btn.style.background='#eff6ff');
+    btn.addEventListener('mouseleave',()=>btn.style.background='#fff');
+    btn.addEventListener('click',()=>{
+     $('camAgDirectorioCliente').value=clave;
+     campo.value=[c.cliente,c.codigo?'('+c.codigo+')':''].filter(Boolean).join(' ');
+     resultados.style.display='none';campo.setAttribute('aria-expanded','false');
+     seleccionarClienteDirectorio(clave);
+    });
+    resultados.appendChild(btn);
+   });
+  }
+  resultados.style.display='block';campo.setAttribute('aria-expanded','true');
+ }
+ function seleccionarClienteDirectorio(clave){const cliente=clientesDirectorioCache.find((c,i)=>String(c.idCliente||c.codigo||`indice-${clientesDirectorio().indexOf(c)}`)===String(clave))||clientesDirectorio().find((c,i)=>String(c.idCliente||c.codigo||`indice-${i}`)===String(clave));if(!cliente)return;$('camAgClienteId').value=cliente.idCliente||cliente.codigo||'';$('camAgCliente').value=cliente.cliente||'';$('camAgSede').value=cliente.direccion||'';$('camAgBarrioMunicipio').value=cliente.barrioMunicipio||'';cargarOpcionesResponsableAgenda(cliente.director||'');$('camAgResponsable').value=cliente.director||'';$('camAgMensaje').textContent='Datos cargados desde el Directorio de clientes.'}
+ function limpiar(){$('camAgendaForm').reset();$('camAgId').value='';$('camAgClienteId').value='';$('camAgDirectorioCliente').value='';$('camAgBuscarDirectorio').value='';$('camAgResultadosDirectorio').style.display='none';$('camAgFecha').value=fechaHoy();$('camAgEstado').value='Programada';$('camAgMensaje').textContent='';cargarOpcionesDirectorio();cargarOpcionesResponsableAgenda('')}
+ function abrir(){$('camAgendaOverlay').style.display='block';cargarOpcionesDirectorio();cargarOpcionesResponsableAgenda($('camAgResponsable').value||'');if(!$('camAgFecha').value)limpiar();renderizar()}
+ function cerrar(){$('camAgendaOverlay').style.display='none'}
  function nueva(){limpiar();$('camAgCliente').focus()}
- function editar(id){const v=leer().find(x=>x.id===id);if(!v)return; $('camAgId').value=v.id; $('camAgCliente').value=v.cliente||'';$('camAgSede').value=v.sede||'';$('camAgResponsable').value=v.responsable||'';$('camAgFecha').value=v.fecha||'';$('camAgHora').value=v.hora||'';$('camAgEstado').value=v.estado||'Programada';$('camAgObjetivo').value=v.objetivo||'';$('camAgObservaciones').value=v.observaciones||'';$('camAgMensaje').textContent='Editando visita';$('camAgendaForm').scrollIntoView({behavior:'smooth',block:'start'}) }
- function renderizar(){const filtro=($('camAgBuscar')?.value||'').toLocaleLowerCase('es');const todos=leer().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')||(a.hora||'').localeCompare(b.hora||''));const arr=todos.filter(v=>[v.cliente,v.sede,v.responsable,v.objetivo,v.observaciones,v.estado].join(' ').toLocaleLowerCase('es').includes(filtro));$('camAgResumen').textContent=`${arr.length} visita(s) en pantalla · ${todos.filter(v=>v.estado==='Programada'||v.estado==='Reprogramada').length} pendiente(s) de realizar`;
+ function editar(id){const v=leer().find(x=>x.id===id);if(!v)return;cargarOpcionesDirectorio();$('camAgId').value=v.id;$('camAgClienteId').value=v.clienteId||'';$('camAgCliente').value=v.cliente||'';$('camAgSede').value=v.sede||'';$('camAgBarrioMunicipio').value=v.barrioMunicipio||'';cargarOpcionesResponsableAgenda(v.responsable||'');$('camAgResponsable').value=v.responsable||'';$('camAgFecha').value=v.fecha||'';$('camAgHora').value=v.hora||'';$('camAgEstado').value=v.estado||'Programada';$('camAgObjetivo').value=v.objetivo||'';$('camAgObservaciones').value=v.observaciones||'';$('camAgDirectorioCliente').value=v.clienteId||'';$('camAgBuscarDirectorio').value=v.cliente||'';$('camAgMensaje').textContent='Editando visita';$('camAgendaForm').scrollIntoView({behavior:'smooth',block:'start'})}
+ function renderizar(){const filtro=($('camAgBuscar')?.value||'').toLocaleLowerCase('es');const todos=leer().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')||(a.hora||'').localeCompare(b.hora||''));const arr=todos.filter(v=>[v.cliente,v.sede,v.barrioMunicipio,v.responsable,v.objetivo,v.observaciones,v.estado].join(' ').toLocaleLowerCase('es').includes(filtro));$('camAgResumen').textContent=`${arr.length} visita(s) en pantalla · ${todos.filter(v=>v.estado==='Programada'||v.estado==='Reprogramada').length} pendiente(s) de realizar`;
  actualizarAlertas();
  const tbody=$('camAgFilas');if(!arr.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#64748b;padding:22px">No hay visitas que coincidan. Programe una visita con el botón superior.</td></tr>';return}
- tbody.innerHTML=arr.map(v=>`<tr><td>${safe(v.fecha||'—')}<br>${safe(v.hora||'Sin hora')}</td><td><strong>${safe(v.cliente)}</strong><br>${safe(v.sede||'Sin sede')}</td><td>${safe(v.responsable)}</td><td><span class="cam-ag-status">${safe(v.estado)}</span></td><td>${safe(v.objetivo||'—')}<br><small>${safe(v.observaciones||'')}</small></td><td><div class="cam-ag-actions"><button type="button" class="cam-ag-btn cam-ag-small" data-edit="${safe(v.id)}">Editar</button><button type="button" class="cam-ag-btn danger cam-ag-small" data-del="${safe(v.id)}">Eliminar</button></div></td></tr>`).join('');
+ tbody.innerHTML=arr.map(v=>`<tr><td>${safe(v.fecha||'—')}<br>${safe(v.hora||'Sin hora')}</td><td><strong>${safe(v.cliente)}</strong><br>${safe(v.sede||'Sin sede')}<br><small>${safe(v.barrioMunicipio||'')}</small></td><td>${safe(v.responsable)}</td><td><span class="cam-ag-status">${safe(v.estado)}</span></td><td>${safe(v.objetivo||'—')}<br><small>${safe(v.observaciones||'')}</small></td><td><div class="cam-ag-actions"><button type="button" class="cam-ag-btn cam-ag-small" data-edit="${safe(v.id)}">Editar</button><button type="button" class="cam-ag-btn danger cam-ag-small" data-del="${safe(v.id)}">Eliminar</button></div></td></tr>`).join('');
  }
- $('camAgendaForm').addEventListener('submit',function(e){e.preventDefault();const cliente=$('camAgCliente').value.trim(),responsable=$('camAgResponsable').value.trim();if(!cliente||!responsable){$('camAgMensaje').textContent='Complete cliente y responsable.';return}const a=leer(),id=$('camAgId').value||('visita-'+Date.now()+'-'+Math.random().toString(36).slice(2,7));const v={id,cliente,sede:$('camAgSede').value.trim(),responsable,fecha:$('camAgFecha').value,hora:$('camAgHora').value,estado:$('camAgEstado').value,objetivo:$('camAgObjetivo').value.trim(),observaciones:$('camAgObservaciones').value.trim(),actualizado:new Date().toISOString()};const i=a.findIndex(x=>x.id===id);if(i>=0)a[i]=v;else a.push(v);try{guardar(a);$('camAgMensaje').textContent='Visita guardada.';limpiar();renderizar()}catch(err){$('camAgMensaje').textContent='No se pudo guardar: revise el almacenamiento del navegador.';console.error('CAM Agenda:',err)}});
+ $('camAgBuscarDirectorio').addEventListener('input',function(){buscarClientesDirectorio(this.value);$('camAgDirectorioCliente').value='';$('camAgClienteId').value=''});$('camAgBuscarDirectorio').addEventListener('focus',function(){if(this.value)buscarClientesDirectorio(this.value)});document.addEventListener('click',function(e){const campo=$('camAgBuscarDirectorio'),lista=$('camAgResultadosDirectorio');if(campo&&lista&&!campo.parentElement.contains(e.target)){lista.style.display='none';campo.setAttribute('aria-expanded','false')}});
+ $('camAgendaForm').addEventListener('submit',function(e){e.preventDefault();const cliente=$('camAgCliente').value.trim(),responsable=$('camAgResponsable').value.trim();if(!cliente||!responsable){$('camAgMensaje').textContent='Complete cliente y responsable.';return}const a=leer(),id=$('camAgId').value||('visita-'+Date.now()+'-'+Math.random().toString(36).slice(2,7));const v={id,clienteId:$('camAgClienteId').value||'',cliente,sede:$('camAgSede').value.trim(),barrioMunicipio:$('camAgBarrioMunicipio').value.trim(),responsable,fecha:$('camAgFecha').value,hora:$('camAgHora').value,estado:$('camAgEstado').value,objetivo:$('camAgObjetivo').value.trim(),observaciones:$('camAgObservaciones').value.trim(),actualizado:new Date().toISOString()};const i=a.findIndex(x=>x.id===id);if(i>=0)a[i]=v;else a.push(v);try{guardar(a);$('camAgMensaje').textContent='Visita guardada.';limpiar();renderizar()}catch(err){$('camAgMensaje').textContent='No se pudo guardar: revise el almacenamiento del navegador.';console.error('CAM Agenda:',err)}});
  $('camAgFilas').addEventListener('click',function(e){const eb=e.target.closest('[data-edit]'),db=e.target.closest('[data-del]');if(eb)editar(eb.dataset.edit);if(db){const v=leer().find(x=>x.id===db.dataset.del);if(v&&confirm(`¿Eliminar la visita de ${v.cliente} del ${v.fecha||'sin fecha'}?`)){guardar(leer().filter(x=>x.id!==v.id));renderizar()}}});
- function exportar(){const a=leer();if(!a.length){alert('No hay visitas para exportar.');return}const cols=['fecha','hora','cliente','sede','responsable','estado','objetivo','observaciones'];const csv=[cols.join(','),...a.map(v=>cols.map(k=>'"'+String(v[k]??'').replace(/"/g,'""')+'"').join(','))].join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='TECCHNEX_Agenda_Supervision.csv';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url)}
+ function exportar(){const a=leer();if(!a.length){alert('No hay visitas para exportar.');return}const cols=['fecha','hora','clienteId','cliente','sede','barrioMunicipio','responsable','estado','objetivo','observaciones'];const csv=[cols.join(','),...a.map(v=>cols.map(k=>'"'+String(v[k]??'').replace(/"/g,'""')+'"').join(','))].join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='TECCHNEX_Agenda_Supervision.csv';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url)}
  window.CAMAgenda={abrir,cerrar,nueva,limpiar,renderizar,exportar,actualizarAlertas};
  actualizarAlertas();
  // La agenda se guarda localmente; refrescar el resumen si otra pestaña cambia el almacenamiento.
