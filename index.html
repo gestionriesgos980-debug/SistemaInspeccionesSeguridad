@@ -5564,6 +5564,18 @@ function abrirDirectorioClientesOM16() {
                         <label>Administrador<input id="clienteOM16Administrador" type="text"></label>
                         <label>Tel. administrador<input id="clienteOM16TelefonoAdmin" type="text"></label>
                         <label>Correo electrónico<input id="clienteOM16Correo" type="email"></label>
+                        <label>Estado del cliente
+                            <select id="clienteOM16Estado">
+                                <option value="Activo">Activo</option>
+                                <option value="Inactivo">Inactivo</option>
+                            </select>
+                        </label>
+                        <label>Fecha de actualización
+                            <input id="clienteOM16FechaActualizacion" type="date" onchange="actualizarVencimientoClienteOM16()">
+                        </label>
+                        <label>Vencimiento de vigencia (automático)
+                            <input id="clienteOM16FechaVencimiento" type="date" readonly>
+                        </label>
                         <label style="grid-column:1/-1;">Observaciones<textarea id="clienteOM16Observaciones" rows="3"></textarea></label>
                     </div>
                     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap;">
@@ -5710,11 +5722,28 @@ function renderizarDirectorioClientesOM16() {
             String(b.inspeccion.fecha || "").localeCompare(String(a.inspeccion.fecha || ""))
         )[0];
 
-        let resumenVigencia = "Sin inspección";
-        let prioridad = "⚪ SIN DATOS";
+        let resumenVigencia = "Sin fecha";
+        let prioridad = "⚪ SIN FECHA";
         let colorPrioridad = "#64748b";
-        let fechaInspeccion = "—";
-        let fechaActualizacion = "—";
+        let fechaInspeccion = ultima?.inspeccion.fecha || "—";
+        let fechaActualizacion = cliente.fechaActualizacion || "";
+        if (!fechaActualizacion && ultima) fechaActualizacion = ultima.inspeccion.fecha || "";
+        const fechaVencimientoCliente = fechaActualizacion ? (() => {
+            const p = fechaActualizacion.split("-").map(Number);
+            const f = new Date(p[0], p[1]-1, p[2]);
+            f.setFullYear(f.getFullYear()+1);
+            if (f.getMonth() !== p[1]-1) f.setDate(0);
+            return `${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,"0")}-${String(f.getDate()).padStart(2,"0")}`;
+        })() : "";
+        if (fechaActualizacion) {
+            const hoy = new Date(); hoy.setHours(0,0,0,0);
+            const pv = fechaVencimientoCliente.split("-").map(Number);
+            const vencimiento = new Date(pv[0],pv[1]-1,pv[2]);
+            const dias = Math.ceil((vencimiento-hoy)/86400000);
+            resumenVigencia = dias < 0 ? "VENCIDA" : (dias <= 30 ? "PRÓXIMA A VENCER" : "VIGENTE");
+            prioridad = dias < 0 ? "🔴 ALTA" : (dias <= 30 ? "🟠 MEDIA" : "🟢 NORMAL");
+            colorPrioridad = dias < 0 ? "#b91c1c" : (dias <= 30 ? "#b45309" : "#15803d");
+        }
 
         if (ultima) {
             const v = typeof obtenerDetalleVigencia === "function"
@@ -5722,25 +5751,11 @@ function renderizarDirectorioClientesOM16() {
                 : { dias:null, fechaActualizacion:null };
 
             fechaInspeccion = ultima.inspeccion.fecha || "—";
-            fechaActualizacion = v.fechaActualizacion || "—";
-
-            if (String(ultima.inspeccion.estadoPuesto || "ACTIVO").toUpperCase() === "TERMINADO") {
-                prioridad = "⚪ TERMINADO";
-                colorPrioridad = "#64748b";
-            } else if (v.dias !== null && v.dias < 0) {
-                prioridad = "🔴 ALTA";
-                colorPrioridad = "#b91c1c";
-            } else if (v.dias !== null && v.dias <= 30) {
-                prioridad = "🟠 MEDIA";
-                colorPrioridad = "#b45309";
-            } else {
-                prioridad = "🟢 NORMAL";
-                colorPrioridad = "#15803d";
+            // La vigencia administrativa se calcula desde fechaActualizacion del cliente.
+            // Solo los registros antiguos sin fecha propia usan la última inspección como respaldo.
+            if (!cliente.fechaActualizacion && !fechaActualizacion) {
+                fechaActualizacion = v.fechaActualizacion || ultima.inspeccion.fecha || "";
             }
-
-            resumenVigencia = typeof obtenerEstadoVencimiento === "function"
-                ? (obtenerEstadoVencimiento(ultima.inspeccion.fecha || "").texto || "—")
-                : "—";
         }
 
         return `
@@ -5756,7 +5771,8 @@ function renderizarDirectorioClientesOM16() {
                     ${ultima ? `
                         <div style="margin-top:7px;padding-top:6px;border-top:1px solid #e5e7eb;text-align:left;font-size:11px;line-height:1.45;">
                             <strong>Última:</strong> ${escaparClienteOM16(fechaInspeccion)}<br>
-                            <strong>Actualiza:</strong> ${escaparClienteOM16(fechaActualizacion)}<br>
+                            <strong>Actualiza:</strong> ${escaparClienteOM16(fechaActualizacion || "—")}<br>
+                            <strong>Vence:</strong> ${escaparClienteOM16(fechaVencimientoCliente || "—")}<br>
                             <strong>Vigencia:</strong> ${escaparClienteOM16(resumenVigencia)}
                         </div>
                     ` : ""}
@@ -5905,7 +5921,34 @@ function mostrarFormularioClienteOM16(indice = "") {
     document.getElementById("clienteOM16TelefonoAdmin").value = cliente.telefonoAdmin || "";
     document.getElementById("clienteOM16Correo").value = cliente.correo || "";
     document.getElementById("clienteOM16Observaciones").value = cliente.observaciones || "";
+    document.getElementById("clienteOM16Estado").value = cliente.estado || "Activo";
+
+    // CAM-CLIENTES-VIGENCIA-01: usar la fecha administrativa guardada; para registros
+    // antiguos, tomar como referencia la última inspección disponible sin modificarla.
+    let fechaActualizacion = cliente.fechaActualizacion || "";
+    if (!fechaActualizacion) {
+        const inspecciones = JSON.parse(localStorage.getItem("inspecciones") || "[]");
+        const relacionadas = inspecciones.filter(i => coincideClienteConInspeccionOM16(cliente, i) && i.fecha);
+        relacionadas.sort((a,b) => String(b.fecha).localeCompare(String(a.fecha)));
+        fechaActualizacion = relacionadas[0]?.fecha || "";
+    }
+    document.getElementById("clienteOM16FechaActualizacion").value = fechaActualizacion;
+    actualizarVencimientoClienteOM16();
     formulario.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function actualizarVencimientoClienteOM16() {
+    const campoFecha = document.getElementById("clienteOM16FechaActualizacion");
+    const campoVencimiento = document.getElementById("clienteOM16FechaVencimiento");
+    if (!campoFecha || !campoVencimiento) return;
+    const valor = campoFecha.value;
+    if (!valor) { campoVencimiento.value = ""; return; }
+    const partes = valor.split("-").map(Number);
+    const fecha = new Date(partes[0], partes[1] - 1, partes[2]);
+    fecha.setFullYear(fecha.getFullYear() + 1);
+    // Evitar que 29 de febrero se desborde a marzo en años no bisiestos.
+    if (fecha.getMonth() !== partes[1] - 1) fecha.setDate(0);
+    campoVencimiento.value = `${fecha.getFullYear()}-${String(fecha.getMonth()+1).padStart(2,"0")}-${String(fecha.getDate()).padStart(2,"0")}`;
 }
 
 function editarClienteOM16(indice) {
@@ -5951,7 +5994,8 @@ function guardarClienteOM16() {
         telefonoAdmin: document.getElementById("clienteOM16TelefonoAdmin").value.trim(),
         correo: document.getElementById("clienteOM16Correo").value.trim(),
         observaciones: document.getElementById("clienteOM16Observaciones").value.trim(),
-        estado: "Activo",
+        estado: document.getElementById("clienteOM16Estado").value || "Activo",
+        fechaActualizacion: document.getElementById("clienteOM16FechaActualizacion").value || new Date().toISOString().slice(0,10),
         origen: indiceValor === "" ? "Registro manual OM-16" : (clientes[Number(indiceValor)].origen || "Excel ADMON Agosto 2026")
     };
 
