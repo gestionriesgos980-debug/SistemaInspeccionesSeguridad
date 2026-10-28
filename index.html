@@ -13474,6 +13474,10 @@ async function generarWordPlantillaMaestra() {
             const ev = evaluacionVulnerabilidadesWord;
             const respuestasEv = ev.respuestas || {};
             const notasEv = ev.observacionesPorPregunta || {};
+            // CAM-VULN-RESPONSABLE-INFORME-01:
+            // Leer los responsables guardados por pregunta y mostrarlos en el informe generado.
+            // No modifica la evaluación almacenada ni la plantilla maestra Word.
+            const responsablesEv = ev.responsablesGestion || {};
             // CAM-VULN-INFORME-CATALOGO-01: usa el mismo catálogo y orden que la evaluación guardada.
             const todosEv = (window.CAMVulnerabilidades && typeof window.CAMVulnerabilidades.obtenerSecciones === "function")
                 ? window.CAMVulnerabilidades.obtenerSecciones(ev.sector)
@@ -13486,14 +13490,26 @@ async function generarWordPlantillaMaestra() {
             const filasEv = [];
             let totalEv = 0, ncEv = 0, parcialEv = 0, pendientesEv = 0;
             todosEv.forEach((grupo, gi) => grupo[1].forEach((pregunta, ii) => {
-                const clave = gi + "-" + ii, estado = respuestasEv[clave] || "", nota = notasEv[clave] || "";
+                const clave = gi + "-" + ii;
+                const estado = respuestasEv[clave] || "";
+                const nota = String(notasEv[clave] || "");
+                const responsable = String(responsablesEv[clave] || "").trim();
                 // CAM-VULN-NA-INFORME-01: "No aplica" se conserva en la evaluación guardada,
                 // pero se excluye por completo de tablas y conteos del informe.
                 if (estado === "NA") return;
                 totalEv++; if (estado === "NC") ncEv++; if (estado === "P") parcialEv++; if (!estado) pendientesEv++;
-                if (estado || nota.trim()) filasEv.push([grupo[0], pregunta, etiquetaEv[estado] || "Pendiente", nota || "Sin observación registrada"]);
+                // Incluir el responsable guardado aun si la observación está vacía.
+                if (estado || nota.trim() || responsable) {
+                    filasEv.push([
+                        grupo[0],
+                        pregunta,
+                        etiquetaEv[estado] || "Pendiente",
+                        responsable || "No asignado",
+                        nota || "Sin observación registrada"
+                    ]);
+                }
             }));
-            if (!filasEv.length) filasEv.push(["Evaluación", "No hay respuestas ni observaciones registradas", "Pendiente", "Completar el instrumento para documentar resultados técnicos."]);
+            if (!filasEv.length) filasEv.push(["Evaluación", "No hay respuestas ni observaciones registradas", "Pendiente", "No asignado", "Completar el instrumento para documentar resultados técnicos."]);
             // CAM-INFORME-APARIENCIA-02: metadata del informe en líneas independientes.
             // Solo modifica el contenido generado; la plantilla Word maestra permanece intacta.
             cuerpo += titulo("7. Análisis técnico de riesgos y vulnerabilidades",1)
@@ -13502,7 +13518,7 @@ async function generarWordPlantillaMaestra() {
                 + parrafoWord(`Ciudad: ${ev.ciudad || inspeccion.ciudad || "No consignada"}. Fecha: ${ev.fecha || inspeccion.fecha || "No consignada"}.`,{font:"Century Gothic",size:"17",after:35,line:250})
                 + parrafoWord(`Analista de Riesgos: ${ev.inspector || inspeccion.inspector || "No consignado"}.`,{font:"Century Gothic",size:"17",after:70,line:250})
                 + parrafoWord(`Se registraron ${totalEv-pendientesEv} respuestas de ${totalEv}; ${ncEv} condiciones No cumple y ${parcialEv} condiciones Parcial; ${pendientesEv} preguntas permanecen pendientes. Estos conteos describen respuestas y no representan por sí solos un nivel de riesgo.`,{font:"Century Gothic",size:"17",after:80,line:250})
-                + tablaGenerica(["ÁREA","ASPECTO EVALUADO","RESULTADO","OBSERVACIÓN / EVIDENCIA"],filasEv,[1450,3550,1200,2788])
+                + tablaGenerica(["ÁREA","ASPECTO EVALUADO","RESULTADO","RESPONSABLE DE LA GESTIÓN","OBSERVACIÓN / EVIDENCIA"],filasEv,[1250,3000,1100,1500,2138])
                 + titulo("Criterio de interpretación técnica",2)
                 + parrafoWord("Las condiciones registradas deben analizarse en relación con los activos expuestos, las amenazas pertinentes, los controles existentes, la posibilidad de ocurrencia y las consecuencias potenciales. La valoración y priorización se documentan en la matriz de riesgos con la metodología vigente de TECCHNEX; una respuesta NC o Parcial no asigna automáticamente un nivel de riesgo.",{font:"Century Gothic",size:"17",after:80,line:250});
             }
