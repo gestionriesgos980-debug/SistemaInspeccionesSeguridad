@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="es">
 <!--
+TECCHNEX — CAM-TRAZABILIDAD-01 / LAB V1
+Base validada: CAM-DATOS-01. Cambio: asociación por idControl con compatibilidad para evaluaciones heredadas.
+
 TECCHNEX — CAM-ENSAMBLADO-OBS-LAB / CAM-WORD-LOCAL-01 + CAM-PDF-FALLBACK-01 / CAM-RIESGOS-BIB-01
 Base: última versión de GitHub aportada por el usuario.
 Integración: bóveda fotográfica IndexedDB de CAM-ALMACENAMIENTO-01B.
@@ -575,6 +578,424 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
     font-weight: bold;
 }
 </style>
+
+<style id="cam-dashboard-visual-02">
+/* CAM-DASHBOARD-02 — Rediseño visual del panel. Solo presentación; no cambia cálculos ni persistencia. */
+#dashboard.modal {
+    background: linear-gradient(135deg, rgba(3, 25, 47, .82), rgba(15, 35, 56, .66));
+    padding: 18px 12px;
+    z-index: 2000;
+}
+#dashboard .modal-contenido {
+    width: min(97%, 1500px);
+    max-width: 1500px;
+    max-height: calc(100vh - 36px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    margin: 0 auto;
+    padding: 0 20px 20px;
+    border: 1px solid #c6d9ec;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #ffffff 0%, #f6faff 100%);
+    box-shadow: 0 22px 60px rgba(3, 25, 47, .35);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 15px;
+    align-content: start;
+}
+#dashboard .dashboard-cabecera {
+    grid-column: 1 / -1;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(0, 2fr) 42px;
+    align-items: center;
+    gap: 14px;
+    margin: 0 -20px 0;
+    padding: 15px 22px;
+    min-height: 78px;
+    color: #fff;
+    background: linear-gradient(105deg, #062c4d 0%, #0d4d7d 52%, #062b4c 100%);
+    border-bottom: 4px solid #2bb9e6;
+    box-shadow: 0 5px 16px rgba(8, 47, 81, .16);
+}
+#dashboard .dashboard-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    justify-self: start;
+    padding: 10px 20px 10px 13px;
+    margin-left: -8px;
+    border-radius: 0 38px 38px 0;
+    background: #fff;
+    color: #123b5d;
+    white-space: nowrap;
+    min-width: 0;
+}
+#dashboard .dashboard-brand strong {
+    font-size: clamp(15px, 1.4vw, 20px);
+    letter-spacing: -.35px;
+    font-weight: 900;
+}
+#dashboard .dashboard-brand-symbol {
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    clip-path: polygon(50% 0, 96% 25%, 96% 74%, 50% 100%, 4% 74%, 4% 25%);
+    background: linear-gradient(135deg, #38bdf8 0 45%, #0878bb 46% 70%, #123b5d 71%);
+    color: white;
+    font-size: 20px;
+    font-weight: 900;
+    text-shadow: 0 1px 2px #075985;
+}
+#dashboard .dashboard-cabecera h2 {
+    justify-self: center;
+    text-align: center;
+    margin: 0;
+    color: #fff;
+    font-size: clamp(21px, 2.2vw, 32px);
+    line-height: 1.2;
+    font-weight: 850;
+    letter-spacing: -.45px;
+}
+#dashboard .dashboard-cerrar {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 9px;
+    justify-self: end;
+    color: #fff;
+    font-size: 32px;
+    font-weight: 500;
+    line-height: 1;
+    cursor: pointer;
+}
+#dashboard .dashboard-cerrar:hover,
+#dashboard .dashboard-cerrar:focus-visible {
+    outline: 2px solid #b9ebff;
+    background: rgba(255,255,255,.12);
+}
+#dashboard .modal-contenido > .panel {
+    min-width: 0;
+    margin: 0 !important;
+    padding: 17px;
+    border: 1px solid #d8e5f1;
+    border-radius: 15px;
+    background: linear-gradient(180deg, #fff 0%, #fbfdff 100%);
+    box-shadow: 0 3px 11px rgba(18, 59, 93, .08);
+}
+#dashboard .modal-contenido > .dashboard-summary-panel,
+#dashboard .modal-contenido > .dashboard-risk-panel {
+    grid-column: 1 / -1;
+}
+#dashboard .dashboard-summary-panel > h3 { display: none; }
+#dashboard .dashboard-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 15px;
+    margin: 0;
+}
+#dashboard .dashboard-kpi-grid > .dashboard-kpi-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: 62px minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    align-items: center;
+    column-gap: 13px;
+    row-gap: 4px;
+    min-width: 0;
+    min-height: 112px;
+    padding: 17px 19px;
+    border: 0;
+    border-top: 0;
+    border-radius: 16px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 7px 17px rgba(18, 59, 93, .14);
+    color: #fff;
+    transition: transform .18s ease, box-shadow .18s ease;
+}
+#dashboard .dashboard-kpi-grid > .dashboard-kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(18, 59, 93, .20);
+}
+#dashboard .dashboard-kpi-grid > .dashboard-kpi-inspecciones { background: linear-gradient(125deg, #1688e8, #06468f); }
+#dashboard .dashboard-kpi-grid > .dashboard-kpi-clientes { background: linear-gradient(125deg, #19c2d4, #087f98); }
+#dashboard .dashboard-kpi-grid > .dashboard-kpi-hallazgos { background: linear-gradient(125deg, #c34fe0, #6325a8); }
+#dashboard .dashboard-kpi-card::before {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    display: grid;
+    place-items: center;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: rgba(4, 27, 63, .30);
+    border: 1px solid rgba(255,255,255,.2);
+    color: #fff;
+    font-size: 29px;
+    line-height: 1;
+    text-shadow: 0 1px 2px rgba(0,0,0,.15);
+}
+#dashboard .dashboard-kpi-inspecciones::before { content: "▤"; }
+#dashboard .dashboard-kpi-clientes::before { content: "♟"; }
+#dashboard .dashboard-kpi-hallazgos::before { content: "⚠"; }
+#dashboard .dashboard-kpi-card h3 {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    margin: 0;
+    color: #fff;
+    font-size: clamp(15px, 1.25vw, 20px);
+    font-weight: 750;
+    line-height: 1.25;
+}
+#dashboard .dashboard-kpi-card p {
+    grid-column: 2;
+    grid-row: 2;
+    margin: 0;
+    color: #fff;
+    font-size: clamp(29px, 2.4vw, 39px);
+    font-weight: 850;
+    line-height: 1.05;
+}
+#dashboard .dashboard-monthly-panel > h3,
+#dashboard .dashboard-chart-panel > h3 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 12px;
+    padding: 10px 13px;
+    border-radius: 10px;
+    background: linear-gradient(90deg, #d9ecff, #edf6ff);
+    border: 1px solid #d6e9fb;
+    color: #123b5d;
+    font-size: 20px;
+    line-height: 1.25;
+}
+#dashboard .dashboard-monthly-panel table {
+    width: 100%;
+    border-collapse: separate !important;
+    border-spacing: 0;
+    overflow: hidden;
+    border-radius: 9px;
+    color: #18334b;
+    font-size: 13px;
+    text-align: center;
+}
+#dashboard .dashboard-monthly-panel table th,
+#dashboard .dashboard-monthly-panel table td {
+    padding: 7px 8px !important;
+    border: 1px solid #c9d5e1 !important;
+    vertical-align: middle;
+}
+#dashboard .dashboard-monthly-panel thead th {
+    background: #e9f3fc;
+    color: #123b5d;
+    font-weight: 800;
+}
+#dashboard .dashboard-monthly-panel tfoot th,
+#dashboard .dashboard-monthly-panel tfoot td {
+    background: linear-gradient(90deg, #0c3c63, #155b8b);
+    color: #fff;
+    font-weight: 800;
+}
+#dashboard .dashboard-monthly-panel tbody tr:nth-child(even) td { background: #f5f9fd; }
+#dashboard .dashboard-monthly-panel tbody tr:hover td { background: #eaf5ff; }
+#dashboard .dashboard-chart-panel > div {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 auto !important;
+    border-radius: 10px;
+}
+#dashboard #graficaInspeccionesMensual {
+    display: block;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    border-radius: 9px;
+}
+#dashboard .dashboard-risk-panel {
+    overflow: hidden;
+}
+#dashboard .dashboard-risk-panel > h3 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: -17px -17px 13px;
+    padding: 12px 17px;
+    background: linear-gradient(100deg, #16649a, #82b9e8);
+    color: #fff;
+    border-bottom: 1px solid #8fc6ee;
+    font-size: 21px;
+    line-height: 1.3;
+}
+#dashboard .dashboard-risk-panel > p {
+    color: #64748b !important;
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+    margin: 0 0 13px !important;
+}
+#dashboard #camDashboardRiesgoCards {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+    margin-bottom: 16px !important;
+}
+#dashboard #camDashboardRiesgoCards > div {
+    display: grid !important;
+    grid-template-columns: 38px minmax(0, 1fr) !important;
+    grid-template-rows: auto auto 1fr !important;
+    column-gap: 10px !important;
+    align-content: start !important;
+    min-width: 0 !important;
+    min-height: 136px;
+    padding: 14px !important;
+    border: 1px solid #b8d6f2 !important;
+    border-left: 1px solid #b8d6f2 !important;
+    border-radius: 13px !important;
+    background: linear-gradient(180deg, #ffffff, #f8fbff) !important;
+    box-shadow: 0 2px 7px rgba(18,59,93,.06);
+}
+#dashboard #camDashboardRiesgoCards > div::before {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #e7f2ff;
+    color: #0878d1;
+    font-size: 22px;
+    font-weight: 900;
+    content: "▦";
+}
+#dashboard #camDashboardRiesgoCards > div:nth-child(1)::before { content: "♟"; }
+#dashboard #camDashboardRiesgoCards > div:nth-child(2)::before { content: "▤"; color: #6546bf; background: #eee9ff; }
+#dashboard #camDashboardRiesgoCards > div:nth-child(3)::before { content: "%"; color: #ad6200; background: #fff0cf; }
+#dashboard #camDashboardRiesgoCards > div:nth-child(4)::before { content: "✓"; color: #16804a; background: #daf7e5; }
+#dashboard #camDashboardRiesgoCards > div:nth-child(5)::before { content: "⚠"; color: #be7000; background: #fff0cf; }
+#dashboard #camDashboardRiesgoCards > div:nth-child(6)::before { content: "×"; color: #cf3030; background: #fee2e2; }
+#dashboard #camDashboardRiesgoCards > div:nth-child(7)::before { content: "!"; color: #be7000; background: #fff0cf; }
+#dashboard #camDashboardRiesgoCards > div:nth-child(8)::before { content: "⌘"; color: #0878d1; background: #e7f2ff; }
+#dashboard #camDashboardRiesgoCards > div > div:first-child {
+    grid-column: 2;
+    grid-row: 1;
+    color: #123b5d !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    line-height: 1.3 !important;
+    margin: 0 0 4px !important;
+}
+#dashboard #camDashboardRiesgoCards > div > div:nth-child(2) {
+    grid-column: 2;
+    grid-row: 2;
+    color: #123b5d !important;
+    font-size: 28px !important;
+    font-weight: 900 !important;
+    line-height: 1.12 !important;
+    margin: 0 0 5px !important;
+}
+#dashboard #camDashboardRiesgoCards > div > div:nth-child(3) {
+    grid-column: 2;
+    grid-row: 3;
+    color: #475569 !important;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+    margin: 0 !important;
+}
+#dashboard .dashboard-risk-panel > div[style*="overflow-x:auto"] { overflow-x: auto; }
+#dashboard .dashboard-risk-panel table {
+    width: 100%;
+    min-width: 560px;
+    border-collapse: separate !important;
+    border-spacing: 0;
+    border: 1px solid #b8cadd;
+    border-radius: 10px;
+    overflow: hidden;
+    color: #21384d;
+    font-size: 12px;
+}
+#dashboard .dashboard-risk-panel table thead tr { background: #103f67 !important; }
+#dashboard .dashboard-risk-panel table th {
+    padding: 10px 11px !important;
+    border: 1px solid #c5d7e6 !important;
+    background: #103f67 !important;
+    color: #fff !important;
+    font-weight: 800;
+    text-align: left;
+}
+#dashboard .dashboard-risk-panel table th:nth-child(2) { text-align: center !important; }
+#dashboard .dashboard-risk-panel table td {
+    padding: 7px 10px !important;
+    border: 1px solid #cbd7e2 !important;
+    vertical-align: middle;
+    background: transparent;
+}
+#dashboard .dashboard-risk-panel table tbody tr:nth-child(even) td { background: #f4f8fc !important; }
+#dashboard .dashboard-risk-panel table tbody tr:nth-child(1) td:first-child::before { content: "✓  "; color: #16a34a; font-weight: 900; }
+#dashboard .dashboard-risk-panel table tbody tr:nth-child(2) td:first-child::before { content: "⚠  "; color: #d97706; font-weight: 900; }
+#dashboard .dashboard-risk-panel table tbody tr:nth-child(3) td:first-child::before { content: "✕  "; color: #dc2626; font-weight: 900; }
+#dashboard .dashboard-risk-panel table tbody tr:nth-child(4) td:first-child::before { content: "⊘  "; color: #64748b; font-weight: 900; }
+#dashboard .dashboard-risk-panel table tbody tr:nth-child(5) td:first-child::before { content: "◉  "; color: #0f769a; font-weight: 900; }
+#dashboard .dashboard-risk-panel table tbody tr:nth-child(6) td:first-child::before { content: "⌛  "; color: #d97706; font-weight: 900; }
+#dashboard .dashboard-risk-panel table tbody tr:nth-child(7) td:first-child::before { content: "▥  "; color: #0878d1; font-weight: 900; }
+#dashboard .dashboard-risk-panel table tbody tr:nth-child(8) td:first-child::before { content: "↗  "; color: #0f9f6e; font-weight: 900; }
+#dashboard .dashboard-risk-panel table tbody tr:nth-child(9) td:first-child::before { content: "⚑  "; color: #dc2626; font-weight: 900; }
+#dashboard .dashboard-risk-panel table tbody tr:nth-child(10) td:first-child::before { content: "▤  "; color: #6546bf; font-weight: 900; }
+#dashboard #camDashboardRiesgoNota { font-size: 11px !important; line-height: 1.45 !important; margin-top: 11px !important; }
+@media (max-width: 1050px) {
+    #dashboard .modal-contenido { width: min(98%, 980px); padding-left: 15px; padding-right: 15px; gap: 12px; }
+    #dashboard .dashboard-cabecera { margin-left: -15px; margin-right: -15px; }
+    #dashboard #camDashboardRiesgoCards { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    #dashboard .dashboard-kpi-grid > .dashboard-kpi-card { padding: 14px; grid-template-columns: 48px minmax(0,1fr); }
+    #dashboard .dashboard-kpi-card::before { width: 46px; height: 46px; font-size: 24px; }
+}
+@media (max-width: 720px) {
+    #dashboard.modal { padding: 6px; }
+    #dashboard .modal-contenido {
+        width: 100%; max-width: none; max-height: calc(100vh - 12px); margin: 0 auto;
+        padding: 0 10px 12px; border-radius: 12px; grid-template-columns: minmax(0,1fr); gap: 10px;
+    }
+    #dashboard .dashboard-cabecera {
+        grid-template-columns: minmax(0,1fr) 38px; gap: 8px;
+        margin: 0 -10px; padding: 10px 13px; min-height: 66px;
+    }
+    #dashboard .dashboard-brand { grid-column: 1; grid-row: 1; padding: 4px 12px 4px 5px; margin-left: -4px; }
+    #dashboard .dashboard-brand-symbol { width: 27px; height: 27px; flex-basis: 27px; font-size: 16px; }
+    #dashboard .dashboard-brand strong { font-size: 14px; }
+    #dashboard .dashboard-cabecera h2 { grid-column: 1; grid-row: 2; justify-self: start; text-align: left; font-size: 19px; }
+    #dashboard .dashboard-cerrar { grid-column: 2; grid-row: 1 / span 2; width: 36px; height: 36px; }
+    #dashboard .modal-contenido > .panel { grid-column: 1 / -1; padding: 12px; border-radius: 11px; }
+    #dashboard .dashboard-kpi-grid { grid-template-columns: minmax(0,1fr); gap: 9px; }
+    #dashboard .dashboard-kpi-grid > .dashboard-kpi-card { min-height: 82px; grid-template-columns: 46px minmax(0,1fr); padding: 12px; }
+    #dashboard .dashboard-kpi-card::before { width: 42px; height: 42px; }
+    #dashboard .dashboard-kpi-card h3 { font-size: 16px; }
+    #dashboard .dashboard-kpi-card p { font-size: 29px; }
+    #dashboard .dashboard-monthly-panel > h3,
+    #dashboard .dashboard-chart-panel > h3,
+    #dashboard .dashboard-risk-panel > h3 { font-size: 16px; }
+    #dashboard .dashboard-monthly-panel table { font-size: 11px; }
+    #dashboard .dashboard-monthly-panel table th,
+    #dashboard .dashboard-monthly-panel table td { padding: 5px 4px !important; }
+    #dashboard #graficaInspeccionesMensual { width: 100% !important; }
+    #dashboard #camDashboardRiesgoCards { grid-template-columns: repeat(2, minmax(0,1fr)) !important; gap: 8px !important; }
+    #dashboard #camDashboardRiesgoCards > div { min-height: 128px; grid-template-columns: 30px minmax(0,1fr) !important; gap: 6px !important; padding: 9px !important; }
+    #dashboard #camDashboardRiesgoCards > div::before { width: 29px; height: 29px; font-size: 17px; }
+    #dashboard #camDashboardRiesgoCards > div > div:first-child { font-size: 11px !important; }
+    #dashboard #camDashboardRiesgoCards > div > div:nth-child(2) { font-size: 23px !important; }
+    #dashboard #camDashboardRiesgoCards > div > div:nth-child(3) { font-size: 10px !important; }
+    #dashboard .dashboard-risk-panel table { font-size: 11px; min-width: 510px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    #dashboard .dashboard-kpi-grid > .dashboard-kpi-card { transition: none; }
+    #dashboard .dashboard-kpi-grid > .dashboard-kpi-card:hover { transform: none; }
+}
+</style>
+
 </head>
 
 <body>
@@ -656,6 +1077,13 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
                     Generar el informe de la inspección actualmente
                     seleccionada.
                 </p>
+                <!-- CAM-INFORME-CALIDAD-01: revisión consultiva separada.
+                     No intercepta ni modifica la generación Word/PDF. -->
+                <button type="button"
+                    onclick="event.stopPropagation(); revisarCalidadDatosInforme();"
+                    style="margin-top:12px;width:100%;border:1px solid #bfdbfe;background:#eff6ff;color:#123b5d;border-radius:7px;padding:10px 12px;font-weight:bold;cursor:pointer;">
+                    🔎 Verificar calidad de datos
+                </button>
             </div>
 
             <div class="modulo" onclick="abrirDashboard()">
@@ -664,6 +1092,13 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
                     Consultar indicadores y estadísticas
                     de las inspecciones realizadas.
                 </p>
+            </div>
+
+            <!-- CAM-SEGUIMIENTO-01 — Comparación de las dos últimas inspecciones del cliente.
+                 Solo lectura: no modifica el almacenamiento ni la generación de informes. -->
+            <div class="modulo" onclick="abrirComparativoInspeccionesCAM01()" style="background:#edf7ff;border:2px solid #1769aa;border-top:7px solid #1769aa;">
+                <h3 style="color:#123b5d;">📈 Seguimiento comparativo</h3>
+                <p>Comparar las dos inspecciones más recientes de un cliente e identificar posibles riesgos y hallazgos recurrentes.</p>
             </div>
             <!-- CAM-AGENDA-ANALISIS-02: se elimina la tarjeta duplicada; las alertas abren la agenda. -->
             <!-- CAM-AGENDA-ALERTAS-01: resumen automático de visitas pendientes en el tablero principal. -->
@@ -1753,34 +2188,35 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
 
     <div class="modal-contenido">
 
-        <div class="modal-cabecera">
-
-            <h2>📊 Dashboard</h2>
-
-            <span class="cerrar" onclick="cerrarDashboard()">
+        <div class="modal-cabecera dashboard-cabecera">
+            <div class="dashboard-brand" aria-label="Marca TECCHNEX">
+                <span class="dashboard-brand-symbol" aria-hidden="true">T</span>
+                <strong>TECCHNEX</strong>
+            </div>
+            <h2>Dashboard de Inspección</h2>
+            <span class="cerrar dashboard-cerrar" role="button" tabindex="0" title="Cerrar Dashboard" aria-label="Cerrar Dashboard" onclick="cerrarDashboard()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();cerrarDashboard();}">
                 &times;
             </span>
-
         </div>
 
-        <div class="panel">
+        <div class="panel dashboard-summary-panel">
 
             <h3>Indicadores del sistema</h3>
 
-            <div class="modulos">
+            <div class="modulos dashboard-kpi-grid">
 
-                <div class="modulo">
-                    <h3>📋 Inspecciones</h3>
+                <div class="modulo dashboard-kpi-card dashboard-kpi-inspecciones">
+                    <h3>Inspecciones</h3>
                     <p id="dashboardTotalInspecciones">0</p>
                 </div>
 
-                               <div class="modulo">
-                    <h3>👥 Clientes</h3>
+                               <div class="modulo dashboard-kpi-card dashboard-kpi-clientes">
+                    <h3>Clientes</h3>
                     <p id="dashboardTotalClientes">0</p>
                 </div>
 
-                <div class="modulo">
-                    <h3>⚠️ Hallazgos</h3>
+                <div class="modulo dashboard-kpi-card dashboard-kpi-hallazgos">
+                    <h3>Hallazgos</h3>
                     <p id="dashboardTotalHallazgos">0</p>
                 </div>
 
@@ -1788,7 +2224,7 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
 
         </div>
 
-        <div class="panel">
+        <div class="panel dashboard-monthly-panel">
 
             <h3>📅 Inspecciones por mes</h3>
 
@@ -1803,11 +2239,11 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
      Meta inicial: 20 inspecciones por mes.
 ====================================================== -->
 <th style="border:1px solid #ccc; padding:8px;">
-    Meta
+    Mes
 </th>
 
 <th style="border:1px solid #ccc; padding:8px;">
-    Mes
+    Máx.
 </th>
 
 <th style="border:1px solid #ccc; padding:8px;">
@@ -1841,17 +2277,17 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
             border:1px solid #ccc;
             padding:8px;
             text-align:center;
+            font-weight:bold;
         ">
-            240
+            Total anual
         </th>
 
         <th style="
             border:1px solid #ccc;
             padding:8px;
             text-align:center;
-            font-weight:bold;
         ">
-            Total anual
+            240
         </th>
 
         <th
@@ -1885,7 +2321,7 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
         </div>
 
 
-        <div class="panel">
+        <div class="panel dashboard-chart-panel">
 
             <h3>📈 Inspecciones por mes</h3>
 
@@ -1895,8 +2331,31 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
 
         </div>
 
+        <!-- CAM-DASHBOARD-01: indicadores de riesgos/vulnerabilidades basados en la última inspección por cliente.
+             Solo lectura. No modifica datos ni interviene la generación Word/PDF. -->
+        <div class="panel dashboard-risk-panel" id="camDashboardIndicadoresRiesgo" style="margin-top:20px;">
+            <h3>🛡️ Indicadores de riesgos y vulnerabilidades</h3>
+            <p style="color:#64748b;font-size:13px;line-height:1.5;margin:-8px 0 16px;">
+                Resumen calculado sobre la última inspección registrada de cada cliente. Las respuestas de vulnerabilidades son indicadores de revisión y no constituyen por sí solas una calificación global del riesgo.
+            </p>
+            <div id="camDashboardRiesgoCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px;margin-bottom:18px;">
+                <div style="padding:18px;border:1px solid #dbe3ea;border-radius:9px;background:#f8fafc;color:#64748b;">Calculando indicadores…</div>
+            </div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;text-align:left;min-width:520px;">
+                    <thead><tr style="background:#123b5d;color:#fff;">
+                        <th style="border:1px solid #cbd5e1;padding:9px;">Indicador</th>
+                        <th style="border:1px solid #cbd5e1;padding:9px;text-align:center;">Cantidad</th>
+                        <th style="border:1px solid #cbd5e1;padding:9px;">Interpretación</th>
+                    </tr></thead>
+                    <tbody id="camDashboardRiesgoDetalle">
+                        <tr><td colspan="3" style="border:1px solid #cbd5e1;padding:10px;">Se calcularán los indicadores al abrir el Dashboard.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p id="camDashboardRiesgoNota" role="status" style="margin:12px 0 0;color:#64748b;font-size:12px;line-height:1.5;"></p>
+        </div>
 
-        
     </div>
 
 </div>
@@ -1925,6 +2384,11 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
 #camVulnPanel .primary{background:#123b5d;color:white}
 #camVulnPanel .secondary{background:#e2e8f0;color:#172033}
 #camVulnPanel .cam-v-muted{color:#64748b;font-size:12px}
+/* CAM-ANALISIS-01: guía visual para documentar condiciones Parcial/No cumple.
+   No cambia el esquema de datos ni obliga a completar observaciones para guardar. */
+#camVulnPanel .cam-v-evidence-warning{display:block;margin:5px 0 0;padding:7px 9px;border:1px solid #fdba74;border-radius:7px;background:#fff7ed;color:#9a3412;font-size:12px;line-height:1.4}
+#camVulnPanel .cam-v-evidence-warning[hidden]{display:none}
+#camVulnPanel textarea.cam-v-note-needed{border-color:#f59e0b;background:#fffbeb}
 @media(max-width:600px){#camVulnOverlay{padding:6px}#camVulnPanel{margin:4px auto}#camVulnPanel header{padding:14px}#camVulnPanel .cam-v-body{padding:10px}}
 </style>
 <div id="camVulnOverlay" role="dialog" aria-modal="true" aria-labelledby="camVulnTitle">
@@ -2031,35 +2495,79 @@ Industrial:[
 ['Protección industrial',['¿Los portones y accesos de vehículos tienen validación y registro de ingreso?','¿Las bodegas e inventarios cuentan con controles de acceso y trazabilidad?','¿Las áreas de producción, cuartos técnicos y maquinaria están restringidas según su función?','¿Se controlan llaves, herramientas críticas y activos de alto valor?']],
 ['Amenazas y continuidad industrial',['¿Se evalúan sabotaje, intrusión, robo interno y amenazas a la continuidad?','¿Las áreas con sustancias peligrosas tienen controles de acceso y respuesta?','¿Se coordinan seguridad física, SST, mantenimiento y respuesta a emergencias?','¿Existen procedimientos para fallas eléctricas, incendio, derrames o interrupción operativa?']]
 ]};
-let state={id:null,answers:{},notes:{}};
+let state={id:null,answers:{},notes:{},responsibles:{}};
 function allSections(){return [...shared,...sector[$('camVulnSector').value]]}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function readMeta(){const sel=$('camVulnInspeccion');const idx=sel.value===''?null:Number(sel.value);let inspecciones=[];try{inspecciones=JSON.parse(localStorage.getItem('inspecciones')||'[]')}catch(e){}const insp=Number.isInteger(idx)&&idx>=0?inspecciones[idx]:null;return {sector:$('camVulnSector').value,inspeccionIndice:idx,inspeccionCliente:insp?(insp.cliente||insp.nombreCliente||''):'',inspeccionTipo:insp?(insp.tipo||''):'',lugar:$('camVulnLugar').value.trim(),ciudad:$('camVulnCiudad').value.trim(),inspector:$('camVulnInspector').value.trim(),fecha:$('camVulnFecha').value,jornada:$('camVulnJornada').value,observaciones:$('camVulnObservaciones').value.trim()}}
-function cargarInspecciones(seleccion){const sel=$('camVulnInspeccion');let arr=[];try{arr=JSON.parse(localStorage.getItem('inspecciones')||'[]')}catch(e){}sel.innerHTML='<option value="">Seleccione una inspección registrada</option>';arr.forEach((x,i)=>{const op=document.createElement('option');op.value=String(i);op.textContent=(x.cliente||x.nombreCliente||'Cliente sin nombre')+' — '+(x.tipo||'Inspección')+' — #'+(i+1);sel.appendChild(op)});sel.value=seleccion!==undefined&&seleccion!==null&&arr[seleccion]?String(seleccion):''}
-function loadMeta(d){$('camVulnSector').value=d.sector||'Residencial';cargarInspecciones(d.inspeccionIndice);$('camVulnLugar').value=d.lugar||'';$('camVulnCiudad').value=d.ciudad||'';$('camVulnInspector').value=d.inspector||'';$('camVulnFecha').value=d.fecha||new Date().toISOString().slice(0,10);$('camVulnJornada').value=d.jornada||'Diurna';$('camVulnObservaciones').value=d.observaciones||''}
+// CAM-TRAZABILIDAD-02: el nombre normalizado del cliente es la referencia primaria.
+// La fecha de la inspección distingue visitas sucesivas del mismo cliente; el ID es auxiliar.
+function normalizarNombreCliente(valor){return String(valor||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase().replace(/\s+/g,' ')}
+function nombreClienteInspeccion(insp){return normalizarNombreCliente(insp&&(insp.cliente||insp.nombreCliente||insp.razonSocial)||'')}
+function fechaInspeccion(insp){const v=String(insp&&(insp.fecha||insp.fechaInspeccion)||'').trim();if(!v)return '';let m=v.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);if(m)return m[3]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[1]).padStart(2,'0');return v.slice(0,10)}
+function marcaTemporalInspeccion(insp){const f=fechaInspeccion(insp);if(!f)return NaN;const t=Date.parse(f+'T12:00:00');return Number.isFinite(t)?t:NaN}
+function indiceUltimaInspeccionCliente(lista,nombre){const clave=normalizarNombreCliente(nombre);if(!clave||!Array.isArray(lista))return -1;const indices=[];lista.forEach((x,i)=>{if(nombreClienteInspeccion(x)===clave)indices.push(i)});if(!indices.length)return -1;indices.sort((a,b)=>{const ta=marcaTemporalInspeccion(lista[a]),tb=marcaTemporalInspeccion(lista[b]);if(Number.isFinite(ta)&&Number.isFinite(tb)&&ta!==tb)return tb-ta;if(Number.isFinite(ta)!==Number.isFinite(tb))return Number.isFinite(tb)?1:-1;return b-a});return indices[0]}
+function cantidadInspeccionesCliente(lista,nombre){const clave=normalizarNombreCliente(nombre);return clave&&Array.isArray(lista)?lista.filter(x=>nombreClienteInspeccion(x)===clave).length:0}
+function inspeccionSeleccionada(){try{const arr=JSON.parse(localStorage.getItem('inspecciones')||'[]');const idx=Number($('camVulnInspeccion').value);return Array.isArray(arr)&&Number.isInteger(idx)&&idx>=0?arr[idx]||null:null}catch(e){return null}}
+function readMeta(){const sel=$('camVulnInspeccion');const idx=sel.value===''?null:Number(sel.value);let inspecciones=[];try{inspecciones=JSON.parse(localStorage.getItem('inspecciones')||'[]')}catch(e){}if(!Array.isArray(inspecciones))inspecciones=[];const insp=Number.isInteger(idx)&&idx>=0?inspecciones[idx]:null;return {sector:$('camVulnSector').value,inspeccionIndice:idx,inspeccionIdControl:insp?String(insp.idControl||'').trim():'',inspeccionCliente:insp?(insp.cliente||insp.nombreCliente||insp.razonSocial||''):'',inspeccionFecha:fechaInspeccion(insp),inspeccionTipo:insp?(insp.tipo||''):'',lugar:$('camVulnLugar').value.trim(),ciudad:$('camVulnCiudad').value.trim(),inspector:$('camVulnInspector').value.trim(),fecha:$('camVulnFecha').value,jornada:$('camVulnJornada').value,observaciones:$('camVulnObservaciones').value.trim()}}
+function cargarInspecciones(seleccion){const sel=$('camVulnInspeccion');let arr=[];try{arr=JSON.parse(localStorage.getItem('inspecciones')||'[]')}catch(e){}if(!Array.isArray(arr))arr=[];sel.innerHTML='<option value="">Seleccione una inspección registrada</option>';arr.forEach((x,i)=>{const op=document.createElement('option');op.value=String(i);op.textContent=(x.cliente||x.nombreCliente||x.razonSocial||'Cliente sin nombre')+' — '+(x.tipo||'Inspección')+' — '+(fechaInspeccion(x)||'sin fecha')+' — #'+(i+1);sel.appendChild(op)});sel.value=seleccion!==undefined&&seleccion!==null&&arr[seleccion]?String(seleccion):''}
+function indiceAsociadoEvaluacion(d,lista){if(!d||!Array.isArray(lista))return -1;const nombre=normalizarNombreCliente(d.inspeccionCliente||d.cliente||d.nombreCliente);if(nombre){/* Si el cliente no existe, mantener la evaluación huérfana; no buscar por índice/ID que podría apuntar a otro cliente. */return indiceUltimaInspeccionCliente(lista,nombre)}const id=String(d.inspeccionIdControl||'').trim().toLowerCase();if(id){const porId=lista.findIndex(x=>String(x&&x.idControl||'').trim().toLowerCase()===id);if(porId>=0)return indiceUltimaInspeccionCliente(lista,nombreClienteInspeccion(lista[porId]))}const rawIdx=d.inspeccionIndice;if(rawIdx===null||rawIdx===undefined||String(rawIdx).trim()==='')return -1;const idx=Number(rawIdx);return Number.isInteger(idx)&&idx>=0&&idx<lista.length?idx:-1}
+function loadMeta(d){$('camVulnSector').value=d.sector||'Residencial';let lista=[];try{lista=JSON.parse(localStorage.getItem('inspecciones')||'[]')}catch(e){}if(!Array.isArray(lista))lista=[];let indiceSeleccion=indiceAsociadoEvaluacion(d,lista);const tieneNombreCliente=!!normalizarNombreCliente(d.inspeccionCliente||d.cliente||d.nombreCliente);if(indiceSeleccion<0&&!tieneNombreCliente&&d.inspeccionIndice!==null&&d.inspeccionIndice!==undefined&&String(d.inspeccionIndice).trim()!==''&&Number.isInteger(Number(d.inspeccionIndice))&&Number(d.inspeccionIndice)>=0&&Number(d.inspeccionIndice)<lista.length)indiceSeleccion=Number(d.inspeccionIndice);cargarInspecciones(indiceSeleccion);$('camVulnLugar').value=d.lugar||'';$('camVulnCiudad').value=d.ciudad||'';$('camVulnInspector').value=d.inspector||'';$('camVulnFecha').value=d.fecha||new Date().toISOString().slice(0,10);$('camVulnJornada').value=d.jornada||'Diurna';$('camVulnObservaciones').value=d.observaciones||''}
+// CAM-ANALISIS-01 — mejora no bloqueante de calidad de observaciones técnicas.
+function actualizarGuiaObservacion(item,key){
+ const nota=item.querySelector('textarea[data-note="'+key+'"]');
+ if(!nota)return;
+ const respuesta=state.answers[key]||'';
+ const requiereDetalle=respuesta==='NC'||respuesta==='P';
+ nota.placeholder=requiereDetalle
+  ? 'Recomendado para Parcial/No cumple: describa ubicación, condición observada, evidencia disponible y consecuencia potencial.'
+  : 'Observación, ubicación o evidencia (opcional)';
+ const sinDetalle=requiereDetalle&&!String(state.notes[key]||'').trim();
+ nota.classList.toggle('cam-v-note-needed',sinDetalle);
+ let guia=item.querySelector('[data-note-guidance="'+key+'"]');
+ if(requiereDetalle){
+  if(!guia){guia=document.createElement('small');guia.className='cam-v-evidence-warning';guia.setAttribute('data-note-guidance',key);nota.insertAdjacentElement('afterend',guia)}
+  guia.textContent=sinDetalle
+   ? 'Pendiente de documentar: ubicación, evidencia u observación técnica. La aplicación permitirá guardar; esta advertencia ayuda a completar el análisis.'
+   : 'Observación registrada. Verifique que sustente la condición y su posible consecuencia.';
+  guia.hidden=false;
+ }else if(guia){guia.hidden=true}
+}
 function render(){
  const old=allSections(),host=$('camVulnPreguntas');host.innerHTML='';
  old.forEach((g,gi)=>{const details=document.createElement('details');details.className='cam-v-section';details.open=gi===0;
  const sum=document.createElement('summary');sum.textContent=g[0]+' · '+g[1].filter((_,ii)=>state.answers[gi+'-'+ii]).length+'/'+g[1].length+' respondidos';details.appendChild(sum);
  g[1].forEach((q,ii)=>{const key=gi+'-'+ii,item=document.createElement('div');item.className='cam-v-item';
- item.innerHTML='<div class="cam-v-item-title">'+(gi+1)+'.'+(ii+1)+' '+esc(q)+'</div><div class="cam-v-status">'+[['C','Cumple'],['P','Parcial'],['NC','No cumple'],['NA','No aplica'],['NV','No verificado']].map(([v,l])=>'<label><input type="radio" name="camv-'+key+'" value="'+v+'" '+(state.answers[key]===v?'checked':'')+'> '+l+'</label>').join('')+'</div><textarea rows="2" data-note="'+key+'" placeholder="Observación, ubicación o evidencia (opcional)">'+esc(state.notes[key]||'')+'</textarea>';
- item.querySelectorAll('input[type=radio]').forEach(r=>r.addEventListener('change',()=>{state.answers[key]=r.value;updateSummary();persistCurrent(false)}));
- item.querySelector('textarea').addEventListener('input',e=>{state.notes[key]=e.target.value;persistCurrent(false)});
+ item.innerHTML='<div class="cam-v-item-title">'+(gi+1)+'.'+(ii+1)+' '+esc(q)+'</div><div class="cam-v-status">'+[['C','Cumple'],['P','Parcial'],['NC','No cumple'],['NA','No aplica'],['NV','No verificado']].map(([v,l])=>'<label><input type="radio" name="camv-'+key+'" value="'+v+'" '+(state.answers[key]===v?'checked':'')+'> '+l+'</label>').join('')+'</div><label style="display:block;margin:8px 0 4px;font-weight:600;color:#123b5d;font-size:13px;" for="camv-responsable-'+key+'">Responsable de la gestión <span style="color:#b91c1c">*</span></label><select id="camv-responsable-'+key+'" data-responsible="'+key+'" style="width:100%;max-width:520px;min-height:38px;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font:inherit;background:#fff;margin-bottom:8px;"><option value="">Seleccione responsable (obligatorio para Parcial/No cumple)</option>'+["Administrador de la copropiedad","Gerente / Dirección","Empresa de vigilancia","Proveedor / mantenimiento especializado","Otro"].map(v=>'<option value="'+esc(v)+'" '+(state.responsibles[key]===v?'selected':'')+'>'+esc(v)+'</option>').join('')+'</select><textarea rows="2" data-note="'+key+'" placeholder="Observación, ubicación o evidencia (opcional)">'+esc(state.notes[key]||'')+'</textarea>';
+ item.querySelectorAll('input[type=radio]').forEach(r=>r.addEventListener('change',()=>{state.answers[key]=r.value;actualizarGuiaObservacion(item,key);updateSummary();persistCurrent(false)}));
+ item.querySelector('textarea').addEventListener('input',e=>{state.notes[key]=e.target.value;actualizarGuiaObservacion(item,key);updateSummary();persistCurrent(false)});
+ const selectorResponsable=item.querySelector('select[data-responsible="'+key+'"]');
+ selectorResponsable.addEventListener('change',e=>{state.responsibles[key]=e.target.value;persistCurrent(false)});
+ actualizarGuiaObservacion(item,key);
  details.appendChild(item)});
  host.appendChild(details)});
  updateSummary()
 }
-function data(){return {schema:'TECCHNEX-VULNERABILIDADES-1',id:state.id||('VUL-'+Date.now()),actualizado:new Date().toISOString(),...readMeta(),respuestas:state.answers,observacionesPorPregunta:state.notes}}
-function updateSummary(){const vals=Object.values(state.answers),total=allSections().reduce((n,g)=>n+g[1].length,0),reviewed=vals.length,nc=vals.filter(v=>v==='NC').length,partial=vals.filter(v=>v==='P').length;$('camVulnResumen').innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:5px 0 10px"><span style="background:#e2e8f0;padding:6px 9px;border-radius:6px">Revisados: '+reviewed+'/'+total+'</span><span style="background:#fee2e2;padding:6px 9px;border-radius:6px">No cumple: '+nc+'</span><span style="background:#fef3c7;padding:6px 9px;border-radius:6px">Parcial: '+partial+'</span></div>'}
+function data(){return {schema:'TECCHNEX-VULNERABILIDADES-1',id:state.id||('VUL-'+Date.now()),actualizado:new Date().toISOString(),...readMeta(),respuestas:state.answers,observacionesPorPregunta:state.notes,responsablesGestion:state.responsibles}}
+function updateSummary(){
+ const vals=Object.values(state.answers),total=allSections().reduce((n,g)=>n+g[1].length,0),reviewed=vals.length;
+ const nc=vals.filter(v=>v==='NC').length,partial=vals.filter(v=>v==='P').length;
+ const sinObservacion=Object.entries(state.answers).filter(([key,v])=>(v==='NC'||v==='P')&&!String(state.notes[key]||'').trim()).length;
+ const notaEstado=sinObservacion
+  ? '<span style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;padding:6px 9px;border-radius:6px">Parcial/No cumple sin observación: '+sinObservacion+'</span>'
+  : '<span style="background:#dcfce7;color:#166534;padding:6px 9px;border-radius:6px">Condiciones Parcial/No cumple documentadas</span>';
+ $('camVulnResumen').innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:5px 0 10px"><span style="background:#e2e8f0;padding:6px 9px;border-radius:6px">Revisados: '+reviewed+'/'+total+'</span><span style="background:#fee2e2;padding:6px 9px;border-radius:6px">No cumple: '+nc+'</span><span style="background:#fef3c7;padding:6px 9px;border-radius:6px">Parcial: '+partial+'</span>'+notaEstado+'</div>';
+}
 const RECORDS_KEY=KEY+'_registros_v2';
 function readRecords(){try{const r=JSON.parse(localStorage.getItem(RECORDS_KEY)||'[]');return Array.isArray(r)?r:[]}catch(e){return []}}
-function recordKey(d){return [d.sector||'Residencial',d.inspeccionIndice===null||d.inspeccionIndice===undefined?'sin-inspeccion':d.inspeccionIndice,String(d.lugar||'').trim().toLowerCase()].join('|')}
-function findSaved(meta){const k=recordKey(meta);return readRecords().find(r=>recordKey(r)===k)||null}
+function normalizarIdInspeccion(d){return String(d&&d.inspeccionIdControl||'').trim().toLowerCase()}
+function recordKey(d){const cliente=normalizarNombreCliente(d.inspeccionCliente||d.cliente||d.nombreCliente);const fecha=String(d.inspeccionFecha||'').slice(0,10);const id=normalizarIdInspeccion(d);const indice=d.inspeccionIndice===null||d.inspeccionIndice===undefined?'sin-inspeccion':d.inspeccionIndice;const tipo=normalizarNombreCliente(d.inspeccionTipo||d.tipo);const referencia=cliente?(fecha?'cliente:'+cliente+'|fecha:'+fecha+'|tipo:'+tipo:'cliente:'+cliente+'|sinfecha|tipo:'+tipo+'|indice:'+indice):('id:'+(id||indice));return [String(d.sector||'Residencial').trim().toLowerCase(),referencia].join('|')}
+function sameRecord(a,b){if(!a||!b)return false;const sectorA=String(a.sector||'Residencial').trim().toLowerCase(),sectorB=String(b.sector||'Residencial').trim().toLowerCase();if(sectorA!==sectorB)return false;const clienteA=normalizarNombreCliente(a.inspeccionCliente||a.cliente||a.nombreCliente),clienteB=normalizarNombreCliente(b.inspeccionCliente||b.cliente||b.nombreCliente);const fechaA=String(a.inspeccionFecha||'').slice(0,10),fechaB=String(b.inspeccionFecha||'').slice(0,10);if(clienteA&&clienteB){if(clienteA!==clienteB)return false;const tipoA=normalizarNombreCliente(a.inspeccionTipo||a.tipo),tipoB=normalizarNombreCliente(b.inspeccionTipo||b.tipo);if(tipoA&&tipoB&&tipoA!==tipoB)return false;if(fechaA&&fechaB)return fechaA===fechaB;if(fechaA||fechaB)return false;const idxA=String(a.inspeccionIndice??'sin-inspeccion'),idxB=String(b.inspeccionIndice??'sin-inspeccion');if(idxA===idxB)return true;const idA=normalizarIdInspeccion(a),idB=normalizarIdInspeccion(b);return !!(idA&&idB&&idA===idB)}const idA=normalizarIdInspeccion(a),idB=normalizarIdInspeccion(b);if(idA&&idB)return idA===idB;return String(a.inspeccionIndice??'sin-inspeccion')===String(b.inspeccionIndice??'sin-inspeccion')&&String(a.lugar||'').trim().toLowerCase()===String(b.lugar||'').trim().toLowerCase()}
+function findSaved(meta){return readRecords().slice().reverse().find(r=>sameRecord(r,meta))||null}
+function coincideEvaluacionConUltimaInspeccion(ev,inspeccion,indice,lista){if(!ev||!inspeccion)return false;const nombreObjetivo=nombreClienteInspeccion(inspeccion);const nombreEval=normalizarNombreCliente(ev.inspeccionCliente||ev.cliente||ev.nombreCliente);const fechaObjetivo=fechaInspeccion(inspeccion);const fechaEval=String(ev.inspeccionFecha||'').slice(0,10);const idObjetivo=String(inspeccion.idControl||'').trim().toLowerCase();const idEval=normalizarIdInspeccion(ev);if(nombreObjetivo&&nombreEval&&nombreObjetivo!==nombreEval)return false;if(fechaObjetivo&&fechaEval)return !!nombreObjetivo&&!!nombreEval&&nombreObjetivo===nombreEval&&fechaObjetivo===fechaEval;if(nombreObjetivo&&nombreEval&&nombreObjetivo===nombreEval){if(idObjetivo&&idEval&&idObjetivo===idEval)return true;if(ev.inspeccionIndice!==null&&ev.inspeccionIndice!==undefined&&String(ev.inspeccionIndice).trim()!==''&&Number(ev.inspeccionIndice)===Number(indice))return true;if(cantidadInspeccionesCliente(lista,nombreObjetivo)===1)return true;return false}if(!nombreEval&&idObjetivo&&idEval&&idObjetivo===idEval)return true;return !nombreObjetivo&&!nombreEval&&Number(ev.inspeccionIndice)===Number(indice)}
 function persistCurrent(showMessage){
  try{
   const d=data();if(!state.id)state.id=d.id;
   d.id=state.id;d.claveRegistro=recordKey(d);
-  const records=readRecords();const k=recordKey(d);const pos=records.findIndex(r=>recordKey(r)===k);
+  const records=readRecords();const k=recordKey(d);const pos=records.findIndex(r=>sameRecord(r,d));
   if(pos>=0)records[pos]=d;else records.push(d);
   localStorage.setItem(RECORDS_KEY,JSON.stringify(records));
   localStorage.setItem(KEY,JSON.stringify(d));
@@ -2067,29 +2575,56 @@ function persistCurrent(showMessage){
   return true;
  }catch(e){if(showMessage)$('camVulnMensaje').textContent='No se pudo guardar. Verifique el almacenamiento disponible del navegador.';return false}
 }
-function loadRecord(d){if(d){state={id:d.id||null,answers:d.respuestas||{},notes:d.observacionesPorPregunta||{}};loadMeta(d)}else{state={id:null,answers:{},notes:{}};loadMeta({fecha:new Date().toISOString().slice(0,10),sector:$('camVulnSector').value,inspeccionIndice:$('camVulnInspeccion').value===''?null:Number($('camVulnInspeccion').value)})}}
+function loadRecord(d){if(d){state={id:d.id||null,answers:d.respuestas||{},notes:d.observacionesPorPregunta||{},responsibles:d.responsablesGestion||{}};loadMeta(d)}else{state={id:null,answers:{},notes:{},responsibles:{}};loadMeta({fecha:new Date().toISOString().slice(0,10),sector:$('camVulnSector').value,inspeccionIndice:$('camVulnInspeccion').value===''?null:Number($('camVulnInspeccion').value)})}}
 function abrir(){
- $('camVulnOverlay').style.display='block';cargarInspecciones();
+ $('camVulnOverlay').style.display='block';
  let legacy=null;try{legacy=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){}
- const selected=legacy&&legacy.inspeccionIndice!==undefined?legacy.inspeccionIndice:null;
+ let listaInspecciones=[];try{listaInspecciones=JSON.parse(localStorage.getItem('inspecciones')||'[]')}catch(e){}
+ if(!Array.isArray(listaInspecciones))listaInspecciones=[];
+ // Priorizar la inspección que está activa en el panel; el índice guardado para informes es respaldo contextual.
+ const indiceEdicionValido = (typeof indiceInspeccionEditando !== 'undefined' && Number.isInteger(Number(indiceInspeccionEditando)) && Number(indiceInspeccionEditando) >= 0 && Number(indiceInspeccionEditando) < listaInspecciones.length) ? Number(indiceInspeccionEditando) : null;
+ const indiceGuardado=localStorage.getItem('indiceInspeccionSeleccionadaInforme');
+ const indiceInformeValido=indiceGuardado!==null&&Number.isInteger(Number(indiceGuardado))&&Number(indiceGuardado)>=0&&Number(indiceGuardado)<listaInspecciones.length?Number(indiceGuardado):null;
+ const indiceActivo=indiceEdicionValido!==null?indiceEdicionValido:indiceInformeValido;
+ const inspeccionActiva=indiceActivo!==null?listaInspecciones[indiceActivo]:null;
+ let nombreObjetivo=nombreClienteInspeccion(inspeccionActiva)||normalizarNombreCliente(legacy&&(legacy.inspeccionCliente||legacy.cliente||legacy.nombreCliente));
+ if(!nombreObjetivo&&legacy){const idxLeg=Number(legacy.inspeccionIndice);if(Number.isInteger(idxLeg)&&idxLeg>=0&&idxLeg<listaInspecciones.length)nombreObjetivo=nombreClienteInspeccion(listaInspecciones[idxLeg])}
+ let indiceFuente=indiceActivo;
+ if(indiceFuente===null&&legacy){const idxLeg=Number(legacy.inspeccionIndice);if(Number.isInteger(idxLeg)&&idxLeg>=0&&idxLeg<listaInspecciones.length)indiceFuente=idxLeg}
+ const selected=nombreObjetivo?indiceUltimaInspeccionCliente(listaInspecciones,nombreObjetivo):indiceFuente;
+ const inspeccionObjetivo=selected!==null&&selected>=0?listaInspecciones[selected]:null;
  cargarInspecciones(selected);
- const sector=(legacy&&legacy.sector)||$('camVulnSector').value||'Residencial';
+ const sectorPreferido=(inspeccionObjetivo&&inspeccionObjetivo.sectorInspeccion)||(legacy&&normalizarNombreCliente(legacy.inspeccionCliente||legacy.cliente||legacy.nombreCliente)===nombreObjetivo&&legacy.sector)||'';
+ const sectoresValidos=['Residencial','Comercial','Educativo','Industrial'];
+ const sector=sectoresValidos.includes(sectorPreferido)?sectorPreferido:($('camVulnSector').value||'Residencial');
  $('camVulnSector').value=sector;
- let d=findSaved({sector,inspeccionIndice:selected,lugar:legacy&&legacy.lugar||''});
- if(!d&&legacy&&legacy.schema==='TECCHNEX-VULNERABILIDADES-1'){
-   d=legacy;
-   const rs=readRecords();if(!rs.some(r=>recordKey(r)===recordKey(d))){rs.push(d);try{localStorage.setItem(RECORDS_KEY,JSON.stringify(rs))}catch(e){}}
+ const meta={sector,inspeccionIndice:selected,inspeccionIdControl:inspeccionObjetivo?String(inspeccionObjetivo.idControl||'').trim():'',inspeccionCliente:inspeccionObjetivo?(inspeccionObjetivo.cliente||inspeccionObjetivo.nombreCliente||inspeccionObjetivo.razonSocial||''):'',inspeccionFecha:fechaInspeccion(inspeccionObjetivo),inspeccionTipo:inspeccionObjetivo?(inspeccionObjetivo.tipo||''):'',lugar:(legacy&&normalizarNombreCliente(legacy.inspeccionCliente||legacy.cliente||legacy.nombreCliente)===nombreObjetivo&&legacy.lugar)||''};
+ let d=null;
+ if(inspeccionObjetivo){
+   d=readRecords().slice().reverse().find(r=>String(r.sector||'Residencial').trim().toLowerCase()===String(sector||'Residencial').trim().toLowerCase()&&coincideEvaluacionConUltimaInspeccion(r,inspeccionObjetivo,selected,listaInspecciones))||null;
+   if(!d&&coincideEvaluacionConUltimaInspeccion(inspeccionObjetivo.evaluacionVulnerabilidades,inspeccionObjetivo,selected,listaInspecciones))d=inspeccionObjetivo.evaluacionVulnerabilidades;
  }
- if(d)loadRecord(d);else loadRecord(null);
- render();$('camVulnMensaje').textContent=d?'Evaluación recuperada del almacenamiento local.':'Nueva evaluación. Las respuestas se guardarán automáticamente.';
+ // La clave heredada solo se reutiliza si coincide con el cliente y la última visita.
+ if(!d&&legacy&&legacy.schema==='TECCHNEX-VULNERABILIDADES-1'&&inspeccionObjetivo&&String(legacy.sector||'Residencial').trim().toLowerCase()===String(sector||'Residencial').trim().toLowerCase()&&coincideEvaluacionConUltimaInspeccion(legacy,inspeccionObjetivo,selected,listaInspecciones)){
+   d={...legacy,...meta};
+   const rs=readRecords();if(!rs.some(r=>sameRecord(r,d))){rs.push(d);try{localStorage.setItem(RECORDS_KEY,JSON.stringify(rs))}catch(e){}}
+ }
+ // Las evaluaciones antiguas se archivan, pero nunca se cargan sobre otra visita por semejanza de nombre solamente.
+ if(legacy&&legacy.schema==='TECCHNEX-VULNERABILIDADES-1'){
+   const rs=readRecords();if(!rs.some(r=>r&&r.id===legacy.id)){rs.push(legacy);try{localStorage.setItem(RECORDS_KEY,JSON.stringify(rs))}catch(e){}}
+ }
+ if(d)loadRecord({...d,...meta, id:d.id, respuestas:d.respuestas||{}, observacionesPorPregunta:d.observacionesPorPregunta||{}});else loadRecord({...meta,fecha:new Date().toISOString().slice(0,10),jornada:'Diurna'});
+ render();
+ const fueRedirigida=indiceFuente!==null&&selected!==null&&indiceFuente!==selected;
+ $('camVulnMensaje').textContent=!inspeccionObjetivo?'Seleccione una inspección de un cliente para iniciar la evaluación.':(fueRedirigida?'Regla TECCHNEX: se seleccionó la última inspección registrada de este cliente. La evaluación anterior se conserva y no se reutiliza si corresponde a otra visita.':(d?'Evaluación recuperada para la última inspección del cliente.':'No existe una evaluación guardada para la última inspección de este cliente. Puede iniciarla sin recuperar respuestas de visitas anteriores.'));
 }
 function cerrar(){persistCurrent(false);$('camVulnOverlay').style.display='none'}
-function guardar(){if(persistCurrent(true))updateSummary()}
-function nueva(){if(!confirm('¿Crear una nueva evaluación? La evaluación actual se guardará antes de iniciar otra.'))return;persistCurrent(false);state={id:null,answers:{},notes:{}};loadMeta({fecha:new Date().toISOString().slice(0,10),sector:$('camVulnSector').value,inspeccionIndice:$('camVulnInspeccion').value===''?null:Number($('camVulnInspeccion').value)});$('camVulnMensaje').textContent='Nueva evaluación. Las respuestas se guardarán automáticamente.';render()}
+function guardar(){const pendientes=Object.entries(state.answers).filter(([key,valor])=>(valor==='NC'||valor==='P')&&!String(state.responsibles[key]||'').trim()).map(([key])=>key);if(pendientes.length){const primero=pendientes[0].split('-').map(Number);const secciones=allSections();const pregunta=secciones[primero[0]]&&secciones[primero[0]][1][primero[1]];const item=Array.from(document.querySelectorAll('#camVulnPreguntas .cam-v-item')).find(el=>el.querySelector('[data-responsible="'+pendientes[0]+'"]'));if(item){item.scrollIntoView({behavior:'smooth',block:'center'});item.querySelector('select[data-responsible]').focus();} $('camVulnMensaje').textContent='No se puede completar el guardado: seleccione un Responsable de la gestión para cada pregunta marcada Parcial o No cumple. Pendientes: '+pendientes.length+(pregunta?' · Primera pregunta: '+pregunta:'')+'.';return;}if(persistCurrent(true))updateSummary()}
+function nueva(){if(!confirm('¿Crear una nueva evaluación? La evaluación actual se guardará antes de iniciar otra.'))return;persistCurrent(false);state={id:null,answers:{},notes:{},responsibles:{}};loadMeta({fecha:new Date().toISOString().slice(0,10),sector:$('camVulnSector').value,inspeccionIndice:$('camVulnInspeccion').value===''?null:Number($('camVulnInspeccion').value)});$('camVulnMensaje').textContent='Nueva evaluación. Las respuestas se guardarán automáticamente.';render()}
 function exportarJSON(){const d=data(),blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='TECCHNEX_Vulnerabilidades_'+(d.sector||'sector')+'_'+(d.fecha||'sin-fecha')+'.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)}
 function exportarTexto(){const d=data(),sections=allSections();let out='TECCHNEX — ANÁLISIS DE VULNERABILIDADES\nSector: '+d.sector+'\nEstablecimiento: '+d.lugar+'\nCiudad: '+d.ciudad+'\nAnalista de Riesgos: '+d.inspector+'\nFecha: '+d.fecha+'\nJornada: '+d.jornada+'\n\n';sections.forEach((g,gi)=>{out+=g[0]+'\n';g[1].forEach((q,ii)=>{const k=gi+'-'+ii;out+=(gi+1)+'.'+(ii+1)+' '+q+'\nEstado: '+(state.answers[k]||'Pendiente')+'\nObservación: '+(state.notes[k]||'—')+'\n'})});out+='Observaciones generales: '+d.observaciones;const blob=new Blob([out],{type:'text/plain;charset=utf-8'});if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(out).then(()=>$('camVulnMensaje').textContent='Resumen copiado.').catch(()=>downloadText(out))}else downloadText(out);function downloadText(t){const u=URL.createObjectURL(new Blob([t],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download='TECCHNEX_Resumen_Vulnerabilidades.txt';a.click();URL.revokeObjectURL(u)}}
-$('camVulnSector').addEventListener('change',()=>{const meta={sector:$('camVulnSector').value,inspeccionIndice:$('camVulnInspeccion').value===''?null:Number($('camVulnInspeccion').value),lugar:$('camVulnLugar').value.trim()};loadRecord(findSaved(meta));render();$('camVulnMensaje').textContent='Sector actualizado. La evaluación anterior se conserva y esta evaluación se guarda por separado.'});
-$('camVulnInspeccion').addEventListener('change',()=>{const meta={sector:$('camVulnSector').value,inspeccionIndice:$('camVulnInspeccion').value===''?null:Number($('camVulnInspeccion').value),lugar:$('camVulnLugar').value.trim()};loadRecord(findSaved(meta));render();$('camVulnMensaje').textContent='Inspección actualizada. Se recuperaron los datos guardados para esta selección, si existen.'});
+$('camVulnSector').addEventListener('change',()=>{const meta=readMeta();const d=findSaved(meta);loadRecord(d||{...meta,fecha:new Date().toISOString().slice(0,10),jornada:'Diurna'});render();$('camVulnMensaje').textContent=d?'Evaluación recuperada para el cliente y la última inspección seleccionada.':'Sector actualizado. No se reutilizarán respuestas de una visita anterior.'});
+$('camVulnInspeccion').addEventListener('change',()=>{let lista=[];try{lista=JSON.parse(localStorage.getItem('inspecciones')||'[]')}catch(e){}if(!Array.isArray(lista))lista=[];const elegido=Number($('camVulnInspeccion').value);const insp=Number.isInteger(elegido)&&elegido>=0?lista[elegido]:null;if(!insp){loadRecord(null);render();$('camVulnMensaje').textContent='Seleccione una inspección registrada.';return}const cliente=nombreClienteInspeccion(insp);const ultimo=indiceUltimaInspeccionCliente(lista,cliente);const fueRedirigida=ultimo>=0&&ultimo!==elegido;if(ultimo>=0)$('camVulnInspeccion').value=String(ultimo);const meta=readMeta();const d=findSaved(meta);loadRecord(d||{...meta,fecha:new Date().toISOString().slice(0,10),jornada:'Diurna'});render();$('camVulnMensaje').textContent=fueRedirigida?'Este cliente tiene varias inspecciones; por regla TECCHNEX se cargó la última.':'Se cargó la última inspección de este cliente.'});
 ['camVulnLugar','camVulnCiudad','camVulnInspector','camVulnFecha','camVulnJornada','camVulnObservaciones'].forEach(id=>{const el=$(id);el.addEventListener('change',()=>persistCurrent(false));el.addEventListener('input',()=>persistCurrent(false))});
 $('camVulnOverlay').addEventListener('click',e=>{if(e.target===$('camVulnOverlay'))cerrar()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('camVulnOverlay').style.display==='block')cerrar()});
@@ -3064,11 +3599,185 @@ function abrirGestionRespaldoOM22() {
     document.body.appendChild(ventana);
 }
 
-       function abrirDashboard() {
+/* =========================================================
+   CAM-DASHBOARD-01 — INDICADORES DE RIESGO Y VULNERABILIDADES
+   Fuente: datos locales existentes. Solo lectura.
+   Regla TECCHNEX: se toma la última inspección por cliente,
+   según fecha y, en empate/sin fecha, el orden del registro.
+   No escribe en localStorage/IndexedDB ni altera informes.
+========================================================= */
+function actualizarIndicadoresRiesgoDashboardCAM01() {
+    const cards = document.getElementById("camDashboardRiesgoCards");
+    const detalle = document.getElementById("camDashboardRiesgoDetalle");
+    const nota = document.getElementById("camDashboardRiesgoNota");
+    if (!cards || !detalle || !nota) return;
+
+    const leer = (clave, alternativa) => {
+        try {
+            const valor = JSON.parse(localStorage.getItem(clave) || "null");
+            return valor === null || valor === undefined ? alternativa : valor;
+        } catch (error) { return alternativa; }
+    };
+    const normalizarCliente = valor => String(valor || "")
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .trim().toLowerCase().replace(/\s+/g, " ");
+    const nombreCliente = insp => normalizarCliente(insp && (insp.cliente || insp.nombreCliente || insp.razonSocial));
+    const normalizarFecha = objeto => {
+        const valor = String(objeto && (objeto.inspeccionFecha || objeto.fechaInspeccion || objeto.fecha) || "").trim();
+        const latino = valor.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+        if (latino) return latino[3] + "-" + String(latino[2]).padStart(2, "0") + "-" + String(latino[1]).padStart(2, "0");
+        return /^\d{4}-\d{2}-\d{2}/.test(valor) ? valor.slice(0, 10) : "";
+    };
+    const marcaFecha = valor => {
+        if (!valor) return NaN;
+        const t = Date.parse(valor + "T12:00:00");
+        return Number.isFinite(t) ? t : NaN;
+    };
+    const format = n => Number(n || 0).toLocaleString("es-CO");
+    const inspeccionesRaw = leer("inspecciones", []);
+    const inspecciones = Array.isArray(inspeccionesRaw) ? inspeccionesRaw : [];
+    const ultimaPorCliente = new Map();
+
+    inspecciones.forEach((registro, indice) => {
+        const cliente = nombreCliente(registro);
+        const clave = cliente || ("__sin_cliente_" + indice);
+        const anterior = ultimaPorCliente.get(clave);
+        if (!anterior) { ultimaPorCliente.set(clave, { registro, indice, cliente }); return; }
+        const fechaNueva = marcaFecha(normalizarFecha(registro));
+        const fechaAnterior = marcaFecha(normalizarFecha(anterior.registro));
+        let esMasReciente = false;
+        if (Number.isFinite(fechaNueva) && Number.isFinite(fechaAnterior) && fechaNueva !== fechaAnterior) {
+            esMasReciente = fechaNueva > fechaAnterior;
+        } else if (Number.isFinite(fechaNueva) !== Number.isFinite(fechaAnterior)) {
+            esMasReciente = Number.isFinite(fechaNueva);
+        } else {
+            esMasReciente = indice > anterior.indice;
+        }
+        if (esMasReciente) ultimaPorCliente.set(clave, { registro, indice, cliente });
+    });
+    const ultimas = Array.from(ultimaPorCliente.values());
+
+    const claveVuln = "tecchnex_lista_vulnerabilidades_multisector_v1";
+    const registrosRaw = leer(claveVuln + "_registros_v2", []);
+    const evaluaciones = Array.isArray(registrosRaw) ? registrosRaw.slice() : [];
+    const heredada = leer(claveVuln, null);
+    if (heredada && typeof heredada === "object") evaluaciones.push(heredada);
+    ultimas.forEach(item => {
+        const ev = item.registro && item.registro.evaluacionVulnerabilidades;
+        if (ev && typeof ev === "object") evaluaciones.push(ev);
+    });
+
+    const idInspeccion = insp => String(insp && insp.idControl || "").trim().toLowerCase();
+    const cuentaCliente = cliente => inspecciones.filter(x => nombreCliente(x) === cliente && cliente).length;
+    const evaluacionCoincide = (ev, item) => {
+        if (!ev || !item || !item.registro) return false;
+        const objetivo = item.registro;
+        const clienteObjetivo = item.cliente || nombreCliente(objetivo);
+        const clienteEv = normalizarCliente(ev.inspeccionCliente || ev.cliente || ev.nombreCliente);
+        if (clienteEv && clienteObjetivo && clienteEv !== clienteObjetivo) return false;
+        const fechaObjetivo = normalizarFecha(objetivo);
+        const fechaEv = String(ev.inspeccionFecha || "").slice(0, 10);
+        if (clienteEv && clienteObjetivo && fechaEv && fechaObjetivo) return clienteEv === clienteObjetivo && fechaEv === fechaObjetivo;
+        const idEv = String(ev.inspeccionIdControl || "").trim().toLowerCase();
+        const idObj = idInspeccion(objetivo);
+        if (clienteEv && clienteObjetivo && clienteEv === clienteObjetivo) {
+            if (idEv && idObj && idEv === idObj) return true;
+            if (ev.inspeccionIndice !== null && ev.inspeccionIndice !== undefined && String(ev.inspeccionIndice).trim() !== "" && Number(ev.inspeccionIndice) === item.indice) return true;
+            return cuentaCliente(clienteObjetivo) === 1;
+        }
+        // Registros antiguos sin nombre de cliente solo se asocian por ID exacto.
+        return !clienteEv && !!idEv && !!idObj && idEv === idObj;
+    };
+    const evPorUltima = [];
+    const claveEv = ev => [normalizarCliente(ev && (ev.inspeccionCliente || ev.cliente || ev.nombreCliente)), String(ev && ev.inspeccionFecha || "").slice(0,10), String(ev && ev.id || "")].join("|");
+    ultimas.forEach(item => {
+        // Si la evaluación embebida pertenece a esta inspección, tiene prioridad.
+        let ev = item.registro && item.registro.evaluacionVulnerabilidades;
+        if (ev && !evaluacionCoincide(ev, item)) ev = null;
+        if (!ev) ev = evaluaciones.slice().reverse().find(x => evaluacionCoincide(x, item)) || null;
+        if (ev) evPorUltima.push({ item, ev });
+    });
+
+    const totalEstados = { C: 0, P: 0, NC: 0, NA: 0, NV: 0 };
+    let preguntasCatalogo = 0, pendientes = 0, observacionesPendientes = 0;
+    evPorUltima.forEach(({ ev }) => {
+        const secciones = window.CAMVulnerabilidades && typeof window.CAMVulnerabilidades.obtenerSecciones === "function"
+            ? window.CAMVulnerabilidades.obtenerSecciones(ev.sector)
+            : [];
+        const respuestas = ev.respuestas || {};
+        const notas = ev.observacionesPorPregunta || {};
+        secciones.forEach((grupo, gi) => (grupo[1] || []).forEach((pregunta, qi) => {
+            preguntasCatalogo++;
+            const k = gi + "-" + qi;
+            const valor = respuestas[k] || "";
+            if (Object.prototype.hasOwnProperty.call(totalEstados, valor)) totalEstados[valor]++;
+            else pendientes++;
+            if ((valor === "NC" || valor === "P") && !String(notas[k] || "").trim()) observacionesPendientes++;
+        }));
+    });
+    const preguntasEvaluables = preguntasCatalogo - totalEstados.NA;
+    const preguntasRespondidas = totalEstados.C + totalEstados.P + totalEstados.NC + totalEstados.NV;
+    const cobertura = preguntasEvaluables ? Math.round((preguntasRespondidas / preguntasEvaluables) * 100) : 0;
+
+    const matrizRaw = leer("matrizRiesgos", []);
+    const matriz = Array.isArray(matrizRaw) ? matrizRaw : [];
+    const matricesClienteRaw = leer("matricesRiesgosClientes", []);
+    const matricesCliente = Array.isArray(matricesClienteRaw) ? matricesClienteRaw : [];
+    const riesgos = [];
+    ultimas.forEach(item => {
+        const cliente = item.cliente || nombreCliente(item.registro);
+        const matrizClienteActiva = cliente ? matricesCliente.filter(r => normalizarCliente(r && r.cliente) === cliente) : [];
+        const matrizInspeccionActiva = matriz.filter(r => Number(r && r.inspeccion) === item.indice);
+        const fuente = matrizClienteActiva.length ? matrizClienteActiva : matrizInspeccionActiva;
+        fuente.forEach(r => riesgos.push(r));
+    });
+    const altoCritico = riesgos.filter(r => /cr[ií]tico|alto/i.test(String(r && r.nivel || ""))).length;
+    const medio = riesgos.filter(r => /medio/i.test(String(r && r.nivel || ""))).length;
+    const bajo = riesgos.filter(r => /bajo/i.test(String(r && r.nivel || ""))).length;
+    const sinNivel = riesgos.filter(r => !String(r && r.nivel || "").trim()).length;
+    const sinTratamiento = riesgos.filter(r => !String(r && r.tratamiento || "").trim()).length;
+    const clientesSinEvaluacion = Math.max(0, ultimas.length - evPorUltima.length);
+
+    const metricas = [
+        { titulo: "Últimas inspecciones", valor: format(ultimas.length), lectura: "Una por cliente normalizado; se prioriza la fecha más reciente." },
+        { titulo: "Evaluaciones técnicas asociadas", valor: format(evPorUltima.length), lectura: "Evaluaciones identificadas para la última visita." },
+        { titulo: "Cobertura de preguntas", valor: preguntasEvaluables ? cobertura + "%" : "—", lectura: format(preguntasRespondidas) + " respondidas de " + format(preguntasEvaluables) + " evaluables; no aplica queda excluido del denominador." },
+        { titulo: "No cumple", valor: format(totalEstados.NC), lectura: "Condiciones registradas que requieren análisis técnico." },
+        { titulo: "Parcial", valor: format(totalEstados.P), lectura: "Condiciones con control parcial o brecha por analizar." },
+        { titulo: "Riesgos Alto / Crítico", valor: format(altoCritico), lectura: "Riesgos con nivel expresamente consignado en la matriz." },
+        { titulo: "Riesgos sin tratamiento", valor: format(sinTratamiento), lectura: "Registros de la matriz sin tratamiento escrito." },
+        { titulo: "Sin evaluación técnica reciente", valor: format(clientesSinEvaluacion), lectura: "Últimas inspecciones sin una evaluación que pueda asociarse con seguridad." }
+    ];
+    cards.innerHTML = metricas.map(m => '<div style="padding:15px;border:1px solid #dbe3ea;border-left:4px solid #1769aa;border-radius:9px;background:#fff;min-width:0;">' +
+        '<div style="font-size:12px;color:#64748b;font-weight:700;margin-bottom:8px;line-height:1.35;">' + m.titulo + '</div>' +
+        '<div style="font-size:27px;font-weight:800;color:#123b5d;line-height:1.1;margin-bottom:9px;overflow-wrap:anywhere;">' + m.valor + '</div>' +
+        '<div style="font-size:11px;color:#64748b;line-height:1.4;">' + m.lectura + '</div></div>').join("");
+
+    const filas = [
+        ["Cumple", totalEstados.C, "Control reportado como cumple; no demuestra por sí solo la ausencia de riesgo."],
+        ["Parcial", totalEstados.P, "Revisar brecha, controles existentes y tratamiento."],
+        ["No cumple", totalEstados.NC, "Priorizar la evaluación técnica según exposición y consecuencia."],
+        ["No aplica", totalEstados.NA, "Se excluye del denominador de cobertura."],
+        ["No verificado", totalEstados.NV, "La pregunta tiene respuesta, pero la condición no se verificó."],
+        ["Pendiente", pendientes, "Preguntas del catálogo sin respuesta en las evaluaciones asociadas."],
+        ["Riesgos medios", medio, "Nivel medio expresamente registrado en la matriz."],
+        ["Riesgos bajos", bajo, "Nivel bajo expresamente registrado en la matriz."],
+        ["Riesgos sin nivel", sinNivel, "Requieren completar o confirmar la valoración del riesgo."],
+        ["Condiciones NC/Parcial sin observación", observacionesPendientes, "Registros que conviene documentar para sustentar la lectura técnica."]
+    ];
+    detalle.innerHTML = filas.map((f, i) => '<tr style="background:' + (i % 2 ? "#f8fafc" : "#fff") + '"><td style="border:1px solid #cbd5e1;padding:8px;">' + f[0] + '</td><td style="border:1px solid #cbd5e1;padding:8px;text-align:center;font-weight:700;">' + format(f[1]) + '</td><td style="border:1px solid #cbd5e1;padding:8px;color:#475569;">' + f[2] + '</td></tr>').join("");
+    const sinNombre = ultimas.filter(x => !x.cliente).length;
+    nota.textContent = "Lectura: se analizaron " + format(ultimas.length) + " inspección(es) base (última por cliente) y " + format(evPorUltima.length) + " evaluación(es) vinculada(s). " +
+        (sinNombre ? format(sinNombre) + " registro(s) sin nombre de cliente se trataron como inspecciones independientes. " : "") +
+        "Los valores son conteos de datos registrados; no se infiere un nivel global de riesgo ni se modifican registros.";
+}
+
+function abrirDashboard() {
 
     actualizarContadores();
 
     document.getElementById("dashboard").style.display = "block";
+    actualizarIndicadoresRiesgoDashboardCAM01();
 }
 
 function cerrarDashboard() {
@@ -3649,11 +4358,11 @@ const porcentajeMensual =
 
 fila.innerHTML = `
     <td style="border:1px solid #ccc; padding:8px;">
-        ${metaMensual}
+        ${mes}
     </td>
 
     <td style="border:1px solid #ccc; padding:8px;">
-        ${mes}
+        ${metaMensual}
     </td>
 
     <td style="border:1px solid #ccc; padding:8px;">
@@ -4471,7 +5180,7 @@ async function crearRespaldo() {
 
         const respaldo = {
             sistema: "Sistema de Inspecciones de Seguridad",
-            versionRespaldo: "1.2",
+            versionRespaldo: "1.3", // CAM-DATOS-01: declara el soporte explícito de evaluaciones técnicas.
             fechaRespaldo: new Date().toISOString(),
 
             datos: {
@@ -4595,39 +5304,45 @@ async function exportarInspeccionSeleccionada() {
         const matricesClientesTodas = JSON.parse(localStorage.getItem("matricesRiesgosClientes") || "[]");
         const resultadosTodos = JSON.parse(localStorage.getItem("resultadosChecklistCategorias") || "{}");
 
-        // CAM-RESPALDO-VULNERABILIDADES-01: incluir la evaluación técnica real,
-        // distinta del checklist tradicional que se conserva por compatibilidad.
+        // CAM-TRAZABILIDAD-02: exportar la evaluación técnica solo si esta es la última inspección del cliente.
+        // El nombre normalizado + fecha de visita son la referencia primaria; el ID queda como dato auxiliar.
         const claveEvaluacionesVuln = "tecchnex_lista_vulnerabilidades_multisector_v1_registros_v2";
         const claveEvaluacionVulnActual = "tecchnex_lista_vulnerabilidades_multisector_v1";
-        let evaluacionesVulnTodas = [];
-        let evaluacionVulnActual = null;
-        try {
-            const guardadas = JSON.parse(localStorage.getItem(claveEvaluacionesVuln) || "[]");
-            if (Array.isArray(guardadas)) evaluacionesVulnTodas = guardadas;
-        } catch (_) {}
+        let evaluacionesVulnTodas = [], evaluacionVulnActual = null;
+        try { const guardadas = JSON.parse(localStorage.getItem(claveEvaluacionesVuln) || "[]"); if (Array.isArray(guardadas)) evaluacionesVulnTodas = guardadas; } catch (_) {}
         try { evaluacionVulnActual = JSON.parse(localStorage.getItem(claveEvaluacionVulnActual) || "null"); } catch (_) {}
         const inspeccionKey = String(inspeccion.idControl || "").trim().toLowerCase();
-        const evaluacionVulnerabilidades = evaluacionesVulnTodas.slice().reverse().find(ev =>
-            ev && Number(ev.inspeccionIndice) === indice
-        ) || (
-            inspeccion.evaluacionVulnerabilidades &&
-            typeof inspeccion.evaluacionVulnerabilidades === "object"
-                ? inspeccion.evaluacionVulnerabilidades
-                : null
-        ) || (
-            evaluacionVulnActual && Number(evaluacionVulnActual.inspeccionIndice) === indice
-                ? evaluacionVulnActual
-                : null
-        );
-        const evaluacionVulnerabilidadesExportar = evaluacionVulnerabilidades
-            ? {
-                ...evaluacionVulnerabilidades,
-                inspeccionIndice: indice,
-                inspeccionCliente: evaluacionVulnerabilidades.inspeccionCliente || inspeccion.cliente || "",
-                inspeccionTipo: evaluacionVulnerabilidades.inspeccionTipo || inspeccion.tipo || "",
-                inspeccionIdControl: inspeccionKey || evaluacionVulnerabilidades.inspeccionIdControl || ""
+        const nombreClienteExport = String(inspeccion.cliente || inspeccion.nombreCliente || inspeccion.razonSocial || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase().replace(/\s+/g, " ");
+        const fechaInspeccionExport = String(inspeccion.fecha || inspeccion.fechaInspeccion || "").slice(0,10);
+        const datosClienteExport = inspecciones.map((x,i)=>({x,i})).filter(({x})=>String(x.cliente||x.nombreCliente||x.razonSocial||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase().replace(/\s+/g," ")===nombreClienteExport);
+        const fechaOrdExport = v => { const f=String(v||"").slice(0,10);const t=Date.parse(f+"T12:00:00");return Number.isFinite(t)?t:NaN; };
+        const indiceUltimaExport = datosClienteExport.slice().sort((a,b)=>{const da=fechaOrdExport(a.x.fecha||a.x.fechaInspeccion),db=fechaOrdExport(b.x.fecha||b.x.fechaInspeccion);if(Number.isFinite(da)&&Number.isFinite(db)&&da!==db)return db-da;if(Number.isFinite(da)!==Number.isFinite(db))return Number.isFinite(db)?1:-1;return b.i-a.i})[0]?.i;
+        const esUltimaInspeccionExport = !nombreClienteExport || indiceUltimaExport === indice;
+        const coincideEvaluacionExport = ev => {
+            if (!ev || !esUltimaInspeccionExport) return false;
+            const clienteEv = String(ev.inspeccionCliente || ev.cliente || ev.nombreCliente || "").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase().replace(/\s+/g," ");
+            const fechaEv = String(ev.inspeccionFecha || "").slice(0,10);
+            const idEv = String(ev.inspeccionIdControl || "").trim().toLowerCase();
+            if (nombreClienteExport && clienteEv && nombreClienteExport !== clienteEv) return false;
+            if (nombreClienteExport && clienteEv && fechaInspeccionExport && fechaEv) return nombreClienteExport === clienteEv && fechaInspeccionExport === fechaEv;
+            if (nombreClienteExport && clienteEv && nombreClienteExport === clienteEv) {
+                if (inspeccionKey && idEv && inspeccionKey === idEv) return true;
+                if (ev.inspeccionIndice !== null && ev.inspeccionIndice !== undefined && String(ev.inspeccionIndice).trim() !== "" && Number(ev.inspeccionIndice) === indice) return true;
+                return datosClienteExport.length === 1;
             }
-            : null;
+            return !clienteEv && !!(inspeccionKey && idEv && inspeccionKey === idEv);
+        };
+        const evaluacionVulnerabilidades = (inspeccion.evaluacionVulnerabilidades && coincideEvaluacionExport(inspeccion.evaluacionVulnerabilidades) ? inspeccion.evaluacionVulnerabilidades : null)
+            || evaluacionesVulnTodas.slice().reverse().find(coincideEvaluacionExport)
+            || (coincideEvaluacionExport(evaluacionVulnActual) ? evaluacionVulnActual : null);
+        const evaluacionVulnerabilidadesExportar = evaluacionVulnerabilidades ? {
+            ...evaluacionVulnerabilidades,
+            inspeccionIndice: indice,
+            inspeccionCliente: inspeccion.cliente || inspeccion.nombreCliente || inspeccion.razonSocial || evaluacionVulnerabilidades.inspeccionCliente || "",
+            inspeccionFecha: fechaInspeccionExport,
+            inspeccionTipo: evaluacionVulnerabilidades.inspeccionTipo || inspeccion.tipo || "",
+            inspeccionIdControl: inspeccion.idControl || evaluacionVulnerabilidades.inspeccionIdControl || ""
+        } : null;
 
         const checklists = obtenerRegistrosDeInspeccion(checklistsTodos, inspeccion, indice);
         const hallazgos = obtenerRegistrosDeInspeccion(hallazgosTodos, inspeccion, indice);
@@ -4656,7 +5371,7 @@ async function exportarInspeccionSeleccionada() {
         const paquete = {
             sistema: "Sistema de Inspecciones de Seguridad",
             tipoArchivo: "inspeccion-individual",
-            versionExportacion: "1.0",
+            versionExportacion: "1.1", // CAM-DATOS-01: incluye evaluación técnica cuando está vinculada.
             fechaExportacion: new Date().toISOString(),
             indiceOriginal: indice,
             idControl: inspeccion.idControl || null,
@@ -4760,10 +5475,19 @@ function importarInspeccionIndividual() {
                 const matrizImportada = Array.isArray(datos.matrizRiesgos) ? datos.matrizRiesgos : [];
                 const mediosImportados = Array.isArray(datos.mediosFotograficos) ? datos.mediosFotograficos : [];
                 const matricesClienteImportadas = Array.isArray(datos.matricesRiesgosClientes) ? datos.matricesRiesgosClientes : [];
+                // CAM-DATOS-01: compatibilidad con paquetes nuevos y antiguos.
+                // Si el campo independiente no existe, recuperar la evaluación embebida
+                // en la inspección; luego se remapea al índice nuevo antes de guardarla.
                 const evaluacionVulnerabilidadesImportada =
-                    datos.evaluacionVulnerabilidades && typeof datos.evaluacionVulnerabilidades === "object"
+                    datos.evaluacionVulnerabilidades && typeof datos.evaluacionVulnerabilidades === "object" && !Array.isArray(datos.evaluacionVulnerabilidades)
                         ? datos.evaluacionVulnerabilidades
-                        : null;
+                        : (inspeccionImportada.evaluacionVulnerabilidades && typeof inspeccionImportada.evaluacionVulnerabilidades === "object" && !Array.isArray(inspeccionImportada.evaluacionVulnerabilidades)
+                            ? inspeccionImportada.evaluacionVulnerabilidades
+                            : null);
+                if (!evaluacionVulnerabilidadesImportada) {
+                    // Evitar conservar una referencia embebida inválida o no recuperable.
+                    delete inspeccionImportada.evaluacionVulnerabilidades;
+                }
 
                 const inspeccionesActuales = JSON.parse(localStorage.getItem("inspecciones") || "[]");
                 if (!Array.isArray(inspeccionesActuales)) {
@@ -4849,7 +5573,8 @@ function importarInspeccionIndividual() {
                     evaluacionVulnerabilidadesNueva = {
                         ...evaluacionVulnerabilidadesImportada,
                         inspeccionIndice: nuevoIndice,
-                        inspeccionCliente: evaluacionVulnerabilidadesImportada.inspeccionCliente || inspeccionImportada.cliente || "",
+                        inspeccionCliente: inspeccionImportada.cliente || inspeccionImportada.nombreCliente || evaluacionVulnerabilidadesImportada.inspeccionCliente || "",
+                        inspeccionFecha: String(inspeccionImportada.fecha || inspeccionImportada.fechaInspeccion || evaluacionVulnerabilidadesImportada.inspeccionFecha || "").slice(0,10),
                         inspeccionTipo: evaluacionVulnerabilidadesImportada.inspeccionTipo || inspeccionImportada.tipo || "",
                         inspeccionIdControl: idControl,
                         actualizado: new Date().toISOString()
@@ -5089,6 +5814,14 @@ lector.onload = async function(e) {
         const hallazgos =
             respaldo.datos?.hallazgos || [];
 
+        // CAM-DATOS-01: informar qué contiene el respaldo antes de restaurarlo.
+        // Los respaldos antiguos sin estas propiedades siguen siendo compatibles.
+        const evaluacionesTecnicasRespaldo = Array.isArray(respaldo.datos?.evaluacionesVulnerabilidades)
+            ? respaldo.datos.evaluacionesVulnerabilidades
+            : [];
+        const evaluacionTecnicaActualRespaldo = respaldo.datos?.evaluacionVulnerabilidadesActual;
+        const cantidadEvaluacionesTecnicas = evaluacionesTecnicasRespaldo.length ||
+            (evaluacionTecnicaActualRespaldo && typeof evaluacionTecnicaActualRespaldo === "object" ? 1 : 0);
         const confirmar =
     confirm(
         "Respaldo válido.\n\n" +
@@ -5097,7 +5830,13 @@ lector.onload = async function(e) {
         "\n" +
         "Hallazgos encontrados: " +
         hallazgos.length +
+        "\n" +
+        "Evaluaciones técnicas de vulnerabilidades: " +
+        (Object.prototype.hasOwnProperty.call(respaldo.datos || {}, "evaluacionesVulnerabilidades") || Object.prototype.hasOwnProperty.call(respaldo.datos || {}, "evaluacionVulnerabilidadesActual")
+            ? String(cantidadEvaluacionesTecnicas)
+            : "No incluidas (respaldo antiguo)") +
         "\n\n" +
+        "La restauración aplicará los datos contenidos en el archivo seleccionado.\n" +
         "¿Desea continuar con la restauración?"
     );
 
@@ -5112,6 +5851,23 @@ if (!confirmar) {
 }
 
 const datos = respaldo.datos;
+
+// CAM-DATOS-01: conservar una instantánea de las relaciones locales antes de
+// reemplazar las inspecciones, necesaria solo para compatibilidad con respaldos antiguos.
+let inspeccionesAntesDeRestaurar = [];
+let evaluacionesLocalesAntesDeRestaurar = [];
+let evaluacionActualLocalAntesDeRestaurar = null;
+try {
+    const anteriores = JSON.parse(localStorage.getItem("inspecciones") || "[]");
+    if (Array.isArray(anteriores)) inspeccionesAntesDeRestaurar = anteriores;
+} catch (_) {}
+try {
+    const anteriores = JSON.parse(localStorage.getItem("tecchnex_lista_vulnerabilidades_multisector_v1_registros_v2") || "[]");
+    if (Array.isArray(anteriores)) evaluacionesLocalesAntesDeRestaurar = anteriores;
+} catch (_) {}
+try {
+    evaluacionActualLocalAntesDeRestaurar = JSON.parse(localStorage.getItem("tecchnex_lista_vulnerabilidades_multisector_v1") || "null");
+} catch (_) {}
 
 localStorage.setItem(
     "inspecciones",
@@ -5162,22 +5918,80 @@ localStorage.setItem(
     )
 );
 
-// CAM-RESPALDO-VULNERABILIDADES-01:
-// restaurar la evaluación técnica real. Los respaldos antiguos que no la incluyen
-// no deben borrar una evaluación que siga en el navegador.
+// CAM-RESPALDO-VULNERABILIDADES-02:
+// Restaurar las evaluaciones técnicas contenidas en el respaldo seleccionado.
+// Los respaldos antiguos sin estas propiedades conservan las evaluaciones locales,
+// pero solo se vuelven a asociar cuando la inspección puede identificarse con seguridad.
 const claveRegistrosVulnRespaldo = "tecchnex_lista_vulnerabilidades_multisector_v1_registros_v2";
 const claveActualVulnRespaldo = "tecchnex_lista_vulnerabilidades_multisector_v1";
 const registrosVulnRespaldo = datos.evaluacionesVulnerabilidades;
 const actualVulnRespaldo = datos.evaluacionVulnerabilidadesActual;
-if (Array.isArray(registrosVulnRespaldo) && registrosVulnRespaldo.length > 0) {
+const respaldoIncluyeHistorialVuln = Object.prototype.hasOwnProperty.call(datos, "evaluacionesVulnerabilidades");
+const respaldoIncluyeActualVuln = Object.prototype.hasOwnProperty.call(datos, "evaluacionVulnerabilidadesActual");
+const historialVulnValido = Array.isArray(registrosVulnRespaldo);
+
+if (respaldoIncluyeHistorialVuln && historialVulnValido) {
+    // Una lista vacía declarada en un respaldo nuevo es un estado explícito,
+    // no se debe mezclar con registros antiguos que puedan tener índices repetidos.
     localStorage.setItem(claveRegistrosVulnRespaldo, JSON.stringify(registrosVulnRespaldo));
-} else if (!Array.isArray(registrosVulnRespaldo)) {
-    console.warn("CAM-RESPALDO-VULNERABILIDADES-01: el respaldo es antiguo y no trae el historial de evaluaciones técnicas; se conserva el historial local.");
+} else if (respaldoIncluyeHistorialVuln) {
+    // Si la propiedad existe pero tiene formato inválido, no destruir datos locales.
+    console.warn("CAM-RESPALDO-VULNERABILIDADES-02: el historial del respaldo no es válido; se conserva el historial local.");
 }
-if (actualVulnRespaldo && typeof actualVulnRespaldo === "object") {
-    localStorage.setItem(claveActualVulnRespaldo, JSON.stringify(actualVulnRespaldo));
-} else if (Array.isArray(registrosVulnRespaldo) && registrosVulnRespaldo.length > 0) {
-    localStorage.setItem(claveActualVulnRespaldo, JSON.stringify(registrosVulnRespaldo[registrosVulnRespaldo.length - 1]));
+
+if (respaldoIncluyeActualVuln) {
+    if (actualVulnRespaldo && typeof actualVulnRespaldo === "object" && !Array.isArray(actualVulnRespaldo)) {
+        localStorage.setItem(claveActualVulnRespaldo, JSON.stringify(actualVulnRespaldo));
+    } else if (historialVulnValido) {
+        // Si no existe evaluación actual válida, derivarla del historial restaurado.
+        if (registrosVulnRespaldo.length > 0) {
+            localStorage.setItem(claveActualVulnRespaldo, JSON.stringify(registrosVulnRespaldo[registrosVulnRespaldo.length - 1]));
+        } else {
+            localStorage.removeItem(claveActualVulnRespaldo);
+        }
+    } else {
+        // Conservar el estado local cuando el valor del respaldo es inválido.
+        console.warn("CAM-RESPALDO-VULNERABILIDADES-02: la evaluación actual del respaldo no es válida; se conserva la evaluación local.");
+    }
+} else if (respaldoIncluyeHistorialVuln && historialVulnValido) {
+    // Respaldo parcial nuevo: al menos mantener coherente la clave heredada con el historial.
+    if (registrosVulnRespaldo.length > 0) {
+        localStorage.setItem(claveActualVulnRespaldo, JSON.stringify(registrosVulnRespaldo[registrosVulnRespaldo.length - 1]));
+    } else {
+        localStorage.removeItem(claveActualVulnRespaldo);
+    }
+}
+
+if (!respaldoIncluyeHistorialVuln && !respaldoIncluyeActualVuln) {
+    // Respaldo antiguo: conservar evaluaciones locales y revalidar sus vínculos.
+    // Las que no puedan vincularse se archivan con índice -1 para que no aparezcan
+    // accidentalmente en el informe de una inspección diferente.
+    const inspeccionesDestinoVuln = Array.isArray(datos.inspecciones) ? datos.inspecciones : [];
+    const normalizarIdControlVuln = valor => String(valor || "").trim().toLowerCase();
+    const reubicarEvaluacionVuln = evaluacion => {
+        if (!evaluacion || typeof evaluacion !== "object" || Array.isArray(evaluacion)) return evaluacion;
+        const indiceAnterior = evaluacion.inspeccionIndice;
+        const indiceAnteriorValido = indiceAnterior !== null && indiceAnterior !== undefined && indiceAnterior !== "" && Number.isInteger(Number(indiceAnterior)) && Number(indiceAnterior) >= 0;
+        const inspeccionAnterior = indiceAnteriorValido ? inspeccionesAntesDeRestaurar[Number(indiceAnterior)] : null;
+        const idControl = normalizarIdControlVuln(evaluacion.inspeccionIdControl || inspeccionAnterior?.idControl || "");
+        const indiceDestino = idControl
+            ? inspeccionesDestinoVuln.findIndex(inspeccion => normalizarIdControlVuln(inspeccion?.idControl) === idControl)
+            : -1;
+        return {
+            ...evaluacion,
+            inspeccionIndice: indiceDestino >= 0 ? indiceDestino : -1,
+            inspeccionIdControl: idControl || evaluacion.inspeccionIdControl || ""
+        };
+    };
+
+    const historialRemapeado = evaluacionesLocalesAntesDeRestaurar.map(reubicarEvaluacionVuln);
+    if (historialRemapeado.length > 0 || localStorage.getItem(claveRegistrosVulnRespaldo) !== null) {
+        localStorage.setItem(claveRegistrosVulnRespaldo, JSON.stringify(historialRemapeado));
+    }
+    if (evaluacionActualLocalAntesDeRestaurar && typeof evaluacionActualLocalAntesDeRestaurar === "object" && !Array.isArray(evaluacionActualLocalAntesDeRestaurar)) {
+        localStorage.setItem(claveActualVulnRespaldo, JSON.stringify(reubicarEvaluacionVuln(evaluacionActualLocalAntesDeRestaurar)));
+    }
+    console.warn("CAM-RESPALDO-VULNERABILIDADES-02: el respaldo antiguo no contiene evaluaciones técnicas; se conservaron las locales y se revalidaron sus vínculos.");
 }
 
 localStorage.setItem(
@@ -7219,6 +8033,243 @@ if (buscadorClientes) {
     });
 }
 }
+/* ==========================================================
+   CAM-INFORME-CALIDAD-01 — REVISIÓN PREVIA DE CALIDAD DE DATOS
+   Propósito: advertir sobre inconsistencias antes de generar el informe.
+   Regla de seguridad: solo lee datos; no escribe localStorage/IndexedDB,
+   no modifica la matriz, no bloquea generación y no toca el generador Word/PDF.
+   ========================================================== */
+function revisarCalidadDatosInforme() {
+    const leerJSON = (clave, fallback) => {
+        try {
+            const valor = JSON.parse(localStorage.getItem(clave) || "null");
+            return valor === null || valor === undefined ? fallback : valor;
+        } catch (error) {
+            return fallback;
+        }
+    };
+    const normalizarCliente = valor => String(valor || "")
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .trim().toLowerCase().replace(/\s+/g, " ");
+    const normalizarFecha = objeto => {
+        const valor = String(objeto && (objeto.fecha || objeto.fechaInspeccion) || "").trim();
+        const latino = valor.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+        if (latino) return latino[3] + "-" + String(latino[2]).padStart(2, "0") + "-" + String(latino[1]).padStart(2, "0");
+        return /^\d{4}-\d{2}-\d{2}/.test(valor) ? valor.slice(0, 10) : "";
+    };
+    const fechaOrdenable = fecha => {
+        if (!fecha) return NaN;
+        const valor = Date.parse(fecha + "T12:00:00");
+        return Number.isFinite(valor) ? valor : NaN;
+    };
+    const agregarChequeo = (lista, estado, titulo, detalle) => lista.push({ estado, titulo, detalle });
+    const inspecciones = leerJSON("inspecciones", []);
+    const itemsInspecciones = Array.isArray(inspecciones) ? inspecciones : [];
+    const indiceRaw = localStorage.getItem("indiceInspeccionSeleccionadaInforme");
+    const indice = indiceRaw !== null && /^\d+$/.test(indiceRaw) ? Number(indiceRaw) : -1;
+    const inspeccion = Number.isInteger(indice) && indice >= 0 ? itemsInspecciones[indice] : null;
+    const resultados = [];
+
+    if (!inspeccion) {
+        agregarChequeo(resultados, "error", "Inspección seleccionada", "No se identificó una inspección válida. Abra el registro correcto desde Clientes o Nueva inspección antes de generar el informe.");
+        return mostrarResultadoCalidadInforme(resultados);
+    }
+
+    const clienteOriginal = inspeccion.cliente || inspeccion.nombreCliente || inspeccion.razonSocial || "";
+    const cliente = normalizarCliente(clienteOriginal);
+    const fechaInspeccion = normalizarFecha(inspeccion);
+    const analista = String(inspeccion.inspector || inspeccion.analistaRiesgos || "").trim();
+    const sector = String(inspeccion.sectorInspeccion || "").trim();
+    const faltantes = [];
+    if (!String(clienteOriginal).trim()) faltantes.push("nombre del cliente");
+    if (!fechaInspeccion) faltantes.push("fecha de inspección");
+    if (!analista) faltantes.push("analista de riesgos");
+    if (!sector) faltantes.push("sector de la inspección");
+    agregarChequeo(resultados, faltantes.length ? "advertencia" : "correcto", "Datos generales", faltantes.length ? "Faltan: " + faltantes.join(", ") + "." : "Cliente, fecha, analista y sector están registrados.");
+
+    const indicesCliente = itemsInspecciones.map((registro, i) => normalizarCliente(registro && (registro.cliente || registro.nombreCliente || registro.razonSocial)) === cliente && cliente ? i : -1).filter(i => i >= 0);
+    let indiceUltimo = -1;
+    if (indicesCliente.length) {
+        indiceUltimo = indicesCliente.slice().sort((a, b) => {
+            const fa = fechaOrdenable(normalizarFecha(itemsInspecciones[a]));
+            const fb = fechaOrdenable(normalizarFecha(itemsInspecciones[b]));
+            if (Number.isFinite(fa) && Number.isFinite(fb) && fa !== fb) return fb - fa;
+            if (Number.isFinite(fa) !== Number.isFinite(fb)) return Number.isFinite(fb) ? 1 : -1;
+            return b - a;
+        })[0];
+    }
+    const seleccionEsUltima = indiceUltimo < 0 || indiceUltimo === indice;
+    agregarChequeo(resultados, seleccionEsUltima ? "correcto" : "advertencia", "Regla de última inspección", seleccionEsUltima
+        ? "La inspección seleccionada corresponde a la última visita registrada para este cliente."
+        : "El cliente tiene varias inspecciones. La más reciente es la número " + (indiceUltimo + 1) + "; revise la selección antes de generar el informe para evitar mezclar visitas.");
+
+    // Recuperar la evaluación asociada siguiendo la regla aprobada: cliente + fecha,
+    // con ID e índice como compatibilidad cuando los registros históricos lo requieren.
+    const claveVuln = "tecchnex_lista_vulnerabilidades_multisector_v1";
+    const registrosVuln = leerJSON(claveVuln + "_registros_v2", []);
+    const listaVuln = Array.isArray(registrosVuln) ? registrosVuln : [];
+    const normalizarId = valor => String(valor || "").trim().toLowerCase();
+    const idInspeccion = normalizarId(inspeccion.idControl);
+    const evaluacionCoincide = ev => {
+        if (!ev || !seleccionEsUltima) return false;
+        const clienteEv = normalizarCliente(ev.inspeccionCliente || ev.cliente || ev.nombreCliente);
+        const fechaEv = normalizarFecha({ fecha: ev.inspeccionFecha || "" });
+        const idEv = normalizarId(ev.inspeccionIdControl);
+        if (clienteEv && cliente && clienteEv !== cliente) return false;
+        if (clienteEv && cliente && fechaEv && fechaInspeccion) return clienteEv === cliente && fechaEv === fechaInspeccion;
+        if (clienteEv && cliente && clienteEv === cliente) {
+            if (idInspeccion && idEv && idInspeccion === idEv) return true;
+            if (ev.inspeccionIndice !== null && ev.inspeccionIndice !== undefined && String(ev.inspeccionIndice).trim() !== "" && Number(ev.inspeccionIndice) === indice) return true;
+            return indicesCliente.length === 1;
+        }
+        return !clienteEv && idInspeccion && idEv && idInspeccion === idEv;
+    };
+    let evaluacion = null;
+    if (seleccionEsUltima && inspeccion.evaluacionVulnerabilidades && evaluacionCoincide(inspeccion.evaluacionVulnerabilidades)) evaluacion = inspeccion.evaluacionVulnerabilidades;
+    if (!evaluacion) evaluacion = listaVuln.slice().reverse().find(evaluacionCoincide) || null;
+    if (!evaluacion) {
+        const heredada = leerJSON(claveVuln, null);
+        if (evaluacionCoincide(heredada)) evaluacion = heredada;
+    }
+
+    let totalPreguntas = 0, noAplican = 0, pendientes = 0, noCumple = 0, parcial = 0, sinObservacion = 0;
+    if (evaluacion) {
+        const secciones = window.CAMVulnerabilidades && typeof window.CAMVulnerabilidades.obtenerSecciones === "function"
+            ? window.CAMVulnerabilidades.obtenerSecciones(evaluacion.sector)
+            : [];
+        const respuestas = evaluacion.respuestas || {};
+        const notas = evaluacion.observacionesPorPregunta || {};
+        secciones.forEach((grupo, gi) => (grupo[1] || []).forEach((pregunta, qi) => {
+            totalPreguntas++;
+            const clave = gi + "-" + qi;
+            const valor = respuestas[clave] || "";
+            if (valor === "NA") { noAplican++; return; }
+            if (!valor) pendientes++;
+            if (valor === "NC") noCumple++;
+            if (valor === "P") parcial++;
+            if ((valor === "NC" || valor === "P") && !String(notas[clave] || "").trim()) sinObservacion++;
+        }));
+        if (!secciones.length) {
+            agregarChequeo(resultados, "advertencia", "Evaluación de vulnerabilidades", "Se encontró una evaluación, pero no fue posible identificar su catálogo de preguntas. Compruebe la versión del instrumento.");
+        } else {
+            agregarChequeo(resultados, pendientes || sinObservacion ? "advertencia" : "correcto", "Evaluación de vulnerabilidades", "Evaluación asociada a la última visita. Preguntas evaluables: " + (totalPreguntas - noAplican) + "; pendientes: " + pendientes + "; No cumple: " + noCumple + "; Parcial: " + parcial + "; condiciones Parcial/No cumple sin observación: " + sinObservacion + ".");
+        }
+    } else {
+        agregarChequeo(resultados, "advertencia", "Evaluación de vulnerabilidades", seleccionEsUltima
+            ? "No se encontró una evaluación guardada y vinculada a la última inspección de este cliente. Verifique el instrumento antes de generar el informe."
+            : "La inspección seleccionada es anterior; por la regla TECCHNEX no se reutiliza una evaluación de otra visita.");
+    }
+
+    const matrizInspeccion = leerJSON("matrizRiesgos", []);
+    // CAM-INFORME-CALIDAD-01-AJUSTE-01:
+    // El generador PDF vigente obtiene la matriz por el campo numérico "inspeccion".
+    // La revisión previa debe reflejar esa misma selección, sin exigir idControlInspeccion,
+    // campo que no está presente en todos los registros históricos de matriz.
+    const listaMatriz = Array.isArray(matrizInspeccion)
+        ? matrizInspeccion.filter(registro => Number(registro && registro.inspeccion) === indice)
+        : [];
+    const matricesClienteRaw = leerJSON("matricesRiesgosClientes", []);
+    const matricesCliente = (Array.isArray(matricesClienteRaw) ? matricesClienteRaw : []).filter(r => normalizarCliente(r && r.cliente) === cliente && cliente);
+    const matrizInforme = matricesCliente.length ? matricesCliente : listaMatriz;
+    if (!matrizInforme.length) {
+        agregarChequeo(resultados, "advertencia", "Matriz de riesgos", "No se encontraron riesgos en la matriz de la inspección ni en la matriz independiente del cliente. Verifique si corresponde registrar riesgos para esta visita.");
+    } else {
+        const sinNivel = matrizInforme.filter(r => !String(r && r.nivel || "").trim()).length;
+        const sinTratamiento = matrizInforme.filter(r => !String(r && r.tratamiento || "").trim()).length;
+        agregarChequeo(resultados, sinNivel || sinTratamiento ? "advertencia" : "correcto", "Matriz de riesgos", matrizInforme.length + " riesgo(s) disponibles para el informe; sin nivel: " + sinNivel + "; sin tratamiento registrado: " + sinTratamiento + ".");
+    }
+
+    const hallazgosRaw = leerJSON("hallazgos", []);
+    const hallazgos = matrizMatrizSeguro(Array.isArray(hallazgosRaw) ? hallazgosRaw : [], inspeccion, indice);
+    if (!hallazgos.length) {
+        agregarChequeo(resultados, "informacion", "Hallazgos", "No hay hallazgos vinculados a esta inspección. Confirme que esto represente el resultado de la visita.");
+    } else {
+        const sinDescripcion = hallazgos.filter(h => !String(h && (h.hallazgo || h.descripcion || h.observacion) || "").trim()).length;
+        const sinAccion = hallazgos.filter(h => !String(h && (h.accion || h.accionPreventiva || h.recomendacion) || "").trim()).length;
+        agregarChequeo(resultados, sinDescripcion || sinAccion ? "advertencia" : "correcto", "Hallazgos", hallazgos.length + " hallazgo(s) vinculados; sin descripción: " + sinDescripcion + "; sin acción preventiva/recomendación: " + sinAccion + ".");
+    }
+
+    mostrarResultadoCalidadInforme(resultados, clienteOriginal, fechaInspeccion, indice + 1);
+
+    function matrizMatrizSeguro(registros, objetivo, indiceObjetivo) {
+        const id = String(objetivo && objetivo.idControl || "").trim();
+        if (id) return registros.filter(r => String(r && r.idControlInspeccion || "").trim() === id);
+        return registros.filter(r => !String(r && r.idControlInspeccion || "").trim() && Number(r && r.inspeccion) === Number(indiceObjetivo));
+    }
+
+    function mostrarResultadoCalidadInforme(chequeos, nombre = "", fecha = "", numero = null) {
+        document.getElementById("camInformeCalidadOverlay")?.remove();
+        const overlay = document.createElement("div");
+        overlay.id = "camInformeCalidadOverlay";
+        overlay.setAttribute("role", "dialog");
+        overlay.setAttribute("aria-modal", "true");
+        overlay.setAttribute("aria-labelledby", "camInformeCalidadTitulo");
+        overlay.style.cssText = "position:fixed;inset:0;z-index:10050;background:rgba(15,23,42,.58);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;";
+        const panel = document.createElement("section");
+        panel.style.cssText = "width:min(760px,100%);max-height:88vh;overflow:auto;background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.25);font-family:Aptos,Arial,sans-serif;color:#1f2937;";
+        const cabecera = document.createElement("div");
+        cabecera.style.cssText = "background:#123b5d;color:#fff;padding:17px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;";
+        const titulo = document.createElement("h2");
+        titulo.id = "camInformeCalidadTitulo";
+        titulo.textContent = "Revisión de calidad de datos del informe";
+        titulo.style.cssText = "margin:0;font-size:20px;";
+        const cerrar = document.createElement("button");
+        cerrar.type = "button";
+        cerrar.textContent = "Cerrar";
+        cerrar.setAttribute("aria-label", "Cerrar revisión de calidad");
+        cerrar.style.cssText = "border:0;border-radius:6px;background:#e2e8f0;color:#172033;padding:8px 12px;font-weight:bold;cursor:pointer;";
+        cabecera.append(titulo, cerrar);
+        const cuerpo = document.createElement("div");
+        cuerpo.style.cssText = "padding:18px 20px;";
+        if (nombre) {
+            const meta = document.createElement("p");
+            meta.style.cssText = "margin:0 0 14px;color:#475569;font-size:13px;";
+            meta.textContent = "Cliente: " + nombre + " · Inspección: " + (numero || "No identificada") + " · Fecha: " + (fecha || "No consignada");
+            cuerpo.appendChild(meta);
+        }
+        const estados = {
+            correcto: { texto: "CORRECTO", fondo: "#dcfce7", color: "#166534" },
+            advertencia: { texto: "REVISAR", fondo: "#fff7ed", color: "#9a3412" },
+            informacion: { texto: "INFORMACIÓN", fondo: "#eff6ff", color: "#1d4ed8" },
+            error: { texto: "ATENCIÓN", fondo: "#fee2e2", color: "#991b1b" }
+        };
+        const lista = document.createElement("div");
+        lista.style.cssText = "display:grid;gap:10px;";
+        chequeos.forEach(item => {
+            const fila = document.createElement("div");
+            fila.style.cssText = "border:1px solid #dbe3ea;border-radius:8px;padding:11px 12px;display:grid;grid-template-columns:100px minmax(0,1fr);gap:9px;align-items:start;";
+            const estado = estados[item.estado] || estados.informacion;
+            const etiqueta = document.createElement("span");
+            etiqueta.textContent = estado.texto;
+            etiqueta.style.cssText = "display:inline-block;text-align:center;background:" + estado.fondo + ";color:" + estado.color + ";border-radius:5px;padding:5px 6px;font-size:10px;font-weight:800;letter-spacing:.3px;";
+            const texto = document.createElement("div");
+            const encabezado = document.createElement("strong");
+            encabezado.textContent = item.titulo;
+            encabezado.style.cssText = "display:block;margin-bottom:4px;font-size:14px;";
+            const detalle = document.createElement("p");
+            detalle.textContent = item.detalle;
+            detalle.style.cssText = "margin:0;font-size:13px;line-height:1.45;color:#475569;";
+            texto.append(encabezado, detalle);
+            fila.append(etiqueta, texto);
+            lista.appendChild(fila);
+        });
+        cuerpo.appendChild(lista);
+        const nota = document.createElement("p");
+        nota.style.cssText = "margin:16px 0 0;padding:10px 12px;background:#f8fafc;border-left:3px solid #123b5d;color:#475569;font-size:12px;line-height:1.45;";
+        nota.textContent = "Esta revisión es consultiva. No modifica datos, fórmulas ni plantillas; tampoco bloquea ni reemplaza la generación habitual de Word o PDF. Las advertencias requieren criterio del Analista de Riesgos.";
+        cuerpo.appendChild(nota);
+        panel.append(cabecera, cuerpo);
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+        const cerrarModal = () => { overlay.remove(); document.removeEventListener("keydown", teclaCerrar); };
+        const teclaCerrar = e => { if (e.key === "Escape" && document.getElementById("camInformeCalidadOverlay")) cerrarModal(); };
+        cerrar.addEventListener("click", cerrarModal);
+        overlay.addEventListener("click", e => { if (e.target === overlay) cerrarModal(); });
+        document.addEventListener("keydown", teclaCerrar);
+        cerrar.focus();
+    }
+}
+
 /*
 ========================================================
 TECCHNEX - CORRECCIÓN CAM-008-A
@@ -8202,7 +9253,7 @@ function generarChecklist() {
                             type="radio"
                             name="${id}"
                             value="2"
-                            onchange="calcularChecklist()">
+                            onchange="calcularChecklist(); validarResponsablesChecklist()">
                         <br>
                         <small>BUENO</small>
                     </label>
@@ -8212,7 +9263,7 @@ function generarChecklist() {
                             type="radio"
                             name="${id}"
                             value="1"
-                            onchange="calcularChecklist()">
+                            onchange="calcularChecklist(); validarResponsablesChecklist()">
                         <br>
                         <small>REGULAR</small>
                     </label>
@@ -8222,7 +9273,7 @@ function generarChecklist() {
                             type="radio"
                             name="${id}"
                             value="0"
-                            onchange="calcularChecklist()">
+                            onchange="calcularChecklist(); validarResponsablesChecklist()">
                         <br>
                         <small>MALO</small>
                     </label>
@@ -8231,10 +9282,22 @@ function generarChecklist() {
         type="radio"
         name="${id}"
         value="NA"
-        onchange="calcularChecklist()">
+        onchange="calcularChecklist(); validarResponsablesChecklist()">
     <br>
     <small>NO APLICA</small>
 </label>
+                </div>
+                <div class="responsable-gestion-checklist" style="display:grid;grid-template-columns:minmax(0,1fr);gap:6px;padding:0 8px 12px;border-bottom:1px solid #eee;">
+                    <label for="responsable_${indice}_${i}" style="font-weight:600;color:#123b5d;font-size:13px;">Responsable de la gestión <span style="color:#b91c1c">*</span></label>
+                    <select id="responsable_${indice}_${i}" name="responsable_${indice}_${i}" onchange="validarResponsablesChecklist()" style="width:100%;max-width:520px;min-height:38px;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font:inherit;background:#fff;">
+                        <option value="">Seleccione responsable (obligatorio para REGULAR o MALO)</option>
+                        <option value="Administrador de la copropiedad">Administrador de la copropiedad</option>
+                        <option value="Gerente / Dirección">Gerente / Dirección</option>
+                        <option value="Empresa de vigilancia">Empresa de vigilancia</option>
+                        <option value="Proveedor / mantenimiento especializado">Proveedor / mantenimiento especializado</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                    <small style="color:#64748b">Selección manual. Obligatorio para REGULAR (Parcial) o MALO (No cumple).</small>
                 </div>
             `;
 
@@ -8311,6 +9374,11 @@ function generarChecklist() {
                         const valor =
                             respuestasCategoria[item];
 
+                        const responsablesGuardados = checklistGuardado.responsables || {};
+                        const responsableCategoria = responsablesGuardados[categoria] || {};
+                        const selectorResponsable = document.getElementById("responsable_" + indiceCategoria + "_" + i);
+                        if (selectorResponsable) selectorResponsable.value = responsableCategoria[item] || "";
+
                         if (
                             valor === undefined ||
                             valor === null ||
@@ -8345,6 +9413,7 @@ function generarChecklist() {
 
         calcularChecklist();
     }
+    validarResponsablesChecklist();
 
 }
 function calcularChecklist() {
@@ -8487,7 +9556,32 @@ const indiceInspeccion =
     }
 }
     
+function validarResponsablesChecklist(mostrarAlerta = false) {
+    const pendientes = [];
+    Object.keys(datosChecklist).forEach((categoria, indice) => {
+        datosChecklist[categoria].forEach((item, i) => {
+            const id = "check_" + indice + "_" + i;
+            const seleccionado = document.querySelector('input[name="' + id + '"]:checked');
+            const requiere = seleccionado && (seleccionado.value === "0" || seleccionado.value === "1");
+            const selector = document.getElementById("responsable_" + indice + "_" + i);
+            if (selector) {
+                selector.required = Boolean(requiere);
+                selector.style.borderColor = requiere && !selector.value ? "#dc2626" : "#cbd5e1";
+            }
+            if (requiere && selector && !selector.value) pendientes.push({ selector });
+        });
+    });
+    if (mostrarAlerta && pendientes.length) {
+        pendientes[0].selector.scrollIntoView({ behavior: "smooth", block: "center" });
+        pendientes[0].selector.focus();
+        alert("Debe seleccionar el Responsable de la gestión para cada pregunta marcada REGULAR (Parcial) o MALO (No cumple). Preguntas pendientes: " + pendientes.length + ".");
+    }
+    return pendientes.length === 0;
+}
+
 function guardarChecklist() {
+
+    if (!validarResponsablesChecklist(true)) return;
 
     const resultado =
         document.getElementById("resultadoChecklist").textContent;
@@ -8499,11 +9593,13 @@ function guardarChecklist() {
         JSON.parse(localStorage.getItem("inspecciones")) || [];
 
     const respuestas = {};
+    const responsables = {};
     let totalRespondidos = 0;
     
     Object.keys(datosChecklist).forEach((categoria, indice) => {
 
         respuestas[categoria] = {};
+        responsables[categoria] = {};
 
         datosChecklist[categoria].forEach((item, i) => {
 
@@ -8522,6 +9618,8 @@ function guardarChecklist() {
 
     totalRespondidos++;
 }
+            const selectorResponsable = document.getElementById("responsable_" + indice + "_" + i);
+            if (selectorResponsable && selectorResponsable.value) responsables[categoria][item] = selectorResponsable.value;
 
         });
 
@@ -8549,6 +9647,7 @@ const registroChecklist = {
     inspeccion: indiceSeleccionado,
     resultado: resultado,
     respuestas: respuestas,
+    responsables: responsables,
     datos: datosChecklist
 };
 
@@ -11596,6 +12695,170 @@ function obtenerRegistrosDeInspeccion(registros, inspeccion, indice) {
     );
 }
 
+
+// =========================================================
+// CAM-SEGUIMIENTO-01 — COMPARACIÓN HISTÓRICA DE INSPECCIONES
+// Solo lectura. No guarda datos, no crea claves y no altera Word/PDF.
+// Compara las dos inspecciones más recientes de un cliente y señala
+// coincidencias textuales normalizadas como posibles recurrencias.
+// =========================================================
+function abrirComparativoInspeccionesCAM01() {
+    let modal = document.getElementById("ventanaComparativoInspeccionesCAM01");
+    if (!modal) {
+        modal = document.createElement("div");
+        modal.id = "ventanaComparativoInspeccionesCAM01";
+        modal.style.cssText = "position:fixed;inset:0;z-index:4500;background:rgba(5,25,45,.68);overflow-y:auto;padding:18px;box-sizing:border-box;";
+        modal.addEventListener("click", function (evento) {
+            if (evento.target === modal) cerrarComparativoInspeccionesCAM01();
+        });
+        document.body.appendChild(modal);
+    }
+    modal.style.display = "block";
+    renderizarComparativoInspeccionesCAM01("");
+}
+
+function cerrarComparativoInspeccionesCAM01() {
+    const modal = document.getElementById("ventanaComparativoInspeccionesCAM01");
+    if (modal) modal.style.display = "none";
+}
+
+function renderizarComparativoInspeccionesCAM01(clienteElegido) {
+    const modal = document.getElementById("ventanaComparativoInspeccionesCAM01");
+    if (!modal) return;
+    const leerArreglo = clave => {
+        try { const valor = JSON.parse(localStorage.getItem(clave) || "[]"); return Array.isArray(valor) ? valor : []; }
+        catch (error) { return []; }
+    };
+    const normalizar = valor => String(valor == null ? "" : valor)
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .trim().toLowerCase().replace(/\s+/g, " ");
+    const escapar = valor => String(valor == null ? "" : valor).replace(/[&<>"']/g, caracter => ({
+        "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+    }[caracter]));
+    const inspecciones = leerArreglo("inspecciones");
+    const riesgos = leerArreglo("matrizRiesgos");
+    const hallazgos = leerArreglo("hallazgos");
+    const clienteDe = inspeccion => String(inspeccion?.cliente || inspeccion?.nombreCliente || "").trim();
+    const fechaDe = inspeccion => String(inspeccion?.fecha || inspeccion?.fechaInspeccion || "").slice(0, 10);
+    const clientes = new Map();
+    inspecciones.forEach((inspeccion, indice) => {
+        const nombre = clienteDe(inspeccion), clave = normalizar(nombre);
+        if (clave && !clientes.has(clave)) clientes.set(clave, nombre);
+    });
+    const claves = Array.from(clientes.keys()).sort((a,b) => clientes.get(a).localeCompare(clientes.get(b), "es"));
+    // Al abrir por primera vez, intentar conservar el contexto del informe/inspección
+    // seleccionada; si no existe, usar el cliente del último registro disponible.
+    let clienteContexto = "";
+    try {
+        const indiceContexto = Number(localStorage.getItem("indiceInspeccionSeleccionadaInforme"));
+        if (Number.isInteger(indiceContexto) && indiceContexto >= 0 && inspecciones[indiceContexto]) {
+            clienteContexto = normalizar(clienteDe(inspecciones[indiceContexto]));
+        }
+    } catch (error) {}
+    if (!clienteContexto) {
+        for (let i = inspecciones.length - 1; i >= 0; i--) {
+            const clave = normalizar(clienteDe(inspecciones[i]));
+            if (clave && clientes.has(clave)) { clienteContexto = clave; break; }
+        }
+    }
+    const seleccionado = claves.includes(clienteElegido) ? clienteElegido : (claves.includes(clienteContexto) ? clienteContexto : (claves[0] || ""));
+    const opciones = claves.map(clave => `<option value="${escapar(clave)}" ${clave === seleccionado ? "selected" : ""}>${escapar(clientes.get(clave))}</option>`).join("");
+    const fechaLegible = fecha => {
+        if (!fecha) return "Fecha no registrada";
+        const trozos = fecha.split("-");
+        return trozos.length === 3 ? `${trozos[2]}/${trozos[1]}/${trozos[0]}` : escapar(fecha);
+    };
+    const inspeccionesCliente = inspecciones.map((inspeccion, indice) => ({ inspeccion, indice, fecha: fechaDe(inspeccion) }))
+        .filter(registro => normalizar(clienteDe(registro.inspeccion)) === seleccionado)
+        .sort((a,b) => {
+            const fa = a.fecha ? Date.parse(a.fecha + "T00:00:00") : NaN;
+            const fb = b.fecha ? Date.parse(b.fecha + "T00:00:00") : NaN;
+            const va = Number.isFinite(fa) ? fa : -Infinity;
+            const vb = Number.isFinite(fb) ? fb : -Infinity;
+            return vb - va || b.indice - a.indice;
+        });
+    let contenido = "";
+    if (!seleccionado) {
+        contenido = `<div style="padding:18px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;">No hay clientes con inspecciones registradas para comparar.</div>`;
+    } else if (inspeccionesCliente.length < 2) {
+        contenido = `<div style="padding:18px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;">Este cliente tiene una sola inspección registrada. Para comparar recurrencias se necesitan al menos dos inspecciones.</div>`;
+    } else {
+        const reciente = inspeccionesCliente[0];
+        const anterior = inspeccionesCliente[1];
+        // Las matrices existentes se guardan por índice de inspección. Se leen con ese
+        // mismo contrato; no se escribe ni se intenta corregir el historial desde este panel.
+        const riesgosDe = registro => riesgos.filter(r => {
+            const idRegistro = String(r?.idControlInspeccion || "").trim();
+            const idInspeccion = String(registro.inspeccion?.idControl || "").trim();
+            if (idRegistro && idInspeccion) return idRegistro === idInspeccion;
+            if (idRegistro || idInspeccion) return Number(r?.inspeccion) === registro.indice && !idRegistro;
+            return Number(r?.inspeccion) === registro.indice;
+        }).filter(r => String(r?.peligro || r?.riesgo || "").trim());
+        const hallazgosDe = registro => {
+            if (typeof obtenerRegistrosDeInspeccion === "function") {
+                return obtenerRegistrosDeInspeccion(hallazgos, registro.inspeccion, registro.indice)
+                    .filter(h => String(h?.descripcion || h?.hallazgo || "").trim());
+            }
+            const id = String(registro.inspeccion?.idControl || "").trim();
+            return hallazgos.filter(h => id
+                ? String(h?.idControlInspeccion || "").trim() === id
+                : (!String(h?.idControlInspeccion || "").trim() && Number(h?.inspeccion) === registro.indice))
+                .filter(h => String(h?.descripcion || h?.hallazgo || "").trim());
+        };
+        const claveRiesgo = r => normalizar([r.area, r.peligro, r.riesgo].filter(Boolean).join(" | "));
+        const claveHallazgo = h => normalizar([h.area, h.elemento, h.descripcion || h.hallazgo].filter(Boolean).join(" | "));
+        const mapear = (lista, clave) => {
+            const mapa = new Map();
+            lista.forEach(item => { const k = clave(item); if (k && !mapa.has(k)) mapa.set(k, item); });
+            return mapa;
+        };
+        const riesgosAnterior = riesgosDe(anterior), riesgosReciente = riesgosDe(reciente);
+        const hallazgosAnterior = hallazgosDe(anterior), hallazgosReciente = hallazgosDe(reciente);
+        const mapaRA = mapear(riesgosAnterior, claveRiesgo), mapaRR = mapear(riesgosReciente, claveRiesgo);
+        const mapaHA = mapear(hallazgosAnterior, claveHallazgo), mapaHR = mapear(hallazgosReciente, claveHallazgo);
+        const recurrenciasRiesgo = Array.from(mapaRR.entries()).filter(([k]) => mapaRA.has(k)).map(([k, actual]) => ({ anterior:mapaRA.get(k), actual }));
+        const nuevosRiesgos = Array.from(mapaRR.entries()).filter(([k]) => !mapaRA.has(k)).map(([, actual]) => actual);
+        const ausentesRiesgos = Array.from(mapaRA.entries()).filter(([k]) => !mapaRR.has(k)).map(([, anteriorRiesgo]) => anteriorRiesgo);
+        const recurrenciasHallazgo = Array.from(mapaHR.entries()).filter(([k]) => mapaHA.has(k)).map(([k, actual]) => ({ anterior:mapaHA.get(k), actual }));
+        const nuevosHallazgos = Array.from(mapaHR.entries()).filter(([k]) => !mapaHA.has(k)).map(([, actual]) => actual);
+        const ausentesHallazgos = Array.from(mapaHA.entries()).filter(([k]) => !mapaHR.has(k)).map(([, anteriorHallazgo]) => anteriorHallazgo);
+        const tablaRecurrenciasRiesgo = recurrenciasRiesgo.length ? recurrenciasRiesgo.map(par => `<tr><td>${escapar(par.actual.area || "Sin área")}</td><td>${escapar(par.actual.peligro || par.actual.riesgo || "Riesgo registrado")}</td><td>${escapar(par.anterior.nivel || "Sin nivel")} → ${escapar(par.actual.nivel || "Sin nivel")}</td><td>${Number(par.anterior.puntuacion) !== Number(par.actual.puntuacion) ? `${escapar(par.anterior.puntuacion ?? "—")} → ${escapar(par.actual.puntuacion ?? "—")}` : escapar(par.actual.puntuacion ?? "—")}</td></tr>`).join("") : `<tr><td colspan="4">No se encontraron coincidencias textuales normalizadas entre las dos matrices.</td></tr>`;
+        const tablaRecurrenciasHallazgo = recurrenciasHallazgo.length ? recurrenciasHallazgo.map(par => `<tr><td>${escapar(par.actual.area || "Sin área")}</td><td>${escapar(par.actual.elemento || "Sin elemento")}</td><td>${escapar(par.actual.descripcion || par.actual.hallazgo || "Hallazgo registrado")}</td><td>${escapar(par.actual.nivel || "Sin nivel")}</td></tr>`).join("") : `<tr><td colspan="4">No se encontraron coincidencias textuales normalizadas entre los hallazgos asociados.</td></tr>`;
+        const listaRiesgos = (lista, tipo) => lista.length ? `<ul style="margin:6px 0;padding-left:20px;">${lista.slice(0,12).map(r => `<li style="margin:4px 0;">${escapar(r.area || "Sin área")} — ${escapar(r.peligro || r.riesgo || "Riesgo registrado")} (${escapar(r.nivel || "Sin nivel")})</li>`).join("")}${lista.length>12?`<li>Y ${lista.length-12} registro(s) más.</li>`:""}</ul>` : `<p style="margin:6px 0;color:#64748b;">Ninguno registrado.</p>`;
+        const listaHallazgos = lista => lista.length ? `<ul style="margin:6px 0;padding-left:20px;">${lista.slice(0,12).map(h => `<li style="margin:4px 0;">${escapar(h.area || "Sin área")} — ${escapar(h.elemento || "Sin elemento")} — ${escapar(h.descripcion || h.hallazgo || "Hallazgo registrado")}</li>`).join("")}${lista.length>12?`<li>Y ${lista.length-12} registro(s) más.</li>`:""}</ul>` : `<p style="margin:6px 0;color:#64748b;">Ninguno registrado.</p>`;
+        contenido = `
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:14px 0;">
+            <div style="padding:14px;border:1px solid #bfdbfe;border-radius:9px;background:#eff6ff;"><div style="font-size:12px;color:#475569;">Inspección anterior</div><div style="font-weight:800;font-size:18px;color:#123b5d;">${escapar(fechaLegible(anterior.fecha))}</div><div style="font-size:12px;">${escapar(anterior.inspeccion.idControl || `Registro #${anterior.indice+1}`)}</div></div>
+            <div style="padding:14px;border:1px solid #a5f3fc;border-radius:9px;background:#ecfeff;"><div style="font-size:12px;color:#475569;">Última inspección</div><div style="font-weight:800;font-size:18px;color:#123b5d;">${escapar(fechaLegible(reciente.fecha))}</div><div style="font-size:12px;">${escapar(reciente.inspeccion.idControl || `Registro #${reciente.indice+1}`)}</div></div>
+            <div style="padding:14px;border:1px solid #ddd6fe;border-radius:9px;background:#f5f3ff;"><div style="font-size:12px;color:#475569;">Posibles riesgos recurrentes</div><div style="font-weight:800;font-size:26px;color:#5b21b6;">${recurrenciasRiesgo.length}</div><div style="font-size:12px;">Coincidencias normalizadas.</div></div>
+            <div style="padding:14px;border:1px solid #fed7aa;border-radius:9px;background:#fff7ed;"><div style="font-size:12px;color:#475569;">Posibles hallazgos recurrentes</div><div style="font-weight:800;font-size:26px;color:#9a3412;">${recurrenciasHallazgo.length}</div><div style="font-size:12px;">Coincidencias normalizadas.</div></div>
+          </div>
+          <h3 style="color:#123b5d;margin:18px 0 8px;">Posibles riesgos recurrentes</h3>
+          <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#123b5d;color:#fff;"><th style="padding:9px;text-align:left;">Área</th><th style="padding:9px;text-align:left;">Riesgo / peligro</th><th style="padding:9px;text-align:left;">Nivel anterior → actual</th><th style="padding:9px;text-align:left;">Puntuación anterior → actual</th></tr></thead><tbody>${tablaRecurrenciasRiesgo}</tbody></table></div>
+          <h3 style="color:#123b5d;margin:18px 0 8px;">Posibles hallazgos recurrentes</h3>
+          <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#123b5d;color:#fff;"><th style="padding:9px;text-align:left;">Área</th><th style="padding:9px;text-align:left;">Elemento</th><th style="padding:9px;text-align:left;">Descripción coincidente</th><th style="padding:9px;text-align:left;">Nivel actual</th></tr></thead><tbody>${tablaRecurrenciasHallazgo}</tbody></table></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:18px;">
+            <div style="border:1px solid #dbe3ea;border-radius:8px;padding:12px;"><strong>Nuevos registros en la última inspección</strong><div style="margin-top:6px;">Riesgos: ${nuevosRiesgos.length}${listaRiesgos(nuevosRiesgos)}</div><div>Hallazgos: ${nuevosHallazgos.length}${listaHallazgos(nuevosHallazgos)}</div></div>
+            <div style="border:1px solid #dbe3ea;border-radius:8px;padding:12px;"><strong>No identificados en la última inspección</strong><div style="margin-top:6px;">Riesgos de la anterior: ${ausentesRiesgos.length}${listaRiesgos(ausentesRiesgos)}</div><div>Hallazgos de la anterior: ${ausentesHallazgos.length}${listaHallazgos(ausentesHallazgos)}</div></div>
+          </div>
+          <p style="margin-top:14px;padding:11px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;color:#475569;"><strong>Nota técnica:</strong> las coincidencias son aproximaciones por texto normalizado y deben ser confirmadas por el Analista de Riesgos. Un registro que no aparece en la última inspección no se considera automáticamente cerrado o eliminado. La comparación es de solo lectura; no modifica matrices, hallazgos ni informes.</p>`;
+    }
+    modal.innerHTML = `
+      <section style="max-width:1180px;margin:0 auto;background:#fff;border-radius:13px;box-shadow:0 12px 40px rgba(0,0,0,.28);overflow:hidden;">
+        <header style="background:#123b5d;color:#fff;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+          <div><div style="font-size:12px;opacity:.85;letter-spacing:.4px;">TECCHNEX · CAM-SEGUIMIENTO-01</div><h2 style="margin:4px 0 0;font-size:22px;">Seguimiento comparativo de riesgos</h2></div>
+          <button type="button" onclick="cerrarComparativoInspeccionesCAM01()" aria-label="Cerrar" style="background:transparent;color:#fff;border:0;font-size:28px;cursor:pointer;">×</button>
+        </header>
+        <div style="padding:18px 22px;">
+          <label for="clienteComparativoCAM01" style="display:block;font-weight:bold;color:#123b5d;margin-bottom:7px;">Cliente</label>
+          <select id="clienteComparativoCAM01" onchange="renderizarComparativoInspeccionesCAM01(this.value)" style="width:100%;max-width:520px;padding:11px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;">${opciones}</select>
+          <p style="font-size:12px;color:#64748b;margin:8px 0 12px;">Se comparan las dos inspecciones más recientes por fecha. Si falta la fecha o está repetida, se utiliza el orden de registro como desempate.</p>
+          ${contenido}
+          <div style="display:flex;justify-content:flex-end;margin-top:18px;"><button type="button" onclick="cerrarComparativoInspeccionesCAM01()" style="background:#123b5d;color:#fff;border:0;border-radius:7px;padding:11px 18px;font-weight:bold;cursor:pointer;">Cerrar</button></div>
+        </div>
+      </section>`;
+}
+
 async function generarWordPlantillaMaestra() {
     /* =========================================================
        TECCHNEX — CAMPO VISUAL 03 / INTERVENCIÓN 02
@@ -11911,15 +13174,23 @@ async function generarWordPlantillaMaestra() {
         const hallazgosInforme = obtenerHallazgosInformeCAM14(hallazgos, true);
         const clienteDocumento=inspeccion.cliente||"";
         const puesto=inspeccion.nombrePuesto||"";
+        // CAM-WORD-ID-INSPECCION-01: incorporar el identificador de la inspección
+        // al encabezado generado, junto al nombre del puesto. No se modifica
+        // el archivo maestro original; el cambio ocurre solo en la copia en memoria.
+        const idInspeccionDocumento=String(inspeccion.idControl||inspeccion.idControlInspeccion||"SIN ID").trim()||"SIN ID";
         const headerEntry=zip.file("word/header1.xml");
         if(headerEntry){
             let headerXml=await headerEntry.async("string");
             [
                 ["{{VERSION_DOCUMENTO}}",versionDocumento],
                 ["{{TITULO_DOCUMENTO}}",tituloDocumento],
-                ["{{CLIENTE}}",clienteDocumento],
-                ["{{PUESTO}}",puesto]
+                ["{{CLIENTE}}",clienteDocumento]
             ].forEach(([m,v])=>headerXml=headerXml.split(m).join(escaparXmlWord(v)));
+            // Se conserva el puesto en su línea original y el ID aparece debajo,
+            // usando un salto de línea Word nativo dentro de la copia del encabezado.
+            headerXml=headerXml.split("{{PUESTO}}").join(
+                escaparXmlWord(puesto)+"</w:t><w:br/><w:t>ID DE INSPECCIÓN: "+escaparXmlWord(idInspeccionDocumento)
+            );
             // La plantilla aprobada contiene el título preventivo como texto fijo,
             // no como marcador. En la copia generada se sustituye solo ese valor,
             // conservando el mismo nodo, formato, celda y estructura del encabezado.
@@ -11932,34 +13203,60 @@ async function generarWordPlantillaMaestra() {
         // no calcula ni inventa un nivel global de riesgo.
         // CAM-VULN-14: recuperar la evaluación asociada desde el registro histórico o la clave heredada.
         function obtenerEvaluacionVulnerabilidadesAsociada(indiceInspeccion) {
+            // CAM-TRAZABILIDAD-02: el cliente normalizado identifica; la fecha diferencia visitas.
+            // Solo se devuelve evaluación para la última inspección del cliente seleccionado.
             const KEY_VULN = "tecchnex_lista_vulnerabilidades_multisector_v1";
             const RECORDS_KEY_VULN = KEY_VULN + "_registros_v2";
-            const coincide = d => d && Number(d.inspeccionIndice) === Number(indiceInspeccion);
-
-            // CAM-RESPALDO-VULNERABILIDADES-01: preferir el registro vinculado dentro
-            // de la propia inspección importada/restaurada, si existe.
+            let lista = [], inspeccionObjetivo = null;
+            try { lista = JSON.parse(localStorage.getItem("inspecciones") || "[]"); } catch (_) {}
+            if (!Array.isArray(lista)) lista = [];
+            const indice = Number(indiceInspeccion);
+            inspeccionObjetivo = Number.isInteger(indice) && indice >= 0 ? lista[indice] : null;
+            if (!inspeccionObjetivo) return null;
+            const normalizarNombre = valor => String(valor || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase().replace(/\s+/g, " ");
+            const nombreCliente = x => normalizarNombre(x && (x.cliente || x.nombreCliente || x.razonSocial));
+            const fecha = x => { const v=String(x && (x.fecha || x.fechaInspeccion) || "").trim(); const m=v.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/); return m ? m[3]+"-"+String(m[2]).padStart(2,"0")+"-"+String(m[1]).padStart(2,"0") : v.slice(0,10); };
+            const normalizarId = valor => String(valor || "").trim().toLowerCase();
+            const clienteObjetivo = nombreCliente(inspeccionObjetivo), fechaObjetivo = fecha(inspeccionObjetivo);
+            const indicesCliente = lista.map((x,i)=>nombreCliente(x)===clienteObjetivo?i:-1).filter(i=>i>=0);
+            const indiceUltimo = indicesCliente.slice().sort((a,b)=>{const da=Date.parse((fecha(lista[a])||"")+"T12:00:00"),db=Date.parse((fecha(lista[b])||"")+"T12:00:00");if(Number.isFinite(da)&&Number.isFinite(db)&&da!==db)return db-da;if(Number.isFinite(da)!==Number.isFinite(db))return Number.isFinite(db)?1:-1;return b-a})[0];
+            if (clienteObjetivo && indiceUltimo !== indice) return null;
+            const coincide = ev => {
+                if (!ev) return false;
+                const clienteEv = normalizarNombre(ev.inspeccionCliente || ev.cliente || ev.nombreCliente);
+                const fechaEv = String(ev.inspeccionFecha || "").slice(0,10);
+                const idEv = normalizarId(ev.inspeccionIdControl), idObjetivo = normalizarId(inspeccionObjetivo.idControl);
+                if (clienteObjetivo && clienteEv && clienteEv !== clienteObjetivo) return false;
+                if (clienteObjetivo && clienteEv && fechaObjetivo && fechaEv) return fechaObjetivo === fechaEv;
+                if (clienteObjetivo && clienteEv && clienteEv === clienteObjetivo) {
+                    if (idObjetivo && idEv && idObjetivo === idEv) return true;
+                    if (Number(ev.inspeccionIndice) === indice) return true;
+                    if (indicesCliente.length === 1) return true;
+                    return false;
+                }
+                return !clienteEv && idObjetivo && idEv && idObjetivo === idEv;
+            };
+            let d = null;
+            const embebida = inspeccionObjetivo.evaluacionVulnerabilidades;
+            if (coincide(embebida)) d = embebida;
             try {
-                const inspecciones = JSON.parse(localStorage.getItem("inspecciones") || "[]");
-                const inspeccion = Array.isArray(inspecciones) ? inspecciones[Number(indiceInspeccion)] : null;
-                const asociadaEnInspeccion = inspeccion && inspeccion.evaluacionVulnerabilidades;
-                if (coincide(asociadaEnInspeccion)) return asociadaEnInspeccion;
-            } catch (_) {}
-
-            try {
-                const historicas = JSON.parse(localStorage.getItem(RECORDS_KEY_VULN) || "[]");
-                if (Array.isArray(historicas)) {
-                    const asociada = historicas.slice().reverse().find(coincide);
-                    if (asociada) return asociada;
+                if (!d) {
+                    const historicas = JSON.parse(localStorage.getItem(RECORDS_KEY_VULN) || "[]");
+                    if (Array.isArray(historicas)) d = historicas.slice().reverse().find(coincide) || null;
                 }
             } catch (_) {}
             try {
-                const heredada = JSON.parse(localStorage.getItem(KEY_VULN) || "null");
-                if (coincide(heredada)) return heredada;
+                if (!d) { const heredada = JSON.parse(localStorage.getItem(KEY_VULN) || "null"); if (coincide(heredada)) d = heredada; }
             } catch (_) {}
-            return null;
+            if (!d) return null;
+            // Normalizar la vinculación en memoria para que el generador conserve su flujo actual.
+            return { ...d, inspeccionIndice: indice, inspeccionCliente: inspeccionObjetivo.cliente || inspeccionObjetivo.nombreCliente || inspeccionObjetivo.razonSocial || d.inspeccionCliente || "", inspeccionFecha: fechaObjetivo, inspeccionIdControl: inspeccionObjetivo.idControl || d.inspeccionIdControl || "" };
         }
         const evaluacionVulnerabilidadesResumen = obtenerEvaluacionVulnerabilidadesAsociada(indice);
-        const evaluacionTecnicaAsociadaResumen = !!(evaluacionVulnerabilidadesResumen && Number(evaluacionVulnerabilidadesResumen.inspeccionIndice) === Number(indice));
+        const normalizarIdResumenVuln = valor => String(valor || '').trim().toLowerCase();
+        const idInspeccionResumenVuln = normalizarIdResumenVuln(inspeccion && inspeccion.idControl);
+        const idEvaluacionResumenVuln = normalizarIdResumenVuln(evaluacionVulnerabilidadesResumen && evaluacionVulnerabilidadesResumen.inspeccionIdControl);
+        const evaluacionTecnicaAsociadaResumen = !!(evaluacionVulnerabilidadesResumen && ((idInspeccionResumenVuln && idEvaluacionResumenVuln && idInspeccionResumenVuln === idEvaluacionResumenVuln) || (!idEvaluacionResumenVuln && Number(evaluacionVulnerabilidadesResumen.inspeccionIndice) === Number(indice))));
         const porcentajeChecklistResumen = evaluacionTecnicaAsociadaResumen ? null : (() => {
             let puntos = 0, maximo = 0;
             Object.keys(datosChecklist || {}).forEach(categoria => {
@@ -12005,7 +13302,38 @@ async function generarWordPlantillaMaestra() {
             ? `El diagnóstico inicial de ${clienteResumen} registra el nivel de riesgo evidenciado como “${nivelResumen}”. La observación que sustenta la calificación se presenta en los indicadores anteriores. Se integran además ${CAM14_RECOMENDACIONES_PERMANENTES.length} recomendaciones permanentes de SG-SST y planeación en una sección diferenciada. Este diagnóstico no incorpora resultado de checklist ni matriz de riesgos, salvo que esos datos estén registrados por separado.`
             : `La inspección de ${clienteResumen} registra ${hallazgosVariables.length} hallazgo(s) y ${matrizParaInforme.length} riesgo(s) en la matriz disponible. ${CAM14_RECOMENDACIONES_PERMANENTES.length} recomendaciones permanentes de SG-SST y planeación se integran en una sección diferenciada. ${porcentajeChecklistResumen === null ? "No hay resultado del instrumento preventivo asociado a esta evaluación." : `El checklist tradicional registra ${porcentajeChecklistResumen}% (${perfilChecklistResumen}).`} La priorización debe basarse en los niveles consignados en la matriz y en las evidencias registradas; el porcentaje del checklist no representa por sí solo el nivel global de riesgo.`;
 
-        let cuerpo = titulo("RESUMEN EJECUTIVO", 1)
+        // CAM-WORD-FECHA-ELABORACION-02 — franja independiente en el informe generado.
+        // La fecha de visita permanece en los datos históricos; la vigencia se calcula
+        // desde la fecha real de elaboración. Solo se modifica el contenido generado,
+        // nunca el archivo/estructura de la plantilla Word maestra.
+        const fechaGeneracionWord = new Date();
+        const fechaElaboracionWord = new Intl.DateTimeFormat("es-CO", {
+            day: "2-digit", month: "long", year: "numeric"
+        }).format(fechaGeneracionWord);
+        const fechaVencimientoWord = new Date(fechaGeneracionWord.getTime());
+        const diaOriginalVencimiento = fechaVencimientoWord.getDate();
+        const anioVencimientoWord = fechaVencimientoWord.getFullYear() + 1;
+        const mesVencimientoWord = fechaVencimientoWord.getMonth();
+        const ultimoDiaMesVencimiento = new Date(
+            anioVencimientoWord, mesVencimientoWord + 1, 0
+        ).getDate();
+        fechaVencimientoWord.setDate(1);
+        fechaVencimientoWord.setFullYear(
+            anioVencimientoWord,
+            mesVencimientoWord,
+            Math.min(diaOriginalVencimiento, ultimoDiaMesVencimiento)
+        );
+        const fechaVigenciaWord = new Intl.DateTimeFormat("es-CO", {
+            day: "2-digit", month: "long", year: "numeric"
+        }).format(fechaVencimientoWord);
+        const franjaFechaVigenciaWord = tablaGenerica(
+            ["FECHA DE ELABORACIÓN", "VIGENCIA DEL INFORME"],
+            [[fechaElaboracionWord, `Vigente hasta: ${fechaVigenciaWord}`]],
+            [4619, 4619]
+        );
+
+        let cuerpo = franjaFechaVigenciaWord
+            + titulo("RESUMEN EJECUTIVO", 1)
             + parrafoWord(textoResumenEjecutivo, {font:"Century Gothic",size:"18",after:100,line:260})
             + tablaGenerica(["INDICADOR", "RESULTADO", "LECTURA"], filasResumenISO, [2450, 1750, 4838])
             + titulo("Riesgos prioritarios y medidas registradas", 2)
@@ -12025,7 +13353,8 @@ async function generarWordPlantillaMaestra() {
         // 01. INFORMACIÓN GENERAL
         const info=camposDiligenciados([
             ["Cliente",inspeccion.cliente],["NIT",inspeccion.nit],["Dirección",inspeccion.direccion],["Ciudad",inspeccion.ciudad],
-            ["Contacto",inspeccion.contacto],["Teléfono",inspeccion.telefono],["Correo",inspeccion.correo],["Fecha",inspeccion.fecha],
+            ["Contacto",inspeccion.contacto],["Teléfono",inspeccion.telefono],["Correo",inspeccion.correo],["Fecha de visita",inspeccion.fecha],
+            ["ID de inspección",inspeccion.idControl||inspeccion.idControlInspeccion||"Sin ID"],
             ["Puesto",inspeccion.nombrePuesto],["Sector",inspeccion.sectorInspeccion],
             ["Analista de Riesgos",inspeccion.inspector],["Director Operativo",inspeccion.director],["Tipo de inspección",inspeccion.tipo]
         ]);
@@ -12609,31 +13938,54 @@ h3{color:#000!important;border-bottom:1px solid #F2C500!important}
 }
 
 function obtenerSeccionAnalisisVulnerabilidadesTECCHNEX(indiceInspeccion) {
-    // CAM-VULN-15 — Recuperación de la evaluación asociada para informes PDF.
-    // Busca primero el historial por inspección; después los datos incrustados en la inspección;
-    // finalmente consulta la clave heredada. No modifica el guardado ni el diseño del informe.
+    // CAM-TRAZABILIDAD-02: cliente normalizado + fecha de visita; siempre se evalúa la última inspección del cliente.
+    // Solo se modifica la recuperación de datos. El contenido y el diseño del informe PDF permanecen sin cambios.
     const KEY_VULN = "tecchnex_lista_vulnerabilidades_multisector_v1";
     const RECORDS_KEY_VULN = KEY_VULN + "_registros_v2";
-    const coincide = x => x && Number(x.inspeccionIndice) === Number(indiceInspeccion);
+    let lista = [], inspeccionObjetivo = null;
+    try { lista = JSON.parse(localStorage.getItem("inspecciones") || "[]"); } catch (e) {}
+    if (!Array.isArray(lista)) lista = [];
+    const indiceSolicitado = Number(indiceInspeccion);
+    inspeccionObjetivo = Number.isInteger(indiceSolicitado) && indiceSolicitado >= 0 ? lista[indiceSolicitado] : null;
+    const normCliente = valor => String(valor || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase().replace(/\s+/g, " ");
+    const nomCliente = x => normCliente(x && (x.cliente || x.nombreCliente || x.razonSocial));
+    const fecha = x => { const v=String(x && (x.fecha || x.fechaInspeccion) || "").trim(); const m=v.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/); return m ? m[3]+"-"+String(m[2]).padStart(2,"0")+"-"+String(m[1]).padStart(2,"0") : v.slice(0,10); };
+    const idNorm = valor => String(valor || "").trim().toLowerCase();
+    if (!inspeccionObjetivo) return '<section class="bloque-pdf analisis-vulnerabilidades-pdf"><h2>Análisis técnico de vulnerabilidades</h2><p>No se encontró una inspección válida para asociar la evaluación.</p></section>';
+    const clienteObjetivo = nomCliente(inspeccionObjetivo), fechaObjetivo = fecha(inspeccionObjetivo);
+    const indicesCliente = lista.map((x,i)=>nomCliente(x)===clienteObjetivo?i:-1).filter(i=>i>=0);
+    const indiceUltimo = indicesCliente.slice().sort((a,b)=>{const da=Date.parse((fecha(lista[a])||"")+"T12:00:00"),db=Date.parse((fecha(lista[b])||"")+"T12:00:00");if(Number.isFinite(da)&&Number.isFinite(db)&&da!==db)return db-da;if(Number.isFinite(da)!==Number.isFinite(db))return Number.isFinite(db)?1:-1;return b-a})[0];
+    if (clienteObjetivo && indiceUltimo !== indiceSolicitado) return '<section class="bloque-pdf analisis-vulnerabilidades-pdf"><h2>Análisis técnico de vulnerabilidades</h2><p>La evaluación técnica se vincula a la última inspección del cliente. La inspección seleccionada corresponde a una visita anterior; genere este informe desde la última inspección o seleccione el registro más reciente.</p></section>';
+    const cuentaCliente = indicesCliente.length;
+    const coincide = ev => {
+        if (!ev) return false;
+        const clienteEv = normCliente(ev.inspeccionCliente || ev.cliente || ev.nombreCliente);
+        const fechaEv = String(ev.inspeccionFecha || "").slice(0,10);
+        const idEv = idNorm(ev.inspeccionIdControl);
+        const idObj = idNorm(inspeccionObjetivo.idControl);
+        if (clienteObjetivo && clienteEv && clienteEv !== clienteObjetivo) return false;
+        if (clienteObjetivo && clienteEv && fechaObjetivo && fechaEv) return fechaObjetivo === fechaEv;
+        if (clienteObjetivo && clienteEv && clienteEv === clienteObjetivo) {
+            if (idObj && idEv && idObj === idEv) return true;
+            if (ev.inspeccionIndice !== null && ev.inspeccionIndice !== undefined && String(ev.inspeccionIndice).trim() !== "" && Number(ev.inspeccionIndice) === indiceSolicitado) return true;
+            if (cuentaCliente === 1) return true;
+            return false;
+        }
+        return !clienteEv && idObj && idEv && idObj === idEv;
+    };
     let d = null;
+    if (coincide(inspeccionObjetivo.evaluacionVulnerabilidades)) d = inspeccionObjetivo.evaluacionVulnerabilidades;
     try {
-        const registros = JSON.parse(localStorage.getItem(RECORDS_KEY_VULN) || "[]");
-        if (Array.isArray(registros)) d = registros.slice().reverse().find(coincide) || null;
+        if (!d) {
+            const registros = JSON.parse(localStorage.getItem(RECORDS_KEY_VULN) || "[]");
+            if (Array.isArray(registros)) d = registros.slice().reverse().find(coincide) || null;
+        }
     } catch (e) {}
-    if (!d) {
-        try {
-            const inspecciones = JSON.parse(localStorage.getItem("inspecciones") || "[]");
-            const inspeccion = Array.isArray(inspecciones) ? inspecciones[Number(indiceInspeccion)] : null;
-            if (inspeccion && coincide(inspeccion.evaluacionVulnerabilidades)) d = inspeccion.evaluacionVulnerabilidades;
-        } catch (e) {}
-    }
-    if (!d) {
-        try {
-            const heredada = JSON.parse(localStorage.getItem(KEY_VULN) || "null");
-            if (coincide(heredada)) d = heredada;
-        } catch (e) {}
-    }
-    if (!d) return '<section class="bloque-pdf analisis-vulnerabilidades-pdf"><h2>Análisis técnico de vulnerabilidades</h2><p>No se encontró una evaluación técnica vinculada a esta inspección. Abra «Análisis de vulnerabilidades», seleccione la inspección correcta y guarde la evaluación antes de generar el informe.</p></section>';
+    try {
+        if (!d) { const heredada = JSON.parse(localStorage.getItem(KEY_VULN) || "null"); if (coincide(heredada)) d = heredada; }
+    } catch (e) {}
+    if (d) d = { ...d, inspeccionIndice: indiceSolicitado, inspeccionCliente: inspeccionObjetivo.cliente || inspeccionObjetivo.nombreCliente || inspeccionObjetivo.razonSocial || d.inspeccionCliente || "", inspeccionFecha: fechaObjetivo, inspeccionIdControl: inspeccionObjetivo.idControl || d.inspeccionIdControl || "" };
+    if (!d) return '<section class="bloque-pdf analisis-vulnerabilidades-pdf"><h2>Análisis técnico de vulnerabilidades</h2><p>No existe una evaluación guardada para la última inspección de este cliente. Abra «Análisis de vulnerabilidades» desde la inspección más reciente, complete o recupere su evaluación y guárdela antes de generar el informe.</p></section>';
     const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
     const respuestas = d.respuestas || {}, notas = d.observacionesPorPregunta || {};
     // CAM-VULN-INFORME-CATALOGO-01: reutiliza las mismas preguntas e índices de la evaluación.
@@ -16046,5 +17398,7 @@ if ("serviceWorker" in navigator) {
 })();
 </script>
 
+
+<!-- CAM-VULN-RESPONSABLE-02: campo manual por pregunta en la lista activa con estados Cumple/Parcial/No cumple/No aplica/No verificado. Se exige al guardar cuando la respuesta es Parcial o No cumple; se persiste en la evaluación existente, sin crear tablas ni modificar la plantilla Word maestra. -->
 </body>
 </html>
