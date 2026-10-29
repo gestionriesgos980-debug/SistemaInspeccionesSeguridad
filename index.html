@@ -13596,7 +13596,39 @@ async function generarWordPlantillaMaestra() {
                 if (h[0] === 'RIESGO MATERIALIZADO') return Array(cols).fill('both');
                 return Array(cols).fill('both');
             })();
-            const body=rows.length ? rows.map(row=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${row.map((v,i)=>celdaWord(v,{width:anchos[i]||Math.floor(ANCHO_TABLA_MAESTRA/cols),size:'16',align:alineaciones[i]||'both',vAlign:(esTablaDetalleChecklist && [0,2,3].includes(i)) || esTablaMatrizRiesgos ? 'center' : undefined})).join('')}</w:tr>`).join('') : `<w:tr>${celdaWord('No se registró información.',{width:ANCHO_TABLA_MAESTRA,colspan:cols,align:'center',color:'666666'})}</w:tr>`;
+            // CAM-SEMÁFORO-TABLAS-WORD-01 — Colorear solo las celdas de RESULTADO y NIVEL.
+            // Se reutiliza la paleta vigente del mapa de calor; no cambia datos ni valoraciones.
+            const colorSemaforoTabla = (valor, tipo) => {
+                // Normalización real de tildes y espacios; solo presentación del valor existente.
+                const texto = String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+                if (tipo === 'resultado') {
+                    if (texto === 'cumple' || texto === 'bueno') return { shading: '00B050', color: 'FFFFFF' };
+                    if (texto === 'parcial' || texto === 'regular') return { shading: 'FFFF00', color: '111111' };
+                    if (texto === 'no cumple' || texto === 'malo') return { shading: 'FF0000', color: 'FFFFFF' };
+                    if (texto === 'no aplica') return { shading: 'E5E7EB', color: '374151' };
+                    if (texto === 'no verificado') return { shading: 'DCEAF7', color: '123B5D' };
+                    if (texto === 'pendiente' || texto === 'sin respuesta') return { shading: 'E5E7EB', color: '374151' };
+                }
+                if (tipo === 'nivel') {
+                    if (/\bcritico\b/.test(texto)) return { shading: 'D32F2F', color: 'FFFFFF' };
+                    if (/\balto\b/.test(texto)) return { shading: 'F57C00', color: 'FFFFFF' };
+                    if (/\bmedio\b|\bmoderado\b/.test(texto)) return { shading: 'FFFF00', color: '111111' };
+                    if (/\bbajo\b/.test(texto)) return { shading: '00B050', color: 'FFFFFF' };
+                }
+                return {};
+            };
+            const body=rows.length ? rows.map(row=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${row.map((v,i)=>{
+                const tipoSemaforo = esTablaDetalleChecklist && i === 2 ? 'resultado' : (esTablaMatrizRiesgos && i === 6 ? 'nivel' : '');
+                const estiloSemaforo = tipoSemaforo ? colorSemaforoTabla(v, tipoSemaforo) : {};
+                return celdaWord(v,{
+                    width:anchos[i]||Math.floor(ANCHO_TABLA_MAESTRA/cols),
+                    size:'16',
+                    align:alineaciones[i]||'both',
+                    vAlign:(esTablaDetalleChecklist && [0,2,3].includes(i)) || esTablaMatrizRiesgos ? 'center' : undefined,
+                    shading:estiloSemaforo.shading,
+                    color:estiloSemaforo.color
+                });
+            }).join('')}</w:tr>`).join('') : `<w:tr>${celdaWord('No se registró información.',{width:ANCHO_TABLA_MAESTRA,colspan:cols,align:'center',color:'666666'})}</w:tr>`;
             return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B8B8B8"/><w:left w:val="single" w:sz="6" w:color="B8B8B8"/><w:bottom w:val="single" w:sz="6" w:color="B8B8B8"/><w:right w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideH w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideV w:val="single" w:sz="6" w:color="B8B8B8"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${tablaCabeceras(headers,anchos,esTablaDetalleChecklist ? 'center' : undefined)}${body}</w:tbl>`;
         }
         // CAM-MAPA-CALOR-REF-01 — Mapa de calor Word basado en la referencia visual aprobada.
@@ -14204,6 +14236,13 @@ async function generarWordPlantillaMaestra() {
                 + (dashboardAreasImagenWord ? tablaContenedoraImagenAlineadaWord(dashboardAreasImagenWord) : parrafoWord("El resumen visual no estuvo disponible en esta generación. Revise la evaluación y vuelva a generar el informe.",{font:"Century Gothic",size:"15",color:"666666",after:45,line:230}))
                 + titulo("Detalle de la lista de chequeo",2)
                 + tablaGenerica(["ÁREA","ASPECTO EVALUADO","RESULTADO","RESPONSABLE DE LA GESTIÓN","OBSERVACIÓN / EVIDENCIA"],filasEv,[1250,3000,1100,1500,2138])
+                // CAM-VULN-OBS-GENERALES-WORD-01: imprimir las observaciones generales
+                // guardadas en la evaluación asociada, después de la tabla y antes del criterio.
+                // Se modifica solo el contenido generado; no se altera la plantilla maestra Word.
+                + (String(ev.observaciones || "").trim()
+                    ? titulo("Observaciones generales",2)
+                        + parrafoWord(String(ev.observaciones).trim(),{font:"Century Gothic",size:"17",after:70,line:250})
+                    : "")
                 + titulo("Criterio de interpretación técnica",2)
                 + parrafoWord("Las condiciones registradas deben analizarse en relación con los activos expuestos, las amenazas pertinentes, los controles existentes, la posibilidad de ocurrencia y las consecuencias potenciales. La valoración y priorización se documentan en la matriz de riesgos con la metodología vigente de TECCHNEX; una respuesta NC o Parcial no asigna automáticamente un nivel de riesgo.",{font:"Century Gothic",size:"17",after:80,line:250});
             }
@@ -14768,7 +14807,14 @@ function obtenerSeccionAnalisisVulnerabilidadesTECCHNEX(indiceInspeccion) {
     all.forEach((g,gi)=>g[1].forEach((q,ii)=>{const k=gi+'-'+ii,v=respuestas[k]||"",note=notas[k]||"";
         // CAM-VULN-NA-INFORME-01: no imprimir los ítems marcados "No aplica" ni contarlos en el resumen.
         if(v==="NA") return;
-        total++;if(v==="NC")nc++;if(v==="P")parcial++;if(!v)pendientes++;if(v==="NC"||v==="P"||note.trim())rows+=`<tr><td>${esc(g[0])}</td><td>${esc(q)}</td><td>${esc(labels[v]||"Pendiente")}</td><td>${esc(note||"Sin observación registrada")}</td><td>${v==="NC"?"Condición no conforme: validar exposición, amenaza y consecuencia.":v==="P"?"Control parcial: determinar brecha y eficacia del control.":"Revisar evidencia y contexto antes de concluir."}</td></tr>`;}));
+        total++;if(v==="NC")nc++;if(v==="P")parcial++;if(!v)pendientes++;
+        if(v==="NC"||v==="P"||note.trim()){
+            const colorResultado = v === "C" ? "#00B050" : v === "P" ? "#FFFF00" : v === "NC" ? "#FF0000" : v === "NV" ? "#DCEAF7" : "#E5E7EB";
+            const textoResultado = v === "C" || v === "NC" ? "#FFFFFF" : "#111111";
+            const estiloResultado = `background-color:${colorResultado};color:${textoResultado};font-weight:bold;text-align:center;vertical-align:middle;-webkit-print-color-adjust:exact;print-color-adjust:exact;`;
+            rows+=`<tr><td>${esc(g[0])}</td><td>${esc(q)}</td><td style="${estiloResultado}">${esc(labels[v]||"Pendiente")}</td><td>${esc(note||"Sin observación registrada")}</td><td>${v==="NC"?"Condición no conforme: validar exposición, amenaza y consecuencia.":v==="P"?"Control parcial: determinar brecha y eficacia del control.":"Revisar evidencia y contexto antes de concluir."}</td></tr>`;
+        }
+    }));
     if (!rows) rows='<tr><td colspan="5">No se registraron respuestas NC, parciales ni observaciones para detallar.</td></tr>';
     // CAM-INFORME-APARIENCIA-02: mismo orden visual del bloque Word, dentro del informe generado.
     return `<section class="bloque-pdf analisis-vulnerabilidades-pdf">
@@ -15640,10 +15686,8 @@ matrizParaInforme.forEach((riesgo, indice) => {
                 <td>${escapar(riesgo.probabilidad)}</td>
                 <td>${escapar(riesgo.impacto)}</td>
                 <td>${escapar(riesgo.puntuacion)}</td>
-                <td>
-                    <strong>
-                        ${escapar(riesgo.nivel)}
-                    </strong>
+                <td style="${(() => { const nivel = String(riesgo.nivel || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); const color = /\bcritico\b/.test(nivel) ? '#D32F2F' : /\balto\b/.test(nivel) ? '#F57C00' : /\bmedio\b|\bmoderado\b/.test(nivel) ? '#FFFF00' : /\bbajo\b/.test(nivel) ? '#00B050' : ''; const texto = color === '#D32F2F' || color === '#F57C00' || color === '#00B050' ? '#FFFFFF' : '#111111'; return color ? `background-color:${color};color:${texto};-webkit-print-color-adjust:exact;print-color-adjust:exact;text-align:center;vertical-align:middle;` : 'text-align:center;vertical-align:middle;'; })()}">
+                    <strong>${escapar(riesgo.nivel)}</strong>
                 </td>
                 <td>${escapar(riesgo.tratamiento)}</td>
             </tr>
