@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="es">
 <!--
+CAM-INSPECCIONES-LAB-V10 — CAM-VULN-DASHBOARD-GRAFICO-02
+Cambio controlado: encabezado/acentos azules oscuros del panel a negro; el gráfico visual reemplaza la tabla numérica de resumen por área. Se conserva el detalle de la lista de chequeo.
+Base de trabajo: V9. No modifica la plantilla maestra Word ni las estructuras de almacenamiento.
+
 TECCHNEX — CAM-TRAZABILIDAD-01 / LAB V1
 Base validada: CAM-DATOS-01. Cambio: asociación por idControl con compatibilidad para evaluaciones heredadas.
 
@@ -2548,13 +2552,19 @@ function render(){
 }
 function data(){return {schema:'TECCHNEX-VULNERABILIDADES-1',id:state.id||('VUL-'+Date.now()),actualizado:new Date().toISOString(),...readMeta(),respuestas:state.answers,observacionesPorPregunta:state.notes,responsablesGestion:state.responsibles}}
 function updateSummary(){
- const vals=Object.values(state.answers),total=allSections().reduce((n,g)=>n+g[1].length,0),reviewed=vals.length;
- const nc=vals.filter(v=>v==='NC').length,partial=vals.filter(v=>v==='P').length;
+ const vals=Object.values(state.answers),secciones=allSections(),total=secciones.reduce((n,g)=>n+g[1].length,0),reviewed=vals.length;
+ const nc=vals.filter(v=>v==='NC').length,partial=vals.filter(v=>v==='P').length,cumple=vals.filter(v=>v==='C').length,noAplica=vals.filter(v=>v==='NA').length,noVerificado=vals.filter(v=>v==='NV').length;
+ const aplicables=Math.max(0,total-noAplica);
+ const respondidasValidas=cumple+partial+nc;
+ const porcentajeCumplimiento=respondidasValidas?Math.round(cumple/respondidasValidas*100):null;
+ const respondidasAplicables=cumple+partial+nc+noVerificado;
+ const cobertura=aplicables?Math.round(respondidasAplicables/aplicables*100):0;
+ const textoCumplimiento=porcentajeCumplimiento===null?'Cumplimiento: sin datos verificables':'Cumplimiento observado: '+porcentajeCumplimiento+'%';
  const sinObservacion=Object.entries(state.answers).filter(([key,v])=>(v==='NC'||v==='P')&&!String(state.notes[key]||'').trim()).length;
  const notaEstado=sinObservacion
   ? '<span style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;padding:6px 9px;border-radius:6px">Parcial/No cumple sin observación: '+sinObservacion+'</span>'
   : '<span style="background:#dcfce7;color:#166534;padding:6px 9px;border-radius:6px">Condiciones Parcial/No cumple documentadas</span>';
- $('camVulnResumen').innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:5px 0 10px"><span style="background:#e2e8f0;padding:6px 9px;border-radius:6px">Revisados: '+reviewed+'/'+total+'</span><span style="background:#fee2e2;padding:6px 9px;border-radius:6px">No cumple: '+nc+'</span><span style="background:#fef3c7;padding:6px 9px;border-radius:6px">Parcial: '+partial+'</span>'+notaEstado+'</div>';
+ $('camVulnResumen').innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:5px 0 10px"><span style="background:#e2e8f0;padding:6px 9px;border-radius:6px">Revisados: '+reviewed+'/'+total+'</span><span style="background:#dbeafe;color:#1e40af;padding:6px 9px;border-radius:6px">'+textoCumplimiento+'</span><span style="background:#e0f2fe;color:#075985;padding:6px 9px;border-radius:6px">Cobertura: '+cobertura+'%</span><span style="background:#fee2e2;padding:6px 9px;border-radius:6px">No cumple: '+nc+'</span><span style="background:#fef3c7;padding:6px 9px;border-radius:6px">Parcial: '+partial+'</span><span style="background:#f1f5f9;padding:6px 9px;border-radius:6px">No verificado: '+noVerificado+'</span>'+notaEstado+'</div><div style="font-size:11px;color:#64748b;margin:0 0 8px">Cumplimiento = Cumple / (Cumple + Parcial + No cumple). No aplica, No verificado y preguntas pendientes no entran en ese cálculo. Cobertura incluye respuestas C, P, NC y NV; excluye No aplica.</div>';
 }
 const RECORDS_KEY=KEY+'_registros_v2';
 function readRecords(){try{const r=JSON.parse(localStorage.getItem(RECORDS_KEY)||'[]');return Array.isArray(r)?r:[]}catch(e){return []}}
@@ -12941,7 +12951,7 @@ async function generarWordPlantillaMaestra() {
             const valign=opciones.vAlign ? `<w:vAlign w:val="${opciones.vAlign}"/>` : "";
             const margins=`<w:tcMar><w:top w:w="80" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tcMar>`;
             const borders=`<w:tcBorders><w:top w:val="single" w:sz="6" w:color="B8B8B8"/><w:left w:val="single" w:sz="6" w:color="B8B8B8"/><w:bottom w:val="single" w:sz="6" w:color="B8B8B8"/><w:right w:val="single" w:sz="6" w:color="B8B8B8"/></w:tcBorders>`;
-            return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${span}${shade}${valign}${margins}${borders}</w:tcPr>${parrafoWord(valor,{font:'Century Gothic',size:opciones.size||'18',bold:!!opciones.bold,color:opciones.color||'000000',align:opciones.align||'left',line:240})}</w:tc>`;
+            return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${span}${shade}${valign}${margins}${borders}</w:tcPr>${parrafoWord(valor,{font:'Century Gothic',size:opciones.size||'18',bold:!!opciones.bold,color:opciones.color||'000000',align:opciones.align||'center',line:240})}</w:tc>`;
         }
 
         // CAMPO VISUAL 03 — INTERVENCIÓN 04
@@ -12983,6 +12993,15 @@ async function generarWordPlantillaMaestra() {
         // Las tablas del contenido adoptan exactamente esa misma huella visual.
         const ANCHO_TABLA_MAESTRA = 10774;
         const SANGRIA_TABLA_MAESTRA = -998;
+
+        // CAM-WORD-VISUAL-04 — Alinea el panel gráfico con la misma huella
+        // horizontal de las tablas del informe. Se aplica solo al dashboard.
+        function tablaContenedoraImagenAlineadaWord(contenido) {
+            const bordesSinLinea = `<w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders>`;
+            const margenesCeldaCero = `<w:tcMar><w:top w:w="0" w:type="dxa"/><w:left w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/></w:tcMar>`;
+            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/>${bordesSinLinea}</w:tblPr><w:tblGrid><w:gridCol w:w="${ANCHO_TABLA_MAESTRA}"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr><w:tc><w:tcPr><w:tcW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/>${margenesCeldaCero}<w:vAlign w:val="center"/></w:tcPr>${contenido}</w:tc></w:tr></w:tbl>`;
+        }
+
         const ANCHO_ETIQUETA_2COL = 2679;
         const ANCHO_VALOR_2COL = 8095;
 
@@ -12993,6 +13012,7 @@ async function generarWordPlantillaMaestra() {
             return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B8B8B8"/><w:left w:val="single" w:sz="6" w:color="B8B8B8"/><w:bottom w:val="single" w:sz="6" w:color="B8B8B8"/><w:right w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideH w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideV w:val="single" w:sz="6" w:color="B8B8B8"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${ANCHO_ETIQUETA_2COL}"/><w:gridCol w:w="${ANCHO_VALOR_2COL}"/></w:tblGrid>${filas}</w:tbl>`;
         }
 
+        // CAM-WORD-VISUAL-03 — V12: resumen ejecutivo justificado y contenido tabular centrado.
         // CAM-WORD-VISUAL-ESTILO-01 — NEGRO / AMARILLO / GRIS SUAVE
         // El encabezado de la plantilla DOCX no se toca; estos ajustes afectan solo al cuerpo generado.
         // CAM-WORD-VISUAL-02 — DATOS INICIALES EN CUATRO COLUMNAS
@@ -13011,13 +13031,13 @@ async function generarWordPlantillaMaestra() {
                 const a=pares[i];
                 const b=pares[i+1];
                 if(!b){
-                    cells.push(celdaWord(a[0],{width:ANCHO_ETIQUETA_4COL,shading:'EEF1F4',bold:true,color:'111111',align:opts.align||'left'}));
-                    cells.push(celdaWord(a[1],{width:ANCHO_VALOR_4COL_A+ANCHO_ETIQUETA_4COL_B+ANCHO_VALOR_4COL_B,size:opts.size||'18',colspan:3,align:opts.align||'left'}));
+                    cells.push(celdaWord(a[0],{width:ANCHO_ETIQUETA_4COL,shading:'EEF1F4',bold:true,color:'111111',align:opts.align||'center'}));
+                    cells.push(celdaWord(a[1],{width:ANCHO_VALOR_4COL_A+ANCHO_ETIQUETA_4COL_B+ANCHO_VALOR_4COL_B,size:opts.size||'18',colspan:3,align:opts.align||'center'}));
                 }else{
-                    cells.push(celdaWord(a[0],{width:ANCHO_ETIQUETA_4COL,shading:'EEF1F4',bold:true,color:'111111',align:opts.align||'left'}));
-                    cells.push(celdaWord(a[1],{width:ANCHO_VALOR_4COL_A,size:opts.size||'18',align:opts.align||'left'}));
-                    cells.push(celdaWord(b[0],{width:ANCHO_ETIQUETA_4COL_B,shading:'EEF1F4',bold:true,color:'111111',align:opts.align||'left'}));
-                    cells.push(celdaWord(b[1],{width:ANCHO_VALOR_4COL_B,size:opts.size||'18',align:opts.align||'left'}));
+                    cells.push(celdaWord(a[0],{width:ANCHO_ETIQUETA_4COL,shading:'EEF1F4',bold:true,color:'111111',align:opts.align||'center'}));
+                    cells.push(celdaWord(a[1],{width:ANCHO_VALOR_4COL_A,size:opts.size||'18',align:opts.align||'center'}));
+                    cells.push(celdaWord(b[0],{width:ANCHO_ETIQUETA_4COL_B,shading:'EEF1F4',bold:true,color:'111111',align:opts.align||'center'}));
+                    cells.push(celdaWord(b[1],{width:ANCHO_VALOR_4COL_B,size:opts.size||'18',align:opts.align||'center'}));
                 }
             }
             return `<w:tr><w:trPr><w:cantSplit/></w:trPr>${cells.join('')}</w:tr>`;
@@ -13035,25 +13055,38 @@ async function generarWordPlantillaMaestra() {
             }
             return parrafoWord(texto,{font:'Century Gothic',size:'21',bold:true,color:'000000',before:130,after:80,line:250,keepNext:true});
         }
-        function tablaCabeceras(headers,widths) {
-            return `<w:tr><w:trPr><w:tblHeader/></w:trPr>${headers.map((h,i)=>celdaWord(h,{width:widths[i]||2200,shading:'000000',bold:true,color:'FFFFFF',align:'center',size:'16'})).join('')}</w:tr>`;
+        function tablaCabeceras(headers,widths,vAlign) {
+            return `<w:tr><w:trPr><w:tblHeader/></w:trPr>${headers.map((h,i)=>celdaWord(h,{width:widths[i]||2200,shading:'000000',bold:true,color:'FFFFFF',align:'center',size:'16',vAlign:vAlign||undefined})).join('')}</w:tr>`;
         }
-        function tablaGenerica(headers,rows,widths) {
+        function tablaGenerica(headers,rows,widths,centrarTodas=false) {
             const cols=headers.length;
             const sumaOriginal=(widths||[]).reduce((a,b)=>a+Number(b||0),0)||8838;
             const factor=ANCHO_TABLA_MAESTRA/sumaOriginal;
             const anchos=(widths&&widths.length) ? widths.map((w,i)=> i===widths.length-1 ? ANCHO_TABLA_MAESTRA-widths.slice(0,-1).reduce((a,b)=>a+Math.round(Number(b||0)*factor),0) : Math.round(Number(w||0)*factor)) : Array(cols).fill(Math.floor(ANCHO_TABLA_MAESTRA/cols));
+            // CAM-WORD-VISUAL-06 — alineación específica del detalle de la lista de chequeo.
+            // Área, Resultado y Responsable: centrado horizontal y vertical.
+            // Aspecto evaluado y Observación/Evidencia: alineación a la izquierda para mejorar la lectura.
+            // Las demás tablas conservan sus alineaciones previas.
+            const h = headers.map(x => String(x || '').toUpperCase().trim());
+            const esTablaDetalleChecklist = h[0] === 'ÁREA' && h.includes('ASPECTO EVALUADO') && h.includes('RESULTADO') && h.includes('RESPONSABLE DE LA GESTIÓN') && h.includes('OBSERVACIÓN / EVIDENCIA');
+            const esTablaMatrizRiesgos = h[0] === '#' && h.includes('ÁREA') && h.includes('ELEMENTO / PELIGRO') && h.includes('PROBABILIDAD') && h.includes('PUNTUACIÓN') && h.includes('NIVEL') && h.includes('TRATAMIENTO');
             const alineaciones = (() => {
-                const h = headers.map(x => String(x || '').toUpperCase().trim());
+                // CAM-WORD-VISUAL-05 — centrar solo las tablas de dispositivos de seguridad
+                // cuando el generador lo solicita explícitamente; el resto conserva sus reglas.
+                if (centrarTodas) return Array(cols).fill('center');
+                if (esTablaDetalleChecklist) return ['center','left','center','center','left'];
+                // CAM-WORD-VISUAL-07 — matriz de riesgos: centrar las columnas de datos;
+                // Tratamiento queda alineado a la izquierda para facilitar la lectura.
+                if (esTablaMatrizRiesgos) return [...Array(Math.max(0, cols - 1)).fill('center'), 'left'];
                 if (h[0] === 'ASPECTO / CATEGORÍA') return ['both','center','center'];
                 if (h[0] === 'PERFIL') return ['both','center','center','both'];
                 if (h[0] === '#' && h.includes('TRATAMIENTO')) return Array(cols).fill('center');
-                if (h[0] === 'ETAPA') return Array(cols).fill('both');
+                if (h[0] === 'ETAPA') return ['center','both', ...Array(Math.max(0, cols - 2)).fill('both')];
                 if (h[0] === 'RIESGO MATERIALIZADO') return Array(cols).fill('both');
                 return Array(cols).fill('both');
             })();
-            const body=rows.length ? rows.map(row=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${row.map((v,i)=>celdaWord(v,{width:anchos[i]||Math.floor(ANCHO_TABLA_MAESTRA/cols),size:'16',align:alineaciones[i]||'both'})).join('')}</w:tr>`).join('') : `<w:tr>${celdaWord('No se registró información.',{width:ANCHO_TABLA_MAESTRA,colspan:cols,align:'center',color:'666666'})}</w:tr>`;
-            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B8B8B8"/><w:left w:val="single" w:sz="6" w:color="B8B8B8"/><w:bottom w:val="single" w:sz="6" w:color="B8B8B8"/><w:right w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideH w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideV w:val="single" w:sz="6" w:color="B8B8B8"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${tablaCabeceras(headers,anchos)}${body}</w:tbl>`;
+            const body=rows.length ? rows.map(row=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${row.map((v,i)=>celdaWord(v,{width:anchos[i]||Math.floor(ANCHO_TABLA_MAESTRA/cols),size:'16',align:alineaciones[i]||'both',vAlign:(esTablaDetalleChecklist && [0,2,3].includes(i)) || esTablaMatrizRiesgos ? 'center' : undefined})).join('')}</w:tr>`).join('') : `<w:tr>${celdaWord('No se registró información.',{width:ANCHO_TABLA_MAESTRA,colspan:cols,align:'center',color:'666666'})}</w:tr>`;
+            return `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B8B8B8"/><w:left w:val="single" w:sz="6" w:color="B8B8B8"/><w:bottom w:val="single" w:sz="6" w:color="B8B8B8"/><w:right w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideH w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideV w:val="single" w:sz="6" w:color="B8B8B8"/></w:tblBorders></w:tblPr><w:tblGrid>${anchos.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${tablaCabeceras(headers,anchos,esTablaDetalleChecklist ? 'center' : undefined)}${body}</w:tbl>`;
         }
         // CAM-MAPA-CALOR-REF-01 — Mapa de calor Word basado en la referencia visual aprobada.
         // La matriz conserva datos de riesgo dinámicos; las etiquetas y convenciones replican el documento MAPA DE CALOR.
@@ -13186,11 +13219,14 @@ async function generarWordPlantillaMaestra() {
                 ["{{TITULO_DOCUMENTO}}",tituloDocumento],
                 ["{{CLIENTE}}",clienteDocumento]
             ].forEach(([m,v])=>headerXml=headerXml.split(m).join(escaparXmlWord(v)));
-            // Se conserva el puesto en su línea original y el ID aparece debajo,
-            // usando un salto de línea Word nativo dentro de la copia del encabezado.
-            headerXml=headerXml.split("{{PUESTO}}").join(
-                escaparXmlWord(puesto)+"</w:t><w:br/><w:t>ID DE INSPECCIÓN: "+escaparXmlWord(idInspeccionDocumento)
-            );
+            // CAM-WORD-ID-INSPECCION-02 — Encabezado compacto.
+            // El marcador PUESTO ya tiene un salto de línea previo desde CLIENTE.
+            // Si el puesto está vacío, no insertar un segundo salto: evita una línea en blanco.
+            // Si hay puesto, conservar una sola línea de separación entre el puesto y el ID.
+            const contenidoPuestoEId = String(puesto).trim()
+                ? escaparXmlWord(puesto)+"</w:t><w:br/><w:t>ID DE INSPECCIÓN: "+escaparXmlWord(idInspeccionDocumento)
+                : "</w:t><w:t>ID DE INSPECCIÓN: "+escaparXmlWord(idInspeccionDocumento);
+            headerXml=headerXml.split("{{PUESTO}}").join(contenidoPuestoEId);
             // La plantilla aprobada contiene el título preventivo como texto fijo,
             // no como marcador. En la copia generada se sustituye solo ese valor,
             // conservando el mismo nodo, formato, celda y estructura del encabezado.
@@ -13224,13 +13260,17 @@ async function generarWordPlantillaMaestra() {
             const coincide = ev => {
                 if (!ev) return false;
                 const clienteEv = normalizarNombre(ev.inspeccionCliente || ev.cliente || ev.nombreCliente);
-                const fechaEv = String(ev.inspeccionFecha || "").slice(0,10);
-                const idEv = normalizarId(ev.inspeccionIdControl), idObjetivo = normalizarId(inspeccionObjetivo.idControl);
+                const fechaEvRaw = String(ev.inspeccionFecha || ev.fechaInspeccion || "").trim();
+                const fechaEvMatch = fechaEvRaw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+                const fechaEv = fechaEvMatch ? fechaEvMatch[3]+"-"+String(fechaEvMatch[2]).padStart(2,"0")+"-"+String(fechaEvMatch[1]).padStart(2,"0") : fechaEvRaw.slice(0,10);
+                const idEv = normalizarId(ev.inspeccionIdControl || ev.idControl || ev.idControlInspeccion);
+                const idObjetivo = normalizarId(inspeccionObjetivo.idControl || inspeccionObjetivo.idControlInspeccion);
                 if (clienteObjetivo && clienteEv && clienteEv !== clienteObjetivo) return false;
+                // La coincidencia exacta por ID es la evidencia más fuerte; después se usa cliente/fecha.
+                if (idObjetivo && idEv) return idObjetivo === idEv;
                 if (clienteObjetivo && clienteEv && fechaObjetivo && fechaEv) return fechaObjetivo === fechaEv;
                 if (clienteObjetivo && clienteEv && clienteEv === clienteObjetivo) {
-                    if (idObjetivo && idEv && idObjetivo === idEv) return true;
-                    if (Number(ev.inspeccionIndice) === indice) return true;
+                    if (ev.inspeccionIndice !== null && ev.inspeccionIndice !== undefined && String(ev.inspeccionIndice).trim() !== "" && Number(ev.inspeccionIndice) === indice) return true;
                     if (indicesCliente.length === 1) return true;
                     return false;
                 }
@@ -13250,13 +13290,42 @@ async function generarWordPlantillaMaestra() {
             } catch (_) {}
             if (!d) return null;
             // Normalizar la vinculación en memoria para que el generador conserve su flujo actual.
-            return { ...d, inspeccionIndice: indice, inspeccionCliente: inspeccionObjetivo.cliente || inspeccionObjetivo.nombreCliente || inspeccionObjetivo.razonSocial || d.inspeccionCliente || "", inspeccionFecha: fechaObjetivo, inspeccionIdControl: inspeccionObjetivo.idControl || d.inspeccionIdControl || "" };
+            return { ...d, inspeccionIndice: indice, inspeccionCliente: inspeccionObjetivo.cliente || inspeccionObjetivo.nombreCliente || inspeccionObjetivo.razonSocial || d.inspeccionCliente || "", inspeccionFecha: fechaObjetivo, inspeccionIdControl: inspeccionObjetivo.idControl || inspeccionObjetivo.idControlInspeccion || d.inspeccionIdControl || d.idControl || "" };
         }
         const evaluacionVulnerabilidadesResumen = obtenerEvaluacionVulnerabilidadesAsociada(indice);
         const normalizarIdResumenVuln = valor => String(valor || '').trim().toLowerCase();
         const idInspeccionResumenVuln = normalizarIdResumenVuln(inspeccion && inspeccion.idControl);
         const idEvaluacionResumenVuln = normalizarIdResumenVuln(evaluacionVulnerabilidadesResumen && evaluacionVulnerabilidadesResumen.inspeccionIdControl);
         const evaluacionTecnicaAsociadaResumen = !!(evaluacionVulnerabilidadesResumen && ((idInspeccionResumenVuln && idEvaluacionResumenVuln && idInspeccionResumenVuln === idEvaluacionResumenVuln) || (!idEvaluacionResumenVuln && Number(evaluacionVulnerabilidadesResumen.inspeccionIndice) === Number(indice))));
+        // CAM-VULN-PORCENTAJE-01: calcular indicadores desde la nueva lista de análisis de vulnerabilidades.
+        // Cumplimiento = C / (C + P + NC); No aplica, No verificado y pendientes se excluyen.
+        // Cobertura = (C + P + NC + NV) / preguntas aplicables; No aplica se excluye.
+        const metricasVulnerabilidadesResumen = evaluacionTecnicaAsociadaResumen ? (() => {
+            const secciones = window.CAMVulnerabilidades && typeof window.CAMVulnerabilidades.obtenerSecciones === "function"
+                ? window.CAMVulnerabilidades.obtenerSecciones(evaluacionVulnerabilidadesResumen.sector)
+                : [];
+            const respuestas = evaluacionVulnerabilidadesResumen.respuestas || {};
+            let total = 0, C = 0, P = 0, NC = 0, NA = 0, NV = 0;
+            secciones.forEach((grupo, gi) => (grupo[1] || []).forEach((pregunta, qi) => {
+                total++;
+                const valor = respuestas[gi + "-" + qi] || "";
+                if (valor === "C") C++;
+                else if (valor === "P") P++;
+                else if (valor === "NC") NC++;
+                else if (valor === "NA") NA++;
+                else if (valor === "NV") NV++;
+            }));
+            const aplicables = Math.max(0, total - NA);
+            const baseCumplimiento = C + P + NC;
+            const respondidas = C + P + NC + NV;
+            return {
+                total, C, P, NC, NA, NV,
+                pendientes: Math.max(0, total - C - P - NC - NA - NV),
+                porcentajeCumplimiento: baseCumplimiento ? Math.round(C / baseCumplimiento * 100) : null,
+                cobertura: aplicables ? Math.round(respondidas / aplicables * 100) : 0,
+                aplicables, baseCumplimiento, respondidas
+            };
+        })() : null;
         const porcentajeChecklistResumen = evaluacionTecnicaAsociadaResumen ? null : (() => {
             let puntos = 0, maximo = 0;
             Object.keys(datosChecklist || {}).forEach(categoria => {
@@ -13282,7 +13351,7 @@ async function generarWordPlantillaMaestra() {
             : (matrizParaInforme.length ? `${riesgosConNivel} de ${matrizParaInforme.length} riesgos con nivel consignado` : "No hay matriz de riesgos registrada");
         const filasResumenISO = [
             ["Tipo de inspección", textoDisponible(inspeccion.tipo, "No registrado"), "Alcance indicado en el registro de inspección."],
-            [evaluacionTecnicaAsociadaResumen ? "Instrumento preventivo técnico" : "Resultado del checklist", evaluacionTecnicaAsociadaResumen ? "Análisis de vulnerabilidades asociado" : (porcentajeChecklistResumen === null ? (esDiagnosticoInicial ? "No aplica" : "No disponible") : `${porcentajeChecklistResumen}% — ${perfilChecklistResumen}`), evaluacionTecnicaAsociadaResumen ? "La evaluación técnica es la fuente principal de resultados; la matriz conserva la valoración del riesgo." : "Se presenta por separado; no equivale al nivel global de riesgo."],
+            [evaluacionTecnicaAsociadaResumen ? "Cumplimiento del análisis de vulnerabilidades" : "Resultado del checklist", evaluacionTecnicaAsociadaResumen ? (metricasVulnerabilidadesResumen.porcentajeCumplimiento === null ? "Sin base verificable" : `${metricasVulnerabilidadesResumen.porcentajeCumplimiento}%`) : (porcentajeChecklistResumen === null ? (esDiagnosticoInicial ? "No aplica" : "No vinculada / verificar asociación") : `${porcentajeChecklistResumen}% — ${perfilChecklistResumen}`), evaluacionTecnicaAsociadaResumen ? `Cumple: ${metricasVulnerabilidadesResumen.C}; Parcial: ${metricasVulnerabilidadesResumen.P}; No cumple: ${metricasVulnerabilidadesResumen.NC}. Fórmula: Cumple / (Cumple + Parcial + No cumple). Cobertura: ${metricasVulnerabilidadesResumen.cobertura}%; No verificado: ${metricasVulnerabilidadesResumen.NV}; No aplica excluido.` : "Se presenta por separado; no equivale al nivel global de riesgo."],
             [esDiagnosticoInicial ? "Nivel evidenciado durante la visita" : "Riesgos registrados en la matriz", esDiagnosticoInicial ? nivelResumen : String(matrizParaInforme.length), esDiagnosticoInicial ? textoDisponible(datosDiagnosticoResumen.observaciones, "No se registró observación sustentadora.") : `${riesgosConNivel} con nivel consignado; ${riesgosConTratamiento} con tratamiento registrado.`],
             ["Riesgos altos o críticos registrados", esDiagnosticoInicial ? "No aplica a esta modalidad" : String(riesgosAltosCriticos), "Conteo basado únicamente en la clasificación escrita en la matriz."],
             ["Hallazgos documentados", String(hallazgosVariables.length), `${hallazgosAltosCriticos} con nivel Alto o Crítico consignado.`]
@@ -13300,41 +13369,21 @@ async function generarWordPlantillaMaestra() {
         const clienteResumen = textoDisponible(inspeccion.cliente, "la organización");
         const textoResumenEjecutivo = esDiagnosticoInicial
             ? `El diagnóstico inicial de ${clienteResumen} registra el nivel de riesgo evidenciado como “${nivelResumen}”. La observación que sustenta la calificación se presenta en los indicadores anteriores. Se integran además ${CAM14_RECOMENDACIONES_PERMANENTES.length} recomendaciones permanentes de SG-SST y planeación en una sección diferenciada. Este diagnóstico no incorpora resultado de checklist ni matriz de riesgos, salvo que esos datos estén registrados por separado.`
-            : `La inspección de ${clienteResumen} registra ${hallazgosVariables.length} hallazgo(s) y ${matrizParaInforme.length} riesgo(s) en la matriz disponible. ${CAM14_RECOMENDACIONES_PERMANENTES.length} recomendaciones permanentes de SG-SST y planeación se integran en una sección diferenciada. ${porcentajeChecklistResumen === null ? "No hay resultado del instrumento preventivo asociado a esta evaluación." : `El checklist tradicional registra ${porcentajeChecklistResumen}% (${perfilChecklistResumen}).`} La priorización debe basarse en los niveles consignados en la matriz y en las evidencias registradas; el porcentaje del checklist no representa por sí solo el nivel global de riesgo.`;
+            : `La inspección de ${clienteResumen} registra ${hallazgosVariables.length} hallazgo(s) y ${matrizParaInforme.length} riesgo(s) en la matriz disponible. ${CAM14_RECOMENDACIONES_PERMANENTES.length} recomendaciones permanentes de SG-SST y planeación se integran en una sección diferenciada. ${evaluacionTecnicaAsociadaResumen ? (metricasVulnerabilidadesResumen.porcentajeCumplimiento === null ? "El análisis de vulnerabilidades está asociado, pero aún no hay respuestas Cumple, Parcial o No cumple suficientes para calcular el porcentaje de cumplimiento." : `El análisis de vulnerabilidades registra un cumplimiento observado del ${metricasVulnerabilidadesResumen.porcentajeCumplimiento}% y una cobertura de evaluación del ${metricasVulnerabilidadesResumen.cobertura}%.`) : (porcentajeChecklistResumen === null ? "No se pudo vincular automáticamente el resultado del instrumento preventivo; verificar la asociación por ID de inspección antes de emitir conclusiones." : `El checklist tradicional registra ${porcentajeChecklistResumen}% (${perfilChecklistResumen}).`)} La priorización debe basarse en los niveles consignados en la matriz y en las evidencias registradas; el porcentaje de cumplimiento no representa por sí solo el nivel global de riesgo.`;
 
-        // CAM-WORD-FECHA-ELABORACION-02 — franja independiente en el informe generado.
-        // La fecha de visita permanece en los datos históricos; la vigencia se calcula
-        // desde la fecha real de elaboración. Solo se modifica el contenido generado,
-        // nunca el archivo/estructura de la plantilla Word maestra.
+        // CAM-WORD-FECHA-ELABORACION-03 — Solo fecha de elaboración.
+        // Se elimina toda fecha de vigencia/renovación para no comprometer al emisor
+        // con un plazo no confirmado. La fecha de visita permanece en los datos históricos.
+        // La plantilla Word maestra no se modifica: esta franja se genera en el cuerpo.
         const fechaGeneracionWord = new Date();
         const fechaElaboracionWord = new Intl.DateTimeFormat("es-CO", {
             day: "2-digit", month: "long", year: "numeric"
         }).format(fechaGeneracionWord);
-        const fechaVencimientoWord = new Date(fechaGeneracionWord.getTime());
-        const diaOriginalVencimiento = fechaVencimientoWord.getDate();
-        const anioVencimientoWord = fechaVencimientoWord.getFullYear() + 1;
-        const mesVencimientoWord = fechaVencimientoWord.getMonth();
-        const ultimoDiaMesVencimiento = new Date(
-            anioVencimientoWord, mesVencimientoWord + 1, 0
-        ).getDate();
-        fechaVencimientoWord.setDate(1);
-        fechaVencimientoWord.setFullYear(
-            anioVencimientoWord,
-            mesVencimientoWord,
-            Math.min(diaOriginalVencimiento, ultimoDiaMesVencimiento)
-        );
-        const fechaVigenciaWord = new Intl.DateTimeFormat("es-CO", {
-            day: "2-digit", month: "long", year: "numeric"
-        }).format(fechaVencimientoWord);
-        const franjaFechaVigenciaWord = tablaGenerica(
-            ["FECHA DE ELABORACIÓN", "VIGENCIA DEL INFORME"],
-            [[fechaElaboracionWord, `Vigente hasta: ${fechaVigenciaWord}`]],
-            [4619, 4619]
-        );
+        const franjaFechaElaboracionWord = `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B8B8B8"/><w:left w:val="single" w:sz="6" w:color="B8B8B8"/><w:bottom w:val="single" w:sz="6" w:color="B8B8B8"/><w:right w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideV w:val="single" w:sz="6" w:color="B8B8B8"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="5387"/><w:gridCol w:w="5387"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord("FECHA DE ELABORACIÓN",{width:5387,shading:"000000",bold:true,color:"FFFFFF",align:"center",size:"16"})}${celdaWord(fechaElaboracionWord,{width:5387,align:"center",size:"18"})}</w:tr></w:tbl>`;
 
-        let cuerpo = franjaFechaVigenciaWord
+        let cuerpo = franjaFechaElaboracionWord
             + titulo("RESUMEN EJECUTIVO", 1)
-            + parrafoWord(textoResumenEjecutivo, {font:"Century Gothic",size:"18",after:100,line:260})
+            + parrafoWord(textoResumenEjecutivo, {font:"Century Gothic",size:"18",align:"both",after:100,line:260})
             + tablaGenerica(["INDICADOR", "RESULTADO", "LECTURA"], filasResumenISO, [2450, 1750, 4838])
             + titulo("Riesgos prioritarios y medidas registradas", 2)
             + tablaGenerica(["RIESGO / HALLAZGO", "NIVEL", "TRATAMIENTO / RECOMENDACIÓN"], filasPrioridadesResumen, [3600, 1300, 4138]);
@@ -13361,33 +13410,6 @@ async function generarWordPlantillaMaestra() {
         cuerpo += titulo("1. Información general de la inspección",1)+tabla4(info);
         if(!esDiagnosticoInicial && limpio(inspeccion.objetivo)) cuerpo+=tabla2([fila2("Objetivo",inspeccion.objetivo,{size:'18'})]);
         if(!esDiagnosticoInicial && limpio(inspeccion.entorno)) cuerpo+=tabla2([fila2("Descripción del entorno",inspeccion.entorno,{size:'18'})]);
-
-        if (!esDiagnosticoInicial) {
-        // 02. CARACTERÍSTICAS DE LA INSTALACIÓN
-        let caracteristicas=[];
-        if(inspeccion.sectorInspeccion==="Residencial") caracteristicas=camposDiligenciados([
-            ["Tipo de instalación",inspeccion.tipoInstalacion],["Torres",inspeccion.cantidadTorres],["Niveles",inspeccion.cantidadNiveles],["Sótanos",inspeccion.cantidadSotanos],
-            ["Viviendas",inspeccion.cantidadViviendas],["Parqueaderos privados",inspeccion.parqueaderosPrivados],["Parqueaderos visitantes",inspeccion.parqueaderosVisitantes],
-            ["Parqueaderos motos",inspeccion.parqueaderosMotos],["Parqueaderos uso común",inspeccion.parqueaderosComunes],["Bicicleteros",inspeccion.bicicleteros]
-        ]);
-        else if(inspeccion.sectorInspeccion==="Industrial") caracteristicas=camposDiligenciados([
-            ["Tipo de instalación",inspeccion.tipoInstalacionIndustrial],["Actividad principal",inspeccion.actividadPrincipalIndustrial],["Cantidad de bodegas",inspeccion.cantidadBodegas],["Área aproximada (m²)",inspeccion.areaIndustrial]
-        ]);
-        else if(inspeccion.sectorInspeccion==="Parcelación") caracteristicas=camposDiligenciados([
-            ["Número de lotes",inspeccion.numeroLotesParcelacion],["Viviendas construidas",inspeccion.viviendasConstruidasParcelacion],["Viviendas en construcción",inspeccion.viviendasConstruccionParcelacion]
-        ]);
-        else if(inspeccion.sectorInspeccion==="Comercial") caracteristicas=camposDiligenciados([
-            ["Tipo de establecimiento",inspeccion.tipoEstablecimientoComercial],["Actividad comercial",inspeccion.actividadComercial],["Área aproximada (m²)",inspeccion.areaComercial],["Número de locales",inspeccion.numeroLocalesComercial],["Número de niveles",inspeccion.nivelesComercial],["Parqueaderos",inspeccion.parqueaderosComercial],["Otra información",inspeccion.otraInformacionComercial]
-        ]);
-        if(caracteristicas.length){ cuerpo+=titulo(`2. Características de la instalación — ${inspeccion.sectorInspeccion||""}`,1)+tabla4(caracteristicas,{align:'center'}); }
-
-        // 03. CCTV
-        const cctv=camposDiligenciados([
-            ["Tipo de sistema CCTV",inspeccion.tipoCCTV],["Cantidad de cámaras",inspeccion.cantidadCamaras],["Cantidad de equipos de grabación",inspeccion.cantidadEquiposGrabacionCCTV],
-            ["Vídeo analítica",inspeccion.videoAnalitica],["Ubicación del rack",inspeccion.ubicacionRack],["Días de almacenamiento",inspeccion.diasAlmacenamiento],
-            ["UPS / sistema ininterrumpido",inspeccion.upsCCTV],["Manejo de contraseñas",inspeccion.manejoContrasenasCCTV],["Observaciones",inspeccion.observacionesCCTV]
-        ]);
-        if(cctv.length) cuerpo+=titulo("3. Sistema CCTV",1)+tabla4(cctv,{align:'center'});
 
         // CAM-FOTOGRAFIAS-01 — Registro común de imágenes en el DOCX.
         // Se comparte entre georreferenciación, foto de contexto y hallazgos.
@@ -13426,6 +13448,33 @@ async function generarWordPlantillaMaestra() {
             return imagenWordXML(rId,docPrId++,nombre,anchoMaxCm,altoMaxCm,relacionAspecto);
         }
 
+        if (!esDiagnosticoInicial) {
+        // 02. CARACTERÍSTICAS DE LA INSTALACIÓN
+        let caracteristicas=[];
+        if(inspeccion.sectorInspeccion==="Residencial") caracteristicas=camposDiligenciados([
+            ["Tipo de instalación",inspeccion.tipoInstalacion],["Torres",inspeccion.cantidadTorres],["Niveles",inspeccion.cantidadNiveles],["Sótanos",inspeccion.cantidadSotanos],
+            ["Viviendas",inspeccion.cantidadViviendas],["Parqueaderos privados",inspeccion.parqueaderosPrivados],["Parqueaderos visitantes",inspeccion.parqueaderosVisitantes],
+            ["Parqueaderos motos",inspeccion.parqueaderosMotos],["Parqueaderos uso común",inspeccion.parqueaderosComunes],["Bicicleteros",inspeccion.bicicleteros]
+        ]);
+        else if(inspeccion.sectorInspeccion==="Industrial") caracteristicas=camposDiligenciados([
+            ["Tipo de instalación",inspeccion.tipoInstalacionIndustrial],["Actividad principal",inspeccion.actividadPrincipalIndustrial],["Cantidad de bodegas",inspeccion.cantidadBodegas],["Área aproximada (m²)",inspeccion.areaIndustrial]
+        ]);
+        else if(inspeccion.sectorInspeccion==="Parcelación") caracteristicas=camposDiligenciados([
+            ["Número de lotes",inspeccion.numeroLotesParcelacion],["Viviendas construidas",inspeccion.viviendasConstruidasParcelacion],["Viviendas en construcción",inspeccion.viviendasConstruccionParcelacion]
+        ]);
+        else if(inspeccion.sectorInspeccion==="Comercial") caracteristicas=camposDiligenciados([
+            ["Tipo de establecimiento",inspeccion.tipoEstablecimientoComercial],["Actividad comercial",inspeccion.actividadComercial],["Área aproximada (m²)",inspeccion.areaComercial],["Número de locales",inspeccion.numeroLocalesComercial],["Número de niveles",inspeccion.nivelesComercial],["Parqueaderos",inspeccion.parqueaderosComercial],["Otra información",inspeccion.otraInformacionComercial]
+        ]);
+        if(caracteristicas.length){ cuerpo+=titulo(`2. Características de la instalación — ${inspeccion.sectorInspeccion||""}`,1)+tabla4(caracteristicas,{align:'center'}); }
+
+        // 03. CCTV
+        const cctv=camposDiligenciados([
+            ["Tipo de sistema CCTV",inspeccion.tipoCCTV],["Cantidad de cámaras",inspeccion.cantidadCamaras],["Cantidad de equipos de grabación",inspeccion.cantidadEquiposGrabacionCCTV],
+            ["Vídeo analítica",inspeccion.videoAnalitica],["Ubicación del rack",inspeccion.ubicacionRack],["Días de almacenamiento",inspeccion.diasAlmacenamiento],
+            ["UPS / sistema ininterrumpido",inspeccion.upsCCTV],["Manejo de contraseñas",inspeccion.manejoContrasenasCCTV],["Observaciones",inspeccion.observacionesCCTV]
+        ]);
+        if(cctv.length) cuerpo+=titulo("3. Sistema CCTV",1)+tabla4(cctv,{align:'center'});
+
         // 04. GEOREFERENCIACIÓN — imágenes integradas dentro del documento Word.
         const geo=camposDiligenciados([["Latitud",inspeccion.latitud||""],["Longitud",inspeccion.longitud||""]]);
         const tieneImagenesGeo=!!(inspeccion.imagenGoogleMaps||inspeccion.imagenGoogleEarth);
@@ -13448,8 +13497,8 @@ async function generarWordPlantillaMaestra() {
         function serviciosRows(arr){ return (Array.isArray(arr)?arr:[]).map(s=>[s.servicio||"",s.horario||"",s.jornada||"",s.dias||"",s.modalidad||""]); }
         if((inspeccion.seguridadActual||[]).length || (inspeccion.seguridadSugerida||[]).length){
             cuerpo+=titulo("5. Herramientas de seguridad",1);
-            if((inspeccion.seguridadActual||[]).length) cuerpo+=titulo("Dispositivo de Seguridad actual",2)+tablaGenerica(["SERVICIO","HORARIO","JORNADA","DÍAS DE SERVICIO","MODALIDAD"],serviciosRows(inspeccion.seguridadActual),[2400,1500,1400,1800,1738]);
-            if((inspeccion.seguridadSugerida||[]).length) cuerpo+=titulo("Dispositivo de Seguridad sugerido",2)+tablaGenerica(["SERVICIO","HORARIO","JORNADA","DÍAS DE SERVICIO","MODALIDAD"],serviciosRows(inspeccion.seguridadSugerida),[2400,1500,1400,1800,1738]);
+            if((inspeccion.seguridadActual||[]).length) cuerpo+=titulo("Dispositivo de Seguridad actual",2)+tablaGenerica(["SERVICIO","HORARIO","JORNADA","DÍAS DE SERVICIO","MODALIDAD"],serviciosRows(inspeccion.seguridadActual),[2400,1500,1400,1800,1738],true);
+            if((inspeccion.seguridadSugerida||[]).length) cuerpo+=titulo("Dispositivo de Seguridad sugerido",2)+tablaGenerica(["SERVICIO","HORARIO","JORNADA","DÍAS DE SERVICIO","MODALIDAD"],serviciosRows(inspeccion.seguridadSugerida),[2400,1500,1400,1800,1738],true);
         }
 
         // 06. OBJETIVO Y METODOLOGÍA
@@ -13510,6 +13559,125 @@ async function generarWordPlantillaMaestra() {
                 }
             }));
             if (!filasEv.length) filasEv.push(["Evaluación", "No hay respuestas ni observaciones registradas", "Pendiente", "No asignado", "Completar el instrumento para documentar resultados técnicos."]);
+
+            // CAM-VULN-DASHBOARD-AREA-01:
+            // Microdashboard por área para el punto 7 del informe Word.
+            // Calcula el cumplimiento y la cobertura directamente de las respuestas guardadas.
+            // No asigna niveles de riesgo ni modifica la evaluación almacenada.
+            const metricasPorAreaEv = todosEv.map((grupo, gi) => {
+                let C = 0, P = 0, NC = 0, NV = 0, NA = 0, pendientes = 0;
+                const totalPreguntas = (grupo[1] || []).length;
+                (grupo[1] || []).forEach((pregunta, ii) => {
+                    const valor = respuestasEv[gi + "-" + ii] || "";
+                    if (valor === "C") C++;
+                    else if (valor === "P") P++;
+                    else if (valor === "NC") NC++;
+                    else if (valor === "NV") NV++;
+                    else if (valor === "NA") NA++;
+                    else pendientes++;
+                });
+                const aplicables = Math.max(0, totalPreguntas - NA);
+                const baseCumplimiento = C + P + NC;
+                const respondidasAplicables = C + P + NC + NV;
+                return {
+                    area: String(grupo[0] || "Área sin nombre"),
+                    C, P, NC, NV, NA, pendientes, totalPreguntas, aplicables,
+                    cumplimiento: baseCumplimiento ? Math.round(C / baseCumplimiento * 100) + "%" : "—",
+                    cobertura: aplicables ? Math.round(respondidasAplicables / aplicables * 100) + "%" : "—"
+                };
+            });
+            // CAM-VULN-DASHBOARD-GRAFICO-02: encabezado negro y gráfico como resumen por áreas.
+            // Render gráfico compacto para el punto 7. Se incrusta como imagen en el Word
+            // generado; no modifica la plantilla maestra ni los datos guardados.
+            async function crearDashboardAreasSvgWord(metricas) {
+                const ancho = 1500;
+                const margen = 46;
+                const yCab = 112;
+                const yKpis = 130;
+                const altoKpis = 102;
+                const yTituloAreas = 276;
+                const altoFila = 72;
+                const yFilas = 310;
+                const alto = yFilas + metricas.length * altoFila + 116;
+                const escSvg = v => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+                const sum = k => metricas.reduce((n, m) => n + Number(m[k] || 0), 0);
+                const C = sum("C"), P = sum("P"), NC = sum("NC"), NV = sum("NV"), Pend = sum("pendientes"), NA = sum("NA");
+                const aplicables = sum("aplicables");
+                const baseCumpl = C + P + NC;
+                const cumplimientoGlobal = baseCumpl ? Math.round(C / baseCumpl * 100) : null;
+                const coberturaGlobal = aplicables ? Math.round((C + P + NC + NV) / aplicables * 100) : null;
+                const colores = { C:"#16834A", P:"#E6A700", NC:"#D64545", NV:"#64748B", Pend:"#CBD5E1", navy:"#000000", cyan:"#16A6C8", gris:"#F3F6F9", borde:"#D9E2EA", texto:"#243746", muted:"#64748B" };
+                const total = C + P + NC + NV + Pend;
+                const cards = [
+                    {label:"CUMPLIMIENTO OBSERVADO",value:cumplimientoGlobal===null?"—":cumplimientoGlobal+"%",sub:"C / (C + P + NC)",color:colores.navy,width:320},
+                    {label:"COBERTURA DE EVALUACIÓN",value:coberturaGlobal===null?"—":coberturaGlobal+"%",sub:"Respuestas / aplicables",color:"#000000",width:310},
+                    {label:"CUMPLE",value:String(C),sub:"Controles conformes",color:colores.C,width:170},
+                    {label:"PARCIAL",value:String(P),sub:"Brecha parcial",color:"#9A6A00",width:170},
+                    {label:"NO CUMPLE",value:String(NC),sub:"Brecha registrada",color:colores.NC,width:170},
+                    {label:"NO VERIFICADO",value:String(NV),sub:"Requiere validar",color:colores.NV,width:170}
+                ];
+                let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${ancho}" height="${alto}" viewBox="0 0 ${ancho} ${alto}"><rect width="100%" height="100%" fill="#FFFFFF"/>`;
+                svg += `<rect x="0" y="0" width="${ancho}" height="${yCab}" fill="${colores.navy}"/><rect x="0" y="${yCab-6}" width="${ancho}" height="6" fill="${colores.cyan}"/>`;
+                svg += `<text x="${margen}" y="43" font-family="Arial,sans-serif" font-size="30" font-weight="700" fill="#FFFFFF">RESUMEN VISUAL DE VULNERABILIDADES</text>`;
+                svg += `<text x="${margen}" y="78" font-family="Arial,sans-serif" font-size="19" fill="#E5F5FA">Cumplimiento y cobertura por área evaluada · No representa por sí solo el nivel global de riesgo</text>`;
+                let x = margen;
+                const gap = 10;
+                cards.forEach((c,i)=>{
+                    svg += `<rect x="${x}" y="${yKpis}" width="${c.width}" height="${altoKpis}" rx="12" fill="#FFFFFF" stroke="${colores.borde}" stroke-width="2"/>`;
+                    svg += `<rect x="${x}" y="${yKpis}" width="${c.width}" height="7" rx="4" fill="${c.color}"/>`;
+                    svg += `<text x="${x+15}" y="${yKpis+30}" font-family="Arial,sans-serif" font-size="${i<2?15:13}" font-weight="700" fill="${colores.muted}">${escSvg(c.label)}</text>`;
+                    svg += `<text x="${x+15}" y="${yKpis+68}" font-family="Arial,sans-serif" font-size="${i<2?32:30}" font-weight="700" fill="${c.color}">${escSvg(c.value)}</text>`;
+                    svg += `<text x="${x+15}" y="${yKpis+89}" font-family="Arial,sans-serif" font-size="13" fill="${colores.muted}">${escSvg(c.sub)}</text>`;
+                    x += c.width + gap;
+                });
+                svg += `<text x="${margen}" y="${yTituloAreas}" font-family="Arial,sans-serif" font-size="22" font-weight="700" fill="${colores.navy}">COMPORTAMIENTO POR ÁREA</text>`;
+                svg += `<text x="${ancho-margen}" y="${yTituloAreas}" text-anchor="end" font-family="Arial,sans-serif" font-size="15" fill="${colores.muted}">Barra = distribución de respuestas aplicables</text>`;
+                metricas.forEach((m,i)=>{
+                    const y = yFilas + i*altoFila;
+                    if(i%2===0) svg += `<rect x="${margen-8}" y="${y}" width="${ancho-2*(margen-8)}" height="${altoFila-2}" rx="7" fill="${colores.gris}"/>`;
+                    const area = escSvg(m.area);
+                    const areaShort = area.length > 36 ? area.slice(0,35)+"…" : area;
+                    svg += `<text x="${margen}" y="${y+30}" font-family="Arial,sans-serif" font-size="18" font-weight="700" fill="${colores.texto}">${areaShort}</text>`;
+                    svg += `<text x="${margen}" y="${y+52}" font-family="Arial,sans-serif" font-size="13" fill="${colores.muted}">${m.aplicables} aplicables · ${m.pendientes} pendientes · ${m.NA} No aplica</text>`;
+                    const xBar=420, wBar=650, hBar=25, yBar=y+22;
+                    svg += `<rect x="${xBar}" y="${yBar}" width="${wBar}" height="${hBar}" rx="5" fill="#E7EDF2"/>`;
+                    let cursor=xBar;
+                    const denominador=Math.max(1,m.aplicables);
+                    [["C",m.C,colores.C],["P",m.P,colores.P],["NC",m.NC,colores.NC],["NV",m.NV,colores.NV],["Pend",m.pendientes,colores.Pend]].forEach(([key,val,color])=>{
+                        const w = key==="Pend" ? Math.max(0, wBar*Number(val)/denominador) : Math.max(0,wBar*Number(val)/denominador);
+                        if(w>0){
+                            svg += `<rect x="${cursor}" y="${yBar}" width="${w}" height="${hBar}" fill="${color}"/>`;
+                            if(w>32) svg += `<text x="${cursor+w/2}" y="${yBar+18}" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="700" fill="${key==="Pend"?"#334155":"#FFFFFF"}">${val}</text>`;
+                            cursor+=w;
+                        }
+                    });
+                    const comp = m.cumplimiento;
+                    const cov = m.cobertura;
+                    svg += `<text x="1100" y="${y+30}" font-family="Arial,sans-serif" font-size="15" fill="${colores.muted}">Cumpl.</text>`;
+                    svg += `<text x="1165" y="${y+30}" font-family="Arial,sans-serif" font-size="19" font-weight="700" fill="${colores.navy}">${escSvg(comp)}</text>`;
+                    svg += `<text x="1280" y="${y+30}" font-family="Arial,sans-serif" font-size="15" fill="${colores.muted}">Cob.</text>`;
+                    svg += `<text x="1345" y="${y+30}" font-family="Arial,sans-serif" font-size="19" font-weight="700" fill="#000000">${escSvg(cov)}</text>`;
+                });
+                const yLegend=yFilas+metricas.length*altoFila+14;
+                const leyenda=[["Cumple",colores.C],["Parcial",colores.P],["No cumple",colores.NC],["No verificado",colores.NV],["Pendiente",colores.Pend]];
+                let lx=margen;
+                leyenda.forEach(([label,color])=>{
+                    svg += `<rect x="${lx}" y="${yLegend}" width="18" height="18" rx="3" fill="${color}"/><text x="${lx+26}" y="${yLegend+15}" font-family="Arial,sans-serif" font-size="15" fill="${colores.texto}">${label}</text>`;
+                    lx += label==="No verificado"?220:label==="Pendiente"?165:150;
+                });
+                svg += `<text x="${margen}" y="${alto-27}" font-family="Arial,sans-serif" font-size="13" fill="${colores.muted}">Fórmulas: cumplimiento = C/(C+P+NC); cobertura = (C+P+NC+NV)/preguntas aplicables. NA se excluye. Indicadores descriptivos; la valoración del riesgo permanece en la matriz.</text>`;
+                svg += `</svg>`;
+                const url=URL.createObjectURL(new Blob([svg],{type:"image/svg+xml;charset=utf-8"}));
+                try{
+                    const img=await new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(new Error("No fue posible renderizar el dashboard por área."));image.src=url;});
+                    const canvas=document.createElement("canvas"); canvas.width=ancho*2; canvas.height=alto*2;
+                    const ctx=canvas.getContext("2d"); ctx.fillStyle="#FFFFFF"; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.scale(2,2); ctx.drawImage(img,0,0,ancho,alto);
+                    return canvas.toDataURL("image/png");
+                } finally { URL.revokeObjectURL(url); }
+            }
+            const dashboardAreasDataUrlWord = await crearDashboardAreasSvgWord(metricasPorAreaEv);
+            const dashboardAreasImagenWord = await agregarImagenWord(dashboardAreasDataUrlWord,"dashboard_areas","Resumen visual de vulnerabilidades por área",17.2,11.8);
+
             // CAM-INFORME-APARIENCIA-02: metadata del informe en líneas independientes.
             // Solo modifica el contenido generado; la plantilla Word maestra permanece intacta.
             cuerpo += titulo("7. Análisis técnico de riesgos y vulnerabilidades",1)
@@ -13517,7 +13685,13 @@ async function generarWordPlantillaMaestra() {
                 + parrafoWord(`Establecimiento: ${ev.lugar || ev.inspeccionCliente || inspeccion.cliente || "No consignado"}.`,{font:"Century Gothic",size:"17",after:35,line:250})
                 + parrafoWord(`Ciudad: ${ev.ciudad || inspeccion.ciudad || "No consignada"}. Fecha: ${ev.fecha || inspeccion.fecha || "No consignada"}.`,{font:"Century Gothic",size:"17",after:35,line:250})
                 + parrafoWord(`Analista de Riesgos: ${ev.inspector || inspeccion.inspector || "No consignado"}.`,{font:"Century Gothic",size:"17",after:70,line:250})
-                + parrafoWord(`Se registraron ${totalEv-pendientesEv} respuestas de ${totalEv}; ${ncEv} condiciones No cumple y ${parcialEv} condiciones Parcial; ${pendientesEv} preguntas permanecen pendientes. Estos conteos describen respuestas y no representan por sí solos un nivel de riesgo.`,{font:"Century Gothic",size:"17",after:80,line:250})
+                + parrafoWord(`Se registraron ${totalEv-pendientesEv} respuestas de ${totalEv}; ${ncEv} condiciones No cumple y ${parcialEv} condiciones Parcial; ${pendientesEv} preguntas permanecen pendientes. Estos conteos describen respuestas y no representan por sí solos un nivel de riesgo.`,{font:"Century Gothic",size:"17",after:45,line:250})
+                + parrafoWord(`Cumplimiento observado: ${(() => { const base = todosEv.reduce((n,g,gi)=>n+g[1].filter((q,ii)=>["C","P","NC"].includes(respuestasEv[gi+"-"+ii]||"")).length,0); const cumple = todosEv.reduce((n,g,gi)=>n+g[1].filter((q,ii)=>(respuestasEv[gi+"-"+ii]||"")==="C").length,0); return base ? Math.round(cumple/base)+"%" : "No calculable (sin respuestas verificables)"; })()}. Fórmula: Cumple / (Cumple + Parcial + No cumple). No aplica, No verificado y preguntas pendientes se excluyen de este porcentaje.`,{font:"Century Gothic",size:"17",after:35,line:250})
+                + parrafoWord(`Cobertura de evaluación: ${(() => { const total = todosEv.reduce((n,g)=>n+g[1].length,0); const estados = todosEv.reduce((n,g,gi)=>n+g[1].filter((q,ii)=>["C","P","NC","NV","NA"].includes(respuestasEv[gi+"-"+ii]||"")).length,0); const na = todosEv.reduce((n,g,gi)=>n+g[1].filter((q,ii)=>(respuestasEv[gi+"-"+ii]||"")==="NA").length,0); const aplicables=Math.max(0,total-na); return aplicables ? Math.round((estados-na)/aplicables*100)+"%" : "No calculable"; })()}. Se excluye No aplica del denominador; No verificado cuenta como respuesta para cobertura, pero no como cumplimiento.`,{font:"Century Gothic",size:"17",after:45,line:250})
+                + titulo("Resumen visual por áreas evaluadas",2)
+                + parrafoWord("El siguiente panel permite comparar la distribución de respuestas y los indicadores de cumplimiento y cobertura por área. Sus porcentajes describen la lista de chequeo y no sustituyen la valoración de riesgos.",{font:"Century Gothic",size:"15",after:35,line:230})
+                + (dashboardAreasImagenWord ? tablaContenedoraImagenAlineadaWord(dashboardAreasImagenWord) : parrafoWord("El resumen visual no estuvo disponible en esta generación. Revise la evaluación y vuelva a generar el informe.",{font:"Century Gothic",size:"15",color:"666666",after:45,line:230}))
+                + titulo("Detalle de la lista de chequeo",2)
                 + tablaGenerica(["ÁREA","ASPECTO EVALUADO","RESULTADO","RESPONSABLE DE LA GESTIÓN","OBSERVACIÓN / EVIDENCIA"],filasEv,[1250,3000,1100,1500,2138])
                 + titulo("Criterio de interpretación técnica",2)
                 + parrafoWord("Las condiciones registradas deben analizarse en relación con los activos expuestos, las amenazas pertinentes, los controles existentes, la posibilidad de ocurrencia y las consecuencias potenciales. La valoración y priorización se documentan en la matriz de riesgos con la metodología vigente de TECCHNEX; una respuesta NC o Parcial no asigna automáticamente un nivel de riesgo.",{font:"Century Gothic",size:"17",after:80,line:250});
@@ -13581,18 +13755,35 @@ async function generarWordPlantillaMaestra() {
             const mapaCalorDataUrl=await crearImagenMapaCalorWord(celdas);
             const mapaCalorImagen=await agregarImagenWord(mapaCalorDataUrl,"mapa_calor","Mapa de calor de riesgos",17.2,8.2);
             cuerpo+=titulo("10. Mapa de calor — distribución de riesgos",1)
-                +(mapaCalorImagen||tablaMapaCalorWord(celdas))
+                +(mapaCalorImagen ? tablaContenedoraImagenAlineadaWord(mapaCalorImagen) : tablaMapaCalorWord(celdas))
                 +parrafoWord("El valor principal corresponde a probabilidad × impacto. Los códigos R- identifican los riesgos de la matriz. Las filas representan probabilidad y las columnas impacto.",{font:'Century Gothic',size:'16',color:'666666',before:60,after:60})
                 +leyendaMapaCalorWord()
                 +parrafoWord("La clasificación visual corresponde al producto de probabilidad por impacto: riesgo bajo 1–4, moderado 5–9, alto 10–14 y extremo 15–25.",{font:'Century Gothic',size:'15',color:'C00000',bold:true,before:40,after:80});
         }
 
+        } else {
+            // CAM-OBS-03: el diagnóstico inicial no incorpora checklist, matriz ni mapa de calor.
+            const incidentes = Array.isArray(inspeccion.historicoIncidentes) ? inspeccion.historicoIncidentes : [];
+            const filasIncidentes = (inspeccion.sinIncidentes || !incidentes.length)
+                ? [["NO REPORTADOS", "NO REPORTADOS", "N/A"]]
+                : incidentes.map(item => [item.riesgo || "", item.incidente || "", item.consecuencias || ""]);
+            cuerpo += titulo("2. Histórico de incidentes (último año)", 1)
+                + tablaGenerica(["RIESGO MATERIALIZADO", "INCIDENTE", "CONSECUENCIAS"], filasIncidentes, [2500, 3500, 3500]);
+            const datosDiagnostico = inspeccion.om26 || {};
+            cuerpo += titulo("3. Nivel de riesgo evidenciado durante la visita", 1)
+                + tabla2([
+                    fila2("Nivel de riesgo", datosDiagnostico.nivelRiesgo || "No registrado"),
+                    fila2("Observación que sustenta la calificación", datosDiagnostico.observaciones || "No registrada")
+                ]);
+        }
+
         // CAM-INFORME-ESTILO-05 — HALLAZGOS WORD: 3 columnas + franja de área + fotografías 7,5x5 / 3,8x2,6 cm.
         // 11. HALLAZGOS — tabla Word alineada con el informe aprobado.
-        // Estructura: HALLAZGOS | ACCIÓN PREVENTIVA | REGISTRO FOTOGRÁFICO.
-        // Cada familia/área se presenta como una fila amarilla de agrupación.
-        // La Plantilla Maestra Word NO se modifica; solo se agrega contenido.
-        if(hallazgosInforme.length){
+        // En diagnóstico inicial se imprimen los hallazgos registrados, sin mezclarlos con recomendaciones permanentes.
+        // En inspección preventiva se conserva la composición aprobada de hallazgos + recomendaciones permanentes.
+        const hallazgosParaDetalleWord = esDiagnosticoInicial ? hallazgosVariables : hallazgosInforme;
+        // La tabla se muestra también si no hay hallazgos: deja constancia explícita del estado del registro.
+        if(hallazgosParaDetalleWord.length || esDiagnosticoInicial){
             const headers=["HALLAZGOS","ACCIÓN PREVENTIVA","REGISTRO FOTOGRÁFICO"];
             const anchosHallazgos=[3771,3232,3771]; // 35% / 30% / 35% de la huella maestra — distribución equilibrada aprobada
             const bordesHallazgos='<w:tblBorders><w:top w:val="single" w:sz="6" w:color="B8B8B8"/><w:left w:val="single" w:sz="6" w:color="B8B8B8"/><w:bottom w:val="single" w:sz="6" w:color="B8B8B8"/><w:right w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideH w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideV w:val="single" w:sz="6" w:color="B8B8B8"/></w:tblBorders>';
@@ -13637,7 +13828,7 @@ async function generarWordPlantillaMaestra() {
             let rowsXmlHallazgos="";
             let areaActual="";
 
-            for(const [i,h] of hallazgosInforme.entries()){
+            for(const [i,h] of hallazgosParaDetalleWord.entries()){
                 const area = String(h.area || h.categoria || "Sin área").trim() || "Sin área";
 
                 if(area !== areaActual){
@@ -13645,7 +13836,9 @@ async function generarWordPlantillaMaestra() {
                     areaActual=area;
                 }
 
-                let textoHallazgo=h.hallazgo||h.descripcion||h.observacion||"";
+                let textoHallazgo = esDiagnosticoInicial
+                    ? [h.elemento || h.hallazgo || "Hallazgo registrado", h.descripcion || h.observacion || "" , h.nivel ? `Nivel: ${h.nivel}` : ""].filter(Boolean).join(" — ")
+                    : (h.hallazgo || h.descripcion || h.observacion || "");
                 let recomendacion=h.accion||h.accionPreventiva||h.recomendacion||"";
                 const recomendacionBusqueda = String(recomendacion).toLocaleLowerCase("es");
                 const hallazgoBusqueda = String(textoHallazgo).toLocaleLowerCase("es");
@@ -13734,6 +13927,9 @@ async function generarWordPlantillaMaestra() {
                     })}
                 </w:tr>`;
             }
+            if(!rowsXmlHallazgos){
+                rowsXmlHallazgos = `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord("No se registraron hallazgos para esta inspección.",{width:ANCHO_TABLA_MAESTRA,colspan:3,align:"center",color:"666666",size:"16"})}</w:tr>`;
+            }
 
             const tablaHallazgosWord = `<w:tbl>
                 <w:tblPr>
@@ -13747,7 +13943,7 @@ async function generarWordPlantillaMaestra() {
                 ${rowsXmlHallazgos}
             </w:tbl>`;
 
-            cuerpo += titulo("11. Hallazgos, evidencias y medidas de tratamiento",1) + tablaHallazgosWord;
+            cuerpo += titulo(esDiagnosticoInicial ? "4. Hallazgos, evidencias y medidas de tratamiento" : "11. Hallazgos, evidencias y medidas de tratamiento",1) + tablaHallazgosWord;
         }
 
         // Guardar las relaciones y tipos de contenido de imágenes dentro del mismo
@@ -13755,22 +13951,6 @@ async function generarWordPlantillaMaestra() {
         if(imageIndex>0){
             zip.file("word/_rels/document.xml.rels",relacionXml);
             if(contentTypesXml) zip.file("[Content_Types].xml",contentTypesXml);
-        }
-
-        } else {
-            // CAM-OBS-03: el diagnóstico inicial no incorpora checklist, matriz ni mapa de calor.
-            const incidentes = Array.isArray(inspeccion.historicoIncidentes) ? inspeccion.historicoIncidentes : [];
-            const filasIncidentes = (inspeccion.sinIncidentes || !incidentes.length)
-                ? [["NO REPORTADOS", "NO REPORTADOS", "N/A"]]
-                : incidentes.map(item => [item.riesgo || "", item.incidente || "", item.consecuencias || ""]);
-            cuerpo += titulo("2. Histórico de incidentes (último año)", 1)
-                + tablaGenerica(["RIESGO MATERIALIZADO", "INCIDENTE", "CONSECUENCIAS"], filasIncidentes, [2500, 3500, 3500]);
-            const datosDiagnostico = inspeccion.om26 || {};
-            cuerpo += titulo("3. Nivel de riesgo evidenciado durante la visita", 1)
-                + tabla2([
-                    fila2("Nivel de riesgo", datosDiagnostico.nivelRiesgo || "No registrado"),
-                    fila2("Observación que sustenta la calificación", datosDiagnostico.observaciones || "No registrada")
-                ]);
         }
 
         // CAM-PLAN-TRABAJO-01 — Plan operativo y notas de confidencialidad.
@@ -13786,7 +13966,9 @@ async function generarWordPlantillaMaestra() {
         const bordesPlan = '<w:tblBorders><w:top w:val="single" w:sz="6" w:color="A6A6A6"/><w:left w:val="single" w:sz="6" w:color="A6A6A6"/><w:bottom w:val="single" w:sz="6" w:color="A6A6A6"/><w:right w:val="single" w:sz="6" w:color="A6A6A6"/><w:insideH w:val="single" w:sz="6" w:color="A6A6A6"/><w:insideV w:val="single" w:sz="6" w:color="A6A6A6"/></w:tblBorders>';
         const filaTituloPlan = `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord("PLAN DE ACCIÓN Y SEGUIMIENTO — DIRECCIÓN OPERATIVA", {width:ANCHO_TABLA_MAESTRA,colspan:3,shading:"FFF2CC",bold:true,align:"center",color:"333333",size:"16"})}</w:tr>`;
         const filaCabeceraPlan = `<w:tr><w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>${["No.","ACTIVIDAD","OBJETIVO"].map((v,i)=>celdaWord(v,{width:anchosPlan[i],shading:"000000",bold:true,align:"center",color:"FFFFFF",size:"15"})).join("")}</w:tr>`;
-        const filasPlan = planTrabajo.map(fila => `<w:tr><w:trPr><w:cantSplit/></w:trPr>${fila.map((v,i)=>celdaWord(v,{width:anchosPlan[i],size:"14",align:i===0?"center":"left"})).join("")}</w:tr>`).join("");
+        // CAM-PLAN-TRABAJO-02 — alinear el contenido de No., Actividad y Objetivo al centro.
+        // Cambio limitado a esta tabla; cada celda queda centrada horizontal y verticalmente.
+        const filasPlan = planTrabajo.map(fila => `<w:tr><w:trPr><w:cantSplit/></w:trPr>${fila.map((v,i)=>celdaWord(v,{width:anchosPlan[i],size:"14",align:"center",vAlign:"center"})).join("")}</w:tr>`).join("");
         const tablaPlanTrabajoWord = `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/>${bordesPlan}</w:tblPr><w:tblGrid>${anchosPlan.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>${filaTituloPlan}${filaCabeceraPlan}${filasPlan}</w:tbl>`;
         cuerpo += tablaPlanTrabajoWord;
         cuerpo += parrafoWord("La información antes descrita no implica que todos los riesgos hayan sido identificados o que no existan otros riesgos.", {font:"Century Gothic",size:"16",after:60,line:230});
@@ -13794,10 +13976,13 @@ async function generarWordPlantillaMaestra() {
         cuerpo += parrafoWord("Todas las recomendaciones aquí enunciadas deben ser implementadas por personal especializado, y el acatamiento de cualquiera de ellas no implica responsabilidad alguna por parte de COTRASER C.T.A. o sus funcionarios.", {font:"Century Gothic",size:"16",after:60,line:230});
         cuerpo += parrafoWord("Este informe es confidencial y es dirigido exclusivamente a un destinatario, se restringe la copia o publicación a otras personas o entidades.", {font:"Century Gothic",size:"16",bold:true,color:"C00000",after:120,line:230});
 
-        // 12. FIRMAS / RESPONSABLES
-        cuerpo+=titulo(esDiagnosticoInicial ? "4. Responsables" : "12. Responsables",1)+tabla2([
-            fila2("Analista de riesgos",inspeccion.inspector||""),
-            fila2("Responsable del cliente",inspeccion.director||"")
+        // CAM-WORD-RESPONSABLES-01 — una sola fila con cuatro celdas:
+        // Analista de riesgos + nombre; Director Operativo + nombre.
+        // Se elimina la etiqueta anterior "Responsable del cliente".
+        // El cambio afecta únicamente a la tabla de responsables del contenido generado.
+        cuerpo+=titulo(esDiagnosticoInicial ? "5. Responsables" : "12. Responsables",1)+tabla4([
+            ["Analista de riesgos",inspeccion.inspector||""],
+            ["Director Operativo",inspeccion.director||""]
         ]);
 
         const posicionSeccion=documentXml.search(/<w:sectPr(?=[ >])/);
@@ -13846,7 +14031,7 @@ function bloquePlanTrabajoHTML(escapar) {
     </section>`;
 }
 
-function renderizarInformeDiagnosticoInicialPDF(ventana, inspeccion, tituloInforme) {
+function renderizarInformeDiagnosticoInicialPDF(ventana, inspeccion, tituloInforme, hallazgosRegistrados = []) {
     const e = escaparHTMLDiagnostico;
     const incidentes = Array.isArray(inspeccion.historicoIncidentes) ? inspeccion.historicoIncidentes : [];
     const filasIncidentes = (inspeccion.sinIncidentes || !incidentes.length)
@@ -13872,7 +14057,50 @@ function renderizarInformeDiagnosticoInicialPDF(ventana, inspeccion, tituloInfor
                 <tr><th>Observación sustentadora</th><td>${e(observacionResumenPDF)}</td></tr>
                 <tr><th>Checklist / matriz</th><td>No se incorporan como resultado de este diagnóstico inicial; no se infieren valores que no estén registrados.</td></tr>
             </tbody></table>
+            </table>
         </section>`;
+
+    // CAM-DIAGNOSTICO-HALLAZGOS-01 — Hallazgos registrados también en diagnóstico inicial.
+    // Se usa la lista vinculada a esta inspección; no se crean ni modifican registros.
+    const registrosHallazgosDiagnostico = Array.isArray(hallazgosRegistrados) ? hallazgosRegistrados : [];
+    let filasHallazgosDiagnosticoPDF = "";
+    let areaAnteriorHallazgoDiagnostico = "";
+    registrosHallazgosDiagnostico.forEach((hallazgo, indiceHallazgo) => {
+        const areaHallazgo = String(hallazgo.area || hallazgo.categoria || "Sin área").trim() || "Sin área";
+        if (areaHallazgo !== areaAnteriorHallazgoDiagnostico) {
+            filasHallazgosDiagnosticoPDF += `<tr class="fila-area"><td colspan="3">${e(areaHallazgo)}</td></tr>`;
+            areaAnteriorHallazgoDiagnostico = areaHallazgo;
+        }
+        const elementoHallazgo = String(hallazgo.elemento || hallazgo.hallazgo || "").trim();
+        const descripcionHallazgo = String(hallazgo.descripcion || hallazgo.observacion || (!elementoHallazgo ? hallazgo.hallazgo : "") || "Sin descripción").trim();
+        const nivelHallazgo = String(hallazgo.nivel || "").trim();
+        const accionHallazgo = String(hallazgo.recomendacion || hallazgo.accion || hallazgo.accionPreventiva || "Sin recomendación registrada").trim();
+        let fotosHTML = "";
+        const fotos = Array.isArray(hallazgo.fotos) ? hallazgo.fotos : [];
+        if (fotos.length) {
+            const filasFotos = [];
+            const srcFoto = foto => {
+                try { return (typeof foto === "string" && foto.startsWith("data:")) ? foto : obtenerImagenDeFoto(foto); }
+                catch (_) { return ""; }
+            };
+            if (fotos.length === 1) {
+                const src = srcFoto(fotos[0]);
+                filasFotos.push(`<tr><td colspan="2" style="text-align:center;vertical-align:middle;">${src ? `<img src="${src}" alt="Registro fotográfico" style="width:100%;max-width:283px;height:auto;max-height:189px;object-fit:contain;display:block;margin:0 auto;">` : '<span class="sin-foto">No fue posible recuperar la fotografía</span>'}</td></tr>`);
+            } else {
+                for (let i = 0; i < fotos.length; i += 2) {
+                    const src1 = srcFoto(fotos[i]);
+                    const src2 = fotos[i + 1] ? srcFoto(fotos[i + 1]) : "";
+                    filasFotos.push(`<tr><td style="text-align:center;vertical-align:middle;">${src1 ? `<img src="${src1}" alt="Registro fotográfico" style="width:100%;max-width:144px;height:auto;max-height:98px;object-fit:contain;display:block;margin:0 auto;">` : '<span class="sin-foto">Foto no disponible</span>'}</td><td style="text-align:center;vertical-align:middle;">${src2 ? `<img src="${src2}" alt="Registro fotográfico" style="width:100%;max-width:144px;height:auto;max-height:98px;object-fit:contain;display:block;margin:0 auto;">` : ""}</td></tr>`);
+                }
+            }
+            fotosHTML = `<table class="tabla-fotos-hallazgo" width="100%" style="width:100%;table-layout:fixed;border-collapse:collapse;"><tbody>${filasFotos.join("")}</tbody></table>`;
+        }
+        filasHallazgosDiagnosticoPDF += `<tr class="fila-hallazgo"><td class="col-hallazgo" width="35%" style="width:35%;"><div class="dato-elemento">${e(elementoHallazgo)}</div><div>${e(descripcionHallazgo)}</div>${nivelHallazgo ? `<div class="dato-estado"><strong>Nivel:</strong> ${e(nivelHallazgo)}</div>` : ""}</td><td class="col-recomendacion" width="30%" style="width:30%;">${e(accionHallazgo)}</td><td class="col-fotografias" width="35%" style="width:35%;">${fotosHTML || '<span class="sin-foto">Sin evidencia fotográfica</span>'}</td></tr>`;
+    });
+    if (!filasHallazgosDiagnosticoPDF) {
+        filasHallazgosDiagnosticoPDF = '<tr class="fila-hallazgo fila-hallazgo-vacio"><td colspan="3">No se registraron hallazgos para esta inspección.</td></tr>';
+    }
+    const tablaHallazgosDiagnosticoPDF = `<h2>4. Hallazgos, evidencias y medidas de tratamiento</h2><table class="tabla-hallazgos" width="100%" style="width:100%;table-layout:fixed;border-collapse:collapse;"><thead><tr><th width="35%">HALLAZGOS</th><th width="30%">ACCIÓN PREVENTIVA</th><th width="35%">REGISTRO FOTOGRÁFICO</th></tr></thead><tbody>${filasHallazgosDiagnosticoPDF}</tbody></table>`;
 
     ventana.document.open();
     ventana.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${e(tituloInforme)}</title>
@@ -13890,6 +14118,14 @@ function renderizarInformeDiagnosticoInicialPDF(ventana, inspeccion, tituloInfor
             table.datos,table.incidentes,table.riesgo{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8pt;margin:8px 0 18px}
             .datos th,.datos td,.incidentes th,.incidentes td,.riesgo th,.riesgo td{border:1px solid #999;padding:7px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
             .datos th,.incidentes th{background:#123b5d;color:white}.riesgo th{width:34%;background:#f1f4f7;color:#123b5d}
+            .tabla-hallazgos{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8pt;margin:8px 0 18px;page-break-inside:auto}
+            .tabla-hallazgos th,.tabla-hallazgos td{border:1px solid #B8B8B8;padding:7px;text-align:left;vertical-align:middle;overflow-wrap:anywhere;word-break:normal}
+            .tabla-hallazgos th{background:#000;color:#fff;text-align:center;font-weight:bold}
+            .tabla-hallazgos .fila-area td{background:#F2C500;color:#000;text-align:center;font-weight:bold}
+            .tabla-hallazgos .dato-elemento{font-weight:bold;margin-bottom:4px}
+            .tabla-hallazgos .dato-estado{margin-top:5px}
+            .tabla-hallazgos .sin-foto{color:#666;font-size:8pt}
+            .tabla-fotos-hallazgo td{border:0;padding:3px;vertical-align:middle}
             .tabla-plan-trabajo{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9px;margin:16px 0 10px}
             .tabla-plan-trabajo th,.tabla-plan-trabajo td{border:1px solid #777;padding:4px;vertical-align:top;overflow-wrap:anywhere}
             .tabla-plan-trabajo thead th{background:#e7e6e6;color:#111;font-weight:bold;text-align:center}
@@ -13933,6 +14169,7 @@ h3{color:#000!important;border-bottom:1px solid #F2C500!important}
                 <tr><th>Nivel de riesgo</th><td><strong>${e(datosDiagnostico.nivelRiesgo || "No registrado")}</strong></td></tr>
                 <tr><th>Observación que sustenta la calificación</th><td>${e(datosDiagnostico.observaciones || "No registrada")}</td></tr>
             </tbody></table>
+            ${tablaHallazgosDiagnosticoPDF}
             ${bloquePlanTrabajoHTML(e)}
             <div class="notas-informe">
                 <p>La información antes descrita no implica que todos los riesgos hayan sido identificados o que no existan otros riesgos.</p>
@@ -13940,9 +14177,10 @@ h3{color:#000!important;border-bottom:1px solid #F2C500!important}
                 <p>Todas las recomendaciones aquí enunciadas deben ser implementadas por personal especializado, y el acatamiento de cualquiera de ellas no implica responsabilidad alguna por parte de COTRASER C.T.A. o sus funcionarios.</p>
                 <p class="nota-confidencial-roja">Este informe es confidencial y es dirigido exclusivamente a un destinatario, se restringe la copia o publicación a otras personas o entidades.</p>
             </div>
+            <h2>5. Responsables</h2>
             <div class="firmas">
-                <div class="firma"><strong>Realizado por:</strong><br>${e(inspeccion.inspector || "")}</div>
-                <div class="firma"><strong>Responsable del cliente:</strong><br>${e(inspeccion.director || "")}</div>
+                <div class="firma"><strong>Analista de riesgos:</strong><br>${e(inspeccion.inspector || "")}</div>
+                <div class="firma"><strong>Director Operativo:</strong><br>${e(inspeccion.director || "")}</div>
             </div>
             <p style="font-size:10px;color:#666;margin-top:20px">Informe generado por el Sistema de Inspecciones de Seguridad TECCHNEX.</p>
         </div>
@@ -13976,13 +14214,16 @@ function obtenerSeccionAnalisisVulnerabilidadesTECCHNEX(indiceInspeccion) {
     const coincide = ev => {
         if (!ev) return false;
         const clienteEv = normCliente(ev.inspeccionCliente || ev.cliente || ev.nombreCliente);
-        const fechaEv = String(ev.inspeccionFecha || "").slice(0,10);
-        const idEv = idNorm(ev.inspeccionIdControl);
-        const idObj = idNorm(inspeccionObjetivo.idControl);
+        const fechaEvRaw = String(ev.inspeccionFecha || ev.fechaInspeccion || "").trim();
+        const fechaEvMatch = fechaEvRaw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+        const fechaEv = fechaEvMatch ? fechaEvMatch[3]+"-"+String(fechaEvMatch[2]).padStart(2,"0")+"-"+String(fechaEvMatch[1]).padStart(2,"0") : fechaEvRaw.slice(0,10);
+        const idEv = idNorm(ev.inspeccionIdControl || ev.idControl || ev.idControlInspeccion);
+        const idObj = idNorm(inspeccionObjetivo.idControl || inspeccionObjetivo.idControlInspeccion);
         if (clienteObjetivo && clienteEv && clienteEv !== clienteObjetivo) return false;
+        // La coincidencia exacta por ID es la evidencia más fuerte; después se usa cliente/fecha.
+        if (idObj && idEv) return idObj === idEv;
         if (clienteObjetivo && clienteEv && fechaObjetivo && fechaEv) return fechaObjetivo === fechaEv;
         if (clienteObjetivo && clienteEv && clienteEv === clienteObjetivo) {
-            if (idObj && idEv && idObj === idEv) return true;
             if (ev.inspeccionIndice !== null && ev.inspeccionIndice !== undefined && String(ev.inspeccionIndice).trim() !== "" && Number(ev.inspeccionIndice) === indiceSolicitado) return true;
             if (cuentaCliente === 1) return true;
             return false;
@@ -14000,7 +14241,7 @@ function obtenerSeccionAnalisisVulnerabilidadesTECCHNEX(indiceInspeccion) {
     try {
         if (!d) { const heredada = JSON.parse(localStorage.getItem(KEY_VULN) || "null"); if (coincide(heredada)) d = heredada; }
     } catch (e) {}
-    if (d) d = { ...d, inspeccionIndice: indiceSolicitado, inspeccionCliente: inspeccionObjetivo.cliente || inspeccionObjetivo.nombreCliente || inspeccionObjetivo.razonSocial || d.inspeccionCliente || "", inspeccionFecha: fechaObjetivo, inspeccionIdControl: inspeccionObjetivo.idControl || d.inspeccionIdControl || "" };
+    if (d) d = { ...d, inspeccionIndice: indiceSolicitado, inspeccionCliente: inspeccionObjetivo.cliente || inspeccionObjetivo.nombreCliente || inspeccionObjetivo.razonSocial || d.inspeccionCliente || "", inspeccionFecha: fechaObjetivo, inspeccionIdControl: inspeccionObjetivo.idControl || inspeccionObjetivo.idControlInspeccion || d.inspeccionIdControl || d.idControl || "" };
     if (!d) return '<section class="bloque-pdf analisis-vulnerabilidades-pdf"><h2>Análisis técnico de vulnerabilidades</h2><p>No existe una evaluación guardada para la última inspección de este cliente. Abra «Análisis de vulnerabilidades» desde la inspección más reciente, complete o recupere su evaluación y guárdela antes de generar el informe.</p></section>';
     const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
     const respuestas = d.respuestas || {}, notas = d.observacionesPorPregunta || {};
@@ -14111,7 +14352,7 @@ const tituloInformePDF = typeof obtenerTituloDocumentoPorTipo === "function"
     ? obtenerTituloDocumentoPorTipo(inspeccion.tipo)
     : (inspeccion.tituloDocumento || "INFORME PREVENTIVO DE SEGURIDAD INTEGRAL");
 if (inspeccion.tipo === "Diagnóstico inicial de seguridad") {
-    renderizarInformeDiagnosticoInicialPDF(ventana, inspeccion, tituloInformePDF);
+    renderizarInformeDiagnosticoInicialPDF(ventana, inspeccion, tituloInformePDF, hallazgosVariablesPDF);
     return;
 }
 
@@ -14920,9 +15161,12 @@ matrizParaInforme.forEach((riesgo, indice) => {
     const riesgosConNivelResumenPDF = matrizParaInforme.filter(r => String(r.nivel || "").trim()).length;
     const riesgosAltosCriticosResumenPDF = matrizParaInforme.filter(r => /cr[ií]tico|alto/i.test(String(r.nivel || ""))).length;
     const hallazgosAltosCriticosResumenPDF = hallazgosVariablesPDF.filter(h => /cr[ií]tico|alto/i.test(String(h.nivel || ""))).length;
+    const evaluacionTecnicaDisponiblePDF = !!seccionAnalisisVulnerabilidadesPDF &&
+        !/No se encontró una inspección válida|corresponde a una visita anterior|No existe una evaluación guardada|No se pudo cargar el catálogo de preguntas/i.test(seccionAnalisisVulnerabilidadesPDF) &&
+        /<table[\s>]/i.test(seccionAnalisisVulnerabilidadesPDF);
     const filasResumenPDF = `
         <tr><th>Tipo de inspección</th><td>${escapar(inspeccion.tipo || "No registrado")}</td></tr>
-        <tr><th>Instrumento preventivo</th><td>${seccionAnalisisVulnerabilidadesPDF ? "Análisis técnico de vulnerabilidades asociado" : "Pendiente de asociar evaluación técnica"} <span class="nota-resumen">(la valoración del riesgo se consulta en la matriz)</span></td></tr>
+        <tr><th>Instrumento preventivo</th><td>${evaluacionTecnicaDisponiblePDF ? "Análisis técnico de vulnerabilidades asociado" : "Evaluación técnica no vinculada o incompleta"} <span class="nota-resumen">(la valoración del riesgo se consulta en la matriz)</span></td></tr>
         <tr><th>Riesgos registrados en la matriz</th><td>${matrizParaInforme.length}; ${riesgosConNivelResumenPDF} con nivel consignado.</td></tr>
         <tr><th>Riesgos altos o críticos</th><td>${riesgosAltosCriticosResumenPDF} según el nivel escrito en la matriz.</td></tr>
         <tr><th>Hallazgos documentados</th><td>${hallazgosVariablesPDF.length}; ${hallazgosAltosCriticosResumenPDF} con nivel Alto o Crítico consignado.</td></tr>` +
