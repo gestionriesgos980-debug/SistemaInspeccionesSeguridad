@@ -5795,7 +5795,10 @@ async function crearRespaldo() {
             "Respaldo creado correctamente.\n\n" +
             "Evaluaciones técnicas incluidas: " +
                 (Array.isArray(respaldo.datos.evaluacionesVulnerabilidades) ? respaldo.datos.evaluacionesVulnerabilidades.length : 0) + "\n" +
-            "Fotografías incluidas: " + mediosRespaldo.length
+            "Fotografías incluidas: " + mediosRespaldo.length + "\\n" +
+            "Hallazgos en biblioteca: " + (Array.isArray(respaldo.datos.bibliotecaRecomendaciones) ? respaldo.datos.bibliotecaRecomendaciones.length : 0) + "\\n" +
+            "Riesgos en biblioteca: " + (Array.isArray(respaldo.datos.bibliotecaRiesgos) ? respaldo.datos.bibliotecaRiesgos.length : 0) + "\\n" +
+            "Clientes en directorio: " + (Array.isArray(respaldo.datos.directorioClientesOM16) ? respaldo.datos.directorioClientesOM16.length : 0)
         );
     } catch (error) {
         console.error("TECCHNEX: error al crear respaldo:", error);
@@ -6562,17 +6565,56 @@ if (Object.prototype.hasOwnProperty.call(datos, "agendaSupervision")) {
     }
 }
 
-// CAM-CLIENTES-02: compatibilidad con respaldos antiguos que no guardaban
-// el directorio. Se conserva el directorio local y se agregan solo clientes
-// que falten; luego se sincronizan los clientes de las inspecciones restauradas.
+// CAM-RESPALDO-02 — Restauración fiel del directorio y de la vigencia editable.
+// En respaldos nuevos, actualizar también los clientes que ya existen localmente.
+// En respaldos antiguos sin esta propiedad, conservar el comportamiento compatible.
 const directorioActual = inicializarDirectorioClientesOM16();
 if (Array.isArray(datos.directorioClientesOM16)) {
+    const normalizarClaveRespaldo = valor => String(valor ?? "")
+        .normalize("NFD")
+        .replace(/[\\u0300-\\u036f]/g, "")
+        .trim()
+        .toLowerCase()
+        .replace(/\\s+/g, " ");
+
     for (const clienteRespaldo of datos.directorioClientesOM16) {
         if (!clienteRespaldo || !String(clienteRespaldo.cliente || "").trim()) continue;
-        const yaExiste = directorioActual.some(clienteActual =>
-            coincideClienteConInspeccionOM16(clienteActual, clienteRespaldo)
-        );
-        if (!yaExiste) {
+
+        const idClienteRespaldo = normalizarClaveRespaldo(clienteRespaldo.idCliente);
+        const nitRespaldo = normalizarClaveRespaldo(clienteRespaldo.nit).replace(/\\D/g, "");
+        const codigoRespaldo = normalizarClaveRespaldo(clienteRespaldo.codigo);
+        const nombreRespaldo = normalizarClaveRespaldo(clienteRespaldo.cliente);
+
+        // Identificar primero por ID interno; usar NIT/código/nombre solo como
+        // alternativas cuando el registro antiguo no tenga un ID coincidente.
+        let indiceExistente = idClienteRespaldo
+            ? directorioActual.findIndex(clienteActual =>
+                normalizarClaveRespaldo(clienteActual.idCliente) === idClienteRespaldo)
+            : -1;
+
+        if (indiceExistente < 0 && nitRespaldo) {
+            indiceExistente = directorioActual.findIndex(clienteActual =>
+                normalizarClaveRespaldo(clienteActual.nit).replace(/\\D/g, "") === nitRespaldo);
+        }
+        if (indiceExistente < 0 && codigoRespaldo) {
+            indiceExistente = directorioActual.findIndex(clienteActual =>
+                normalizarClaveRespaldo(clienteActual.codigo) === codigoRespaldo);
+        }
+        if (indiceExistente < 0 && nombreRespaldo) {
+            indiceExistente = directorioActual.findIndex(clienteActual =>
+                normalizarClaveRespaldo(clienteActual.cliente) === nombreRespaldo);
+        }
+
+        if (indiceExistente >= 0) {
+            const clienteActual = directorioActual[indiceExistente];
+            directorioActual[indiceExistente] = {
+                ...clienteActual,
+                ...clienteRespaldo,
+                // No perder el identificador interno si el respaldo antiguo no lo trae.
+                idCliente: clienteRespaldo.idCliente || clienteActual.idCliente ||
+                    obtenerSiguienteIdClienteOM16(directorioActual)
+            };
+        } else {
             directorioActual.push({
                 ...clienteRespaldo,
                 idCliente: clienteRespaldo.idCliente || obtenerSiguienteIdClienteOM16(directorioActual)
