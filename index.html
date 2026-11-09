@@ -4534,15 +4534,34 @@ const imagenGoogleEarthNueva =
 
 // CAMBIO OM-06: Usa la imagen nueva si existe; de lo contrario conserva
 // la imagen previamente almacenada para evitar perderla al editar.
-const imagenGoogleMapsFinal =
-    imagenGoogleMapsNueva ||
-    inspeccionAnteriorImagenes?.imagenGoogleMaps ||
-    "";
+let imagenGoogleMapsFinal = "";
+let imagenGoogleEarthFinal = "";
+let imagenGoogleMapsMediaFinal = inspeccionAnteriorImagenes?.imagenGoogleMapsMedia || null;
+let imagenGoogleEarthMediaFinal = inspeccionAnteriorImagenes?.imagenGoogleEarthMedia || null;
 
-const imagenGoogleEarthFinal =
-    imagenGoogleEarthNueva ||
-    inspeccionAnteriorImagenes?.imagenGoogleEarth ||
-    "";
+// CAM-ALMACENAMIENTO-04C: imágenes nuevas y data URLs históricas se guardan
+// en IndexedDB; nunca vuelven a inflar el registro estructurado de inspecciones.
+await tecchnexMediaReady;
+const imagenMapsParaGuardar = imagenGoogleMapsNueva || inspeccionAnteriorImagenes?.imagenGoogleMaps || "";
+const imagenEarthParaGuardar = imagenGoogleEarthNueva || inspeccionAnteriorImagenes?.imagenGoogleEarth || "";
+if (typeof imagenMapsParaGuardar === "string" && /^data:image\//i.test(imagenMapsParaGuardar)) {
+    imagenGoogleMapsMediaFinal = await guardarMediaEnBoveda({
+        dataUrl: imagenMapsParaGuardar,
+        timestamp: new Date().toISOString(),
+        idControl,
+        hallazgo: "georreferenciacion:imagenGoogleMaps"
+    });
+    if (!imagenGoogleMapsMediaFinal?.mediaId) throw new Error("No fue posible guardar la imagen de Google Maps en IndexedDB.");
+}
+if (typeof imagenEarthParaGuardar === "string" && /^data:image\//i.test(imagenEarthParaGuardar)) {
+    imagenGoogleEarthMediaFinal = await guardarMediaEnBoveda({
+        dataUrl: imagenEarthParaGuardar,
+        timestamp: new Date().toISOString(),
+        idControl,
+        hallazgo: "georreferenciacion:imagenGoogleEarth"
+    });
+    if (!imagenGoogleEarthMediaFinal?.mediaId) throw new Error("No fue posible guardar la imagen de Google Earth en IndexedDB.");
+}
 
 
             
@@ -4643,7 +4662,9 @@ otraInformacionComercial:
 
                 // CAMBIO OM-06: Conserva o reemplaza las imágenes de georreferenciación.
                 imagenGoogleMaps: imagenGoogleMapsFinal,
-                imagenGoogleEarth: imagenGoogleEarthFinal
+                imagenGoogleEarth: imagenGoogleEarthFinal,
+                imagenGoogleMapsMedia: imagenGoogleMapsMediaFinal,
+                imagenGoogleEarthMedia: imagenGoogleEarthMediaFinal
 
                
             };
@@ -5489,6 +5510,34 @@ async function cargarMediaEnCache(referencia) {
     await buscarMediaEnOtrasBovedas(referencia.mediaId);
 }
 
+// CAM-ALMACENAMIENTO-04C — Imágenes geográficas fuera de localStorage.
+// La inspección conserva referencias ligeras; los datos binarios viven en IndexedDB.
+function obtenerImagenGeoInspeccion(inspeccion, campo) {
+    if (!inspeccion || !campo) return "";
+    const referencia = inspeccion[campo + "Media"];
+    if (referencia && referencia.mediaId) {
+        return tecchnexMediaCache.get(referencia.mediaId) || "";
+    }
+    // Compatibilidad con inspecciones históricas que aún guardan data URL.
+    const valor = inspeccion[campo];
+    return typeof valor === "string" && valor.startsWith("data:image/") ? valor : "";
+}
+
+async function precargarImagenesGeoInspecciones() {
+    let inspecciones = [];
+    try { inspecciones = JSON.parse(localStorage.getItem("inspecciones") || "[]"); } catch (_) {}
+    if (!Array.isArray(inspecciones)) return;
+    for (const inspeccion of inspecciones) {
+        for (const campo of ["imagenGoogleMaps", "imagenGoogleEarth"]) {
+            const referencia = inspeccion && inspeccion[campo + "Media"];
+            if (referencia && referencia.mediaId) {
+                try { await cargarMediaEnCache(referencia); }
+                catch (error) { console.warn("CAM-ALMACENAMIENTO-04C: no se pudo precargar imagen geográfica.", campo, error); }
+            }
+        }
+    }
+}
+
 async function migrarFotosAntiguasABoveda() {
     const hallazgos = JSON.parse(localStorage.getItem("hallazgos")) || [];
     if (!Array.isArray(hallazgos) || !hallazgos.length) {
@@ -5546,6 +5595,7 @@ const tecchnexMediaReady = (async function () {
     try {
         await abrirBovedaMedia();
         await migrarFotosAntiguasABoveda();
+        await precargarImagenesGeoInspecciones();
         return true;
     } catch (error) {
         console.error("CAM-ALMACENAMIENTO-01B: IndexedDB no disponible.", error);
@@ -5952,6 +6002,14 @@ async function exportarInspeccionSeleccionada() {
                 ? { [String(indice)]: resultadosTodos[String(indice)] }
                 : {};
 
+        // CAM-ALMACENAMIENTO-04C: materializar imágenes geográficas en el paquete
+        // portable. En el equipo destino, la importación las reingresa a IndexedDB.
+        const inspeccionExportar = { ...inspeccion };
+        inspeccionExportar.imagenGoogleMaps = obtenerImagenGeoInspeccion(inspeccion, "imagenGoogleMaps");
+        inspeccionExportar.imagenGoogleEarth = obtenerImagenGeoInspeccion(inspeccion, "imagenGoogleEarth");
+        delete inspeccionExportar.imagenGoogleMapsMedia;
+        delete inspeccionExportar.imagenGoogleEarthMedia;
+
         const paquete = {
             sistema: "Sistema de Inspecciones de Seguridad",
             tipoArchivo: "inspeccion-individual",
@@ -5960,7 +6018,7 @@ async function exportarInspeccionSeleccionada() {
             indiceOriginal: indice,
             idControl: inspeccion.idControl || null,
             datos: {
-                inspeccion,
+                inspeccion: inspeccionExportar,
                 checklists,
                 hallazgos,
                 matrizRiesgos,
@@ -6135,6 +6193,27 @@ function importarInspeccionIndividual() {
                 }
 
                 await tecchnexMediaReady;
+
+                // CAM-ALMACENAMIENTO-04C: externalizar imágenes Google Maps/Earth
+                // antes de construir el objeto que se guardará en localStorage.
+                // Esto evita superar la cuota por incluir data URLs de varios MB.
+                for (const campoGeo of ["imagenGoogleMaps", "imagenGoogleEarth"]) {
+                    const valorGeo = inspeccionImportada[campoGeo];
+                    if (typeof valorGeo === "string" && /^data:image\//i.test(valorGeo)) {
+                        const referenciaGeo = await guardarMediaEnBoveda({
+                            dataUrl: valorGeo,
+                            timestamp: new Date().toISOString(),
+                            idControl,
+                            hallazgo: "georreferenciacion:" + campoGeo
+                        });
+                        if (!referenciaGeo || !referenciaGeo.mediaId) {
+                            throw new Error("No fue posible guardar " + campoGeo + " en la bóveda IndexedDB. La inspección no se importó.");
+                        }
+                        inspeccionImportada[campoGeo + "Media"] = referenciaGeo;
+                        inspeccionImportada[campoGeo] = "";
+                    }
+                }
+
                 const mapaIdsMedios = new Map();
                 for (const medio of mediosImportados) {
                     if (!medio || !medio.dataUrl) continue;
@@ -9029,7 +9108,8 @@ function generarInformeDesdeModulo() {
         });
 }
 
-function verInspeccion(indice) {
+async function verInspeccion(indice) {
+    await tecchnexMediaReady;
     const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
     const inspeccion = inspecciones[indice];
     if (!inspeccion) {
@@ -9182,7 +9262,8 @@ function abrirMatrizRiesgosClienteOM22Activo() {
     abrirMatrizRiesgosCliente(inspeccion.cliente || "");
 }
 
-function editarInspeccion(indice) {
+async function editarInspeccion(indice) {
+    await tecchnexMediaReady;
 
     const inspecciones =
         JSON.parse(localStorage.getItem("inspecciones")) || [];
@@ -9441,8 +9522,9 @@ document.getElementById("objetivo").value =
     const vistaGoogleMaps =
         document.getElementById("vistaPreviaGoogleMaps");
     if (vistaGoogleMaps) {
-        if (inspeccion.imagenGoogleMaps) {
-            vistaGoogleMaps.src = inspeccion.imagenGoogleMaps;
+        const imagenMapsDisponible = obtenerImagenGeoInspeccion(inspeccion, "imagenGoogleMaps");
+        if (imagenMapsDisponible) {
+            vistaGoogleMaps.src = imagenMapsDisponible;
             vistaGoogleMaps.style.display = "block";
         } else {
             vistaGoogleMaps.src = "";
@@ -9453,8 +9535,9 @@ document.getElementById("objetivo").value =
     const vistaGoogleEarth =
         document.getElementById("vistaPreviaGoogleEarth");
     if (vistaGoogleEarth) {
-        if (inspeccion.imagenGoogleEarth) {
-            vistaGoogleEarth.src = inspeccion.imagenGoogleEarth;
+        const imagenEarthDisponible = obtenerImagenGeoInspeccion(inspeccion, "imagenGoogleEarth");
+        if (imagenEarthDisponible) {
+            vistaGoogleEarth.src = imagenEarthDisponible;
             vistaGoogleEarth.style.display = "block";
         } else {
             vistaGoogleEarth.src = "";
@@ -14217,14 +14300,16 @@ async function generarWordPlantillaMaestra() {
 
         // 04. GEOREFERENCIACIÓN — imágenes integradas dentro del documento Word.
         const geo=camposDiligenciados([["Latitud",inspeccion.latitud||""],["Longitud",inspeccion.longitud||""]]);
-        const tieneImagenesGeo=!!(inspeccion.imagenGoogleMaps||inspeccion.imagenGoogleEarth);
+        const imagenGoogleMapsInforme = obtenerImagenGeoInspeccion(inspeccion, "imagenGoogleMaps");
+        const imagenGoogleEarthInforme = obtenerImagenGeoInspeccion(inspeccion, "imagenGoogleEarth");
+        const tieneImagenesGeo=!!(imagenGoogleMapsInforme||imagenGoogleEarthInforme);
         if(geo.length||tieneImagenesGeo){
             cuerpo+=titulo("4. Georreferenciación",1);
             if(tieneImagenesGeo){
                 const anchoGeo=Math.floor(ANCHO_TABLA_MAESTRA/2);
                 const cabeceraGeo=`<w:tr><w:trPr><w:tblHeader/></w:trPr>${celdaWord("GOOGLE MAPS",{width:anchoGeo,shading:"000000",bold:true,color:"FFFFFF",align:"center",size:"16"})}${celdaWord("FOTO DE CONTEXTO",{width:ANCHO_TABLA_MAESTRA-anchoGeo,shading:"000000",bold:true,color:"FFFFFF",align:"center",size:"16"})}</w:tr>`;
-                const imagenMaps=await agregarImagenWord(inspeccion.imagenGoogleMaps,"georeferenciacion","Google Maps",7.5,4.8);
-                const imagenContexto=await agregarImagenWord(inspeccion.imagenGoogleEarth,"contexto","Foto de contexto",7.5,4.8);
+                const imagenMaps=await agregarImagenWord(imagenGoogleMapsInforme,"georeferenciacion","Google Maps",7.5,4.8);
+                const imagenContexto=await agregarImagenWord(imagenGoogleEarthInforme,"contexto","Foto de contexto",7.5,4.8);
                 const contenidoMaps=imagenMaps||parrafoWord("Imagen no cargada",{font:"Century Gothic",size:"16",color:"666666",align:"center"});
                 const contenidoContexto=imagenContexto||parrafoWord("Imagen no cargada",{font:"Century Gothic",size:"16",color:"666666",align:"center"});
                 const filaImagenesGeo=`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWordContenido(contenidoMaps,{width:anchoGeo,vAlign:"center"})}${celdaWordContenido(contenidoContexto,{width:ANCHO_TABLA_MAESTRA-anchoGeo,vAlign:"center"})}</w:tr>`;
@@ -17417,8 +17502,8 @@ ${caracteristicasInstalacionHTML}
         text-align:center;
     ">
         ${
-            inspeccion.imagenGoogleMaps
-                ? `<img src="${inspeccion.imagenGoogleMaps}"
+            obtenerImagenGeoInspeccion(inspeccion, "imagenGoogleMaps")
+                ? `<img src="${obtenerImagenGeoInspeccion(inspeccion, "imagenGoogleMaps")}"
                        style="width:100%; height:240px; object-fit:contain;">`
                 : "Imagen satelital"
         }
@@ -17432,8 +17517,8 @@ ${caracteristicasInstalacionHTML}
         text-align:center;
     ">
         ${
-            inspeccion.imagenGoogleEarth
-                ? `<img src="${inspeccion.imagenGoogleEarth}"
+            obtenerImagenGeoInspeccion(inspeccion, "imagenGoogleEarth")
+                ? `<img src="${obtenerImagenGeoInspeccion(inspeccion, "imagenGoogleEarth")}"
                        style="width:100%; height:240px; object-fit:contain;">`
                 : "Imagen satelital"
         }
