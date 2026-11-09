@@ -4387,54 +4387,17 @@ function cerrarDashboard() {
                     ? fechaInspeccion.substring(0, 4)
                     : new Date().getFullYear();
 
-            let ultimoNumeroInspeccion =
-                Number(
-                    localStorage.getItem(
-                        "ultimoNumeroInspeccion"
-                    ) || 0
-                );
-
-            const formulario =
-                document.getElementById("formInspeccion");
-
-            const indiceEdicion =
-                formulario.dataset.editando;
-
+            const formulario = document.getElementById("formInspeccion");
+            const indiceEdicion = formulario.dataset.editando;
+            const inspeccionesParaId = JSON.parse(localStorage.getItem("inspecciones") || "[]");
             let idControl;
-
-            if (
-                indiceEdicion !== undefined &&
-                indiceEdicion !== ""
-            ) {
-
-                const inspeccionesExistentes =
-                    JSON.parse(
-                        localStorage.getItem("inspecciones")
-                    ) || [];
-
-                const inspeccionAnterior =
-                    inspeccionesExistentes[
-                        Number(indiceEdicion)
-                    ];
-
-                idControl =
-                    inspeccionAnterior?.idControl || null;
-
+            if (indiceEdicion !== undefined && indiceEdicion !== "") {
+                const inspeccionAnterior = inspeccionesParaId[Number(indiceEdicion)];
+                idControl = inspeccionAnterior?.idControl || null;
             } else {
-
-                ultimoNumeroInspeccion++;
-
-                localStorage.setItem(
-                    "ultimoNumeroInspeccion",
-                    String(ultimoNumeroInspeccion)
-                );
-
-                idControl =
-                    "INS-" +
-                    anioInspeccion +
-                    "-" +
-                    String(ultimoNumeroInspeccion)
-                        .padStart(4, "0");
+                const siguiente = generarSiguienteIdInspeccionLocalTECCHNEX(inspeccionesParaId, fechaInspeccion);
+                idControl = siguiente.id;
+                localStorage.setItem("ultimoNumeroInspeccion", String(siguiente.numero));
             }
 
 // CAMBIO OM-06: Conserva las imágenes de georreferenciación existentes
@@ -6103,61 +6066,36 @@ function importarInspeccionIndividual() {
                 }
 
                 const datos = paquete.datos;
+                // CAM-ID-CONTINUO-02 V1.1: leer la evaluación técnica desde
+                // la misma propiedad en la que la exportación individual la guarda.
+                // Los archivos antiguos que no incluyan este bloque siguen siendo válidos.
+                const evaluacionVulnerabilidadesImportada =
+                    datos.evaluacionVulnerabilidades && typeof datos.evaluacionVulnerabilidades === "object"
+                        ? datos.evaluacionVulnerabilidades
+                        : null;
                 const inspeccionImportada = { ...datos.inspeccion };
                 inspeccionImportada.claveInspeccionPuestoFecha = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionImportada);
                 const idControlOriginal = String(inspeccionImportada.idControl || paquete.idControl || "").trim();
-                let idControl = idControlOriginal;
-                if (!idControlOriginal) {
-                    alert("La inspección no contiene un identificador de control. No se importó para evitar duplicados.");
-                    return;
-                }
-                inspeccionImportada.idControl = idControl;
-
                 const checklistsImportados = Array.isArray(datos.checklists) ? datos.checklists : [];
                 const hallazgosImportados = Array.isArray(datos.hallazgos) ? datos.hallazgos : [];
                 const matrizImportada = Array.isArray(datos.matrizRiesgos) ? datos.matrizRiesgos : [];
                 const mediosImportados = Array.isArray(datos.mediosFotograficos) ? datos.mediosFotograficos : [];
                 const matricesClienteImportadas = Array.isArray(datos.matricesRiesgosClientes) ? datos.matricesRiesgosClientes : [];
-                // CAM-DATOS-01: compatibilidad con paquetes nuevos y antiguos.
-                // Si el campo independiente no existe, recuperar la evaluación embebida
-                // en la inspección; luego se remapea al índice nuevo antes de guardarla.
-                const evaluacionVulnerabilidadesImportada =
-                    datos.evaluacionVulnerabilidades && typeof datos.evaluacionVulnerabilidades === "object" && !Array.isArray(datos.evaluacionVulnerabilidades)
-                        ? datos.evaluacionVulnerabilidades
-                        : (inspeccionImportada.evaluacionVulnerabilidades && typeof inspeccionImportada.evaluacionVulnerabilidades === "object" && !Array.isArray(inspeccionImportada.evaluacionVulnerabilidades)
-                            ? inspeccionImportada.evaluacionVulnerabilidades
-                            : null);
-                if (!evaluacionVulnerabilidadesImportada) {
-                    // Evitar conservar una referencia embebida inválida o no recuperable.
-                    delete inspeccionImportada.evaluacionVulnerabilidades;
-                }
-
                 const inspeccionesActuales = JSON.parse(localStorage.getItem("inspecciones") || "[]");
-                if (!Array.isArray(inspeccionesActuales)) {
-                    throw new Error("La lista local de inspecciones no tiene un formato válido.");
+                if (!Array.isArray(inspeccionesActuales)) throw new Error("La lista local de inspecciones no tiene un formato válido.");
+                const claveIdentidadImportada = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionImportada);
+                const inspeccionExistenteMismaIdentidad = claveIdentidadImportada
+                    ? inspeccionesActuales.find(registro => obtenerClaveInspeccionPuestoFechaTECCHNEX(registro) === claveIdentidadImportada)
+                    : null;
+                if (inspeccionExistenteMismaIdentidad) {
+                    const idReutilizado = String(inspeccionExistenteMismaIdentidad.idControl || "").trim();
+                    alert("Esta inspección ya existe en este equipo para el mismo puesto y fecha.\n\nSe conserva el ID local: " + (idReutilizado || "sin ID") + ".\nNo se creó otro registro ni se consumió un consecutivo.");
+                    return;
                 }
-                const duplicada = inspeccionesActuales.some(registro =>
-                    String(registro?.idControl || "").trim().toLowerCase() === idControlOriginal.toLowerCase()
-                );
-                if (duplicada) {
-                    // CAM-CLIENTES-03: conservar el ID de origen como referencia y
-                    // asignar el siguiente consecutivo disponible en este equipo.
-                    let mayorConsecutivo = Number(localStorage.getItem("ultimoNumeroInspeccion") || 0);
-                    for (const registro of inspeccionesActuales) {
-                        const coincidencia = String(registro?.idControl || "").match(/^INS-\d{4}-(\d+)$/i);
-                        if (coincidencia) mayorConsecutivo = Math.max(mayorConsecutivo, Number(coincidencia[1]));
-                    }
-                    const anioIdOriginal = idControlOriginal.match(/^INS-(\d{4})-\d+$/i);
-                    const anioId = anioIdOriginal?.[1] || String(inspeccionImportada.fecha || "").substring(0, 4) || String(new Date().getFullYear());
-                    do {
-                        mayorConsecutivo++;
-                        idControl = "INS-" + anioId + "-" + String(mayorConsecutivo).padStart(4, "0");
-                    } while (inspeccionesActuales.some(registro =>
-                        String(registro?.idControl || "").trim().toLowerCase() === idControl.toLowerCase()
-                    ));
-                    inspeccionImportada.idControlOriginal = inspeccionImportada.idControlOriginal || idControlOriginal;
-                    inspeccionImportada.idControl = idControl;
-                }
+                const siguienteIdLocal = generarSiguienteIdInspeccionLocalTECCHNEX(inspeccionesActuales, inspeccionImportada.fecha || inspeccionImportada.fechaInspeccion);
+                const idControl = siguienteIdLocal.id;
+                inspeccionImportada.idControl = idControl;
+                inspeccionImportada.claveInspeccionPuestoFecha = claveIdentidadImportada;
 
                 const mediosConDatos = new Set(
                     mediosImportados
@@ -6179,7 +6117,7 @@ function importarInspeccionIndividual() {
                 }
 
                 const resumen =
-                    "Inspección: " + idControl + (idControl !== idControlOriginal ? "\nIdentificador de origen: " + idControlOriginal : "") + "\n" +
+                    "Inspección asignada en este equipo: " + idControl + (idControlOriginal && idControl !== idControlOriginal ? "\nID del equipo de origen reemplazado: " + idControlOriginal : "") + "\n" +
                     "Checklist: " + checklistsImportados.length + "\n" +
                     "Hallazgos: " + hallazgosImportados.length + "\n" +
                     "Registros de matriz de riesgos: " + matrizImportada.length + "\n" +
@@ -6352,9 +6290,7 @@ function importarInspeccionIndividual() {
                     }
                 }
 
-                let ultimoNumero = Number(localStorage.getItem("ultimoNumeroInspeccion") || 0);
-                const coincidenciaId = idControl.match(/^INS-\d{4}-(\d+)$/i);
-                if (coincidenciaId) ultimoNumero = Math.max(ultimoNumero, Number(coincidenciaId[1]));
+                const ultimoNumero = Math.max(obtenerMayorConsecutivoInspeccionTECCHNEX(inspeccionesActuales), siguienteIdLocal.numero);
 
                 const clavesGuardar = {
                     inspecciones: [...inspeccionesActuales, inspeccionImportada],
@@ -6417,7 +6353,7 @@ function importarInspeccionIndividual() {
 
                 alert(
                     "Importación individual completada.\n\n" +
-                    "Inspección: " + idControl + (idControl !== idControlOriginal ? "\nIdentificador de origen conservado: " + idControlOriginal : "") + "\n" +
+                    "Inspección: " + idControl + (idControlOriginal && idControl !== idControlOriginal ? "\nID de origen reemplazado: " + idControlOriginal : "") + "\n" +
                     "Checklist: " + checklistsNuevos.length + "\n" +
                     "Hallazgos: " + hallazgosNuevos.length + "\n" +
                     "Registros de matriz de riesgos: " + matrizNueva.length + "\n" +
@@ -13422,6 +13358,24 @@ function obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion) {
     return puesto && fecha ? `${fecha}|${puesto}` : "";
 }
 
+// CAM-ID-CONTINUO-02: calcula el siguiente consecutivo usando la memoria local
+// y los IDs realmente existentes; el contador guardado es solo una referencia adicional.
+function obtenerMayorConsecutivoInspeccionTECCHNEX(inspecciones) {
+    // La fuente de verdad es la lista de inspecciones de este equipo.
+    // No se confía en un contador aislado que podría haber quedado adelantado.
+    let mayor = 0;
+    (Array.isArray(inspecciones) ? inspecciones : []).forEach(registro => {
+        const coincidencia = String(registro?.idControl || "").trim().match(/^INS-\d{4}-(\d+)$/i);
+        if (coincidencia) mayor = Math.max(mayor, Number(coincidencia[1]));
+    });
+    return mayor;
+}
+function generarSiguienteIdInspeccionLocalTECCHNEX(inspecciones, fecha) {
+    const numero = obtenerMayorConsecutivoInspeccionTECCHNEX(inspecciones) + 1;
+    const anio = String(fecha || "").slice(0, 4) || String(new Date().getFullYear());
+    return { id: `INS-${anio}-${String(numero).padStart(4, "0")}`, numero };
+}
+
 function generarIdInformePuestoFechaTECCHNEX(inspeccion) {
     const clave = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion);
     if (!clave) return "";
@@ -14033,6 +13987,7 @@ async function generarWordPlantillaMaestra() {
         const puesto=inspeccion.nombrePuesto||"";
         // CAM-RESTAURACION-HALLAZGOS-01: imprimir el ID comercial del informe generado.
         // La plantilla maestra original permanece intacta; solo se modifica la copia en memoria.
+        const idInspeccionDocumento=String(inspeccion.idControl||"SIN ID").trim()||"SIN ID";
         const idInformeDocumento=String(inspeccion.idInforme||"SIN ID").trim()||"SIN ID";
         const headerEntry=zip.file("word/header1.xml");
         if(headerEntry){
@@ -14047,8 +14002,8 @@ async function generarWordPlantillaMaestra() {
             // Si el puesto está vacío, no insertar un segundo salto: evita una línea en blanco.
             // Si hay puesto, conservar una sola línea de separación entre el puesto y el ID.
             const contenidoPuestoEId = String(puesto).trim()
-                ? escaparXmlWord(puesto)+"</w:t><w:br/><w:t>ID DE INFORME: "+escaparXmlWord(idInformeDocumento)
-                : "</w:t><w:t>ID DE INFORME: "+escaparXmlWord(idInformeDocumento);
+                ? escaparXmlWord(puesto)+"</w:t><w:br/><w:t>ID DE INSPECCIÓN: "+escaparXmlWord(idInspeccionDocumento)+"</w:t><w:br/><w:t>ID DE INFORME: "+escaparXmlWord(idInformeDocumento)
+                : "</w:t><w:t>ID DE INSPECCIÓN: "+escaparXmlWord(idInspeccionDocumento)+"</w:t><w:br/><w:t>ID DE INFORME: "+escaparXmlWord(idInformeDocumento);
             headerXml=headerXml.split("{{PUESTO}}").join(contenidoPuestoEId);
             // La plantilla aprobada contiene el título preventivo como texto fijo,
             // no como marcador. En la copia generada se sustituye solo ese valor,
@@ -14989,7 +14944,7 @@ h3{color:#000!important;border-bottom:1px solid #F2C500!important}
                 <tr><td class="marca"><img src="logo-cotraser.png" alt="COTRASER C.T.A." style="width:100%;max-width:125px;max-height:65px;object-fit:contain" onerror="this.style.display='none'"></td>
                     <td class="titulo">${e(tituloInforme)}</td><td class="codigo"><strong>PSOF004</strong><br>Versión No. 003<br>Fecha: ${e(inspeccion.fecha || "")}</td></tr>
                 <tr><td colspan="3" class="confidencial">- CONFIDENCIAL -</td></tr>
-                <tr><td colspan="3" class="cliente">${e(inspeccion.cliente || "")}<br><strong>ID DE INFORME: ${e(inspeccion.idInforme || "SIN ID")}</strong></td></tr>
+                <tr><td colspan="3" class="cliente">${e(inspeccion.cliente || "")}<br><strong>ID DE INSPECCIÓN: ${e(inspeccion.idControl || "SIN ID")}</strong><br><strong>ID DE INFORME: ${e(inspeccion.idInforme || "SIN ID")}</strong></td></tr>
             </tbody></table>
             ${resumenEjecutivoDiagnosticoPDF}
             <h2>1. Información del cliente y del puesto</h2>
@@ -17187,6 +17142,8 @@ h3{color:#000!important;border-bottom:1px solid #F2C500!important}
     ${escapar(inspeccion.cliente)}
     <br>
     <strong>
+        ID DE INSPECCIÓN: ${escapar(inspeccion.idControl || "SIN ID")}
+        <br>
         ID DE INFORME: ${escapar(inspeccion.idInforme || "SIN ID")}
     </strong>
 </td>
