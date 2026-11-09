@@ -4391,13 +4391,13 @@ function cerrarDashboard() {
             const indiceEdicion = formulario.dataset.editando;
             const inspeccionesParaId = JSON.parse(localStorage.getItem("inspecciones") || "[]");
             let idControl;
+            let siguienteIdGenerado = null;
             if (indiceEdicion !== undefined && indiceEdicion !== "") {
                 const inspeccionAnterior = inspeccionesParaId[Number(indiceEdicion)];
                 idControl = inspeccionAnterior?.idControl || null;
             } else {
-                const siguiente = generarSiguienteIdInspeccionLocalTECCHNEX(inspeccionesParaId, fechaInspeccion);
-                idControl = siguiente.id;
-                localStorage.setItem("ultimoNumeroInspeccion", String(siguiente.numero));
+                siguienteIdGenerado = generarSiguienteIdInspeccionLocalTECCHNEX(inspeccionesParaId, fechaInspeccion);
+                idControl = siguienteIdGenerado.id;
             }
 
 // CAMBIO OM-06: Conserva las imágenes de georreferenciación existentes
@@ -4548,7 +4548,8 @@ if (typeof imagenEarthParaGuardar === "string" && /^data:image\//i.test(imagenEa
                 director: document.getElementById("director").value,
                 // CAM-PLANTILLA-01: Datos destinados a la plantilla maestra Word.
                 revisadoPor: document.getElementById("revisadoPor")?.value || "",
-                nombrePuesto: document.getElementById("nombrePuesto")?.value || "",
+                // CAM-ID-ANUAL-01: el puesto corresponde al nombre del cliente.
+                nombrePuesto: String(document.getElementById("cliente").value || "").trim(),
                 estadoPuesto: document.getElementById("estadoPuesto")?.value || "ACTIVO",
                 tipo: document.getElementById("tipo").value,
                 tituloDocumento: obtenerTituloDocumentoPorTipo(document.getElementById("tipo").value),
@@ -4749,6 +4750,10 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
                 "inspecciones",
                 JSON.stringify(inspecciones)
             );
+            // Registrar el consecutivo solo después de guardar la inspección correctamente.
+            if (siguienteIdGenerado && !(indiceEdicion !== undefined && indiceEdicion !== "")) {
+                registrarConsecutivoInspeccionTECCHNEX(siguienteIdGenerado.anio, siguienteIdGenerado.numero, inspecciones);
+            }
 
             // CAM-RESTAURACION-HALLAZGOS-01: si al editar cambia el puesto o la fecha,
             // trasladar los hallazgos de esa misma ficha a la nueva clave. No se pierden.
@@ -5806,6 +5811,9 @@ async function crearRespaldo() {
                 ultimoNumeroInspeccion:
                     localStorage.getItem("ultimoNumeroInspeccion") || "0",
 
+                // CAM-ID-ANUAL-01: contador independiente por año.
+                ultimoNumeroInspeccionPorAnio: leerContadoresInspeccionPorAnioTECCHNEX(),
+
                 informesGenerados:
                     localStorage.getItem("informesGenerados") || "0",
 
@@ -6066,7 +6074,7 @@ function importarInspeccionIndividual() {
                 }
 
                 const datos = paquete.datos;
-                // CAM-ID-CONTINUO-02 V1.1: leer la evaluación técnica desde
+                // CAM-ID-CONTINUO-02 + CAM-RESTAURACION-HALLAZGOS-02 V1.1: leer la evaluación técnica desde
                 // la misma propiedad en la que la exportación individual la guarda.
                 // Los archivos antiguos que no incluyan este bloque siguen siendo válidos.
                 const evaluacionVulnerabilidadesImportada =
@@ -6074,6 +6082,9 @@ function importarInspeccionIndividual() {
                         ? datos.evaluacionVulnerabilidades
                         : null;
                 const inspeccionImportada = { ...datos.inspeccion };
+                if (!String(inspeccionImportada.nombrePuesto || "").trim()) {
+                    inspeccionImportada.nombrePuesto = String(inspeccionImportada.cliente || inspeccionImportada.nombreCliente || "").trim();
+                }
                 inspeccionImportada.claveInspeccionPuestoFecha = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionImportada);
                 const idControlOriginal = String(inspeccionImportada.idControl || paquete.idControl || "").trim();
                 const checklistsImportados = Array.isArray(datos.checklists) ? datos.checklists : [];
@@ -6290,7 +6301,10 @@ function importarInspeccionIndividual() {
                     }
                 }
 
-                const ultimoNumero = Math.max(obtenerMayorConsecutivoInspeccionTECCHNEX(inspeccionesActuales), siguienteIdLocal.numero);
+                const contadoresPorAnio = leerContadoresInspeccionPorAnioTECCHNEX();
+                contadoresPorAnio[siguienteIdLocal.anio] = Math.max(Number(contadoresPorAnio[siguienteIdLocal.anio] || 0), siguienteIdLocal.numero);
+                localStorage.setItem("ultimoNumeroInspeccionPorAnio", JSON.stringify(contadoresPorAnio));
+                const ultimoNumero = siguienteIdLocal.numero;
 
                 const clavesGuardar = {
                     inspecciones: [...inspeccionesActuales, inspeccionImportada],
@@ -6454,29 +6468,67 @@ if (!confirmar) {
 
 const datos = respaldo.datos;
 
-// CAM-RESTAURACION-HALLAZGOS-01: reconstruir la asociación portable desde el propio respaldo.
-// No se compara ni se depende del idControl que pueda tener este navegador.
+// CAM-RESTAURACION-HALLAZGOS-02: reconstrucción segura de la relación hallazgo-inspección.
+// Prioridad: ID histórico de inspección (cuando es único en el respaldo); índice solo
+// para hallazgos antiguos que no contienen ID. Nunca se usa un índice contradictorio
+// cuando el hallazgo sí trae un ID que no puede resolverse inequívocamente.
 if (Array.isArray(datos.inspecciones)) {
     datos.inspecciones = datos.inspecciones.map(inspeccion => ({
         ...inspeccion,
         claveInspeccionPuestoFecha: obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion)
     }));
 }
+const indicesInspeccionPorIdRespaldo = new Map();
+(datos.inspecciones || []).forEach((inspeccion, indice) => {
+    const id = String(inspeccion?.idControl || "").trim().toUpperCase();
+    if (!id) return;
+    if (!indicesInspeccionPorIdRespaldo.has(id)) indicesInspeccionPorIdRespaldo.set(id, []);
+    indicesInspeccionPorIdRespaldo.get(id).push(indice);
+});
+let hallazgosRestauradosSinAsociacion = 0;
+let hallazgosRestauradosPorId = 0;
+let hallazgosRestauradosPorIndice = 0;
 if (Array.isArray(datos.hallazgos)) {
     datos.hallazgos = datos.hallazgos.map(hallazgo => {
+        const idOrigen = String(hallazgo?.idControlInspeccion || "").trim().toUpperCase();
         const indiceOrigenRaw = hallazgo?.inspeccion;
         const tieneIndiceOrigen = indiceOrigenRaw !== null && indiceOrigenRaw !== undefined &&
             String(indiceOrigenRaw).trim() !== "" && Number.isInteger(Number(indiceOrigenRaw));
         const indiceOrigen = tieneIndiceOrigen ? Number(indiceOrigenRaw) : -1;
-        const inspeccionOrigen = tieneIndiceOrigen && indiceOrigen >= 0
-            ? datos.inspecciones?.[indiceOrigen]
-            : null;
+        let indiceDestino = -1;
+        let inspeccionOrigen = null;
+
+        if (idOrigen) {
+            const coincidenciasId = indicesInspeccionPorIdRespaldo.get(idOrigen) || [];
+            if (coincidenciasId.length === 1) {
+                indiceDestino = coincidenciasId[0];
+                inspeccionOrigen = datos.inspecciones[indiceDestino];
+                hallazgosRestauradosPorId++;
+            }
+            // Si el ID falta en el respaldo o está duplicado, no confiar en el índice
+            // antiguo: podría señalar una inspección distinta en el equipo receptor.
+        } else if (tieneIndiceOrigen && indiceOrigen >= 0 && indiceOrigen < (datos.inspecciones || []).length) {
+            indiceDestino = indiceOrigen;
+            inspeccionOrigen = datos.inspecciones[indiceDestino];
+            hallazgosRestauradosPorIndice++;
+        }
+
+        const { idControlInspeccion, claveInspeccionPuestoFecha, ...hallazgoSinIdsOrigen } = hallazgo || {};
+        if (indiceDestino < 0 || !inspeccionOrigen) {
+            hallazgosRestauradosSinAsociacion++;
+            return { ...hallazgoSinIdsOrigen, inspeccion: null };
+        }
         const clave = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionOrigen);
-        const { idControlInspeccion, ...hallazgoSinIdLocal } = hallazgo || {};
-        return clave
-            ? { ...hallazgoSinIdLocal, inspeccion: indiceOrigen, claveInspeccionPuestoFecha: clave }
-            : hallazgoSinIdLocal;
+        return {
+            ...hallazgoSinIdsOrigen,
+            inspeccion: indiceDestino,
+            ...(clave ? { claveInspeccionPuestoFecha: clave } : {})
+        };
     });
+}
+if (hallazgosRestauradosSinAsociacion > 0) {
+    console.warn("CAM-RESTAURACION-HALLAZGOS-02: " + hallazgosRestauradosSinAsociacion +
+        " hallazgo(s) quedaron sin asociación porque no fue posible identificar su inspección de origen de forma inequívoca.");
 }
 
 // CAM-DATOS-01: conservar una instantánea de las relaciones locales antes de
@@ -6626,6 +6678,17 @@ localStorage.setItem(
     datos.ultimoNumeroInspeccion || "0"
 );
 
+// CAM-ID-ANUAL-01: restaurar contadores anuales; en respaldos antiguos se reconstruyen desde los IDs existentes.
+if (datos.ultimoNumeroInspeccionPorAnio && typeof datos.ultimoNumeroInspeccionPorAnio === "object" && !Array.isArray(datos.ultimoNumeroInspeccionPorAnio)) {
+    localStorage.setItem("ultimoNumeroInspeccionPorAnio", JSON.stringify(datos.ultimoNumeroInspeccionPorAnio));
+} else {
+    localStorage.removeItem("ultimoNumeroInspeccionPorAnio");
+}
+const inspeccionesConIdsAnuales = completarIdsHistoricosCronologicosTECCHNEX(
+    Array.isArray(datos.inspecciones) ? datos.inspecciones : []
+);
+localStorage.setItem("inspecciones", JSON.stringify(inspeccionesConIdsAnuales));
+
 localStorage.setItem(
     "informesGenerados",
     datos.informesGenerados || "0"
@@ -6741,7 +6804,10 @@ alert(
     "\nFotografías del respaldo: " +
     (datos.mediosFotograficos || []).length +
     "\nMatrices de clientes incluidas: " +
-    (Array.isArray(datos.matricesRiesgosClientes) ? datos.matricesRiesgosClientes.length : "No incluidas en este respaldo antiguo")
+    (Array.isArray(datos.matricesRiesgosClientes) ? datos.matricesRiesgosClientes.length : "No incluidas en este respaldo antiguo") +
+    (hallazgosRestauradosSinAsociacion > 0
+        ? "\n\nADVERTENCIA: " + hallazgosRestauradosSinAsociacion + " hallazgos quedaron sin asociar porque su inspección de origen no pudo identificarse de forma inequívoca. No se asignaron a otro informe. Revise esos registros antes de emitir informes."
+        : "\n\nAsociación de hallazgos: todos los registros pudieron vincularse de forma segura.")
 );
 
     } catch (error) {
@@ -8037,63 +8103,11 @@ function abrirClientes() {
     JSON.parse(
         localStorage.getItem("inspecciones")
     ) || [];
-        let ultimoNumeroInspeccion =
-        Number(
-            localStorage.getItem("ultimoNumeroInspeccion") || 0
-        );
 
-    // Detectar el número más alto que ya existe
-    inspecciones.forEach(inspeccion => {
-
-        if (inspeccion.idControl) {
-
-            const coincidencia =
-                String(inspeccion.idControl).match(
-                    /^INS-\d{4}-(\d+)$/
-                );
-
-            if (coincidencia) {
-
-                const numero =
-                    Number(coincidencia[1]);
-
-                if (numero > ultimoNumeroInspeccion) {
-                    ultimoNumeroInspeccion = numero;
-                }
-            }
-        }
-    });
-
-    // Asignar ID únicamente a inspecciones antiguas sin ID
-    inspecciones.forEach(inspeccion => {
-
-        if (!inspeccion.idControl) {
-
-            ultimoNumeroInspeccion++;
-
-            const anio =
-                String(inspeccion.fecha || "")
-                    .substring(0, 4) ||
-                new Date().getFullYear();
-
-            inspeccion.idControl =
-                "INS-" +
-                anio +
-                "-" +
-                String(ultimoNumeroInspeccion)
-                    .padStart(4, "0");
-        }
-    });
-
-    localStorage.setItem(
-        "ultimoNumeroInspeccion",
-        String(ultimoNumeroInspeccion)
-    );
-
-    localStorage.setItem(
-        "inspecciones",
-        JSON.stringify(inspecciones)
-    );
+    // CAM-ID-ANUAL-01: completar IDs históricos faltantes en orden cronológico.
+    // Los IDs ya existentes se conservan para no romper referencias históricas.
+    completarIdsHistoricosCronologicosTECCHNEX(inspecciones);
+    localStorage.setItem("inspecciones", JSON.stringify(inspecciones));
 
     // =====================================================
 // FUNCIÓN: BUSCADOR DE CLIENTES
@@ -13358,22 +13372,82 @@ function obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion) {
     return puesto && fecha ? `${fecha}|${puesto}` : "";
 }
 
-// CAM-ID-CONTINUO-02: calcula el siguiente consecutivo usando la memoria local
-// y los IDs realmente existentes; el contador guardado es solo una referencia adicional.
-function obtenerMayorConsecutivoInspeccionTECCHNEX(inspecciones) {
-    // La fuente de verdad es la lista de inspecciones de este equipo.
-    // No se confía en un contador aislado que podría haber quedado adelantado.
+// CAM-ID-ANUAL-01 — Consecutivo independiente por año.
+// La lista de inspecciones y el mapa persistente son las fuentes de verdad.
+// El contador escalar anterior se conserva únicamente por compatibilidad con respaldos antiguos.
+function leerContadoresInspeccionPorAnioTECCHNEX() {
+    try {
+        const datos = JSON.parse(localStorage.getItem("ultimoNumeroInspeccionPorAnio") || "{}");
+        return datos && typeof datos === "object" && !Array.isArray(datos) ? datos : {};
+    } catch (_) { return {}; }
+}
+
+function obtenerMayorConsecutivoInspeccionTECCHNEX(inspecciones, anio) {
+    const anioObjetivo = String(anio || "");
     let mayor = 0;
     (Array.isArray(inspecciones) ? inspecciones : []).forEach(registro => {
-        const coincidencia = String(registro?.idControl || "").trim().match(/^INS-\d{4}-(\d+)$/i);
-        if (coincidencia) mayor = Math.max(mayor, Number(coincidencia[1]));
+        const coincidencia = String(registro?.idControl || "").trim().match(/^INS-(\d{4})-(\d+)$/i);
+        if (coincidencia && (!anioObjetivo || coincidencia[1] === anioObjetivo)) {
+            mayor = Math.max(mayor, Number(coincidencia[2]));
+        }
     });
     return mayor;
 }
+
+function registrarConsecutivoInspeccionTECCHNEX(anio, numero, inspecciones) {
+    const anioClave = String(anio || "");
+    if (!/^\d{4}$/.test(anioClave)) return;
+    const mapa = leerContadoresInspeccionPorAnioTECCHNEX();
+    const mayorExistente = obtenerMayorConsecutivoInspeccionTECCHNEX(inspecciones, anioClave);
+    mapa[anioClave] = Math.max(Number(mapa[anioClave] || 0), Number(numero || 0), mayorExistente);
+    localStorage.setItem("ultimoNumeroInspeccionPorAnio", JSON.stringify(mapa));
+    // Compatibilidad: el valor escalar ya no gobierna la generación del siguiente ID.
+    localStorage.setItem("ultimoNumeroInspeccion", String(mapa[anioClave]));
+}
+
 function generarSiguienteIdInspeccionLocalTECCHNEX(inspecciones, fecha) {
-    const numero = obtenerMayorConsecutivoInspeccionTECCHNEX(inspecciones) + 1;
-    const anio = String(fecha || "").slice(0, 4) || String(new Date().getFullYear());
-    return { id: `INS-${anio}-${String(numero).padStart(4, "0")}`, numero };
+    const fechaTexto = String(fecha || "").trim();
+    const anio = /^\d{4}/.test(fechaTexto) ? fechaTexto.slice(0, 4) : String(new Date().getFullYear());
+    const mapa = leerContadoresInspeccionPorAnioTECCHNEX();
+    const mayor = Math.max(
+        obtenerMayorConsecutivoInspeccionTECCHNEX(inspecciones, anio),
+        Number(mapa[anio] || 0)
+    );
+    const numero = mayor + 1;
+    return { id: `INS-${anio}-${String(numero).padStart(3, "0")}`, numero, anio };
+}
+
+// Completa únicamente IDs ausentes. Los existentes no se reescriben porque pueden
+// estar referenciados por fotografías, evaluaciones y exportaciones históricas.
+// Los faltantes se asignan cronológicamente, con secuencia independiente por año.
+function completarIdsHistoricosCronologicosTECCHNEX(inspecciones) {
+    const lista = Array.isArray(inspecciones) ? inspecciones : [];
+    const mapa = leerContadoresInspeccionPorAnioTECCHNEX();
+    lista.forEach(registro => {
+        if (registro && !String(registro.nombrePuesto || "").trim()) {
+            registro.nombrePuesto = String(registro.cliente || registro.nombreCliente || registro.razonSocial || "").trim();
+        }
+        const m = String(registro?.idControl || "").trim().match(/^INS-(\d{4})-(\d+)$/i);
+        if (m) mapa[m[1]] = Math.max(Number(mapa[m[1]] || 0), Number(m[2]));
+    });
+    const pendientes = lista.map((registro, indice) => ({ registro, indice }))
+        .filter(x => !String(x.registro?.idControl || "").trim())
+        .map(x => {
+            const fecha = String(x.registro?.fecha || x.registro?.fechaInspeccion || "").trim();
+            const anio = /^\d{4}/.test(fecha) ? fecha.slice(0, 4) : String(new Date().getFullYear());
+            return { ...x, fechaOrden: fecha || "9999-12-31", anio };
+        })
+        .sort((a, b) => a.fechaOrden.localeCompare(b.fechaOrden) || a.indice - b.indice);
+    pendientes.forEach(x => {
+        const mayor = Math.max(Number(mapa[x.anio] || 0), obtenerMayorConsecutivoInspeccionTECCHNEX(lista, x.anio));
+        const numero = mayor + 1;
+        x.registro.idControl = `INS-${x.anio}-${String(numero).padStart(3, "0")}`;
+        mapa[x.anio] = numero;
+    });
+    localStorage.setItem("ultimoNumeroInspeccionPorAnio", JSON.stringify(mapa));
+    const anioActual = String(new Date().getFullYear());
+    localStorage.setItem("ultimoNumeroInspeccion", String(mapa[anioActual] || 0));
+    return lista;
 }
 
 function generarIdInformePuestoFechaTECCHNEX(inspeccion) {
@@ -13415,9 +13489,10 @@ function asegurarIdInformePuestoFechaTECCHNEX(inspecciones, indice) {
     return objetivo;
 }
 
-/* CAM-RESTAURACION-HALLAZGOS-01 — Relación portable por puesto + fecha.
+/* CAM-RESTAURACION-HALLAZGOS-01/03 — Relación portable por puesto + fecha.
    El índice se usa únicamente para traducir registros históricos que aún no
-   tienen clave propia; el idControl del navegador nunca decide la pertenencia. */
+   tienen clave propia y solo si es un entero no negativo explícito; el idControl
+   del navegador nunca decide la pertenencia. */
 function obtenerRegistrosDeInspeccion(registros, inspeccion, indice) {
     const lista = Array.isArray(registros) ? registros : [];
     const claveObjetivo = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion);
@@ -13447,12 +13522,24 @@ function obtenerRegistrosDeInspeccion(registros, inspeccion, indice) {
         if (registrosConClave.length || hayTrazabilidadPortable) return registrosConClave;
     }
 
-    // Compatibilidad histórica: si aún no existe puesto/fecha, conservar el índice
-    // del respaldo/importación. Nunca usar idControlInspeccion para decidir pertenencia.
-    return lista.filter(registro =>
-        !String(registro?.claveInspeccionPuestoFecha || "").trim() &&
-        Number(registro?.inspeccion) === Number(indice)
-    );
+    // CAM-RESTAURACION-HALLAZGOS-03 — Compatibilidad histórica segura.
+    // Number(null) y Number("") devuelven 0; por eso nunca comparar índices
+    // antes de validar explícitamente que ambos sean índices enteros no negativos.
+    const indiceObjetivoRaw = indice;
+    const tieneIndiceObjetivo = indiceObjetivoRaw !== null && indiceObjetivoRaw !== undefined &&
+        String(indiceObjetivoRaw).trim() !== "" && Number.isInteger(Number(indiceObjetivoRaw)) &&
+        Number(indiceObjetivoRaw) >= 0;
+    if (!tieneIndiceObjetivo) return [];
+    const indiceObjetivo = Number(indiceObjetivoRaw);
+
+    return lista.filter(registro => {
+        if (String(registro?.claveInspeccionPuestoFecha || "").trim()) return false;
+        const indiceRegistroRaw = registro?.inspeccion;
+        const tieneIndiceRegistro = indiceRegistroRaw !== null && indiceRegistroRaw !== undefined &&
+            String(indiceRegistroRaw).trim() !== "" && Number.isInteger(Number(indiceRegistroRaw)) &&
+            Number(indiceRegistroRaw) >= 0;
+        return tieneIndiceRegistro && Number(indiceRegistroRaw) === indiceObjetivo;
+    });
 }
 
 
