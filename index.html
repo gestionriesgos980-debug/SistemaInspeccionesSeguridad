@@ -6,7 +6,7 @@ Cambio controlado: encabezado/acentos azules oscuros del panel a negro; el gráf
 Base de trabajo: V9. No modifica la plantilla maestra Word ni las estructuras de almacenamiento.
 
 TECCHNEX — CAM-TRAZABILIDAD-01 / LAB V1
-Base validada: CAM-DATOS-01. Cambio: asociación por idControl con compatibilidad para evaluaciones heredadas.
+Base validada: CAM-DATOS-01. Cambio CAM-RESTAURACION-HALLAZGOS-01: hallazgos por puesto+fecha e ID de informe generado al emitir.
 
 TECCHNEX — CAM-ENSAMBLADO-OBS-LAB / CAM-WORD-LOCAL-01 + CAM-PDF-FALLBACK-01 / CAM-RIESGOS-BIB-01
 // V23: tras guardar checklist, mantener la ventana abierta y volver al inicio.
@@ -4712,6 +4712,27 @@ inspeccion.seguridadSugerida = Array.from(
             let inspecciones =
                 JSON.parse(localStorage.getItem("inspecciones")) || [];
 
+// CAM-RESTAURACION-HALLAZGOS-01: la identidad portable depende solo del puesto y la fecha.
+const clavePuestoFechaNueva = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion);
+inspeccion.claveInspeccionPuestoFecha = clavePuestoFechaNueva;
+const inspeccionAnteriorEdicion = (indiceEdicion !== undefined && indiceEdicion !== "")
+    ? inspecciones[Number(indiceEdicion)]
+    : null;
+const informeExistenteMismaIdentidad = inspecciones.find(registro =>
+    obtenerClaveInspeccionPuestoFechaTECCHNEX(registro) === clavePuestoFechaNueva &&
+    String(registro?.idInforme || "").trim()
+);
+if (clavePuestoFechaNueva) {
+    const idInformeConservado = informeExistenteMismaIdentidad?.idInforme ||
+        (obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionAnteriorEdicion) === clavePuestoFechaNueva
+            ? inspeccionAnteriorEdicion?.idInforme
+            : "");
+    if (idInformeConservado) inspeccion.idInforme = idInformeConservado;
+    else delete inspeccion.idInforme;
+} else {
+    delete inspeccion.idInforme;
+}
+
 if (indiceEdicion !== undefined && indiceEdicion !== "") {
 
     inspecciones[Number(indiceEdicion)] = inspeccion;
@@ -4744,6 +4765,38 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
                 "inspecciones",
                 JSON.stringify(inspecciones)
             );
+
+            // CAM-RESTAURACION-HALLAZGOS-01: si al editar cambia el puesto o la fecha,
+            // trasladar los hallazgos de esa misma ficha a la nueva clave. No se pierden.
+            if (indiceEdicion !== undefined && indiceEdicion !== "" && inspeccionAnteriorEdicion) {
+                const indiceEditado = Number(indiceEdicion);
+                const claveAnterior = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionAnteriorEdicion);
+                if (claveAnterior !== clavePuestoFechaNueva) {
+                    try {
+                        const hallazgosLocales = JSON.parse(localStorage.getItem("hallazgos") || "[]");
+                        if (Array.isArray(hallazgosLocales)) {
+                            const hallazgosReasociados = hallazgosLocales.map(hallazgo => {
+                                const claveHallazgo = String(hallazgo?.claveInspeccionPuestoFecha || "").trim();
+                                const indiceRaw = hallazgo?.inspeccion;
+                                const indiceValido = indiceRaw !== null && indiceRaw !== undefined &&
+                                    String(indiceRaw).trim() !== "" && Number.isInteger(Number(indiceRaw));
+                                const pertenece = claveAnterior
+                                    ? (claveHallazgo === claveAnterior || (!claveHallazgo && indiceValido && Number(indiceRaw) === indiceEditado))
+                                    : (!claveHallazgo && indiceValido && Number(indiceRaw) === indiceEditado);
+                                if (!pertenece) return hallazgo;
+                                const { idControlInspeccion, claveInspeccionPuestoFecha, ...hallazgoSinIds } = hallazgo || {};
+                                return clavePuestoFechaNueva
+                                    ? { ...hallazgoSinIds, inspeccion: indiceEditado, claveInspeccionPuestoFecha: clavePuestoFechaNueva }
+                                    : { ...hallazgoSinIds, inspeccion: indiceEditado };
+                            });
+                            localStorage.setItem("hallazgos", JSON.stringify(hallazgosReasociados));
+                        }
+                    } catch (errorReasociacion) {
+                        console.error("CAM-RESTAURACION-HALLAZGOS-01: no fue posible actualizar la clave de los hallazgos editados.", errorReasociacion);
+                        alert("La inspección se guardó, pero no se pudo actualizar automáticamente la asociación de sus hallazgos. Antes de continuar, cree un respaldo y revise esta inspección.");
+                    }
+                }
+            }
 
             // CAMBIO TIMESTAMP ETAPA 1 — Registrar creación o modificación de la inspección
             // después de guardar correctamente, sin alterar la estructura existente de inspecciones.
@@ -5993,6 +6046,7 @@ function importarInspeccionIndividual() {
 
                 const datos = paquete.datos;
                 const inspeccionImportada = { ...datos.inspeccion };
+                inspeccionImportada.claveInspeccionPuestoFecha = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionImportada);
                 const idControlOriginal = String(inspeccionImportada.idControl || paquete.idControl || "").trim();
                 let idControl = idControlOriginal;
                 if (!idControlOriginal) {
@@ -6118,8 +6172,10 @@ function importarInspeccionIndividual() {
                     const nuevoHallazgo = {
                         ...hallazgo,
                         inspeccion: nuevoIndice,
-                        idControlInspeccion: idControl
+                        claveInspeccionPuestoFecha: inspeccionImportada.claveInspeccionPuestoFecha
                     };
+                    // El ID local de origen se conserva solo como dato legado, nunca como vínculo.
+                    delete nuevoHallazgo.idControlInspeccion;
                     const fotosOriginales = Array.isArray(hallazgo?.fotos) ? hallazgo.fotos : [];
                     nuevoHallazgo.fotos = [];
 
@@ -6383,6 +6439,31 @@ if (!confirmar) {
 
 const datos = respaldo.datos;
 
+// CAM-RESTAURACION-HALLAZGOS-01: reconstruir la asociación portable desde el propio respaldo.
+// No se compara ni se depende del idControl que pueda tener este navegador.
+if (Array.isArray(datos.inspecciones)) {
+    datos.inspecciones = datos.inspecciones.map(inspeccion => ({
+        ...inspeccion,
+        claveInspeccionPuestoFecha: obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion)
+    }));
+}
+if (Array.isArray(datos.hallazgos)) {
+    datos.hallazgos = datos.hallazgos.map(hallazgo => {
+        const indiceOrigenRaw = hallazgo?.inspeccion;
+        const tieneIndiceOrigen = indiceOrigenRaw !== null && indiceOrigenRaw !== undefined &&
+            String(indiceOrigenRaw).trim() !== "" && Number.isInteger(Number(indiceOrigenRaw));
+        const indiceOrigen = tieneIndiceOrigen ? Number(indiceOrigenRaw) : -1;
+        const inspeccionOrigen = tieneIndiceOrigen && indiceOrigen >= 0
+            ? datos.inspecciones?.[indiceOrigen]
+            : null;
+        const clave = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionOrigen);
+        const { idControlInspeccion, ...hallazgoSinIdLocal } = hallazgo || {};
+        return clave
+            ? { ...hallazgoSinIdLocal, inspeccion: indiceOrigen, claveInspeccionPuestoFecha: clave }
+            : hallazgoSinIdLocal;
+    });
+}
+
 // CAM-DATOS-01: conservar una instantánea de las relaciones locales antes de
 // reemplazar las inspecciones, necesaria solo para compatibilidad con respaldos antiguos.
 let inspeccionesAntesDeRestaurar = [];
@@ -6572,10 +6653,10 @@ const directorioActual = inicializarDirectorioClientesOM16();
 if (Array.isArray(datos.directorioClientesOM16)) {
     const normalizarClaveRespaldo = valor => String(valor ?? "")
         .normalize("NFD")
-        .replace(/[\\u0300-\\u036f]/g, "")
+        .replace(/[\u0300-\u036f]/g, "")
         .trim()
         .toLowerCase()
-        .replace(/\\s+/g, " ");
+        .replace(/\s+/g, " ");
 
     for (const clienteRespaldo of datos.directorioClientesOM16) {
         if (!clienteRespaldo || !String(clienteRespaldo.cliente || "").trim()) continue;
@@ -8764,9 +8845,8 @@ function revisarCalidadDatosInforme() {
     mostrarResultadoCalidadInforme(resultados, clienteOriginal, fechaInspeccion, indice + 1);
 
     function matrizMatrizSeguro(registros, objetivo, indiceObjetivo) {
-        const id = String(objetivo && objetivo.idControl || "").trim();
-        if (id) return registros.filter(r => String(r && r.idControlInspeccion || "").trim() === id);
-        return registros.filter(r => !String(r && r.idControlInspeccion || "").trim() && Number(r && r.inspeccion) === Number(indiceObjetivo));
+        // La revisión de calidad utiliza el mismo vínculo portable que el informe.
+        return obtenerRegistrosDeInspeccion(registros, objetivo, indiceObjetivo);
     }
 
     function mostrarResultadoCalidadInforme(chequeos, nombre = "", fecha = "", numero = null) {
@@ -11451,15 +11531,8 @@ async function guardarHallazgo() {
         inspeccionHallazgo !== null && Number.isInteger(inspeccionHallazgo)
             ? inspeccionesParaAsociarHallazgo[inspeccionHallazgo]
             : null;
-    const idControlActivoHallazgo =
-        String(inspeccionActivaHallazgo?.idControl || "").trim();
-    // CAM-HALLAZGOS-02 — Los hallazgos nuevos siempre quedan vinculados
-    // al idControl de la inspección activa, incluso si es su primer hallazgo.
-    // Al editar se conserva la relación original cuando ya existe.
-    const idControlHallazgoEstable =
-        indiceHallazgoEditando !== null && hallazgos[indiceHallazgoEditando]?.idControlInspeccion
-            ? hallazgos[indiceHallazgoEditando].idControlInspeccion
-            : idControlActivoHallazgo;
+    // CAM-RESTAURACION-HALLAZGOS-01: vínculo independiente del equipo que captura.
+    const clavePuestoFechaHallazgo = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionActivaHallazgo);
 
     // Incluye tanto las fotografías existentes (si se edita) como todas las
     // fotografías nuevas agregadas desde cámara o galería antes de guardar.
@@ -11482,7 +11555,7 @@ async function guardarHallazgo() {
         ? null
         : inspeccionHallazgo,
 
-    ...(idControlHallazgoEstable ? { idControlInspeccion: idControlHallazgoEstable } : {}),
+    ...(clavePuestoFechaHallazgo ? { claveInspeccionPuestoFecha: clavePuestoFechaHallazgo } : {}),
 
     area: area,
 
@@ -13234,26 +13307,113 @@ function obtenerHallazgosInformeCAM14(hallazgos, incluirPermanentes = true) {
     return incluirPermanentes ? [...variables, ...CAM14_RECOMENDACIONES_PERMANENTES] : variables;
 }
 
-/* CAM-INTEGRIDAD-01 — Relación estable de datos con la inspección.
-   Prioriza el identificador estable cuando existe; conserva compatibilidad
-   con registros históricos que solo tienen el índice numérico. */
+/* CAM-RESTAURACION-HALLAZGOS-01 — Identidad portable de inspección e ID del informe.
+   La inspección se identifica por puesto + fecha, nunca por el ID local del equipo.
+   El ID visible del informe se crea al generar el documento y es determinista para
+   que el mismo puesto/fecha produzca el mismo identificador en equipos diferentes.
+   El idControl histórico se conserva solo por compatibilidad interna.
+*/
+function normalizarFechaClaveInspeccionTECCHNEX(valor) {
+    const v = String(valor || "").trim();
+    if (!v) return "";
+    let m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
+    m = v.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+    if (m) return `${m[3]}-${String(m[2]).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`;
+    return "";
+}
+
+function normalizarPuestoClaveInspeccionTECCHNEX(valor) {
+    return String(valor || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toLocaleLowerCase("es")
+        .replace(/\s+/g, " ");
+}
+
+function obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion) {
+    if (!inspeccion || typeof inspeccion !== "object") return "";
+    const puesto = normalizarPuestoClaveInspeccionTECCHNEX(inspeccion.nombrePuesto || inspeccion.puesto);
+    const fecha = normalizarFechaClaveInspeccionTECCHNEX(inspeccion.fecha || inspeccion.fechaInspeccion);
+    return puesto && fecha ? `${fecha}|${puesto}` : "";
+}
+
+function generarIdInformePuestoFechaTECCHNEX(inspeccion) {
+    const clave = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion);
+    if (!clave) return "";
+    const [fecha, puesto] = clave.split("|");
+    const fechaCompacta = fecha.replace(/-/g, "");
+    const puestoLegible = puesto.normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "") || "PUESTO";
+    return `INF-${fechaCompacta}-${puestoLegible}`;
+}
+
+function asegurarIdInformePuestoFechaTECCHNEX(inspecciones, indice) {
+    const lista = Array.isArray(inspecciones) ? inspecciones : [];
+    const objetivo = lista[Number(indice)];
+    if (!objetivo) return null;
+    const clave = obtenerClaveInspeccionPuestoFechaTECCHNEX(objetivo);
+    if (!clave) {
+        // Compatibilidad con inspecciones históricas cuyo respaldo no contiene nombre del puesto.
+        // No inventar un ID alternativo: el informe puede generarse, pero queda SIN ID hasta completar el puesto.
+        console.warn("CAM-RESTAURACION-HALLAZGOS-01: no se asignó ID de informe porque falta nombre del puesto o fecha.");
+        return objetivo;
+    }
+    const existente = lista.find(registro =>
+        obtenerClaveInspeccionPuestoFechaTECCHNEX(registro) === clave &&
+        String(registro.idInforme || "").trim()
+    );
+    const idInforme = String(existente?.idInforme || objetivo.idInforme || generarIdInformePuestoFechaTECCHNEX(objetivo)).trim();
+    lista.forEach(registro => {
+        if (obtenerClaveInspeccionPuestoFechaTECCHNEX(registro) === clave) {
+            registro.claveInspeccionPuestoFecha = clave;
+            registro.idInforme = idInforme;
+        }
+    });
+    localStorage.setItem("inspecciones", JSON.stringify(lista));
+    return objetivo;
+}
+
+/* CAM-RESTAURACION-HALLAZGOS-01 — Relación portable por puesto + fecha.
+   El índice se usa únicamente para traducir registros históricos que aún no
+   tienen clave propia; el idControl del navegador nunca decide la pertenencia. */
 function obtenerRegistrosDeInspeccion(registros, inspeccion, indice) {
     const lista = Array.isArray(registros) ? registros : [];
-    const idControl = String(inspeccion?.idControl || "").trim();
-
-    // CAM-HALLAZGOS-01 — Si la inspección tiene identificador estable,
-    // no volver al índice numérico cuando no hay coincidencias. Ese fallback
-    // podía recuperar hallazgos históricos de otra inspección tras cambios
-    // en el orden de la lista. Los registros históricos permanecen guardados.
-    if (idControl) {
-        return lista.filter(registro =>
-            String(registro?.idControlInspeccion || "").trim() === idControl
+    const claveObjetivo = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion);
+    if (claveObjetivo) {
+        let inspeccionesLocales = [];
+        try {
+            const guardadas = JSON.parse(localStorage.getItem("inspecciones") || "[]");
+            if (Array.isArray(guardadas)) inspeccionesLocales = guardadas;
+        } catch (_) {}
+        const registrosConClave = lista.filter(registro => {
+            let claveRegistro = String(registro?.claveInspeccionPuestoFecha || "").trim();
+            const indiceRegistro = registro?.inspeccion;
+            const tieneIndiceRegistro = indiceRegistro !== null && indiceRegistro !== undefined &&
+                String(indiceRegistro).trim() !== "" && Number.isInteger(Number(indiceRegistro));
+            if (!claveRegistro && tieneIndiceRegistro) {
+                const inspeccionReferencia = inspeccionesLocales[Number(indiceRegistro)];
+                claveRegistro = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionReferencia);
+            }
+            return claveRegistro === claveObjetivo;
+        });
+        const hayTrazabilidadPortable = lista.some(registro =>
+            String(registro?.claveInspeccionPuestoFecha || "").trim() ||
+            (registro?.inspeccion !== null && registro?.inspeccion !== undefined &&
+             String(registro.inspeccion).trim() !== "" && Number.isInteger(Number(registro.inspeccion)) &&
+             Boolean(obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionesLocales[Number(registro.inspeccion)])))
         );
+        if (registrosConClave.length || hayTrazabilidadPortable) return registrosConClave;
     }
 
-    // Compatibilidad con inspecciones antiguas que aún no tienen idControl.
+    // Compatibilidad histórica: si aún no existe puesto/fecha, conservar el índice
+    // del respaldo/importación. Nunca usar idControlInspeccion para decidir pertenencia.
     return lista.filter(registro =>
-        !String(registro?.idControlInspeccion || "").trim() &&
+        !String(registro?.claveInspeccionPuestoFecha || "").trim() &&
         Number(registro?.inspeccion) === Number(indice)
     );
 }
@@ -13357,17 +13517,11 @@ function renderizarComparativoInspeccionesCAM01(clienteElegido) {
             if (idRegistro || idInspeccion) return Number(r?.inspeccion) === registro.indice && !idRegistro;
             return Number(r?.inspeccion) === registro.indice;
         }).filter(r => String(r?.peligro || r?.riesgo || "").trim());
-        const hallazgosDe = registro => {
-            if (typeof obtenerRegistrosDeInspeccion === "function") {
-                return obtenerRegistrosDeInspeccion(hallazgos, registro.inspeccion, registro.indice)
-                    .filter(h => String(h?.descripcion || h?.hallazgo || "").trim());
-            }
-            const id = String(registro.inspeccion?.idControl || "").trim();
-            return hallazgos.filter(h => id
-                ? String(h?.idControlInspeccion || "").trim() === id
-                : (!String(h?.idControlInspeccion || "").trim() && Number(h?.inspeccion) === registro.indice))
-                .filter(h => String(h?.descripcion || h?.hallazgo || "").trim());
-        };
+        const hallazgosDe = registro => obtenerRegistrosDeInspeccion(
+            hallazgos,
+            registro.inspeccion,
+            registro.indice
+        ).filter(h => String(h?.descripcion || h?.hallazgo || "").trim());
         const claveRiesgo = r => normalizar([r.area, r.peligro, r.riesgo].filter(Boolean).join(" | "));
         const claveHallazgo = h => normalizar([h.area, h.elemento, h.descripcion || h.hallazgo].filter(Boolean).join(" | "));
         const mapear = (lista, clave) => {
@@ -13446,8 +13600,10 @@ async function generarWordPlantillaMaestra() {
 
     const indice = Number(indiceGuardado);
     const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
-    const inspeccion = inspecciones[indice];
+    let inspeccion = inspecciones[indice];
     if (!inspeccion) { alert("No se encontró la inspección seleccionada."); return; }
+    inspeccion = asegurarIdInformePuestoFechaTECCHNEX(inspecciones, indice);
+    if (!inspeccion) return;
     if (typeof JSZip === "undefined") { alert("No se pudo cargar el componente necesario para preparar la plantilla Word."); return; }
 
     const checklists = JSON.parse(localStorage.getItem("checklists")) || [];
@@ -13792,10 +13948,9 @@ async function generarWordPlantillaMaestra() {
         const hallazgosInforme = obtenerHallazgosInformeCAM14(hallazgos, true);
         const clienteDocumento=inspeccion.cliente||"";
         const puesto=inspeccion.nombrePuesto||"";
-        // CAM-WORD-ID-INSPECCION-01: incorporar el identificador de la inspección
-        // al encabezado generado, junto al nombre del puesto. No se modifica
-        // el archivo maestro original; el cambio ocurre solo en la copia en memoria.
-        const idInspeccionDocumento=String(inspeccion.idControl||inspeccion.idControlInspeccion||"SIN ID").trim()||"SIN ID";
+        // CAM-RESTAURACION-HALLAZGOS-01: imprimir el ID comercial del informe generado.
+        // La plantilla maestra original permanece intacta; solo se modifica la copia en memoria.
+        const idInformeDocumento=String(inspeccion.idInforme||"SIN ID").trim()||"SIN ID";
         const headerEntry=zip.file("word/header1.xml");
         if(headerEntry){
             let headerXml=await headerEntry.async("string");
@@ -13809,8 +13964,8 @@ async function generarWordPlantillaMaestra() {
             // Si el puesto está vacío, no insertar un segundo salto: evita una línea en blanco.
             // Si hay puesto, conservar una sola línea de separación entre el puesto y el ID.
             const contenidoPuestoEId = String(puesto).trim()
-                ? escaparXmlWord(puesto)+"</w:t><w:br/><w:t>ID DE INSPECCIÓN: "+escaparXmlWord(idInspeccionDocumento)
-                : "</w:t><w:t>ID DE INSPECCIÓN: "+escaparXmlWord(idInspeccionDocumento);
+                ? escaparXmlWord(puesto)+"</w:t><w:br/><w:t>ID DE INFORME: "+escaparXmlWord(idInformeDocumento)
+                : "</w:t><w:t>ID DE INFORME: "+escaparXmlWord(idInformeDocumento);
             headerXml=headerXml.split("{{PUESTO}}").join(contenidoPuestoEId);
             // La plantilla aprobada contiene el título preventivo como texto fijo,
             // no como marcador. En la copia generada se sustituye solo ese valor,
@@ -13988,7 +14143,7 @@ async function generarWordPlantillaMaestra() {
         const info=camposDiligenciados([
             ["Cliente",inspeccion.cliente],["NIT",inspeccion.nit],["Dirección",inspeccion.direccion],["Ciudad",inspeccion.ciudad],
             ["Contacto",inspeccion.contacto],["Teléfono",inspeccion.telefono],["Correo",inspeccion.correo],["Fecha de visita",inspeccion.fecha],
-            ["ID de inspección",inspeccion.idControl||inspeccion.idControlInspeccion||"Sin ID"],
+            ["ID de informe",inspeccion.idInforme||"Sin ID"],
             ["Puesto",inspeccion.nombrePuesto],["Sector",inspeccion.sectorInspeccion],
             ["Analista de Riesgos",inspeccion.inspector],["Director Operativo",inspeccion.director],["Tipo de inspección",inspeccion.tipo]
         ]);
@@ -14588,8 +14743,8 @@ async function generarWordPlantillaMaestra() {
         */
         const salida=await zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",compression:"STORE"});
         const nombreBase=(inspeccion.cliente||"Inspeccion").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9_-]+/g,"_").replace(/^_+|_+$/g,"")||"Inspeccion";
-        const idControl=(inspeccion.idControl||"SIN_ID").toString().replace(/[^a-zA-Z0-9_-]+/g,"_");
-        const enlace=document.createElement("a"); const url=URL.createObjectURL(salida); enlace.href=url; enlace.download=`Informe_${nombreBase}_${idControl}_PlantillaMaestra_COMPLETO.docx`; document.body.appendChild(enlace); enlace.click(); enlace.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500);
+        const idInforme=(inspeccion.idInforme||"SIN_ID").toString().replace(/[^a-zA-Z0-9_-]+/g,"_");
+        const enlace=document.createElement("a"); const url=URL.createObjectURL(salida); enlace.href=url; enlace.download=`Informe_${nombreBase}_${idInforme}_PlantillaMaestra_COMPLETO.docx`; document.body.appendChild(enlace); enlace.click(); enlace.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500);
         alert("Documento Word completo generado sobre la Plantilla Maestra.\n\nSe incorporaron los bloques de información disponibles en la inspección y se conservaron los elementos corporativos de la plantilla.");
     } catch(error) {
         console.error("CAMPO VISUAL 03 / INTERVENCIÓN 02 — Error al generar Word:",error);
@@ -14749,7 +14904,7 @@ h3{color:#000!important;border-bottom:1px solid #F2C500!important}
                 <tr><td class="marca"><img src="logo-cotraser.png" alt="COTRASER C.T.A." style="width:100%;max-width:125px;max-height:65px;object-fit:contain" onerror="this.style.display='none'"></td>
                     <td class="titulo">${e(tituloInforme)}</td><td class="codigo"><strong>PSOF004</strong><br>Versión No. 003<br>Fecha: ${e(inspeccion.fecha || "")}</td></tr>
                 <tr><td colspan="3" class="confidencial">- CONFIDENCIAL -</td></tr>
-                <tr><td colspan="3" class="cliente">${e(inspeccion.cliente || "")}<br><strong>ID DE INSPECCIÓN: ${e(inspeccion.idControl || "SIN ID")}</strong></td></tr>
+                <tr><td colspan="3" class="cliente">${e(inspeccion.cliente || "")}<br><strong>ID DE INFORME: ${e(inspeccion.idInforme || "SIN ID")}</strong></td></tr>
             </tbody></table>
             ${resumenEjecutivoDiagnosticoPDF}
             <h2>1. Información del cliente y del puesto</h2>
@@ -14943,8 +15098,8 @@ console.log("TODAS LAS MATRICES:", todasLasMatrices);
 console.log("ÍNDICE MATRIZ:", indiceSeleccionado);
 console.log("ÍNDICE DEL INFORME:", indiceSeleccionado);
 console.log("INSPECCIÓN SELECCIONADA:", inspecciones[indiceSeleccionado]);
-const inspeccion =
-    inspecciones[indiceSeleccionado];
+const inspeccion = asegurarIdInformePuestoFechaTECCHNEX(inspecciones, indiceSeleccionado);
+if (!inspeccion) return;
 
 // CAM-OBS-01/03: el título deriva siempre del tipo actual de inspección.
 const tituloInformePDF = typeof obtenerTituloDocumentoPorTipo === "function"
@@ -16947,7 +17102,7 @@ h3{color:#000!important;border-bottom:1px solid #F2C500!important}
     ${escapar(inspeccion.cliente)}
     <br>
     <strong>
-        ID DE INSPECCIÓN: ${escapar(inspeccion.idControl || "SIN ID")}
+        ID DE INFORME: ${escapar(inspeccion.idInforme || "SIN ID")}
     </strong>
 </td>
 
