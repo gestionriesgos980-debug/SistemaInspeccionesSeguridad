@@ -3327,7 +3327,8 @@ function agregarServicioSeguridad(tipo) {
         const clientes = inicializarDirectorioClientesOM16();
         selector.innerHTML = '<option value="">Seleccione un cliente...</option>';
         clientes.forEach((cliente, indice) => {
-            if (cliente && cliente.estado !== "Inactivo") {
+            const estado = String(cliente && cliente.estado || "Activo").trim().toLowerCase();
+            if (cliente && estado !== "inactivo" && String(cliente.cliente || "").trim()) {
                 const option = document.createElement("option");
                 option.value = String(indice);
                 option.textContent = [cliente.codigo, cliente.cliente, cliente.nit ? `NIT ${cliente.nit}` : ""]
@@ -3343,15 +3344,29 @@ function agregarServicioSeguridad(tipo) {
         const lista = document.getElementById("listaClientesOM17");
         const selector = document.getElementById("clienteDirectorioOM17");
         if (!lista || !selector) return;
-        const termino = String(texto || "").trim().toLowerCase();
+
+        // CAM-BUSCADOR-CLIENTES-02: normalización correcta de tildes,
+        // espacios y mayúsculas. Se usan escapes Unicode reales en regex.
+        const normalizarBusqueda = valor => String(valor ?? "")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .replace(/\s+/g, " ")
+            .trim();
+
+        const termino = normalizarBusqueda(texto);
         lista.innerHTML = "";
 
         const opciones = Array.from(selector.options).filter(opcion => opcion.value !== "");
-        const coincidencias = opciones.filter(opcion => !termino || opcion.textContent.toLowerCase().includes(termino));
+        const coincidencias = opciones.filter(opcion =>
+            !termino || normalizarBusqueda(opcion.textContent).includes(termino)
+        );
 
         if (!coincidencias.length) {
             const vacio = document.createElement("div");
-            vacio.textContent = termino ? "No se encontraron clientes." : "No hay clientes disponibles.";
+            vacio.textContent = opciones.length
+                ? "No se encontraron clientes con ese nombre, NIT o código."
+                : "El directorio no tiene clientes cargados. Abra nuevamente Nueva inspección o revise el directorio.";
             vacio.style.cssText = "padding:10px;color:#64748b;";
             lista.appendChild(vacio);
             return;
@@ -7193,24 +7208,44 @@ const CLIENTES_BASE_OM16 = [{"id":"CLARO","codigo":"CONDOR 01","nit":"9016489161
 
 function inicializarDirectorioClientesOM16() {
     const clave = "directorioClientesOM16";
-    const existente = localStorage.getItem(clave);
+    let clientes = [];
 
-    if (existente === null) {
-        const base = CLIENTES_BASE_OM16.map((cliente, indice) => ({
-            ...cliente,
-            idCliente: cliente.id || `CLI-${String(indice + 1).padStart(4, "0")}`,
-            estado: "Activo",
-            origen: "Excel ADMON Agosto 2026"
-        }));
-
-        localStorage.setItem(clave, JSON.stringify(base));
+    // CAM-CLIENTES-03: recuperar la base maestra aunque exista una clave local vacía.
+    // Antes solo se cargaba CLIENTES_BASE_OM16 cuando la clave no existía.
+    // Si una restauración dejaba [] en localStorage, el directorio quedaba sin
+    // los clientes maestros y el buscador de Nueva Inspección aparecía vacío.
+    try {
+        const existente = localStorage.getItem(clave);
+        const parseado = existente === null ? [] : JSON.parse(existente);
+        clientes = Array.isArray(parseado) ? parseado : [];
+    } catch (error) {
+        console.warn("CAM-CLIENTES-03: directorio local inválido; se reconstruye sin borrar la base maestra.", error);
+        clientes = [];
     }
 
-    // CAM-CLIENTES-02: los clientes presentes en inspecciones históricas
-    // también deben estar disponibles en el directorio, sin duplicar coincidencias.
-    const clientes = JSON.parse(localStorage.getItem(clave)) || [];
+    // Incorporar únicamente clientes maestros que no estén representados.
+    // No se sobrescriben datos editados ni estados de clientes ya existentes.
+    const baseMaestra = Array.isArray(CLIENTES_BASE_OM16) ? CLIENTES_BASE_OM16 : [];
+    baseMaestra.forEach((clienteBase, indice) => {
+        if (!clienteBase || !String(clienteBase.cliente || "").trim()) return;
+        const yaExiste = clientes.some(cliente =>
+            coincideClienteConInspeccionOM16(cliente, clienteBase)
+        );
+        if (yaExiste) return;
+
+        clientes.push({
+            ...clienteBase,
+            idCliente: clienteBase.idCliente || clienteBase.id || obtenerSiguienteIdClienteOM16(clientes),
+            estado: "Activo",
+            origen: "Excel ADMON Agosto 2026"
+        });
+    });
+
+    // CAM-CLIENTES-02: agregar también clientes que solo aparecen en inspecciones
+    // históricas, conservando el contenido del directorio y evitando duplicados.
     sincronizarDirectorioClientesDesdeInspeccionesOM16(clientes);
-    return JSON.parse(localStorage.getItem(clave)) || [];
+    localStorage.setItem(clave, JSON.stringify(clientes));
+    return clientes;
 }
 
 function guardarDirectorioClientesOM16(clientes) {
@@ -9391,6 +9426,9 @@ document.getElementById("bicicleteros").value =
     
    document.getElementById("sectorInspeccion").value =
     inspeccion.sectorInspeccion || "";
+// CAM-DIAGNOSTICO-CARACTERISTICAS-01: al recuperar una inspección,
+// disparar el mismo cambio de sector que controla la visibilidad del formulario.
+document.getElementById("sectorInspeccion").dispatchEvent(new Event("change", { bubbles: true }));
 
     document.getElementById("tipoInstalacionIndustrial").value =
     inspeccion.tipoInstalacionIndustrial || "";
@@ -9427,12 +9465,21 @@ document.getElementById("otraInformacionComercial").value =
 
     
 
+const caracteristicasResidencial =
+    document.getElementById("caracteristicasResidencial");
 const caracteristicasIndustrial =
     document.getElementById("caracteristicasIndustrial");
 const caracteristicasParcelacion =
     document.getElementById("caracteristicasParcelacion");
 const caracteristicasComercial =
     document.getElementById("caracteristicasComercial");
+
+if (caracteristicasResidencial) {
+    caracteristicasResidencial.style.display =
+        inspeccion.sectorInspeccion === "Residencial"
+            ? "block"
+            : "none";
+}
 
 if (caracteristicasIndustrial) {
     caracteristicasIndustrial.style.display =
@@ -14071,7 +14118,14 @@ async function generarWordPlantillaMaestra() {
         const hallazgosVariables = obtenerHallazgosInformeCAM14(hallazgos, false);
         const hallazgosInforme = obtenerHallazgosInformeCAM14(hallazgos, true);
         const clienteDocumento=inspeccion.cliente||"";
-        const puesto=inspeccion.nombrePuesto||"";
+        const puestoOriginal=inspeccion.nombrePuesto||"";
+        // CAM-DIAGNOSTICO-INICIAL-02: evitar repetir el puesto en el encabezado
+        // cuando coincide con el nombre del cliente; solo aplica a diagnóstico inicial.
+        // CAM-DIAGNOSTICO-INICIAL-03: en el encabezado del diagnóstico inicial,
+        // mostrar el nombre del cliente una sola vez cuando el puesto sea el mismo.
+        const puesto=(esDiagnosticoInicial && String(puestoOriginal).trim().toLocaleLowerCase("es") === String(clienteDocumento).trim().toLocaleLowerCase("es"))
+            ? ""
+            : puestoOriginal;
         // CAM-RESTAURACION-HALLAZGOS-01: imprimir el ID comercial del informe generado.
         // La plantilla maestra original permanece intacta; solo se modifica la copia en memoria.
         const idInspeccionDocumento=String(inspeccion.idControl||"SIN ID").trim()||"SIN ID";
@@ -14248,10 +14302,19 @@ async function generarWordPlantillaMaestra() {
 
         let cuerpo = franjaFechaElaboracionWord
             + titulo("RESUMEN EJECUTIVO", 1)
-            + parrafoWord(textoResumenEjecutivo, {font:"Century Gothic",size:"18",align:"both",after:100,line:260})
-            + tablaGenerica(["INDICADOR", "RESULTADO", "LECTURA"], filasResumenISO, [2450, 1750, 4838])
-            + titulo("Riesgos prioritarios y medidas registradas", 2)
-            + tablaGenerica(["RIESGO / HALLAZGO", "NIVEL", "TRATAMIENTO / RECOMENDACIÓN"], filasPrioridadesResumen, [3600, 1300, 4138]);
+            + parrafoWord(
+                esDiagnosticoInicial
+                    ? `Durante la visita se evidenció un nivel de riesgo ${nivelResumen}. Observación que sustenta la calificación: ${textoDisponible(datosDiagnosticoResumen.observaciones, "No se registró observación sustentadora.")}`
+                    : textoResumenEjecutivo,
+                {font:"Century Gothic",size:"18",align:"both",after:100,line:260}
+            );
+        // En diagnóstico inicial no se imprimen los cuadros de indicadores ni de
+        // riesgos prioritarios: el resumen se limita al nivel y su observación sustentadora.
+        if (!esDiagnosticoInicial) {
+            cuerpo += tablaGenerica(["INDICADOR", "RESULTADO", "LECTURA"], filasResumenISO, [2450, 1750, 4838])
+                + titulo("Riesgos prioritarios y medidas registradas", 2)
+                + tablaGenerica(["RIESGO / HALLAZGO", "NIVEL", "TRATAMIENTO / RECOMENDACIÓN"], filasPrioridadesResumen, [3600, 1300, 4138]);
+        }
         if (!esDiagnosticoInicial) {
             cuerpo += titulo("Marco de lectura — proceso de gestión del riesgo", 2)
                 + parrafoWord("La organización del informe toma como referencia metodológica las etapas de gestión del riesgo descritas en ISO 31000:2018. Esta referencia no constituye certificación ni declaración de conformidad integral con la norma.", {font:"Century Gothic",size:"17",after:80,line:250})
@@ -14273,8 +14336,8 @@ async function generarWordPlantillaMaestra() {
             ["Analista de Riesgos",inspeccion.inspector],["Director Operativo",inspeccion.director],["Tipo de inspección",inspeccion.tipo]
         ]);
         cuerpo += titulo("1. Información general de la inspección",1)+tabla4(info);
-        if(!esDiagnosticoInicial && limpio(inspeccion.objetivo)) cuerpo+=tabla2([fila2("Objetivo",inspeccion.objetivo,{size:'18'})]);
-        if(!esDiagnosticoInicial && limpio(inspeccion.entorno)) cuerpo+=tabla2([fila2("Descripción del entorno",inspeccion.entorno,{size:'18'})]);
+        if(limpio(inspeccion.objetivo)) cuerpo+=tabla2([fila2("Objetivo",inspeccion.objetivo,{size:'18'})]);
+        if(limpio(inspeccion.entorno)) cuerpo+=tabla2([fila2("Descripción del entorno",inspeccion.entorno,{size:'18'})]);
 
         // CAM-FOTOGRAFIAS-01 — Registro común de imágenes en el DOCX.
         // Se comparte entre georreferenciación, foto de contexto y hallazgos.
@@ -14313,7 +14376,9 @@ async function generarWordPlantillaMaestra() {
             return imagenWordXML(rId,docPrId++,nombre,anchoMaxCm,altoMaxCm,relacionAspecto);
         }
 
-        if (!esDiagnosticoInicial) {
+        // CAM-DIAGNOSTICO-CARACTERISTICAS-01: las secciones generales también
+        // se incluyen en el Diagnóstico inicial; solo se excluyen instrumentos
+        // preventivos (checklist, matriz y mapa de calor).
         // 02. CARACTERÍSTICAS DE LA INSTALACIÓN
         let caracteristicas=[];
         if(inspeccion.sectorInspeccion==="Residencial") caracteristicas=camposDiligenciados([
@@ -14378,8 +14443,20 @@ async function generarWordPlantillaMaestra() {
             "Formular recomendaciones orientadas al fortalecimiento de las condiciones de seguridad de la copropiedad."
         ];
         const metodologia="Para la elaboración del presente Informe Preventivo de Seguridad se recopila información mediante observación del entorno, revisión de controles, entrevistas y análisis de vulnerabilidades. Se identifican activos expuestos, amenazas pertinentes, brechas de control y posibles consecuencias, con soporte en evidencias disponibles. Los resultados orientan la valoración de riesgos y las medidas preventivas; las respuestas de evaluación no asignan automáticamente un nivel de riesgo.";
-        cuerpo+=titulo("6. Contexto, objetivos y metodología del análisis preventivo",1)+bloqueTexto("Objetivo General",objetivoGeneral)+titulo("Objetivos Específicos",2)+listaParrafos(objetivos)+bloqueTexto("Metodología",metodologia);
+        const metodologiaDiagnostico="Para elaborar el diagnóstico inicial se recopila y organiza la información registrada durante la visita, mediante observación del entorno, revisión de las condiciones y controles de seguridad, entrevistas y análisis de las evidencias disponibles. Se documentan las condiciones identificadas, los hallazgos y las recomendaciones correspondientes. La calificación inicial del riesgo se presenta junto con la observación que la sustenta y no se deriva de una lista de chequeo ni de una matriz de riesgos.";
+        if (esDiagnosticoInicial) {
+            cuerpo+=titulo("6. Alcance y metodología del diagnóstico inicial",1)
+                + bloqueTexto("Objetivo del diagnóstico",objetivoGeneral)
+                + bloqueTexto("Metodología",metodologiaDiagnostico);
+        } else {
+            cuerpo+=titulo("6. Contexto, objetivos y metodología del análisis preventivo",1)
+                + bloqueTexto("Objetivo General",objetivoGeneral)
+                + titulo("Objetivos Específicos",2)
+                + listaParrafos(objetivos)
+                + bloqueTexto("Metodología",metodologia);
+        }
 
+        if (!esDiagnosticoInicial) {
         // 07. INSTRUMENTO PRINCIPAL DEL INFORME PREVENTIVO
         // Si existe una evaluación técnica asociada a esta inspección, sus resultados sustituyen
         // en el informe la lista de chequeo tradicional. Los datos antiguos se conservan intactos.
@@ -14635,21 +14712,7 @@ async function generarWordPlantillaMaestra() {
                 +parrafoWord("La clasificación visual corresponde al producto de probabilidad por impacto: riesgo bajo 1–4, moderado 5–9, alto 10–14 y extremo 15–25.",{font:'Century Gothic',size:'15',color:'C00000',bold:true,before:40,after:80});
         }
 
-        } else {
-            // CAM-OBS-03: el diagnóstico inicial no incorpora checklist, matriz ni mapa de calor.
-            const incidentes = Array.isArray(inspeccion.historicoIncidentes) ? inspeccion.historicoIncidentes : [];
-            const filasIncidentes = (inspeccion.sinIncidentes || !incidentes.length)
-                ? [["NO REPORTADOS", "NO REPORTADOS", "N/A"]]
-                : incidentes.map(item => [item.riesgo || "", item.incidente || "", item.consecuencias || ""]);
-            cuerpo += titulo("2. Histórico de incidentes (último año)", 1)
-                + tablaGenerica(["RIESGO MATERIALIZADO", "INCIDENTE", "CONSECUENCIAS"], filasIncidentes, [2500, 3500, 3500]);
-            const datosDiagnostico = inspeccion.om26 || {};
-            cuerpo += titulo("3. Nivel de riesgo evidenciado durante la visita", 1)
-                + tabla2([
-                    fila2("Nivel de riesgo", datosDiagnostico.nivelRiesgo || "No registrado"),
-                    fila2("Observación que sustenta la calificación", datosDiagnostico.observaciones || "No registrada")
-                ]);
-        }
+        } // Diagnóstico inicial: no imprime los apartados independientes 7 y 8.
 
         // CAM-INFORME-ESTILO-05 — HALLAZGOS WORD: 3 columnas + franja de área + fotografías 7,5x5 / 3,8x2,6 cm.
         // 11. HALLAZGOS — tabla Word alineada con el informe aprobado.
@@ -14817,7 +14880,7 @@ async function generarWordPlantillaMaestra() {
                 ${rowsXmlHallazgos}
             </w:tbl>`;
 
-            cuerpo += titulo(esDiagnosticoInicial ? "4. Hallazgos, evidencias y medidas de tratamiento" : "11. Hallazgos, evidencias y medidas de tratamiento",1) + tablaHallazgosWord;
+            cuerpo += titulo(esDiagnosticoInicial ? "7. Hallazgos, evidencias y medidas de tratamiento" : "11. Hallazgos, evidencias y medidas de tratamiento",1) + tablaHallazgosWord;
         }
 
         // Guardar las relaciones y tipos de contenido de imágenes dentro del mismo
@@ -14844,7 +14907,13 @@ async function generarWordPlantillaMaestra() {
         // Cambio limitado a esta tabla; cada celda queda centrada horizontal y verticalmente.
         const filasPlan = planTrabajo.map(fila => `<w:tr><w:trPr><w:cantSplit/></w:trPr>${fila.map((v,i)=>celdaWord(v,{width:anchosPlan[i],size:"14",align:"center",vAlign:"center"})).join("")}</w:tr>`).join("");
         const tablaPlanTrabajoWord = `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/>${bordesPlan}</w:tblPr><w:tblGrid>${anchosPlan.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>${filaTituloPlan}${filaCabeceraPlan}${filasPlan}</w:tbl>`;
-        cuerpo += tablaPlanTrabajoWord;
+        // CAM-DIAGNOSTICO-INICIAL-03:
+        // El plan de acción y seguimiento de Dirección Operativa no forma parte
+        // del informe de Diagnóstico Inicial. Se conserva sin cambios en los
+        // demás tipos de informe.
+        if (!esDiagnosticoInicial) {
+            cuerpo += tablaPlanTrabajoWord;
+        }
         cuerpo += parrafoWord("La información antes descrita no implica que todos los riesgos hayan sido identificados o que no existan otros riesgos.", {font:"Century Gothic",size:"16",after:60,line:230});
         cuerpo += parrafoWord("Las imágenes de referencia son tomadas de GOOGLE MAPS / GOOGLE EARTH / BUSCADOR EN LA RED o fotografías con drones, cámaras o equipos móviles. No representan el estado real del predio.", {font:"Century Gothic",size:"16",after:60,line:230});
         cuerpo += parrafoWord("Todas las recomendaciones aquí enunciadas deben ser implementadas por personal especializado, y el acatamiento de cualquiera de ellas no implica responsabilidad alguna por parte de COTRASER C.T.A. o sus funcionarios.", {font:"Century Gothic",size:"16",after:60,line:230});
@@ -14854,7 +14923,7 @@ async function generarWordPlantillaMaestra() {
         // Analista de riesgos + nombre; Director Operativo + nombre.
         // Se elimina la etiqueta anterior "Responsable del cliente".
         // El cambio afecta únicamente a la tabla de responsables del contenido generado.
-        cuerpo+=titulo(esDiagnosticoInicial ? "5. Responsables" : "12. Responsables",1)+tabla4([
+        cuerpo+=titulo(esDiagnosticoInicial ? "8. Responsables" : "12. Responsables",1)+tabla4([
             ["Analista de riesgos",inspeccion.inspector||""],
             ["Director Operativo",inspeccion.director||""]
         ]);
