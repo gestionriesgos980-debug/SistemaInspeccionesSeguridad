@@ -2646,6 +2646,11 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
         </div>
     </div>
 
+    <div id="om26RiesgosAdicionales" class="formulario" style="margin-top:14px;"></div>
+    <button type="button" id="btnAgregarRiesgoOM26" class="boton-principal"
+        style="display:none;margin-top:14px;background:#0f766e;"
+        onclick="agregarRiesgoOM26()">+ Agregar otro riesgo</button>
+
 </div>
 
             <div class="botones">
@@ -3446,6 +3451,8 @@ function agregarServicioSeguridad(tipo) {
             const esDiagnostico = tipo === "Diagnóstico inicial de seguridad";
             const mostrar = esDiagnostico || tipo === "Inspección extraordinaria";
             seccion.style.display = mostrar ? "block" : "none";
+            const botonAgregarRiesgo = document.getElementById("btnAgregarRiesgoOM26");
+            if (botonAgregarRiesgo) botonAgregarRiesgo.style.display = esDiagnostico ? "inline-block" : "none";
             const tituloSeccion = seccion.querySelector("h3");
             if (tituloSeccion) {
                 tituloSeccion.textContent = esDiagnostico
@@ -3459,6 +3466,74 @@ function agregarServicioSeguridad(tipo) {
                     : "Esta información permanecerá asociada a la Inspección Extraordinaria y podrá utilizarse posteriormente como base para completar una Inspección de Seguridad.";
             }
         }
+    }
+
+    // CAM-DIAGNOSTICO-INICIAL-06: riesgos adicionales exclusivos del Diagnóstico Inicial.
+    // Los controles OM-26 originales se conservan como primer registro por compatibilidad.
+    function agregarRiesgoOM26(datos = {}) {
+        const contenedor = document.getElementById("om26RiesgosAdicionales");
+        if (!contenedor) return;
+        const bloque = document.createElement("div");
+        // Se agrega únicamente otro conjunto de campos, sin tarjeta ni título redundante.
+        bloque.className = "campo completo om26-riesgo-adicional";
+        bloque.style.cssText = "margin-top:14px;padding-top:12px;border-top:1px dashed #cbd5e1;";
+        bloque.innerHTML = `
+            <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+                <button type="button" class="boton-secundario" style="padding:5px 9px;color:#991b1b;font-size:12px;"
+                    onclick="this.closest('.om26-riesgo-adicional').remove()">Eliminar</button>
+            </div>
+            <div class="formulario">
+                <div class="campo">
+                    <label>Riesgo identificado</label>
+                    <input type="text" data-om26-campo="riesgo" placeholder="Describa el riesgo identificado">
+                </div>
+                <div class="campo">
+                    <label>Nivel de riesgo</label>
+                    <select data-om26-campo="nivel">
+                        <option value="">Seleccione...</option>
+                        <option value="Bajo">Bajo</option><option value="Medio">Medio</option>
+                        <option value="Alto">Alto</option><option value="Crítico">Crítico</option>
+                    </select>
+                    <div data-om26-campo="indicador" style="margin-top:8px;padding:8px;border-radius:6px;text-align:center;font-weight:700;background:#f1f5f9;color:#475569;">Sin calificar</div>
+                </div>
+                <div class="campo completo">
+                    <label>Observación que sustenta la calificación del riesgo</label>
+                    <textarea rows="4" data-om26-campo="observaciones" placeholder="Explique las condiciones evidenciadas que sustentan el nivel seleccionado."></textarea>
+                </div>
+            </div>`;
+        contenedor.appendChild(bloque);
+        bloque.querySelector('[data-om26-campo="riesgo"]').value = datos.riesgoIdentificado || "";
+        bloque.querySelector('[data-om26-campo="nivel"]').value = datos.nivelRiesgo || "";
+        bloque.querySelector('[data-om26-campo="observaciones"]').value = datos.observaciones || "";
+        const select = bloque.querySelector('[data-om26-campo="nivel"]');
+        const pintar = () => {
+            const nivel = select.value, indicador = bloque.querySelector('[data-om26-campo="indicador"]');
+            const estilos = {"Bajo":["#dcfce7","#166534"],"Medio":["#fef9c3","#854d0e"],"Alto":["#ffedd5","#9a3412"],"Crítico":["#fee2e2","#991b1b"]};
+            indicador.textContent = estilos[nivel] ? "● " + nivel.toUpperCase() : "Sin calificar";
+            indicador.style.background = estilos[nivel]?.[0] || "#f1f5f9";
+            indicador.style.color = estilos[nivel]?.[1] || "#475569";
+        };
+        select.addEventListener("change", pintar);
+        pintar();
+    }
+
+    function obtenerRiesgosOM26Formulario() {
+        const primero = {
+            riesgoIdentificado: document.getElementById("om26RiesgoIdentificado")?.value || "",
+            nivelRiesgo: document.getElementById("om26NivelRiesgo")?.value || "",
+            observaciones: document.getElementById("om26Observaciones")?.value || ""
+        };
+        return [primero, ...Array.from(document.querySelectorAll("#om26RiesgosAdicionales .om26-riesgo-adicional")).map(b => ({
+            riesgoIdentificado: b.querySelector('[data-om26-campo="riesgo"]')?.value || "",
+            nivelRiesgo: b.querySelector('[data-om26-campo="nivel"]')?.value || "",
+            observaciones: b.querySelector('[data-om26-campo="observaciones"]')?.value || ""
+        }))];
+    }
+
+    function restaurarRiesgosOM26(riesgos) {
+        const contenedor = document.getElementById("om26RiesgosAdicionales");
+        if (contenedor) contenedor.innerHTML = "";
+        (Array.isArray(riesgos) ? riesgos.slice(1) : []).forEach(r => agregarRiesgoOM26(r));
     }
 
     function actualizarIndicadorRiesgoOM26() {
@@ -3496,6 +3571,8 @@ function agregarServicioSeguridad(tipo) {
         if (riesgo) riesgo.value = "";
         if (nivel) nivel.value = "";
         if (observaciones) observaciones.value = "";
+        const adicionales = document.getElementById("om26RiesgosAdicionales");
+        if (adicionales) adicionales.innerHTML = "";
         actualizarIndicadorRiesgoOM26();
         actualizarVisibilidadOM26();
     }
@@ -4706,6 +4783,9 @@ inspeccion.om26 = {
     nivelRiesgo: document.getElementById("om26NivelRiesgo")?.value || "",
     observaciones: document.getElementById("om26Observaciones")?.value || ""
 };
+if (document.getElementById("tipo")?.value === "Diagnóstico inicial de seguridad") {
+    inspeccion.om26.riesgos = obtenerRiesgosOM26Formulario();
+}
 
 
         inspeccion.seguridadActual = Array.from(
@@ -9458,6 +9538,7 @@ document.getElementById("bicicleteros").value =
         inspeccion.om26?.nivelRiesgo || "";
     document.getElementById("om26Observaciones").value =
         inspeccion.om26?.observaciones || "";
+    restaurarRiesgosOM26(inspeccion.om26?.riesgos);
     actualizarIndicadorRiesgoOM26();
     actualizarVisibilidadOM26();
 
@@ -14338,6 +14419,7 @@ async function generarWordPlantillaMaestra() {
         }).format(fechaGeneracionWord);
         const franjaFechaElaboracionWord = `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="6" w:color="B8B8B8"/><w:left w:val="single" w:sz="6" w:color="B8B8B8"/><w:bottom w:val="single" w:sz="6" w:color="B8B8B8"/><w:right w:val="single" w:sz="6" w:color="B8B8B8"/><w:insideV w:val="single" w:sz="6" w:color="B8B8B8"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="5387"/><w:gridCol w:w="5387"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord("FECHA DE ELABORACIÓN",{width:5387,shading:"000000",bold:true,color:"FFFFFF",align:"center",size:"16"})}${celdaWord(fechaElaboracionWord,{width:5387,align:"center",size:"18"})}</w:tr></w:tbl>`;
 
+        const objetivoDiagnosticoInicial="Establecer una línea base de las condiciones actuales de seguridad de la instalación, mediante la identificación de las características del entorno, los recursos y controles existentes, las vulnerabilidades observadas y los hallazgos evidenciados durante la visita, con el propósito de determinar las necesidades de intervención y formular recomendaciones que orienten el fortalecimiento del sistema de seguridad.";
         let cuerpo = franjaFechaElaboracionWord
             + titulo("RESUMEN EJECUTIVO", 1)
             + parrafoWord(
@@ -14374,7 +14456,11 @@ async function generarWordPlantillaMaestra() {
             ["Analista de Riesgos",inspeccion.inspector],["Director Operativo",inspeccion.director],["Tipo de inspección",inspeccion.tipo]
         ]);
         cuerpo += titulo("1. Información general de la inspección",1)+tabla4(info);
-        if(limpio(inspeccion.objetivo)) cuerpo+=tabla2([fila2("Objetivo",inspeccion.objetivo,{size:'18'})]);
+        if (esDiagnosticoInicial) {
+            cuerpo+=tabla2([fila2("Objetivo",objetivoDiagnosticoInicial,{size:'18'})]);
+        } else if(limpio(inspeccion.objetivo)) {
+            cuerpo+=tabla2([fila2("Objetivo",inspeccion.objetivo,{size:'18'})]);
+        }
         if(limpio(inspeccion.entorno)) cuerpo+=tabla2([fila2("Descripción del entorno",inspeccion.entorno,{size:'18'})]);
 
         // CAM-FOTOGRAFIAS-01 — Registro común de imágenes en el DOCX.
@@ -14472,7 +14558,7 @@ async function generarWordPlantillaMaestra() {
         }
 
         // 06. OBJETIVO Y METODOLOGÍA
-        const objetivoGeneral=inspeccion.objetivo||"Realizar un diagnóstico integral de las condiciones de seguridad de la copropiedad.";
+        const objetivoGeneral=esDiagnosticoInicial ? objetivoDiagnosticoInicial : (inspeccion.objetivo||"Realizar un diagnóstico integral de las condiciones de seguridad de la copropiedad.");
         const objetivos=[
             "Identificar los aspectos positivos y los puntos críticos para la seguridad de la copropiedad mediante la aplicación de la lista de verificación.",
             "Evaluar las condiciones de los accesos y cerramientos, identificando posibles vulnerabilidades frente a ingresos no autorizados.",
@@ -14483,7 +14569,7 @@ async function generarWordPlantillaMaestra() {
         const metodologia="Para la elaboración del presente Informe Preventivo de Seguridad se recopila información mediante observación del entorno, revisión de controles, entrevistas y análisis de vulnerabilidades. Se identifican activos expuestos, amenazas pertinentes, brechas de control y posibles consecuencias, con soporte en evidencias disponibles. Los resultados orientan la valoración de riesgos y las medidas preventivas; las respuestas de evaluación no asignan automáticamente un nivel de riesgo.";
         const metodologiaDiagnostico="Para elaborar el diagnóstico inicial se recopila y organiza la información registrada durante la visita, mediante observación del entorno, revisión de las condiciones y controles de seguridad, entrevistas y análisis de las evidencias disponibles. Se documentan las condiciones identificadas, los hallazgos y las recomendaciones correspondientes. La calificación inicial del riesgo se presenta junto con la observación que la sustenta y no se deriva de una lista de chequeo ni de una matriz de riesgos.";
         if (esDiagnosticoInicial) {
-            cuerpo+=titulo("6. Alcance y metodología del diagnóstico inicial",1)
+            cuerpo+=titulo("5. Alcance y metodología del diagnóstico inicial",1)
                 + bloqueTexto("Objetivo del diagnóstico",objetivoGeneral)
                 + bloqueTexto("Metodología",metodologiaDiagnostico);
         } else {
@@ -14492,6 +14578,76 @@ async function generarWordPlantillaMaestra() {
                 + titulo("Objetivos Específicos",2)
                 + listaParrafos(objetivos)
                 + bloqueTexto("Metodología",metodologia);
+        }
+
+
+        if (esDiagnosticoInicial) {
+            // CAM-DIAGNOSTICO-INICIAL-05: tabla de riesgos y calificación global, exclusiva del diagnóstico.
+            const riesgosDiagnostico = [];
+            const riesgosOM26Guardados = Array.isArray(datosDiagnosticoResumen.riesgos) ? datosDiagnosticoResumen.riesgos : [];
+            const registrosOM26 = riesgosOM26Guardados.length ? riesgosOM26Guardados : [{
+                riesgoIdentificado: datosDiagnosticoResumen.riesgoIdentificado || "",
+                nivelRiesgo: datosDiagnosticoResumen.nivelRiesgo || ""
+            }];
+            registrosOM26.forEach(registro => {
+                const nombre = String(registro.riesgoIdentificado || "").trim();
+                const nivel = String(registro.nivelRiesgo || "").trim();
+                if (nombre || nivel) riesgosDiagnostico.push({nombre: nombre || "Riesgo identificado durante la visita", nivel});
+            });
+            hallazgosVariables.forEach(h => {
+                const nombre = String(h.hallazgo || h.descripcion || h.observacion || "").trim();
+                const nivel = String(h.nivel || "").trim();
+                if (!nombre || !nivel) return;
+                if (!riesgosDiagnostico.some(r => r.nombre.toLocaleLowerCase("es") === nombre.toLocaleLowerCase("es") && r.nivel.toLocaleLowerCase("es") === nivel.toLocaleLowerCase("es"))) {
+                    riesgosDiagnostico.push({nombre, nivel});
+                }
+            });
+            const valorNivel = nivel => {
+                const n = String(nivel || "").toLocaleLowerCase("es").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "");
+                if (n.includes("crit")) return 4;
+                if (n.includes("alto")) return 3;
+                if (n.includes("medio")) return 2;
+                if (n.includes("bajo")) return 1;
+                return null;
+            };
+            const valores = riesgosDiagnostico.map(r => valorNivel(r.nivel)).filter(v => v !== null);
+            const promedio = valores.length ? valores.reduce((a,b) => a+b,0)/valores.length : null;
+            let calificacion = "No disponible";
+            let lectura = "No hay riesgos con calificación registrada suficiente para establecer una valoración global.";
+            if (promedio !== null) {
+                if (valores.includes(4)) {
+                    calificacion = "CRÍTICA"; lectura = "La presencia de al menos un riesgo crítico determina una condición global crítica.";
+                } else if (promedio < 1.5) {
+                    calificacion = "FAVORABLE"; lectura = "Predominan riesgos de nivel bajo.";
+                } else if (promedio < 2.25) {
+                    calificacion = "MODERADAMENTE FAVORABLE"; lectura = "La valoración refleja una exposición moderada que requiere seguimiento.";
+                } else if (promedio < 3) {
+                    calificacion = "DESFAVORABLE"; lectura = "La combinación de riesgos identificados refleja una exposición elevada.";
+                } else {
+                    calificacion = "CRÍTICA"; lectura = "La predominancia de riesgos altos determina una condición global crítica.";
+                }
+                if (calificacion === "FAVORABLE" && valores.some(v => v >= 3)) {
+                    calificacion = "MODERADAMENTE FAVORABLE"; lectura = "La presencia de riesgos altos limita una calificación global favorable.";
+                }
+            }
+            const colorNivel = nivel => {
+                const v = valorNivel(nivel);
+                if (v === 4) return ["FCE8E6","B3261E"];
+                if (v === 3) return ["FDE7E7","B42318"];
+                if (v === 2) return ["FFF4BF","8A6100"];
+                if (v === 1) return ["E5F5E9","237A3B"];
+                return ["EEF2F6","475569"];
+            };
+            const filasRiesgos = riesgosDiagnostico.length ? riesgosDiagnostico : [{nombre:"No se registraron riesgos identificados con la información disponible.",nivel:"No disponible"}];
+            const filasXML = filasRiesgos.map(r => {
+                const [fondo,color] = colorNivel(r.nivel);
+                return `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdaWord(r.nombre,{width:6900,size:"17"})}${celdaWord(r.nivel || "Sin calificar",{width:2438,shading:fondo,bold:true,color,align:"center",size:"17"})}</w:tr>`;
+            }).join("");
+            cuerpo += titulo("6. Riesgos identificados y calificación inicial",1)
+                + parrafoWord("Riesgos identificados durante la visita y nivel de calificación registrado. Esta síntesis no reemplaza una matriz de riesgos.",{font:"Century Gothic",size:"16",after:70,line:240})
+                + `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA_MAESTRA}" w:type="dxa"/><w:tblInd w:w="${SANGRIA_TABLA_MAESTRA}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="5" w:color="B8B8B8"/><w:left w:val="single" w:sz="5" w:color="B8B8B8"/><w:bottom w:val="single" w:sz="5" w:color="B8B8B8"/><w:insideH w:val="single" w:sz="4" w:color="D5DDE5"/><w:insideV w:val="single" w:sz="4" w:color="D5DDE5"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="6900"/><w:gridCol w:w="2438"/></w:tblGrid><w:tr><w:trPr><w:tblHeader/></w:trPr>${celdaWord("RIESGO IDENTIFICADO",{width:6900,shading:"123B5D",bold:true,color:"FFFFFF",align:"center",size:"16"})}${celdaWord("CALIFICACIÓN",{width:2438,shading:"123B5D",bold:true,color:"FFFFFF",align:"center",size:"16"})}</w:tr>${filasXML}</w:tbl>`
+                + titulo("Calificación inicial de seguridad de la copropiedad",2)
+                + tabla2([fila2("Resultado",calificacion,{size:"20",bold:true}),fila2("Indicador de exposición",promedio === null ? "No disponible" : `${promedio.toFixed(2).replace(".",",")} / 4,00`,{size:"18"}),fila2("Lectura",lectura,{size:"16"})]);
         }
 
         if (!esDiagnosticoInicial) {
