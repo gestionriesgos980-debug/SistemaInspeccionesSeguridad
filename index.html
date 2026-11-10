@@ -1633,38 +1633,38 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
 
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;">
                     <button type="button" onclick="crearRespaldo();event.stopPropagation();"
-                        style="border:1px solid #93c5fd;border-top:5px solid #2563eb;background:#eff6ff;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
-                        <strong style="display:block;color:#1d4ed8;margin-bottom:5px;">☁️ Crear respaldo</strong>
+                        style="border:1px solid #dbe3ea;background:#fff;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
+                        <strong style="display:block;color:#123b5d;margin-bottom:5px;">☁️ Crear respaldo</strong>
                         <span style="font-size:12px;color:#64748b;">Generar una copia de seguridad de la información del sistema.</span>
                     </button>
 
                     <button type="button" onclick="seleccionarRespaldo();event.stopPropagation();"
-                        style="border:1px solid #fdba74;border-top:5px solid #ea580c;background:#fff7ed;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
-                        <strong style="display:block;color:#c2410c;margin-bottom:5px;">📥 Restaurar respaldo</strong>
+                        style="border:1px solid #dbe3ea;background:#fff;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
+                        <strong style="display:block;color:#123b5d;margin-bottom:5px;">📥 Restaurar respaldo</strong>
                         <span style="font-size:12px;color:#64748b;">Recuperar información desde un respaldo previamente guardado.</span>
                     </button>
 
                     <button type="button" onclick="exportarInspeccionSeleccionada();event.stopPropagation();"
-                        style="border:1px solid #67e8f9;border-top:5px solid #0891b2;background:#ecfeff;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
-                        <strong style="display:block;color:#0e7490;margin-bottom:5px;">📤 Exportar inspección</strong>
+                        style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
+                        <strong style="display:block;color:#123b5d;margin-bottom:5px;">📤 Exportar inspección</strong>
                         <span style="font-size:12px;color:#475569;">Guardar una sola inspección con checklist, hallazgos, riesgos y fotografías.</span>
                     </button>
 
                     <button type="button" onclick="importarInspeccionIndividual();event.stopPropagation();"
-                        style="border:1px solid #86efac;border-top:5px solid #16a34a;background:#f0fdf4;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
+                        style="border:1px solid #bbf7d0;background:#f0fdf4;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
                         <strong style="display:block;color:#166534;margin-bottom:5px;">📥 Importar inspección</strong>
                         <span style="font-size:12px;color:#475569;">Agregar una inspección exportada desde otro equipo, con sus datos y fotografías, sin reemplazar los registros actuales.</span>
                     </button>
 
                     <button type="button" onclick="seleccionarBibliotecaArchivoOM31('riesgos');event.stopPropagation();"
-                        style="border:1px solid #c4b5fd;border-top:5px solid #7c3aed;background:#f5f3ff;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
-                        <strong style="display:block;color:#6d28d9;margin-bottom:5px;">⚠️ Subir biblioteca de riesgos</strong>
+                        style="border:1px solid #dbe3ea;background:#fff;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
+                        <strong style="display:block;color:#123b5d;margin-bottom:5px;">⚠️ Subir biblioteca de riesgos</strong>
                         <span style="font-size:12px;color:#64748b;">Importar una biblioteca de riesgos en formato JSON.</span>
                     </button>
 
                     <button type="button" onclick="seleccionarBibliotecaArchivoOM31('hallazgos');event.stopPropagation();"
-                        style="border:1px solid #5eead4;border-top:5px solid #0f766e;background:#f0fdfa;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
-                        <strong style="display:block;color:#0f766e;margin-bottom:5px;">🔎 Subir biblioteca de hallazgos</strong>
+                        style="border:1px solid #dbe3ea;background:#fff;border-radius:9px;padding:13px;text-align:left;cursor:pointer;">
+                        <strong style="display:block;color:#123b5d;margin-bottom:5px;">🔎 Subir biblioteca de hallazgos</strong>
                         <span style="font-size:12px;color:#64748b;">Importar la biblioteca de recomendaciones/hallazgos en formato JSON.</span>
                     </button>
                 </div>
@@ -3166,6 +3166,24 @@ window.CAMVulnerabilidades={
 
     const modal = document.getElementById("modalInspeccion");
 
+    // CAM-DIAGNOSTICO-CIERRE-SEGURO-01: protección de cambios sin guardar.
+    let formularioInspeccionModificado = false;
+    const formularioInspeccionSeguridad = document.getElementById("formInspeccion");
+    if (formularioInspeccionSeguridad) {
+        ["input", "change"].forEach(evento => {
+            formularioInspeccionSeguridad.addEventListener(evento, function () {
+                if (modal && modal.style.display !== "none") formularioInspeccionModificado = true;
+            }, true);
+        });
+    }
+    function marcarFormularioInspeccionLimpioCAM01() { formularioInspeccionModificado = false; }
+    window.addEventListener("beforeunload", function (evento) {
+        if (modal && modal.style.display !== "none" && formularioInspeccionModificado) {
+            evento.preventDefault();
+            evento.returnValue = "";
+        }
+    });
+
 // OM-26 · INTERVENCIÓN 1 — Inicializar visibilidad del bloque extraordinario.
 actualizarVisibilidadOM26();
 actualizarIndicadorRiesgoOM26();
@@ -3474,6 +3492,7 @@ function agregarServicioSeguridad(tipo) {
     }
 
     function abrirNuevaInspeccion() {
+        marcarFormularioInspeccionLimpioCAM01();
         document.getElementById("formInspeccion").removeAttribute("data-editando");
         document.getElementById("formInspeccion").removeAttribute("data-id-cliente-om17");
         document.getElementById("formInspeccion").removeAttribute("data-codigo-cliente-om17");
@@ -4328,6 +4347,11 @@ function cerrarDashboard() {
 }
 
     function cerrarNuevaInspeccion() {
+        if (formularioInspeccionModificado) {
+            const confirmarCierre = confirm("Hay cambios en el formulario que todavía no se han guardado. ¿Desea cerrar y descartar esos cambios?");
+            if (!confirmarCierre) return;
+        }
+        marcarFormularioInspeccionLimpioCAM01();
         modal.style.display = "none";
 
         // CAMBIO OM-06: Limpia las vistas previas al cerrar el formulario
@@ -4832,8 +4856,8 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
 
                 document.getElementById("mensaje").style.display = "none";
 
+                marcarFormularioInspeccionLimpioCAM01();
                 document.getElementById("formInspeccion").reset();
-
                 cerrarNuevaInspeccion();
                 actualizarPanelModularInspeccionOM22(null);
 
