@@ -1922,9 +1922,11 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
 
 
 <!-- =====================================================
-     FUNCIÓN: CARACTERÍSTICAS DE LA INSTALACIÓN RESIDENCIAL
-     OBJETIVO: Identificar esta sección para mostrarla u
-     ocultarla según el tipo de servicio seleccionado.
+     CAM-DIAGNOSTICO-CARACTERISTICAS-02
+     CARACTERÍSTICAS DE LA INSTALACIÓN RESIDENCIAL
+     Visible al abrir el formulario y mientras el sector sea Residencial
+     o esté pendiente de selección. Disponible para inspección preventiva
+     y Diagnóstico Inicial. Se oculta al elegir otro sector.
 ====================================================== -->
 <div class="seccion" id="caracteristicasResidencial">
 
@@ -9595,7 +9597,7 @@ const caracteristicasComercial =
 
 if (caracteristicasResidencial) {
     caracteristicasResidencial.style.display =
-        inspeccion.sectorInspeccion === "Residencial"
+        (!inspeccion.sectorInspeccion || inspeccion.sectorInspeccion === "Residencial")
             ? "block"
             : "none";
 }
@@ -18599,8 +18601,12 @@ document.addEventListener("DOMContentLoaded", function () {
             industrial.style.display = "block";
         }
 
-    } else if (sectorSelect.value === "Residencial") {
+    } else if (!sectorSelect.value || sectorSelect.value === "Residencial") {
 
+        // CAM-DIAGNOSTICO-CARACTERISTICAS-02:
+        // Mantener visibles las características residenciales desde la apertura
+        // del formulario y en ambos tipos de inspección. Si se selecciona otro
+        // sector, se ocultan para evitar confusión con sus campos específicos.
         if (residencial) {
             residencial.style.display = "block";
         }
