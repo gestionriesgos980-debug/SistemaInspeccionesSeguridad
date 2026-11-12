@@ -1615,6 +1615,13 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
                 <button type="button" onclick="CAMAgenda.abrir()" style="display:inline-block;margin-top:8px;background:#b45309;color:#fff;border:0;padding:9px 13px;border-radius:6px;font-weight:bold;font-size:13px;cursor:pointer;">📅 Revisar visitas</button>
             </div>
 
+            <!-- CAM-MI-GESTION-01: centro de trabajo, prioridades e informe por periodo. -->
+            <div class="modulo" onclick="CAMMiGestion.abrir()" style="background:#eff6ff;border:2px solid #2563eb;border-top:7px solid #123b5d;">
+                <h3 style="color:#123b5d;">🧭 Mi Gestión</h3>
+                <p>Organizar actividades, identificar prioridades y generar el informe de gestión del analista de riesgos.</p>
+                <div id="camMiGestionResumenMenu" style="margin-top:8px;font-size:12px;font-weight:bold;color:#1e40af;">Preparando resumen de gestión…</div>
+            </div>
+
             <!-- ======================================================
                  CAM-ARCHIVOS-01 — CENTRO ÚNICO DE ARCHIVOS
                  Intervención quirúrgica: sustituye únicamente las dos
@@ -5969,6 +5976,14 @@ async function crearRespaldo() {
                 agendaSupervision:
                     JSON.parse(localStorage.getItem("tecchnex_agenda_supervision_v1") || "[]"),
 
+                // CAM-MI-GESTION-01: actividades propias del analista.
+                actividadesMiGestion:
+                    JSON.parse(localStorage.getItem("tecchnex_mi_gestion_actividades_v1") || "[]"),
+
+                // CAM-MI-GESTION-06: seguimiento de etapas y próximas acciones por inspección.
+                seguimientoInspeccionesMiGestion:
+                    JSON.parse(localStorage.getItem("tecchnex_mi_gestion_seguimiento_v1") || "{}"),
+
                 // CAM-RESPALDO-VULNERABILIDADES-01:
                 // la evaluación técnica multisector se guarda en claves independientes
                 // y debe viajar junto con la inspección, sin modificar la plantilla Word.
@@ -6856,6 +6871,27 @@ if (Object.prototype.hasOwnProperty.call(datos, "agendaSupervision")) {
         );
     } else {
         console.warn("CAM-AGENDA-JSON-01: el campo agendaSupervision no es un arreglo; se conserva la agenda local.");
+    }
+}
+
+// CAM-MI-GESTION-01: restaurar actividades propias cuando el respaldo las contiene.
+// Los respaldos anteriores sin esta propiedad conservan las actividades locales.
+if (Object.prototype.hasOwnProperty.call(datos, "actividadesMiGestion")) {
+    if (Array.isArray(datos.actividadesMiGestion)) {
+        localStorage.setItem("tecchnex_mi_gestion_actividades_v1", JSON.stringify(datos.actividadesMiGestion));
+    } else {
+        console.warn("CAM-MI-GESTION-01: actividadesMiGestion no es un arreglo; se conserva la información local.");
+    }
+}
+
+// CAM-MI-GESTION-06: restaurar seguimiento de procesos si el respaldo lo contiene.
+// Los respaldos antiguos conservan intacto el seguimiento local.
+if (Object.prototype.hasOwnProperty.call(datos, "seguimientoInspeccionesMiGestion")) {
+    const seguimiento = datos.seguimientoInspeccionesMiGestion;
+    if (seguimiento && typeof seguimiento === "object" && !Array.isArray(seguimiento)) {
+        localStorage.setItem("tecchnex_mi_gestion_seguimiento_v1", JSON.stringify(seguimiento));
+    } else {
+        console.warn("CAM-MI-GESTION-06: seguimiento de inspecciones inválido; se conserva el seguimiento local.");
     }
 }
 
@@ -9205,7 +9241,10 @@ function generarInformeDesdeModulo() {
                 .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
             try {
                 ventana.document.open();
-                ventana.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Error al generar informe</title></head><body style="font-family:Arial;padding:24px;color:#7f1d1d"><h2>No fue posible generar el informe</h2><p>El laboratorio detectó este error:</p><pre style="white-space:pre-wrap;background:#fef2f2;padding:12px;border:1px solid #fecaca">${mensaje}</pre><p>La versión estable no se ha modificado.</p></body></html>`);
+                ventana.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Error al generar informe</title></head><body style="font-family:Arial;padding:24px;color:#7f1d1d"><h2>No fue posible generar el informe</h2><p>El laboratorio detectó este error:</p><pre style="white-space:pre-wrap;background:#fef2f2;padding:12px;border:1px solid #fecaca">${mensaje}</pre><p>La versión estable no se ha modificado.</p>
+
+
+</body></html>`);
                 ventana.document.close();
             } catch (errorVista) {
                 console.error("TECCHNEX: tampoco se pudo mostrar el detalle del error.", errorVista);
@@ -18853,5 +18892,228 @@ function TECCHNEX_UI_VOLVER_INICIO_TRAS_GUARDAR(referencia, modo = "contenedor")
 </script>
 
 <!-- CAM-VULN-RESPONSABLES-MULTIPLES-01: cada pregunta admite responsables compartidos; el esquema reutiliza responsablesGestion y conserva compatibilidad con registros anteriores. Sin tablas nuevas ni cambios a la plantilla Word maestra. -->
+
+
+<!-- =============================================================
+     CAM-MI-GESTION-06 — SEGUIMIENTO DE ETAPAS, PENDIENTES E HISTORIAL DE INSPECCIONES. Base: LAB V9 con corrección del botón Actualizar informe. Meta mensual de 20 puestos; flujo por etapas sin duplicar agenda.
+     Actividades propias en almacenamiento local; agenda e inspecciones
+     existentes se consultan sin duplicar ni modificar sus registros.
+     Informe por periodo exportable a CSV e imprimible/PDF.
+     ============================================================= -->
+<style>
+#camMiGestionOverlay{position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.62);display:none;overflow:auto;padding:20px;font-family:Arial,sans-serif;color:#1f2937}
+#camMiGestionPanel{max-width:1180px;margin:12px auto;background:#fff;border-radius:14px;padding:22px;box-shadow:0 18px 55px #0f172a55}
+.cam-mg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:11px;margin:15px 0}
+.cam-mg-kpi{border:1px solid #dbe3ed;border-top:5px solid #2563eb;border-radius:10px;padding:13px;background:#f8fafc}.cam-mg-kpi strong{display:block;font-size:25px;color:#123b5d;margin-top:5px}
+.cam-mg-btn{border:0;border-radius:7px;padding:10px 13px;background:#123b5d;color:#fff;font-weight:bold;cursor:pointer}.cam-mg-btn.alt{background:#e8eef5;color:#123b5d}.cam-mg-btn.danger{background:#b91c1c}
+.cam-mg-form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;background:#f8fafc;border:1px solid #dbe3ed;border-radius:10px;padding:14px;margin:14px 0}.cam-mg-form label{font-size:12px;font-weight:bold;color:#475569;display:block;margin-bottom:4px}.cam-mg-form input,.cam-mg-form select,.cam-mg-form textarea{width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:6px;font:inherit}.cam-mg-wide{grid-column:1/-1}
+.cam-mg-table-wrap{width:100%;overflow-x:auto;border:1px solid #e2e8f0;border-radius:9px}.cam-mg-table{width:100%;border-collapse:collapse;font-size:13px;min-width:760px}.cam-mg-table th,.cam-mg-table td{border-bottom:1px solid #e2e8f0;padding:10px 11px;text-align:left;vertical-align:middle}.cam-mg-table th{background:#f1f5f9;color:#334155;font-size:12px;white-space:nowrap}.cam-mg-table tbody tr:hover{background:#f8fbff}.cam-mg-table th:first-child{width:115px}.cam-mg-table th:nth-child(2){width:28%}.cam-mg-table th:nth-child(3){width:24%}.cam-mg-table th:nth-child(4){width:115px}.cam-mg-actions{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;white-space:nowrap}.cam-mg-actions .cam-mg-btn{padding:8px 10px;font-size:12px}.cam-mg-alert-item{display:flex;width:100%;justify-content:space-between;align-items:center;gap:12px;text-align:left;border:1px solid #fee2e2;border-radius:8px;background:#fff;padding:10px 12px;color:#1f2937;cursor:pointer}.cam-mg-alert-item:hover,.cam-mg-alert-item:focus{background:#fff5f5;border-color:#fca5a5;outline:2px solid #fecaca}.cam-mg-alert-main{min-width:0}.cam-mg-alert-main strong{display:block;overflow-wrap:anywhere}.cam-mg-alert-meta{font-size:12px;color:#64748b;margin-top:3px}.cam-mg-process{border:1px solid #dbe3ed;border-left:5px solid #94a3b8;border-radius:9px;padding:12px;margin:9px 0;background:#fff}.cam-mg-process.alert-red{border-color:#fecaca;border-left-color:#dc2626;background:#fffafa}.cam-mg-process.alert-orange{border-color:#fed7aa;border-left-color:#ea580c;background:#fffaf5}.cam-mg-process.alert-yellow{border-color:#fde68a;border-left-color:#d97706;background:#fffdf5}.cam-mg-process.alert-blue{border-color:#bfdbfe;border-left-color:#2563eb;background:#f8fbff}.cam-mg-process.alert-green{border-color:#bbf7d0;border-left-color:#16a34a;background:#f7fff9}.cam-mg-process-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}.cam-mg-process-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}.cam-mg-process-grid label{display:block;font-size:11px;font-weight:bold;color:#475569;margin-bottom:4px}.cam-mg-process-grid input,.cam-mg-process-grid select,.cam-mg-process-grid textarea{width:100%;min-width:0;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font:inherit;font-size:12px}.cam-mg-process-history{margin-top:8px;padding:8px;background:#f8fafc;border-radius:6px;font-size:11px;color:#475569}.cam-mg-process-history summary{cursor:pointer;font-weight:bold}.cam-mg-process-save{margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cam-mg-pill{display:inline-block;border-radius:20px;padding:4px 8px;font-size:11px;font-weight:bold;white-space:nowrap}.cam-mg-critical{background:#fee2e2;color:#991b1b}.cam-mg-high{background:#ffedd5;color:#9a3412}.cam-mg-medium{background:#dbeafe;color:#1e40af}.cam-mg-low{background:#dcfce7;color:#166534}
+@media(max-width:760px){.cam-mg-process-grid{grid-template-columns:1fr 1fr}#camMiGestionOverlay{padding:7px}#camMiGestionPanel{padding:13px;margin:3px auto}.cam-mg-form{grid-template-columns:1fr 1fr}.cam-mg-table-wrap{overflow:visible;border:0}.cam-mg-table{display:block;min-width:0}.cam-mg-table thead{display:none}.cam-mg-table tbody{display:grid;gap:9px}.cam-mg-table tbody tr{display:block;border:1px solid #dbe3ed;border-radius:9px;padding:7px;background:#fff}.cam-mg-table tbody td{display:grid;grid-template-columns:105px minmax(0,1fr);gap:8px;padding:8px 5px;border-bottom:1px solid #eef2f7;overflow-wrap:anywhere}.cam-mg-table tbody td:last-child{border-bottom:0}.cam-mg-table tbody td:before{content:attr(data-label);font-size:11px;font-weight:bold;color:#64748b}.cam-mg-actions{flex-wrap:wrap;white-space:normal}.cam-mg-actions .cam-mg-btn{flex:1 1 auto}.cam-mg-alert-item{padding:9px}.cam-mg-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.cam-mg-kpi{padding:10px}.cam-mg-kpi strong{font-size:22px}}
+@media(max-width:420px){.cam-mg-process-grid{grid-template-columns:1fr}.cam-mg-form{grid-template-columns:1fr}.cam-mg-grid{grid-template-columns:1fr 1fr}.cam-mg-table tbody td{grid-template-columns:88px minmax(0,1fr)}}
+@media print{
+ body.cam-mg-print *{visibility:hidden!important}
+ body.cam-mg-print #camMiGestionInforme,body.cam-mg-print #camMiGestionInforme *{visibility:visible!important}
+ body.cam-mg-print #camMiGestionInforme{display:block!important}
+ body.cam-mg-print #camMiGestionInforme{position:absolute;left:0;top:0;width:190mm;max-width:190mm;margin:0;padding:4mm;border:0!important;border-radius:0!important;background:#fff!important;color:#172033!important;font-family:Arial,sans-serif!important;font-size:8pt!important;line-height:1.2!important}
+ body.cam-mg-print #camMiGestionInforme>div:first-child{margin-bottom:3mm!important}
+ body.cam-mg-print #camMiGestionInforme>div:first-child h3{font-size:12pt!important;margin:0!important}
+ body.cam-mg-print #camMiGestionInforme>div:first-child button,
+ body.cam-mg-print #camMiGestionInforme>div:nth-child(2){display:none!important}
+ body.cam-mg-print #camMiGestionInformeContenido{font-size:8pt!important;line-height:1.2!important}
+ body.cam-mg-print #camMiGestionInformeContenido h4{font-size:9pt!important;margin:2.5mm 0 1.5mm!important;break-after:avoid-page;page-break-after:avoid}
+ body.cam-mg-print #camMiGestionInformeContenido p{font-size:7pt!important;margin:1.5mm 0!important}
+ body.cam-mg-print #camMiGestionInformeContenido>div:first-child{padding:2.5mm!important;margin:0 0 2mm!important;break-inside:avoid;page-break-inside:avoid}
+ body.cam-mg-print #camMiGestionInformeContenido>div:first-child>div{display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:2mm!important;margin-top:2mm!important}
+ body.cam-mg-print #camMiGestionInformeContenido>div:first-child>div>div{min-width:0!important;border-right:1px solid #dbe3ed;padding-right:1mm}
+ body.cam-mg-print #camMiGestionInformeContenido>div:first-child strong{font-size:13pt!important;display:inline!important}
+ body.cam-mg-print .cam-mg-table{display:table!important;width:100%!important;min-width:0!important;table-layout:fixed!important;border-collapse:collapse!important;font-size:7pt!important}
+ body.cam-mg-print .cam-mg-table thead{display:table-header-group!important}
+ body.cam-mg-print .cam-mg-table tbody{display:table-row-group!important}
+ body.cam-mg-print .cam-mg-table tr{display:table-row!important;break-inside:avoid!important;page-break-inside:avoid!important;border:0!important;padding:0!important}
+ body.cam-mg-print .cam-mg-table th,body.cam-mg-print .cam-mg-table td{display:table-cell!important;padding:1.4mm 1.6mm!important;font-size:7pt!important;line-height:1.15!important;white-space:normal!important;overflow-wrap:anywhere!important;border:1px solid #dbe3ed!important}
+ body.cam-mg-print .cam-mg-table th:before,body.cam-mg-print .cam-mg-table td:before{display:none!important;content:none!important}
+ body.cam-mg-print .cam-mg-table th{background:#eef2f7!important;color:#26364a!important}
+ body.cam-mg-print #camMiGestionInformeContenido>table{margin-bottom:2mm!important}
+ @page{size:A4 portrait;margin:10mm}
+}
+</style>
+<div id="camMiGestionOverlay" role="dialog" aria-modal="true" aria-labelledby="camMiGestionTitle">
+ <section id="camMiGestionPanel">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+   <div><h2 id="camMiGestionTitle" style="color:#123b5d">🧭 Mi Gestión</h2><p style="color:#64748b;font-size:13px;margin-top:5px">Centro de control del analista de riesgos</p></div>
+   <button class="cam-mg-btn alt" onclick="CAMMiGestion.cerrar()">Cerrar ✕</button>
+  </div>
+  <div class="cam-mg-grid" id="camMiGestionKpis"></div>
+  <section style="border:1px solid #fecaca;border-radius:10px;padding:14px;margin:14px 0;background:#fffafa">
+   <h3 style="color:#991b1b;margin-bottom:8px">🚦 ¿Qué debo atender primero?</h3>
+   <p id="camMiGestionPrioridadIntro" style="font-size:13px;color:#475569;margin-bottom:9px"></p>
+   <div id="camMiGestionAlertas"></div>
+  </section>
+  <nav id="camMiGestionNavegacion" aria-label="Secciones de Mi Gestión" style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0">
+   <button type="button" class="cam-mg-btn" data-mg-panel="procesos">📋 Seguimiento</button>
+   <button type="button" class="cam-mg-btn" data-mg-panel="actividades">🗂 Otros compromisos</button>
+   <button type="button" class="cam-mg-btn" data-mg-panel="informe">📊 Informe de gestión</button>
+  </nav>
+  <section id="camMiGestionProcesos" data-mg-section="procesos" style="display:none;border:1px solid #bfdbfe;border-radius:10px;padding:14px;margin:14px 0;background:#f8fbff">
+   <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><div><h3 style="color:#123b5d">📋 Seguimiento de procesos e informes preventivos</h3><p style="font-size:12px;color:#64748b;margin-top:4px">Cada visita inicia un proceso. Consulte su estado, última actividad, pendiente y fecha de próxima actualización del informe preventivo.</p></div><div style="display:flex;align-items:center;gap:8px"><span id="camMgProcesosResumen" style="font-size:12px;font-weight:bold;color:#1e40af"></span><button type="button" class="cam-mg-btn alt" data-mg-close>Cerrar ✕</button></div></div>
+   <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:9px;font-size:11px;color:#475569"><span class="cam-mg-pill cam-mg-critical">Rojo · Vencida</span><span class="cam-mg-pill cam-mg-high">Naranja · Hoy / 2 días</span><span class="cam-mg-pill" style="background:#fef3c7;color:#92400e">Amarillo · Próximos 7 días</span><span class="cam-mg-pill cam-mg-medium">Azul · En plazo / sin fecha</span><span class="cam-mg-pill cam-mg-low">Verde · Entregada</span></div>
+   <div id="camMiGestionProcesosLista" style="margin-top:10px"></div>
+  </section>
+  <section id="camMiGestionActividades" data-mg-section="actividades" style="display:none;border:1px solid #dbe3ed;border-radius:10px;padding:14px;margin:14px 0">
+   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="color:#123b5d">🗂 Otros procesos y compromisos</h3><div style="display:flex;gap:7px;flex-wrap:wrap"><button type="button" class="cam-mg-btn" id="camMgNuevoProceso">＋ Nuevo proceso</button><button type="button" class="cam-mg-btn alt" data-mg-close>Cerrar ✕</button></div></div>
+   <p style="font-size:12px;color:#64748b;margin:5px 0 10px">Registre reuniones, capacitaciones, comités y otros compromisos como procesos independientes. Los registros anteriores se conservan.</p>
+   <div class="cam-mg-table-wrap"><table class="cam-mg-table"><thead><tr><th>Prioridad / fecha</th><th>Proceso / participación</th><th>Empresa / sede</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="camMiGestionFilas"></tbody></table></div>
+   <div id="camMiGestionFormPanel" style="display:none;margin-top:14px;padding:12px;border:1px solid #dbe3ed;border-radius:9px;background:#f8fafc">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px"><h4 id="camMgFormTitulo" style="color:#123b5d;margin:0">＋ Nuevo proceso independiente</h4><button type="button" class="cam-mg-btn alt" id="camMgCerrarFormulario">Cerrar ✕</button></div>
+   <form id="camMiGestionForm" class="cam-mg-form">
+    <input type="hidden" id="camMgId">
+    <div><label for="camMgTitulo">Nombre del proceso / participación *</label><input id="camMgTitulo" required maxlength="140" placeholder="Ej. Comité mensual de SST"></div>
+    <div><label for="camMgCliente">Cliente / sede</label><input id="camMgCliente" maxlength="120" placeholder="Nombre del cliente"></div>
+    <div><label for="camMgTipo">Tipo de proceso</label><select id="camMgTipo"><option>Reunión</option><option>Capacitación</option><option>Comité</option><option>Otro compromiso</option><option>Compromiso</option><option>Seguimiento</option><option>Inspección</option><option>Informe</option><option>Análisis documental</option><option>Otra actividad</option></select></div>
+    <div><label for="camMgPrioridad">Prioridad</label><select id="camMgPrioridad"><option>Alta</option><option selected>Media</option><option>Baja</option><option>Crítica</option></select></div>
+    <div><label for="camMgEtapa">Etapa / resultado</label><select id="camMgEtapa"><option value="">No aplica</option><option>Programado</option><option>Participación realizada</option><option>Acta / evidencia pendiente</option><option>Documentación completada</option></select></div>
+    <div><label for="camMgFecha">Fecha de realización / compromiso *</label><input id="camMgFecha" type="date" required></div>
+    <div><label for="camMgEstado">Estado</label><select id="camMgEstado"><option>Pendiente</option><option>En proceso</option><option>Completada</option></select></div>
+    <div><label for="camMgDuracion">Duración (horas)</label><input id="camMgDuracion" type="number" min="0" max="24" step="0.5" placeholder="Ej. 2"></div><div><label for="camMgEvidencia">Evidencia / soporte</label><input id="camMgEvidencia" maxlength="240" placeholder="Ej. Acta 04, certificado o enlace"></div><div class="cam-mg-wide"><small style="color:#64748b">Registre la asistencia y su resultado. Si queda un compromiso posterior, podrá registrarlo como otro proceso independiente.</small></div>
+    <div class="cam-mg-wide"><label for="camMgNotas">Objetivo, temas tratados / observaciones</label><textarea id="camMgNotas" rows="2" maxlength="700" placeholder="Objetivo, acuerdos, conclusiones o próximo paso"></textarea></div>
+    <div class="cam-mg-wide" style="display:flex;gap:8px;flex-wrap:wrap"><button class="cam-mg-btn" type="submit">Guardar proceso</button><button class="cam-mg-btn alt" type="button" onclick="CAMMiGestion.limpiar()">Limpiar</button><span id="camMgMensaje" role="status" style="font-size:12px;align-self:center"></span></div>
+   </form>
+   </div>
+  </section>
+  <section id="camMiGestionInforme" data-mg-section="informe" style="display:none;border:1px solid #cbd5e1;border-radius:10px;padding:14px;margin-top:15px">
+   <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><h3 style="color:#123b5d">📊 Informe de gestión del analista de riesgos</h3><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="cam-mg-btn alt" onclick="CAMMiGestion.exportarCSV()">Exportar CSV</button><button class="cam-mg-btn" onclick="CAMMiGestion.imprimir()">Imprimir / Guardar PDF</button><button type="button" class="cam-mg-btn alt" data-mg-close>Cerrar ✕</button></div></div>
+   <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:end;margin:12px 0"><div><label for="camMgPeriodo" style="font-size:12px">Periodo</label><select id="camMgPeriodo" onchange="CAMMiGestion.aplicarPeriodo(this.value)" style="display:block;padding:8px;border:1px solid #cbd5e1;border-radius:6px"><option value="custom">Personalizado</option><option value="day">Diario</option><option value="week">Semanal</option><option value="fortnight">Quincenal</option><option value="month" selected>Mensual</option><option value="quarter">Trimestral</option><option value="half">Semestral</option><option value="year">Anual</option></select></div><div><label for="camMgDesde" style="font-size:12px">Desde</label><input id="camMgDesde" type="date" style="display:block;padding:8px;border:1px solid #cbd5e1;border-radius:6px"></div><div><label for="camMgHasta" style="font-size:12px">Hasta</label><input id="camMgHasta" type="date" style="display:block;padding:8px;border:1px solid #cbd5e1;border-radius:6px"></div><button id="camMgActualizarInforme" class="cam-mg-btn" type="button">Actualizar informe</button></div>
+   <div id="camMiGestionInformeContenido" style="font-size:13px;line-height:1.55"></div>
+  </section>
+ </section>
+</div>
+<script>
+(function(){
+ 'use strict';
+ const KEY='tecchnex_mi_gestion_actividades_v1', AGENDA='tecchnex_agenda_supervision_v1';
+ const $=id=>document.getElementById(id), hoy=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+ const safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ function leer(){try{const x=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(x)?x:[]}catch(e){return[]}}
+ function guardar(a){localStorage.setItem(KEY,JSON.stringify(a))}
+ function agenda(){try{const x=JSON.parse(localStorage.getItem(AGENDA)||'[]');return Array.isArray(x)?x:[]}catch(e){return[]}}
+ function inspecciones(){try{const x=JSON.parse(localStorage.getItem('inspecciones')||'[]');return Array.isArray(x)?x:[]}catch(e){return[]}}
+ const KEY_PROCESOS='tecchnex_mi_gestion_seguimiento_v1';
+ const ETAPAS_PROCESO=['Visita realizada','Informe documentado','Informe revisado','Informe generado'];
+ function leerProcesos(){try{const x=JSON.parse(localStorage.getItem(KEY_PROCESOS)||'{}');return x&&typeof x==='object'&&!Array.isArray(x)?x:{}}catch(e){return {}}}
+ function guardarProcesos(x){localStorage.setItem(KEY_PROCESOS,JSON.stringify(x))}
+ function claveInspeccion(v,i){const id=String(v&&v.idControl||'').trim();if(id)return 'id:'+id;return 'idx:'+i+'|'+String(v&&v.cliente||v&&v.nombrePuesto||'').trim().toLowerCase()+'|'+String(v&&v.fecha||'').slice(0,10)}
+ function renderProcesos(){
+  const lista=inspecciones(),mapa=leerProcesos(),contenedor=$('camMiGestionProcesosLista');if(!contenedor)return;
+  const filtro=window.__camMgFiltroSemaforo||'';
+  const seleccionado=window.__camMgProcesoSeleccionado||'';
+  const items=lista.map((v,i)=>{const key=claveInspeccion(v,i),p=mapa[key]||{};let etapa=p.etapa||ETAPAS_PROCESO[0];if(etapa==='Etapa sin registrar'||etapa==='Inspección realizada')etapa=ETAPAS_PROCESO[0];if(etapa==='Informe entregado al cliente')etapa='Informe generado';const cliente=v.cliente||v.nombrePuesto||v.nombreCliente||'Cliente sin nombre',fecha=v.fecha||v.fechaInspeccion||'',id=v.idControl||('Registro '+(i+1)),cerrada=etapa===ETAPAS_PROCESO[3],pendiente=p.proximaAccion||(etapa===ETAPAS_PROCESO[0]?'Documentar los resultados de la visita':etapa===ETAPAS_PROCESO[1]?'Completar la documentación del informe':etapa===ETAPAS_PROCESO[2]?'Revisar y generar el informe':'Proceso cerrado');return {v,i,key,p,etapa,cliente,fecha,id,pendiente,cerrada}});
+  const abiertos=items.filter(x=>!x.cerrada);$('camMgProcesosResumen').textContent=abiertos.length+' proceso(s) por finalizar · '+items.length+' inspección(es)';
+  if(!filtro||!seleccionado){contenedor.innerHTML='<p style="font-size:12px;color:#64748b;margin:8px 0">Seleccione una prioridad y después un puesto para consultar su proceso.</p>';return}
+  if(!items.length){contenedor.innerHTML='<p style="font-size:13px;color:#64748b">Aún no hay inspecciones registradas para hacer seguimiento.</p>';return}
+  const prioridadProceso=x=>{const fecha=x.cerrada?(x.p.fechaActualizacion||''):(x.p.fechaLimite||'');if(!fecha)return x.cerrada?'Baja':'Baja';const delta=Math.round((Date.parse(fecha+'T00:00:00Z')-Date.parse(hoy()+'T00:00:00Z'))/86400000);return delta<0?'Crítica':delta<=2?'Alta':delta<=7?'Media':'Baja'};
+  const visibles=items.filter(x=>x.key===seleccionado&&prioridadProceso(x)===filtro);
+  if(!visibles.length){contenedor.innerHTML='<p style="font-size:12px;color:#64748b;margin:8px 0">No hay proceso seleccionado con prioridad '+safe(filtro)+'.</p>';return}
+  contenedor.innerHTML=visibles.map(x=>{const hist=Array.isArray(x.p.historial)?x.p.historial:[];const ultima=hist.length?hist[hist.length-1]:null;const fecha= x.cerrada?(x.p.fechaActualizacion||''):(x.p.fechaLimite||'');const delta=fecha?Math.round((Date.parse(fecha+'T00:00:00Z')-Date.parse(hoy()+'T00:00:00Z'))/86400000):null;const venc=delta!==null&&delta<0;const alerta=venc?'alert-red':delta!==null&&delta<=2?'alert-orange':delta!==null&&delta<=7?'alert-yellow':x.cerrada?'alert-green':'alert-blue';const etiqueta=venc?'VENCIDA':delta===0?'PARA HOY':delta!==null&&delta<=2?'PRÓXIMA · '+delta+' DÍA(S)':delta!==null&&delta<=7?'PRÓXIMA · '+delta+' DÍAS':fecha?'EN PLAZO':'SIN FECHA';const ultimaTexto=ultima?(ultima.accion||ultima.etapa||'Actualización del proceso'):(x.p.actualizado?'Seguimiento actualizado':'Visita registrada');const ultimaFecha=ultima&&ultima.fecha?new Date(ultima.fecha).toLocaleString('es-CO'):x.p.actualizado?new Date(x.p.actualizado).toLocaleString('es-CO'):x.fecha;
+   return `<article class="cam-mg-process ${alerta}" data-proceso-key="${safe(x.key)}"><div class="cam-mg-process-head"><div><strong>${safe(x.cliente)}</strong><div style="font-size:11px;color:#64748b;margin-top:3px">Puesto / inspección: ${safe(x.id)} · Visita: ${safe(x.fecha||'Sin fecha')}</div></div><span class="cam-mg-pill ${venc?'cam-mg-critical':delta!==null&&delta<=2?'cam-mg-high':delta!==null&&delta<=7?'':'cam-mg-low'}">${etiqueta} · ${safe(x.cerrada?'Informe generado':x.etapa)}</span></div>
+   <div class="cam-mg-process-grid"><div><label>Estado actual del proceso</label><select data-proceso-etapa ${x.cerrada?'disabled':''}>${ETAPAS_PROCESO.map(e=>`<option ${e===x.etapa?'selected':''}>${safe(e)}</option>`).join('')}</select></div><div><label>¿Qué falta para cerrar?</label><input data-proceso-accion maxlength="160" value="${safe(x.cerrada?'Proceso cerrado':x.pendiente)}" placeholder="Describa la siguiente acción" ${x.cerrada?'disabled':''}></div>
+   <div><label>${x.cerrada?'Próxima actualización del informe preventivo':x.etapa===ETAPAS_PROCESO[2]?'Próxima actualización (al generar el informe)':'Fecha límite de la próxima acción'}</label><input data-proceso-fecha type="date" value="${safe(x.cerrada?(x.p.fechaActualizacion||''):(x.p.fechaLimite||''))}"></div><div><label>Responsable (opcional)</label><input data-proceso-responsable maxlength="100" value="${safe(x.p.responsable||'')}" placeholder="Nombre del responsable"></div><div style="grid-column:1/-1"><label>Última actividad realizada</label><div style="padding:9px 10px;border:1px solid #dbe3ed;border-radius:7px;background:#fff;font-size:12px"><strong>${safe(ultimaTexto)}</strong><div style="color:#64748b;margin-top:3px">${safe(ultimaFecha||'Sin actividad registrada')}</div></div></div><div style="grid-column:1/-1"><label>Observación / motivo del pendiente</label><input data-proceso-nota maxlength="300" value="${safe(x.p.observacion||'')}" placeholder="Contexto breve"></div></div>
+   <div class="cam-mg-process-save">${x.cerrada?'<span style="font-size:12px;color:#166534;font-weight:bold">✓ Proceso cerrado al generar el informe</span>':'<button type="button" class="cam-mg-btn" data-proceso-guardar>Guardar avance</button>'}<span style="font-size:11px;color:#64748b">${x.p.actualizado?'Último cambio: '+safe(new Date(x.p.actualizado).toLocaleString('es-CO')):'Proceso iniciado con la visita'}</span></div>${hist.length?`<details class="cam-mg-process-history"><summary>Historial del proceso (${hist.length})</summary><ul style="margin:7px 0 0 17px">${hist.slice().reverse().map(h=>`<li>${safe(h.fecha?new Date(h.fecha).toLocaleString('es-CO'):'')} — ${safe(h.etapa||'')} ${h.accion?'· '+safe(h.accion):''}</li>`).join('')}</ul></details>`:''}</article>`
+  }).join('');
+ }
+ function guardarProcesoDesdeUI(boton){const card=boton.closest('[data-proceso-key]');if(!card)return;const key=card.dataset.procesoKey,mapa=leerProcesos(),prev=mapa[key]||{},etapa=card.querySelector('[data-proceso-etapa]').value,accion=card.querySelector('[data-proceso-accion]').value.trim(),fechaLimite=card.querySelector('[data-proceso-fecha]').value,responsable=card.querySelector('[data-proceso-responsable]').value.trim(),observacion=card.querySelector('[data-proceso-nota]').value.trim();if(etapa!==ETAPAS_PROCESO[3]&&!accion){alert('Indique qué falta hacer antes de guardar.');return}if(etapa===ETAPAS_PROCESO[3]&&!fechaLimite){alert('Registre la fecha futura de próxima actualización del informe preventivo para cerrar el proceso.');return}if(etapa===ETAPAS_PROCESO[3]&&!confirm('¿Confirma que ya generó el informe preventivo y desea cerrar este proceso?'))return;const historial=Array.isArray(prev.historial)?prev.historial.slice():[];const accionHistorial=etapa===ETAPAS_PROCESO[3]?'Informe preventivo generado; proceso cerrado':accion;if(!prev.etapa||prev.etapa!==etapa||prev.proximaAccion!==accionHistorial){historial.push({fecha:new Date().toISOString(),etapa,accion:accionHistorial});}mapa[key]={...prev,etapa,proximaAccion:etapa===ETAPAS_PROCESO[3]?'Informe preventivo generado':accion,fechaLimite:etapa===ETAPAS_PROCESO[3]?'':fechaLimite,fechaActualizacion:etapa===ETAPAS_PROCESO[3]?fechaLimite:(prev.fechaActualizacion||''),responsable,observacion,actualizado:new Date().toISOString(),historial};try{guardarProcesos(mapa);renderProcesos();render();}catch(err){console.error('CAM Mi Gestión — seguimiento:',err);alert('No fue posible guardar el seguimiento. Revise el espacio disponible del navegador.')}}
+ function estado(v){return String(v.estado||'Pendiente')}
+ function prioridad(v){return String(v.prioridad||'Media')}
+ function vencida(v){return estado(v)!=='Completada'&&v.fecha&&v.fecha<hoy()}
+ function clase(p){return p==='Crítica'?'cam-mg-critical':p==='Alta'?'cam-mg-high':p==='Baja'?'cam-mg-low':'cam-mg-medium'}
+ function score(v){const p={Crítica:4,Alta:3,Media:2,Baja:1}[prioridad(v)]||2;return (vencida(v)?100:0)+p*10+(v.fecha&&v.fecha<=hoy()?8:0)}
+ function mostrarPanel(nombre){
+  document.querySelectorAll('#camMiGestionPanel [data-mg-section]').forEach(el=>{el.style.display=el.dataset.mgSection===nombre?'block':'none'});
+  document.querySelectorAll('#camMiGestionNavegacion [data-mg-panel]').forEach(btn=>{const activo=btn.dataset.mgPanel===nombre;btn.style.opacity=activo?'1':'.82';btn.setAttribute('aria-pressed',activo?'true':'false')});
+  window.__camMgPanelActivo=nombre||'';
+ }
+ function cerrarPanel(){mostrarPanel('');const formulario=$('camMiGestionFormPanel');if(formulario)formulario.style.display='none';}
+ function abrir(){ $('camMiGestionOverlay').style.display='block';cerrarPanel();if(!$('camMgFecha').value)$('camMgFecha').value=hoy();if(!$('camMgDesde').value){const d=new Date();d.setDate(1);$('camMgDesde').value=d.toISOString().slice(0,10)}if(!$('camMgHasta').value)$('camMgHasta').value=hoy();render();renderProcesos();generarInforme() }
+ function cerrar(){ $('camMiGestionOverlay').style.display='none' }
+ function limpiar(){ $('camMiGestionForm').reset();$('camMgId').value='';$('camMgFecha').value=hoy();$('camMgPrioridad').value='Media';$('camMgEtapa').value='';$('camMgDuracion').value='';$('camMgEvidencia').value='';$('camMgEstado').value='Completada';$('camMgMensaje').textContent='';$('camMgFormTitulo').textContent='＋ Nuevo proceso independiente'}
+ function abrirFormularioActividad(){limpiar();$('camMiGestionFormPanel').style.display='block';$('camMgTitulo').focus();$('camMiGestionFormPanel').scrollIntoView({behavior:'smooth',block:'nearest'});}
+ function cerrarFormularioActividad(){ $('camMiGestionFormPanel').style.display='none'; limpiar(); }
+ function render(){
+  renderProcesos();
+  const a=leer(),g=agenda();
+  const pendientes=a.filter(v=>estado(v)!=='Completada');
+  const propiasCrit=pendientes.filter(v=>prioridad(v)==='Crítica'||vencida(v));
+  const visitasPend=g.filter(v=>['Programada','Reprogramada'].includes(String(v.estado||'Programada')));
+  const visitasVencidas=visitasPend.filter(v=>v.fecha&&v.fecha<hoy());
+  const propiasHoy=pendientes.filter(v=>v.fecha===hoy());
+  const visitasHoy=visitasPend.filter(v=>v.fecha===hoy());
+  const completas=a.filter(v=>estado(v)==='Completada');
+  // Cada visita se cuenta desde la agenda; no se copia ni se suma como actividad propia.
+  const totalUrgentes=propiasCrit.length+visitasVencidas.length;
+  const totalHoy=propiasHoy.length+visitasHoy.length;
+  $('camMiGestionKpis').innerHTML=[['Actividades abiertas',pendientes.length],['Prioridad crítica / vencidas',totalUrgentes],['Para hoy',totalHoy],['Completadas',completas.length],['Visitas por atender',visitasPend.length]].map(x=>`<div class="cam-mg-kpi"><span style="font-size:12px;color:#64748b">${x[0]}</span><strong>${x[1]}</strong></div>`).join('');
+  $('camMiGestionResumenMenu').textContent=`${pendientes.length} actividad(es) abierta(s) · ${totalUrgentes} crítica(s) o vencida(s)`;
+  $('camMiGestionPrioridadIntro').textContent=totalUrgentes?`${totalUrgentes} elemento(s) requieren atención prioritaria: ${propiasCrit.length} actividad(es) propia(s) y ${visitasVencidas.length} visita(s) vencida(s). Se muestran primero los vencimientos.`: 'No hay actividades críticas ni visitas vencidas. Revise las próximas fechas programadas.';
+  const propios=pendientes.map(v=>({id:v.id,titulo:v.titulo,cliente:v.cliente,fecha:v.fecha,prioridad:prioridad(v),estado:vencida(v)?'Vencida':estado(v),tipo:v.tipo||'Actividad',origen:'Actividad'}));
+  const visitas=visitasPend.map(v=>({id:v.id,titulo:'Visita: '+(v.cliente||'Sin cliente'),cliente:v.sede||'',fecha:v.fecha||'',prioridad:(v.fecha&&v.fecha<hoy())?'Alta':'Media',estado:(v.fecha&&v.fecha<hoy())?'Vencida':String(v.estado||'Programada'),tipo:'Agenda',origen:'Agenda'}));
+  // Integrar el semáforo de seguimiento de inspecciones en el mismo centro de prioridades.
+  // Se consulta el almacenamiento propio de seguimiento y las inspecciones existentes; no se crean registros duplicados.
+  const mapaProcesos=leerProcesos();
+  const procesos=inspecciones().map((v,i)=>{const key=claveInspeccion(v,i),p=mapaProcesos[key]||{};let etapa=p.etapa||ETAPAS_PROCESO[0];if(etapa==='Etapa sin registrar'||etapa==='Inspección realizada')etapa=ETAPAS_PROCESO[0];if(etapa==='Informe entregado al cliente')etapa='Informe generado';const cerrada=etapa===ETAPAS_PROCESO[3],fecha=cerrada?(p.fechaActualizacion||''):(p.fechaLimite||''),delta=fecha?Math.round((Date.parse(fecha+'T00:00:00Z')-Date.parse(hoy()+'T00:00:00Z'))/86400000):null;const venc=delta!==null&&delta<0;const prior=venc?'Crítica':delta!==null&&delta<=2?'Alta':delta!==null&&delta<=7?'Media':'Baja';const cliente=v.cliente||v.nombrePuesto||v.nombreCliente||'Cliente sin nombre';const id=v.idControl||('Registro '+(i+1));return {id:key,titulo:cliente,cliente:'Inspección '+id,fecha,prioridad:prior,estado:cerrada?'Informe generado':venc?'Vencida':delta===0?'Para hoy':delta!==null&&delta<=2?'Próxima':delta!==null&&delta<=7?'En los próximos 7 días':'En proceso',tipo:'Seguimiento de inspección',origen:'Proceso',etapa,accion:cerrada?'Próxima actualización del informe preventivo':p.proximaAccion||(etapa===ETAPAS_PROCESO[0]?'Documentar resultados':etapa===ETAPAS_PROCESO[1]?'Completar documentación':'Revisar y generar informe')}});
+  const peso=v=>(v.estado==='Vencida'?1000:0)+(v.prioridad==='Crítica'?400:v.prioridad==='Alta'?300:v.prioridad==='Media'?200:100)+(v.fecha&&v.fecha<=hoy()?50:0);
+  const combinadas=propios.concat(visitas,procesos).sort((x,y)=>peso(y)-peso(x)||(x.fecha||'9999').localeCompare(y.fecha||'9999')).slice(0,15);
+  // CAM-MIGESTION-SEMÁFORO-COMPACTO-01: mostrar detalles solo al seleccionar una prioridad.
+  const filtroActivo=window.__camMgFiltroSemaforo||'';
+  const niveles=[{p:'Crítica',label:'Crítica',color:'#fee2e2',text:'#991b1b',borde:'#ef4444'},{p:'Alta',label:'Alta',color:'#ffedd5',text:'#9a3412',borde:'#f97316'},{p:'Media',label:'Media',color:'#fef3c7',text:'#92400e',borde:'#eab308'},{p:'Baja',label:'Baja',color:'#dbeafe',text:'#1e40af',borde:'#3b82f6'}];
+  const controles=niveles.map(n=>{const cantidad=combinadas.filter(v=>v.prioridad===n.p).length;return `<button type="button" data-priority-filter="${n.p}" aria-pressed="${filtroActivo===n.p?'true':'false'}" style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:115px;padding:9px 12px;border:2px solid ${n.borde};border-radius:9px;background:${filtroActivo===n.p?n.color:'#fff'};color:${n.text};font-weight:800;cursor:pointer;box-shadow:${filtroActivo===n.p?'0 0 0 2px '+n.borde+'33':'none'}"><span>${n.label}</span><span style="font-size:18px">${cantidad}</span></button>`}).join('');
+  const filtradas=filtroActivo?combinadas.filter(v=>v.prioridad===filtroActivo):[];
+  const detalle=filtradas.length?'<div style="display:grid;gap:7px;margin-top:10px">'+filtradas.map(v=>`<button type="button" class="cam-mg-alert-item" ${v.origen==='Agenda'?`data-alert-visit="${safe(v.id)}"`:v.origen==='Proceso'?`data-alert-process="${safe(v.id)}"`:`data-alert-edit="${safe(v.id)}"`}><span class="cam-mg-alert-main"><strong>${safe(v.titulo)}</strong><span class="cam-mg-alert-meta">${safe(v.cliente||v.tipo||'')} · ${safe(v.fecha||'Sin fecha límite')} · ${safe(v.estado)}${v.etapa?' · '+safe(v.etapa):''}${v.accion?' · Próximo: '+safe(v.accion):''} · ${safe(v.origen)}</span></span><span class="cam-mg-pill ${clase(v.prioridad)}">${safe(v.prioridad)}</span></button>`).join('')+'</div>':(filtroActivo?`<p style="font-size:12px;color:#64748b;margin-top:9px">No hay pendientes con prioridad ${safe(filtroActivo)}.</p>`:'<p style="font-size:12px;color:#64748b;margin-top:9px">Seleccione un color para consultar únicamente sus pendientes.</p>');
+  $('camMiGestionAlertas').innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap">'+controles+'</div>'+detalle;
+  $('camMiGestionFilas').innerHTML=a.length?a.slice().sort((x,y)=>score(y)-score(x)||(x.fecha||'').localeCompare(y.fecha||'')).map(v=>`<tr><td data-label="Prioridad / fecha"><span class="cam-mg-pill ${clase(prioridad(v))}">${safe(prioridad(v))}</span><br>${safe(v.fecha||'Sin fecha')}${vencida(v)?'<br><strong style="color:#b91c1c">Vencida</strong>':''}</td><td data-label="Actividad"><strong>${safe(v.titulo)}</strong><br><small>${safe(v.tipo||'Actividad')}${v.etapa?' · '+safe(v.etapa):''}</small><br><small>${safe(v.notas||'')}</small>${v.duracion?`<br><small>Duración: ${safe(v.duracion)} h</small>`:''}${v.evidencia?`<br><small>Evidencia: ${safe(v.evidencia)}</small>`:''}</td><td data-label="Cliente">${safe(v.cliente||'—')}</td><td data-label="Estado">${safe(vencida(v)?'Vencida':estado(v))}</td><td data-label="Acciones"><div class="cam-mg-actions"><button type="button" class="cam-mg-btn alt" data-edit="${safe(v.id)}">Editar</button> ${estado(v)!=='Completada'?`<button type="button" class="cam-mg-btn" data-done="${safe(v.id)}">Completar</button>`:''} <button type="button" class="cam-mg-btn danger" data-del="${safe(v.id)}">Eliminar</button></div></td></tr>`).join(''):'<tr><td colspan="5" style="text-align:center;color:#64748b">Aún no hay actividades propias registradas.</td></tr>';
+ }
+ $('camMiGestionAlertas').addEventListener('click',e=>{const filtro=e.target.closest('[data-priority-filter]');if(filtro){window.__camMgFiltroSemaforo=window.__camMgFiltroSemaforo===filtro.dataset.priorityFilter?'':filtro.dataset.priorityFilter;window.__camMgProcesoSeleccionado='';render();return;}const b=e.target.closest('[data-alert-edit],[data-alert-visit],[data-alert-process]');if(!b)return;if(b.dataset.alertProcess){mostrarPanel('procesos');window.__camMgProcesoSeleccionado=b.dataset.alertProcess;renderProcesos();const card=$('camMiGestionProcesosLista').querySelector(`[data-proceso-key=\"${CSS.escape(b.dataset.alertProcess)}\"]`);if(card){card.scrollIntoView({behavior:'smooth',block:'center'});card.style.outline='3px solid #2563eb';setTimeout(()=>card.style.outline='',1800);}else{alert('No se encontró la tarjeta de seguimiento de esta inspección.');}}else if(b.dataset.alertEdit){const v=leer().find(x=>String(x.id)===b.dataset.alertEdit);if(!v)return;mostrarPanel('actividades');$('camMiGestionFormPanel').style.display='block';$('camMgFormTitulo').textContent='✎ Editar actividad';$('camMgId').value=v.id;$('camMgTitulo').value=v.titulo||'';$('camMgCliente').value=v.cliente||'';$('camMgTipo').value=v.tipo||'Compromiso';$('camMgEtapa').value=v.etapa||'';$('camMgPrioridad').value=v.prioridad||'Media';$('camMgFecha').value=v.fecha||hoy();$('camMgEstado').value=v.estado||'Pendiente';$('camMgNotas').value=v.notas||'';$('camMgDuracion').value=v.duracion||'';$('camMgEvidencia').value=v.evidencia||'';$('camMgMensaje').textContent='Actividad cargada desde el centro de prioridades.';$('camMgTitulo').focus();$('camMiGestionForm').scrollIntoView({behavior:'smooth',block:'center'});}else if(b.dataset.alertVisit){if(window.CAMAgenda&&typeof window.CAMAgenda.abrir==='function'&&typeof window.CAMAgenda.editar==='function'){window.CAMAgenda.abrir();window.CAMAgenda.editar(b.dataset.alertVisit);}else{alert('No fue posible abrir la agenda. Ingrese desde el módulo Agenda de visitas.');}}});
+ $('camMiGestionNavegacion').addEventListener('click',e=>{const b=e.target.closest('[data-mg-panel]');if(b){mostrarPanel(b.dataset.mgPanel);if(b.dataset.mgPanel==='informe')generarInforme();if(b.dataset.mgPanel==='actividades'){ $('camMiGestionFormPanel').style.display='none'; render(); }}});
+ $('camMiGestionPanel').addEventListener('click',e=>{if(e.target.closest('[data-mg-close]'))cerrarPanel()});
+ // CAM-MIGESTION-PROCESOS-01: alta de procesos independientes; los registros históricos se conservan en la misma colección.
+ $('camMgCerrarFormulario').addEventListener('click',cerrarFormularioActividad);
+ $('camMgNuevoProceso').addEventListener('click',abrirFormularioActividad);
+ $('camMiGestionProcesosLista').addEventListener('click',e=>{const b=e.target.closest('[data-proceso-guardar]');if(b)guardarProcesoDesdeUI(b)});
+ $('camMiGestionForm').addEventListener('submit',e=>{e.preventDefault();const a=leer(),id=$('camMgId').value||'mg-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),v={id,titulo:$('camMgTitulo').value.trim(),cliente:$('camMgCliente').value.trim(),tipo:$('camMgTipo').value,etapa:$('camMgEtapa').value,prioridad:$('camMgPrioridad').value,fecha:$('camMgFecha').value,estado:$('camMgEstado').value,notas:$('camMgNotas').value.trim(),duracion:$('camMgDuracion').value,evidencia:$('camMgEvidencia').value.trim(),actualizado:new Date().toISOString()};if(!v.titulo||!v.fecha){$('camMgMensaje').textContent='Complete actividad y fecha límite.';return}const i=a.findIndex(x=>x.id===id);if(i>=0)a[i]=v;else a.push(v);try{guardar(a);$('camMgMensaje').textContent='Proceso guardado correctamente.';render();generarInforme();cerrarFormularioActividad()}catch(err){$('camMgMensaje').textContent='No se pudo guardar. Revise el almacenamiento del navegador.';console.error('CAM Mi Gestión:',err)}});
+ $('camMiGestionFilas').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const a=leer(),i=a.findIndex(x=>x.id===b.dataset.edit||x.id===b.dataset.done||x.id===b.dataset.del);if(i<0)return;const v=a[i];if(b.dataset.edit){$('camMiGestionFormPanel').style.display='block';$('camMgFormTitulo').textContent='✎ Editar actividad';$('camMgId').value=v.id;$('camMgTitulo').value=v.titulo||'';$('camMgCliente').value=v.cliente||'';$('camMgTipo').value=v.tipo||'Compromiso';$('camMgEtapa').value=v.etapa||'';$('camMgPrioridad').value=v.prioridad||'Media';$('camMgFecha').value=v.fecha||hoy();$('camMgEstado').value=v.estado||'Pendiente';$('camMgNotas').value=v.notas||'';$('camMgDuracion').value=v.duracion||'';$('camMgEvidencia').value=v.evidencia||'';$('camMgTitulo').focus()}else if(b.dataset.done){a[i].estado='Completada';a[i].completadaEn=new Date().toISOString();guardar(a);render();generarInforme()}else if(b.dataset.del&&confirm('¿Eliminar esta actividad de Mi Gestión?')){a.splice(i,1);guardar(a);render();generarInforme()}});
+ function periodo(){return {desde:$('camMgDesde').value,hasta:$('camMgHasta').value}}
+ function aplicarPeriodo(tipo){const fin=new Date(),ini=new Date(fin);if(tipo==='day')ini.setDate(fin.getDate());else if(tipo==='week')ini.setDate(fin.getDate()-6);else if(tipo==='fortnight')ini.setDate(fin.getDate()-13);else if(tipo==='month')ini.setDate(1);else if(tipo==='quarter')ini.setMonth(Math.floor(fin.getMonth()/3)*3,1);else if(tipo==='half')ini.setMonth(fin.getMonth()<6?0:6,1);else if(tipo==='year')ini.setMonth(0,1);else return;const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;$('camMgDesde').value=iso(ini);$('camMgHasta').value=iso(fin);generarInforme()}
+ function datosInforme(){const {desde,hasta}=periodo(),a=leer().filter(v=>v.fecha&&(!desde||v.fecha>=desde)&&(!hasta||v.fecha<=hasta)),g=agenda().filter(v=>v.fecha&&(!desde||v.fecha>=desde)&&(!hasta||v.fecha<=hasta));return {desde,hasta,a,g}}
+ function fechaUTC(s){const p=String(s||'').split('-').map(Number);return p.length===3?Date.UTC(p[0],p[1]-1,p[2]):NaN}
+ function isoUTC(ms){const d=new Date(ms);return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`}
+ function clavePuesto(v){return [v.cliente||'',v.sede||v.detalle||''].map(x=>String(x).trim().toLocaleLowerCase('es').replace(/\s+/g,' ')).join('|')}
+ function visitasRealizadasUnicas(g){const terminadas=g.filter(v=>['Realizada','Completada','Ejecutada'].includes(String(v.estado||'')));return new Set(terminadas.map(clavePuesto).filter(k=>k!=='|')).size}
+ function resumenPeriodo(a,g){const realizadas=a.filter(v=>v.tipo==='Inspección'&&['Inspección realizada','Informe documentado','Informe entregado al cliente'].includes(v.etapa)).length;return {total:a.length,hechas:a.filter(v=>estado(v)==='Completada').length,abiertas:a.filter(v=>estado(v)!=='Completada').length,vencidas:a.filter(v=>vencida(v)).length,visitas:g.length,puestosVisitados:visitasRealizadasUnicas(g),visitasHechas:g.filter(v=>['Realizada','Completada','Ejecutada'].includes(String(v.estado||''))).length,visitasPendientes:g.filter(v=>!['Realizada','Completada','Ejecutada','Cancelada'].includes(String(v.estado||'Programada'))).length,inspeccionesRealizadas:realizadas,informesDocumentados:a.filter(v=>v.tipo==='Inspección'&&['Informe documentado','Informe entregado al cliente'].includes(v.etapa)).length,informesEntregados:a.filter(v=>v.tipo==='Inspección'&&v.etapa==='Informe entregado al cliente').length,reuniones:a.filter(v=>v.tipo==='Reunión'&&estado(v)==='Completada').length,capacitaciones:a.filter(v=>v.tipo==='Capacitación'&&estado(v)==='Completada').length,cumplimiento:Math.min(100,Math.round(visitasRealizadasUnicas(g)/20*100))}}
+ function generarInforme(){const d=datosInforme();if(d.desde&&d.hasta&&d.desde>d.hasta){$('camMiGestionInformeContenido').textContent='La fecha inicial no puede ser posterior a la fecha final.';return}const r=resumenPeriodo(d.a,d.g);let anterior=null,prevLabel='';if(d.desde&&d.hasta){const ini=fechaUTC(d.desde),fin=fechaUTC(d.hasta),dias=Math.round((fin-ini)/86400000)+1;if(Number.isFinite(ini)&&Number.isFinite(fin)&&dias>0){const prevFin=ini-86400000,prevIni=prevFin-(dias-1)*86400000,pi=isoUTC(prevIni),pf=isoUTC(prevFin),pa=leer().filter(v=>v.fecha&&v.fecha>=pi&&v.fecha<=pf),pg=agenda().filter(v=>v.fecha&&v.fecha>=pi&&v.fecha<=pf);anterior=resumenPeriodo(pa,pg);prevLabel=`${pi} al ${pf}`}}
+  const delta=(actual,prev)=>{if(!prev)return '—';const n=actual-prev;return `${n>0?'+':''}${n} vs. periodo anterior`};
+  $('camMiGestionInformeContenido').innerHTML=`<div style="background:#f8fafc;border:1px solid #dbe3ed;border-radius:8px;padding:12px;margin-bottom:12px"><h4>Informe mensual de gestión · ${safe(d.desde||'Inicio')} al ${safe(d.hasta||'Hoy')}</h4><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:9px;margin-top:10px"><div><strong>${r.puestosVisitados}/20</strong><br><small>Puestos únicos visitados</small></div><div><strong>${r.cumplimiento}%</strong><br><small>Cumplimiento de meta</small></div><div><strong>${r.inspeccionesRealizadas}</strong><br><small>Inspecciones realizadas</small></div><div><strong>${r.informesDocumentados}</strong><br><small>Informes documentados</small></div><div><strong>${r.informesEntregados}</strong><br><small>Informes entregados</small></div><div><strong>${r.reuniones}</strong><br><small>Reuniones asistidas</small></div><div><strong>${r.capacitaciones}</strong><br><small>Capacitaciones asistidas</small></div></div></div><h4>Flujo de inspecciones e informes</h4><table class="cam-mg-table"><thead><tr><th>Etapa</th><th>Cantidad</th></tr></thead><tbody><tr><td>Inspección realizada</td><td>${r.inspeccionesRealizadas}</td></tr><tr><td>Informe documentado</td><td>${r.informesDocumentados}</td></tr><tr><td>Informe entregado al cliente</td><td>${r.informesEntregados}</td></tr></tbody></table><h4>Comparación con el periodo anterior</h4>${anterior?`<p style="font-size:12px;color:#475569">Periodo comparado: ${safe(prevLabel)} (misma duración).</p><table class="cam-mg-table"><thead><tr><th>Indicador</th><th>Actual</th><th>Anterior</th><th>Variación</th></tr></thead><tbody>${[['Puestos únicos visitados',r.puestosVisitados,anterior.puestosVisitados],['Cumplimiento (%)',r.cumplimiento,anterior.cumplimiento],['Informes documentados',r.informesDocumentados,anterior.informesDocumentados],['Informes entregados',r.informesEntregados,anterior.informesEntregados],['Reuniones asistidas',r.reuniones,anterior.reuniones],['Capacitaciones asistidas',r.capacitaciones,anterior.capacitaciones]].map(x=>`<tr><td>${x[0]}</td><td>${x[1]}${x[0]==='Cumplimiento (%)'?'%':''}</td><td>${x[2]}${x[0]==='Cumplimiento (%)'?'%':''}</td><td>${delta(x[1],x[2])}</td></tr>`).join('')}</tbody></table>`:'<p style="color:#64748b;font-size:12px">La comparación aparecerá al seleccionar un periodo con fechas definidas.</p>'}<h4>Detalle de gestión</h4><table class="cam-mg-table"><thead><tr><th>Fecha</th><th>Gestión</th><th>Cliente / puesto</th><th>Etapa / estado</th></tr></thead><tbody>${d.a.map(v=>`<tr><td>${safe(v.fecha)}</td><td>${safe(v.titulo)}<br><small>${safe(v.tipo)}</small></td><td>${safe(v.cliente||'—')}</td><td>${safe(v.etapa||estado(v))}</td></tr>`).join('')}${d.g.map(v=>`<tr><td>${safe(v.fecha)}</td><td>Visita a puesto</td><td>${safe(v.cliente||'—')} · ${safe(v.sede||v.detalle||'')}</td><td>${safe(v.estado||'Programada')}</td></tr>`).join('')}</tbody></table><p style="color:#64748b;font-size:11px;margin-top:8px">Meta mensual: 20 puestos. El cumplimiento se calcula sobre puestos únicos con visita realizada; las visitas repetidas al mismo puesto no aumentan el numerador. Las reuniones y capacitaciones se cuentan cuando su estado es Completada. Los informes se contabilizan según la etapa registrada. Las visitas proceden de la agenda y no se duplican como actividades.</p>`;
+ }
+ function exportarCSV(){const d=datosInforme();if(d.desde&&d.hasta&&d.desde>d.hasta){alert('La fecha inicial no puede ser posterior a la fecha final.');return}const cols=['origen','fecha','titulo','cliente','detalle','tipo','etapa_inspeccion','proxima_accion','fecha_limite','responsable','prioridad','estado','notas'];const propias=d.a.map(v=>({origen:'Actividad',fecha:v.fecha,titulo:v.titulo,cliente:v.cliente,detalle:'',tipo:v.tipo,etapa_inspeccion:v.etapa||'',proxima_accion:'',fecha_limite:v.fecha||'',responsable:'',prioridad:v.prioridad,estado:vencida(v)?'Vencida':estado(v),notas:v.notas}));const visitas=d.g.map(v=>({origen:'Agenda',fecha:v.fecha,titulo:'Visita programada',cliente:v.cliente,detalle:v.sede||v.detalle||'',tipo:'Visita',etapa_inspeccion:'',proxima_accion:'',fecha_limite:v.fecha||'',responsable:'',prioridad:(v.fecha&&v.fecha<hoy())?'Alta':'Media',estado:v.estado||'Programada',notas:''}));const mapa=leerProcesos(),procesos=inspecciones().map((v,i)=>{const p=mapa[claveInspeccion(v,i)]||{};return {origen:'Seguimiento de inspección',fecha:v.fecha||v.fechaInspeccion||'',titulo:v.idControl||('Inspección '+(i+1)),cliente:v.cliente||v.nombrePuesto||v.nombreCliente||'',detalle:'',tipo:v.tipo||'Inspección',etapa_inspeccion:p.etapa||ETAPAS_PROCESO[0],proxima_accion:p.proximaAccion||'Confirmar etapa actual',fecha_limite:p.fechaLimite||'',responsable:p.responsable||'',prioridad:'',estado:(p.etapa===ETAPAS_PROCESO[3]||p.etapa==='Informe entregado al cliente')?'Completada':'Pendiente',notas:p.observacion||''}});const rows=[cols,...propias.concat(visitas,procesos).map(v=>cols.map(k=>v[k]??''))];const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(';')).join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='TECCHNEX_Informe_Gestion_Analista.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+ function imprimir(){generarInforme();document.body.classList.add('cam-mg-print');window.print();setTimeout(()=>document.body.classList.remove('cam-mg-print'),500)}
+ function actualizarInformeSeguro(){
+  const salida=$('camMiGestionInformeContenido');
+  const boton=$('camMgActualizarInforme');
+  if(boton){boton.disabled=true;boton.textContent='Actualizando…'}
+  try{
+   generarInforme();
+  }catch(err){
+   console.error('CAM Mi Gestión — error al actualizar informe:',err);
+   if(salida) salida.innerHTML='<p style="color:#991b1b;background:#fef2f2;border:1px solid #fecaca;padding:9px;border-radius:6px">No fue posible actualizar el informe. Revise las fechas y los registros e intente nuevamente. Detalle técnico: '+safe(err&&err.message?err.message:'Error no identificado')+'</p>';
+  }finally{
+   if(boton){boton.disabled=false;boton.textContent='Actualizar informe'}
+  }
+ }
+ const botonActualizar=$('camMgActualizarInforme');
+ if(botonActualizar) botonActualizar.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();actualizarInformeSeguro()});
+ window.CAMMiGestion={abrir,cerrar,limpiar,render,mostrarPanel,cerrarPanel,generarInforme,actualizarInformeSeguro,exportarCSV,imprimir,aplicarPeriodo};
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('camMiGestionOverlay').style.display==='block')cerrar()});$('camMiGestionOverlay').addEventListener('click',e=>{if(e.target===$('camMiGestionOverlay'))cerrar()});
+ document.addEventListener('DOMContentLoaded',()=>{render()});
+})();
+</script>
+
 </body>
 </html>
