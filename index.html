@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <!--
-CAM-INSPECCIONES-LAB-V24 — TECCHNEX-UX-VUELTA-INICIO-01
+CAM-INSPECCIONES-LAB-V25 — CAM-CLIENTE-PUESTO-ID-01 / LAB V1
 Cambio controlado: encabezado/acentos azules oscuros del panel a negro; el gráfico visual reemplaza la tabla numérica de resumen por área. Se conserva el detalle de la lista de chequeo.
 Base de trabajo: V9. No modifica la plantilla maestra Word ni las estructuras de almacenamiento.
 
@@ -11,7 +11,7 @@ Base validada: CAM-DATOS-01. Cambio CAM-RESTAURACION-HALLAZGOS-01: hallazgos por
 TECCHNEX — CAM-ENSAMBLADO-OBS-LAB / CAM-WORD-LOCAL-01 + CAM-PDF-FALLBACK-01 / CAM-RIESGOS-BIB-01
 // V23: tras guardar checklist, mantener la ventana abierta y volver al inicio.
 V24: estándar transversal TECCHNEX para devolver al inicio las tarjetas extensas tras guardado exitoso; se aplica a formularios largos de inspección, vulnerabilidades, listas, hallazgos, matrices, directorio, bibliotecas y agenda.
-Base: última versión de GitHub aportada por el usuario.
+V25: campo único Cliente/Puesto, ID de informe editable y compatibilidad de claves históricas de hallazgos. No modifica la plantilla maestra Word ni la bóveda fotográfica IndexedDB.\nBase: archivo index(20261113-120232).html aportado por el usuario.
 Integración: bóveda fotográfica IndexedDB de CAM-ALMACENAMIENTO-01B.
 Correcciones: precarga dirigida de fotografías para informes y respaldo/restauración.
 // CAM-INFORME-ESTILO-01: Opción B — tipografía moderna Aptos aplicada al Word.
@@ -1743,8 +1743,9 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
                     </div>
 
                     <div class="campo">
-                        <label>Cliente *</label>
-                        <input type="text" id="cliente" required>
+                        <label>Cliente / Puesto *</label>
+                        <input type="text" id="cliente" required placeholder="Nombre del cliente o puesto">
+                        <small style="display:block;margin-top:5px;color:#64748b;">Este nombre identifica el cliente y el puesto de inspección.</small>
                     </div>
 
                     <div class="campo">
@@ -1820,9 +1821,13 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
                         <input type="text" id="revisadoPor" placeholder="Nombre de quien revisa y aprueba">
                     </div>
 
-                    <div class="campo">
-                        <label>Nombre del puesto</label>
-                        <input type="text" id="nombrePuesto" placeholder="Ej.: Portería principal">
+                    <!-- Compatibilidad interna: el puesto conserva el mismo valor del cliente. -->
+                    <input type="hidden" id="nombrePuesto">
+
+                    <div class="campo completo">
+                        <label for="idInformeEditable">ID del informe (editable)</label>
+                        <input type="text" id="idInformeEditable" placeholder="Se asignará al generar el informe si se deja vacío">
+                        <small style="display:block;margin-top:5px;color:#64748b;">Puede corregir este identificador sin modificar el ID interno de la inspección ni sus hallazgos o fotografías.</small>
                     </div>
 
                     <div class="campo">
@@ -3593,6 +3598,10 @@ function agregarServicioSeguridad(tipo) {
         document.getElementById("formInspeccion").removeAttribute("data-codigo-cliente-om17");
         indiceInspeccionEditando = null;
         limpiarDatosOM26();
+        const campoIdInformeNuevo = document.getElementById("idInformeEditable");
+        if (campoIdInformeNuevo) campoIdInformeNuevo.value = "";
+        const campoNombrePuestoNuevo = document.getElementById("nombrePuesto");
+        if (campoNombrePuestoNuevo) campoNombrePuestoNuevo.value = "";
         actualizarPanelModularInspeccionOM22(null);
         cargarDirectorInspeccionOM16("");
         prepararSelectorClienteOM17();
@@ -4526,6 +4535,7 @@ function cerrarDashboard() {
 
             const formulario = document.getElementById("formInspeccion");
             const indiceEdicion = formulario.dataset.editando;
+            const idInformeIngresado = String(document.getElementById("idInformeEditable")?.value || "").trim();
             const inspeccionesParaId = JSON.parse(localStorage.getItem("inspecciones") || "[]");
             let idControl;
             let siguienteIdGenerado = null;
@@ -4668,6 +4678,7 @@ if (typeof imagenEarthParaGuardar === "string" && /^data:image\//i.test(imagenEa
             const inspeccion = {
 
                                 idControl: idControl,
+                idInforme: idInformeIngresado,
 
                 // CAMBIO OM-17 — Mantener la referencia del cliente seleccionado.
                 idCliente: document.getElementById("formInspeccion").dataset.idClienteOM17 || "",
@@ -4848,16 +4859,22 @@ const informeExistenteMismaIdentidad = inspecciones.find(registro =>
     String(registro?.idInforme || "").trim()
 );
 if (clavePuestoFechaNueva) {
-    const idInformeConservado = informeExistenteMismaIdentidad?.idInforme ||
+    // El ID escrito manualmente tiene prioridad; si está vacío, conservar el anterior
+    // cuando la identidad cliente/fecha no cambió, o el ID ya asociado a esa identidad.
+    const idInformeConservado = idInformeIngresado ||
         (obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionAnteriorEdicion) === clavePuestoFechaNueva
             ? inspeccionAnteriorEdicion?.idInforme
-            : "");
-    if (idInformeConservado) inspeccion.idInforme = idInformeConservado;
+            : "") ||
+        informeExistenteMismaIdentidad?.idInforme ||
+        "";
+    if (idInformeConservado) inspeccion.idInforme = String(idInformeConservado).trim();
     else delete inspeccion.idInforme;
 } else {
     delete inspeccion.idInforme;
 }
 
+let indiceReemplazoVigente = null;
+let limpiezaReemplazoVigente = null;
 if (indiceEdicion !== undefined && indiceEdicion !== "") {
 
     inspecciones[Number(indiceEdicion)] = inspeccion;
@@ -4876,20 +4893,74 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
 
 } else {
 
-    inspecciones.push(inspeccion);
+    const identidadNueva = obtenerIdentidadClientePuestoTECCHNEX(inspeccion);
+    const coincidenciasMismaIdentidad = identidadNueva
+        ? inspecciones.map((registro, indice) => ({ registro, indice }))
+            .filter(item => obtenerIdentidadClientePuestoTECCHNEX(item.registro) === identidadNueva)
+        : [];
+    const vigente = coincidenciasMismaIdentidad.reduce((mejor, item) => {
+        if (!mejor) return item;
+        const comparacion = compararFechasInspeccionTECCHNEX(
+            item.registro?.fecha || item.registro?.fechaInspeccion,
+            mejor.registro?.fecha || mejor.registro?.fechaInspeccion
+        );
+        return comparacion !== null && comparacion > 0 ? item : mejor;
+    }, null);
 
-    // CAMBIO OM-08 — Al crear una inspección nueva, seleccionar inmediatamente
-    // su índice interno para que los nuevos hallazgos queden ligados a este informe.
-    localStorage.setItem(
-        "indiceInspeccionSeleccionadaInforme",
-        String(inspecciones.length - 1)
-    );
+    if (vigente) {
+        const comparacionNueva = compararFechasInspeccionTECCHNEX(
+            inspeccion.fecha || inspeccion.fechaInspeccion,
+            vigente.registro?.fecha || vigente.registro?.fechaInspeccion
+        );
+        if (comparacionNueva === null) {
+            alert("No se puede reemplazar la inspección vigente porque falta una fecha válida. No se modificaron los datos almacenados.");
+            return;
+        }
+        if (comparacionNueva <= 0) {
+            alert("Ya existe una inspección igual o más reciente para este cliente/puesto. No se guardó una versión anterior ni se modificó la información vigente.");
+            return;
+        }
+        const confirmacionReemplazo = confirm(
+            "Se reemplazará la inspección anterior de este cliente/puesto por la versión más reciente.\n\n" +
+            "Fecha anterior: " + (vigente.registro.fecha || vigente.registro.fechaInspeccion || "sin fecha") + "\n" +
+            "Fecha nueva: " + (inspeccion.fecha || inspeccion.fechaInspeccion || "sin fecha") + "\n\n" +
+            "Sus hallazgos, checklist, matriz y resultados asociados a la inspección anterior serán sustituidos. " +
+            "Las fotografías de IndexedDB no se borrarán físicamente para proteger referencias compartidas.\n\n¿Desea continuar?"
+        );
+        if (!confirmacionReemplazo) return;
+        limpiezaReemplazoVigente = prepararReemplazoInspeccionVigenteTECCHNEX(vigente.indice, inspeccion);
+        inspecciones[vigente.indice] = inspeccion;
+        indiceReemplazoVigente = vigente.indice;
+        localStorage.setItem("indiceInspeccionSeleccionadaInforme", String(vigente.indice));
+    } else {
+        inspecciones.push(inspeccion);
+        localStorage.setItem("indiceInspeccionSeleccionadaInforme", String(inspecciones.length - 1));
+    }
 }
 
-            localStorage.setItem(
-                "inspecciones",
-                JSON.stringify(inspecciones)
+            const clavesReemplazo = limpiezaReemplazoVigente ? {
+                inspecciones: JSON.stringify(inspecciones),
+                hallazgos: JSON.stringify(limpiezaReemplazoVigente.hallazgos),
+                checklists: JSON.stringify(limpiezaReemplazoVigente.checklists),
+                matrizRiesgos: JSON.stringify(limpiezaReemplazoVigente.matriz),
+                resultadosChecklistCategorias: JSON.stringify(limpiezaReemplazoVigente.resultadosChecklistCategorias)
+            } : { inspecciones: JSON.stringify(inspecciones) };
+            const valoresPreviosReemplazo = Object.fromEntries(
+                Object.keys(clavesReemplazo).map(clave => [clave, localStorage.getItem(clave)])
             );
+            try {
+                Object.entries(clavesReemplazo).forEach(([clave, valor]) => localStorage.setItem(clave, valor));
+            } catch (errorGuardadoReemplazo) {
+                Object.entries(valoresPreviosReemplazo).forEach(([clave, valor]) => {
+                    try {
+                        if (valor === null) localStorage.removeItem(clave);
+                        else localStorage.setItem(clave, valor);
+                    } catch (errorRollbackReemplazo) {
+                        console.error("CAM-REEMPLAZO-VIGENTE-01: error al revertir", clave, errorRollbackReemplazo);
+                    }
+                });
+                throw new Error("No se pudo completar el reemplazo. Se restauraron los datos locales anteriores: " + (errorGuardadoReemplazo?.message || errorGuardadoReemplazo));
+            }
             // CAM-PROTECCION-CIERRE-02: el registro ya quedó guardado.
             camMarcarFormularioInspeccionLimpio();
             // Registrar el consecutivo solo después de guardar la inspección correctamente.
@@ -4901,8 +4972,8 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
             // trasladar los hallazgos de esa misma ficha a la nueva clave. No se pierden.
             if (indiceEdicion !== undefined && indiceEdicion !== "" && inspeccionAnteriorEdicion) {
                 const indiceEditado = Number(indiceEdicion);
-                const claveAnterior = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionAnteriorEdicion);
-                if (claveAnterior !== clavePuestoFechaNueva) {
+                const clavesAnteriores = new Set(obtenerClavesInspeccionPuestoFechaTECCHNEX(inspeccionAnteriorEdicion));
+                if (!clavesAnteriores.has(clavePuestoFechaNueva) || clavesAnteriores.size > 1) {
                     try {
                         const hallazgosLocales = JSON.parse(localStorage.getItem("hallazgos") || "[]");
                         if (Array.isArray(hallazgosLocales)) {
@@ -4911,9 +4982,8 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
                                 const indiceRaw = hallazgo?.inspeccion;
                                 const indiceValido = indiceRaw !== null && indiceRaw !== undefined &&
                                     String(indiceRaw).trim() !== "" && Number.isInteger(Number(indiceRaw));
-                                const pertenece = claveAnterior
-                                    ? (claveHallazgo === claveAnterior || (!claveHallazgo && indiceValido && Number(indiceRaw) === indiceEditado))
-                                    : (!claveHallazgo && indiceValido && Number(indiceRaw) === indiceEditado);
+                                const pertenece = (claveHallazgo && clavesAnteriores.has(claveHallazgo)) ||
+                                    (!claveHallazgo && indiceValido && Number(indiceRaw) === indiceEditado);
                                 if (!pertenece) return hallazgo;
                                 const { idControlInspeccion, claveInspeccionPuestoFecha, ...hallazgoSinIds } = hallazgo || {};
                                 return clavePuestoFechaNueva
@@ -4938,7 +5008,7 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
                     : "CREACION",
                 indiceInspeccion: (indiceEdicion !== undefined && indiceEdicion !== "")
                     ? Number(indiceEdicion)
-                    : inspecciones.length - 1,
+                    : (indiceReemplazoVigente !== null ? indiceReemplazoVigente : inspecciones.length - 1),
                 idControl: inspeccion.idControl,
                 descripcion: (indiceEdicion !== undefined && indiceEdicion !== "")
                     ? "Inspección modificada"
@@ -4949,7 +5019,7 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
 
             const indiceGuardadoOM22 = (indiceEdicion !== undefined && indiceEdicion !== "")
                 ? Number(indiceEdicion)
-                : inspecciones.length - 1;
+                : (indiceReemplazoVigente !== null ? indiceReemplazoVigente : inspecciones.length - 1);
             indiceInspeccionEditando = indiceGuardadoOM22;
             actualizarPanelModularInspeccionOM22(indiceGuardadoOM22);
 
@@ -6245,13 +6315,30 @@ function importarInspeccionIndividual() {
                 const inspeccionesActuales = JSON.parse(localStorage.getItem("inspecciones") || "[]");
                 if (!Array.isArray(inspeccionesActuales)) throw new Error("La lista local de inspecciones no tiene un formato válido.");
                 const claveIdentidadImportada = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionImportada);
-                const inspeccionExistenteMismaIdentidad = claveIdentidadImportada
-                    ? inspeccionesActuales.find(registro => obtenerClaveInspeccionPuestoFechaTECCHNEX(registro) === claveIdentidadImportada)
-                    : null;
+                const identidadImportada = obtenerIdentidadClientePuestoTECCHNEX(inspeccionImportada);
+                const coincidenciasImportadas = identidadImportada
+                    ? inspeccionesActuales.map((registro, indice) => ({ registro, indice }))
+                        .filter(item => obtenerIdentidadClientePuestoTECCHNEX(item.registro) === identidadImportada)
+                    : [];
+                const inspeccionExistenteMismaIdentidad = coincidenciasImportadas.reduce((mejor, item) => {
+                    if (!mejor) return item;
+                    const cmp = compararFechasInspeccionTECCHNEX(
+                        item.registro?.fecha || item.registro?.fechaInspeccion,
+                        mejor.registro?.fecha || mejor.registro?.fechaInspeccion
+                    );
+                    return cmp !== null && cmp > 0 ? item : mejor;
+                }, null);
+                let indiceReemplazoImportacion = null;
                 if (inspeccionExistenteMismaIdentidad) {
-                    const idReutilizado = String(inspeccionExistenteMismaIdentidad.idControl || "").trim();
-                    alert("Esta inspección ya existe en este equipo para el mismo puesto y fecha.\n\nSe conserva el ID local: " + (idReutilizado || "sin ID") + ".\nNo se creó otro registro ni se consumió un consecutivo.");
-                    return;
+                    const cmp = compararFechasInspeccionTECCHNEX(
+                        inspeccionImportada.fecha || inspeccionImportada.fechaInspeccion,
+                        inspeccionExistenteMismaIdentidad.registro?.fecha || inspeccionExistenteMismaIdentidad.registro?.fechaInspeccion
+                    );
+                    if (cmp === null || cmp <= 0) {
+                        alert("Ya existe una inspección igual o más reciente para este cliente/puesto. No se importó la versión anterior y los datos actuales permanecen intactos.");
+                        return;
+                    }
+                    indiceReemplazoImportacion = inspeccionExistenteMismaIdentidad.indice;
                 }
                 const siguienteIdLocal = generarSiguienteIdInspeccionLocalTECCHNEX(inspeccionesActuales, inspeccionImportada.fecha || inspeccionImportada.fechaInspeccion);
                 const idControl = siguienteIdLocal.id;
@@ -6284,7 +6371,9 @@ function importarInspeccionIndividual() {
                     "Registros de matriz de riesgos: " + matrizImportada.length + "\n" +
                     "Evaluación técnica: " + (evaluacionVulnerabilidadesImportada ? (Object.keys(evaluacionVulnerabilidadesImportada.respuestas || {}).length + " respuestas guardadas") : "no incluida en este archivo") + "\n" +
                     "Fotografías incluidas: " + mediosImportados.filter(medio => medio?.dataUrl).length + "\n\n" +
-                    "La inspección se agregará a los datos actuales; no reemplazará las demás inspecciones.\n\n" +
+                    (inspeccionExistenteMismaIdentidad
+                        ? "La inspección más reciente reemplazará la versión anterior del mismo cliente/puesto.\n\n"
+                        : "La inspección se agregará como nuevo cliente/puesto; las demás inspecciones se conservarán.\n\n") +
                     "¿Desea continuar?";
                 if (!confirm(resumen)) {
                     alert("Importación cancelada. Los datos actuales no fueron modificados.");
@@ -6327,7 +6416,9 @@ function importarInspeccionIndividual() {
                     }
                 }
 
-                const nuevoIndice = inspeccionesActuales.length;
+                const nuevoIndice = indiceReemplazoImportacion !== null
+                    ? indiceReemplazoImportacion
+                    : inspeccionesActuales.length;
 
                 // CAM-RESPALDO-VULNERABILIDADES-01: remapear la evaluación al índice
                 // nuevo y enlazarla a la inspección importada, sin cambiar la plantilla Word.
@@ -6456,11 +6547,16 @@ function importarInspeccionIndividual() {
                 localStorage.setItem("ultimoNumeroInspeccionPorAnio", JSON.stringify(contadoresPorAnio));
                 const ultimoNumero = siguienteIdLocal.numero;
 
+                const excluirIndiceReemplazado = registro => !(indiceReemplazoImportacion !== null &&
+                    registro && registro.inspeccion !== undefined && Number(registro.inspeccion) === nuevoIndice);
+                const inspeccionesCombinadas = inspeccionesActuales.slice();
+                if (indiceReemplazoImportacion !== null) inspeccionesCombinadas[nuevoIndice] = inspeccionImportada;
+                else inspeccionesCombinadas.push(inspeccionImportada);
                 const clavesGuardar = {
-                    inspecciones: [...inspeccionesActuales, inspeccionImportada],
-                    checklists: [...checklistsActuales, ...checklistsNuevos],
-                    hallazgos: [...hallazgosActuales, ...hallazgosNuevos],
-                    matrizRiesgos: [...matrizActual, ...matrizNueva],
+                    inspecciones: inspeccionesCombinadas,
+                    checklists: [...checklistsActuales.filter(excluirIndiceReemplazado), ...checklistsNuevos],
+                    hallazgos: [...hallazgosActuales.filter(excluirIndiceReemplazado), ...hallazgosNuevos],
+                    matrizRiesgos: [...matrizActual.filter(excluirIndiceReemplazado), ...matrizNueva],
                     matricesRiesgosClientes: matricesClienteCombinadas,
                     resultadosChecklistCategorias: resultadosCombinados,
                     ultimoNumeroInspeccion: String(ultimoNumero)
@@ -6474,6 +6570,9 @@ function importarInspeccionIndividual() {
                     try {
                         const existentes = JSON.parse(localStorage.getItem(claveRegistrosVuln) || "[]");
                         if (Array.isArray(existentes)) registrosVulnActuales = existentes;
+                        if (indiceReemplazoImportacion !== null) {
+                            registrosVulnActuales = registrosVulnActuales.filter(d => Number(d?.inspeccionIndice) !== nuevoIndice);
+                        }
                     } catch (_) {}
                     const identidad = d => [
                         String(d?.inspeccionIndice ?? ""),
@@ -9462,7 +9561,11 @@ modal.style.display = "block";
     document.getElementById("formInspeccion").dataset.codigoClienteOM17 = inspeccion.codigoCliente || "";
 
     document.getElementById("cliente").value =
-        inspeccion.cliente || "";
+        inspeccion.cliente || inspeccion.nombreCliente || inspeccion.razonSocial || inspeccion.nombrePuesto || "";
+    const campoIdInformeEdicion = document.getElementById("idInformeEditable");
+    if (campoIdInformeEdicion) campoIdInformeEdicion.value = inspeccion.idInforme || "";
+    const campoNombrePuestoEdicion = document.getElementById("nombrePuesto");
+    if (campoNombrePuestoEdicion) campoNombrePuestoEdicion.value = document.getElementById("cliente").value;
 
     document.getElementById("nit").value =
         inspeccion.nit || "";
@@ -13572,11 +13675,80 @@ function normalizarPuestoClaveInspeccionTECCHNEX(valor) {
         .replace(/\s+/g, " ");
 }
 
-function obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion) {
-    if (!inspeccion || typeof inspeccion !== "object") return "";
-    const puesto = normalizarPuestoClaveInspeccionTECCHNEX(inspeccion.nombrePuesto || inspeccion.puesto);
+function obtenerClavesInspeccionPuestoFechaTECCHNEX(inspeccion) {
+    if (!inspeccion || typeof inspeccion !== "object") return [];
     const fecha = normalizarFechaClaveInspeccionTECCHNEX(inspeccion.fecha || inspeccion.fechaInspeccion);
-    return puesto && fecha ? `${fecha}|${puesto}` : "";
+    if (!fecha) return [];
+    // La identidad principal es Cliente/Puesto. También se conserva como alias
+    // el nombre de puesto histórico para recuperar hallazgos anteriores al ajuste.
+    const nombres = [
+        inspeccion.cliente || inspeccion.nombreCliente || inspeccion.razonSocial,
+        inspeccion.nombrePuesto,
+        inspeccion.puesto
+    ].map(normalizarPuestoClaveInspeccionTECCHNEX).filter(Boolean);
+    return [...new Set(nombres)].map(nombre => `${fecha}|${nombre}`);
+}
+
+function obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion) {
+    return obtenerClavesInspeccionPuestoFechaTECCHNEX(inspeccion)[0] || "";
+}
+
+
+// CAM-REEMPLAZO-VIGENTE-01 — Política simple de una inspección vigente por cliente/puesto.
+// La fecha decide cuál versión prevalece. Los índices locales se mantienen estables.
+function obtenerIdentidadClientePuestoTECCHNEX(inspeccion) {
+    if (!inspeccion || typeof inspeccion !== "object") return "";
+    const cliente = normalizarPuestoClaveInspeccionTECCHNEX(
+        inspeccion.cliente || inspeccion.nombreCliente || inspeccion.razonSocial || ""
+    );
+    const puesto = normalizarPuestoClaveInspeccionTECCHNEX(
+        inspeccion.nombrePuesto || inspeccion.puesto || cliente
+    );
+    // En versiones actuales cliente y nombrePuesto suelen ser el mismo dato.
+    // Si son distintos, se conserva la combinación para evitar reemplazos cruzados.
+    return cliente && puesto ? `${cliente}|${puesto}` : (cliente || puesto);
+}
+
+function compararFechasInspeccionTECCHNEX(a, b) {
+    const fa = normalizarFechaClaveInspeccionTECCHNEX(a);
+    const fb = normalizarFechaClaveInspeccionTECCHNEX(b);
+    if (!fa || !fb) return null;
+    return fa.localeCompare(fb);
+}
+
+function prepararReemplazoInspeccionVigenteTECCHNEX(indice, nuevaInspeccion) {
+    const idx = Number(indice);
+    if (!Number.isInteger(idx) || idx < 0) throw new Error("Índice de inspección no válido para reemplazo.");
+    const leerLista = clave => {
+        const valor = JSON.parse(localStorage.getItem(clave) || "[]");
+        if (!Array.isArray(valor)) throw new Error(`La información local «${clave}» no tiene un formato válido. No se reemplazó la inspección.`);
+        return valor;
+    };
+    const clavesAnteriores = new Set(obtenerClavesInspeccionPuestoFechaTECCHNEX(
+        (JSON.parse(localStorage.getItem("inspecciones") || "[]") || [])[idx]
+    ));
+    const filtrarIndice = clave => leerLista(clave).filter(registro => {
+        const indiceValido = registro && registro.inspeccion !== null && registro.inspeccion !== undefined &&
+            String(registro.inspeccion).trim() !== "" && Number.isInteger(Number(registro.inspeccion));
+        const mismoIndice = indiceValido && Number(registro.inspeccion) === idx;
+        const mismaClave = clavesAnteriores.has(String(registro?.claveInspeccionPuestoFecha || "").trim());
+        return !(mismoIndice || mismaClave);
+    });
+    const hallazgos = filtrarIndice("hallazgos");
+    const checklists = filtrarIndice("checklists");
+    const matriz = filtrarIndice("matrizRiesgos");
+    const resultados = JSON.parse(localStorage.getItem("resultadosChecklistCategorias") || "{}");
+    if (!resultados || typeof resultados !== "object" || Array.isArray(resultados)) {
+        throw new Error("Los resultados de checklist no tienen un formato válido. No se reemplazó la inspección.");
+    }
+    delete resultados[String(idx)];
+    return {
+        inspecciones: null, hallazgos, checklists, matriz,
+        resultadosChecklistCategorias: resultados,
+        indice: idx,
+        // Los bytes de IndexedDB se conservan: otras referencias podrían seguir utilizándolos.
+        mediaSinBorrar: true
+    };
 }
 
 // CAM-ID-ANUAL-01 — Consecutivo independiente por año.
@@ -13685,7 +13857,8 @@ function asegurarIdInformePuestoFechaTECCHNEX(inspecciones, indice) {
         obtenerClaveInspeccionPuestoFechaTECCHNEX(registro) === clave &&
         String(registro.idInforme || "").trim()
     );
-    const idInforme = String(existente?.idInforme || objetivo.idInforme || generarIdInformePuestoFechaTECCHNEX(objetivo)).trim();
+    // Si el usuario corrigió el ID en la ficha, ese valor debe prevalecer al emitir Word/PDF.
+    const idInforme = String(objetivo.idInforme || existente?.idInforme || generarIdInformePuestoFechaTECCHNEX(objetivo)).trim();
     lista.forEach(registro => {
         if (obtenerClaveInspeccionPuestoFechaTECCHNEX(registro) === clave) {
             registro.claveInspeccionPuestoFecha = clave;
@@ -13702,6 +13875,7 @@ function asegurarIdInformePuestoFechaTECCHNEX(inspecciones, indice) {
    del navegador nunca decide la pertenencia. */
 function obtenerRegistrosDeInspeccion(registros, inspeccion, indice) {
     const lista = Array.isArray(registros) ? registros : [];
+    const clavesObjetivo = new Set(obtenerClavesInspeccionPuestoFechaTECCHNEX(inspeccion));
     const claveObjetivo = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion);
     if (claveObjetivo) {
         let inspeccionesLocales = [];
@@ -13714,11 +13888,13 @@ function obtenerRegistrosDeInspeccion(registros, inspeccion, indice) {
             const indiceRegistro = registro?.inspeccion;
             const tieneIndiceRegistro = indiceRegistro !== null && indiceRegistro !== undefined &&
                 String(indiceRegistro).trim() !== "" && Number.isInteger(Number(indiceRegistro));
-            if (!claveRegistro && tieneIndiceRegistro) {
+            if (claveRegistro) return clavesObjetivo.has(claveRegistro);
+            if (tieneIndiceRegistro) {
                 const inspeccionReferencia = inspeccionesLocales[Number(indiceRegistro)];
-                claveRegistro = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionReferencia);
+                const clavesReferencia = obtenerClavesInspeccionPuestoFechaTECCHNEX(inspeccionReferencia);
+                return clavesReferencia.some(clave => clavesObjetivo.has(clave));
             }
-            return claveRegistro === claveObjetivo;
+            return false;
         });
         const hayTrazabilidadPortable = lista.some(registro =>
             String(registro?.claveInspeccionPuestoFecha || "").trim() ||
