@@ -10760,6 +10760,9 @@ function cerrarHallazgos() {
 let fotosHallazgoEditando = [];
 let colaProcesamientoFotosHallazgo = Promise.resolve();
 
+// CAM-REPARACION-FOTOS-EDIT-01 — Control de versiones del render fotográfico.
+let versionRenderFotosHallazgo = 0;
+
 // CAM-FOTOGRAFIAS-02 — Agregar cada selección al borrador del hallazgo.
 // Permite tomar varias fotos consecutivas con la cámara o seleccionar varias
 // desde la galería sin perder las fotos elegidas anteriormente.
@@ -11483,10 +11486,8 @@ function eliminarHallazgo(indice) {
 }
 
 function editarHallazgo(indice) {
-    
-    const hallazgos =
-        JSON.parse(localStorage.getItem("hallazgos")) || [];
 
+    const hallazgos = JSON.parse(localStorage.getItem("hallazgos")) || [];
     const hallazgo = hallazgos[indice];
 
     if (!hallazgo) {
@@ -11494,75 +11495,95 @@ function editarHallazgo(indice) {
         return;
     }
 
+    const campos = {
+        area: document.getElementById("hallazgoArea"),
+        elemento: document.getElementById("hallazgoElemento"),
+        descripcion: document.getElementById("hallazgoDescripcion"),
+        nivel: document.getElementById("hallazgoNivel"),
+        recomendacion: document.getElementById("hallazgoRecomendacion"),
+        palabrasClave: document.getElementById("hallazgoPalabrasClaveBiblioteca"),
+        fotoCamara: document.getElementById("hallazgoFotoCamara"),
+        fotosGaleria: document.getElementById("hallazgoFotosGaleria")
+    };
+
+    const obligatorios = ["area", "elemento", "descripcion", "nivel", "recomendacion"];
+    const campoFaltante = obligatorios.find(clave => !campos[clave]);
+
+    if (campoFaltante) {
+        console.error("CAM-REPARACION-FOTOS-EDIT-01: falta un campo del formulario.", campoFaltante);
+        alert("No fue posible abrir la edición porque falta un campo del formulario. No se modificaron los datos.");
+        return;
+    }
+
     indiceHallazgoEditando = indice;
 
-    document.getElementById("hallazgoArea").value =
-        hallazgo.area || "";
+    campos.area.value = hallazgo.area || "";
+    campos.elemento.value = hallazgo.elemento || "";
+    campos.descripcion.value = hallazgo.descripcion || "";
+    campos.nivel.value = hallazgo.nivel || "";
+    campos.recomendacion.value = hallazgo.recomendacion || "";
 
-    document.getElementById("hallazgoElemento").value =
-        hallazgo.elemento || "";
+    if (campos.palabrasClave) campos.palabrasClave.value = "";
+    if (campos.fotoCamara) campos.fotoCamara.value = "";
+    if (campos.fotosGaleria) campos.fotosGaleria.value = "";
 
-    document.getElementById("hallazgoDescripcion").value =
-        hallazgo.descripcion || "";
-
-    document.getElementById("hallazgoNivel").value =
-        hallazgo.nivel || "";
-
-    document.getElementById("hallazgoRecomendacion").value =
-        hallazgo.recomendacion || "";
-
-    document.getElementById("hallazgoPalabrasClaveBiblioteca").value = "";
-    document.getElementById("hallazgoFotoCamara").value = "";
-    document.getElementById("hallazgoFotosGaleria").value = "";
-    mostrarRecomendacionesSugeridas();
-
-fotosHallazgoEditando =
-    Array.isArray(hallazgo.fotos)
+    fotosHallazgoEditando = Array.isArray(hallazgo.fotos)
         ? [...hallazgo.fotos]
         : [];
-const estadoFotos = document.getElementById("estadoCargaFotosHallazgo");
-if (estadoFotos) estadoFotos.textContent = "";
 
-mostrarFotosHallazgoEditando();
+    const estadoFotos = document.getElementById("estadoCargaFotosHallazgo");
+    if (estadoFotos) estadoFotos.textContent = "";
 
-    const ventana =
-        document.getElementById("ventanaHallazgos");
-
-    if (ventana) {
-        ventana.style.display = "flex";
-
-        // CAM-HALLAZGOS-EDIT-01 — Al editar un hallazgo,
-        // desplazar automáticamente la ventana al primer campo editable.
-        setTimeout(() => {
-            const primerCampoEditable = document.getElementById("hallazgoArea");
-
-            if (primerCampoEditable) {
-                primerCampoEditable.scrollIntoView({
-                    behavior: "smooth",
-                    block: "center"
-                });
-
-                try {
-                    primerCampoEditable.focus({ preventScroll: true });
-                } catch (e) {
-                    primerCampoEditable.focus();
-                }
-            }
-        }, 100);
+    // Abrir primero el formulario: la recuperación de fotos no debe bloquear
+    // la edición de los campos descriptivos ni el pintado de la ventana.
+    const ventana = document.getElementById("ventanaHallazgos");
+    if (!ventana) {
+        alert("No se encontró la ventana de edición de hallazgos.");
+        return;
     }
+    ventana.style.display = "flex";
+
+    try {
+        mostrarRecomendacionesSugeridas();
+    } catch (error) {
+        console.warn("No fue posible actualizar las recomendaciones sugeridas.", error);
+    }
+
+    mostrarFotosHallazgoEditando();
+
+    setTimeout(() => {
+        const primerCampoEditable = document.getElementById("hallazgoArea");
+        if (!primerCampoEditable) return;
+
+        primerCampoEditable.scrollIntoView({
+            behavior: "smooth",
+            block: "center"
+        });
+
+        try {
+            primerCampoEditable.focus({ preventScroll: true });
+        } catch (error) {
+            primerCampoEditable.focus();
+        }
+    }, 100);
 }
+
+// Exposición explícita para los botones inline de la lista de hallazgos.
+window.editarHallazgo = editarHallazgo;
+
 
     
 function mostrarFotosHallazgoEditando() {
 
-    const vistaFotos =
-        document.getElementById("vistaFotosHallazgo");
+    const vistaFotos = document.getElementById("vistaFotosHallazgo");
+    if (!vistaFotos) return;
 
-    if (!vistaFotos) {
-        return;
-    }
+    const versionActual = ++versionRenderFotosHallazgo;
+    const fotosActuales = Array.isArray(fotosHallazgoEditando)
+        ? [...fotosHallazgoEditando]
+        : [];
 
-    if (!fotosHallazgoEditando.length) {
+    if (!fotosActuales.length) {
         vistaFotos.innerHTML = `
             <div style="padding:12px;border:1px dashed #B8B8B8;border-radius:8px;background:#FFFFFF;color:#555;font-size:13px;">
                 Aún no hay fotografías adjuntas. Puede seleccionar varias imágenes de la galería o tomar fotografías consecutivas; aparecerán aquí antes de guardar.
@@ -11571,66 +11592,95 @@ function mostrarFotosHallazgoEditando() {
         return;
     }
 
-    // CAM-ALMACENAMIENTO-01B — Si una referencia aún no está en memoria,
-    // esperar a IndexedDB antes de pintar las miniaturas.
-    if (fotosHallazgoEditando.some(
-        foto => foto?.mediaId && !tecchnexMediaCache.has(foto.mediaId)
-    )) {
+    const referenciasPendientes = fotosActuales.filter(foto =>
+        foto && typeof foto === "object" &&
+        foto.mediaId && !tecchnexMediaCache.has(foto.mediaId)
+    );
+
+    // CAM-REPARACION-FOTOS-EDIT-01:
+    // Consultar IndexedDB una sola vez por render. No re-encadenar esta función
+    // a un Promise ya resuelto: una referencia huérfana causaba un bucle infinito
+    // de microtasks que impedía a Chrome pintar la ventana de edición.
+    if (referenciasPendientes.length) {
         vistaFotos.innerHTML =
-            "<p style=\"color:#666;\">Cargando fotografías...</p>";
-        tecchnexMediaReady
-            .then(() => mostrarFotosHallazgoEditando())
-            .catch(error => console.warn(
-                "TECCHNEX: no fue posible cargar las fotografías.",
-                error
-            ));
+            '<p style="color:#666;font-size:13px;">Comprobando fotografías adjuntas…</p>';
+
+        (async () => {
+            try {
+                await tecchnexMediaReady;
+                await Promise.all(referenciasPendientes.map(async foto => {
+                    try {
+                        await cargarMediaEnCache(foto);
+                    } catch (error) {
+                        console.warn(
+                            "CAM-REPARACION-FOTOS-EDIT-01: no se pudo recuperar una fotografía.",
+                            foto?.mediaId,
+                            error
+                        );
+                    }
+                }));
+            } catch (error) {
+                console.warn(
+                    "CAM-REPARACION-FOTOS-EDIT-01: no fue posible consultar la bóveda fotográfica.",
+                    error
+                );
+            }
+
+            if (versionActual === versionRenderFotosHallazgo) {
+                pintarFotosHallazgoEditando(fotosActuales, vistaFotos);
+            }
+        })();
+
         return;
     }
 
-    vistaFotos.innerHTML = `
-        <p style="font-size:12px;color:#123b5d;font-weight:600;">Fotografías adjuntas: ${fotosHallazgoEditando.length}</p>
-        ${fotosHallazgoEditando
-        .map((foto, indice) => `
-            <div
-                style="
-                    display:inline-block;
-                    margin:8px;
-                    vertical-align:top;
-                    text-align:center;
-                "
-            >
-                <img
-                    src="${obtenerImagenDeFoto(foto)}"
-                    alt="Evidencia fotográfica"
-                    style="
-                        width:180px;
-                        height:135px;
-                        object-fit:cover;
-                        display:block;
-                        margin-bottom:6px;
-                    "
-                >
+    pintarFotosHallazgoEditando(fotosActuales, vistaFotos);
+}
 
-                <button
-                    type="button"
-                    onclick="eliminarFotoHallazgo(${indice})"
-                    style="
-                        background:#b91c1c;
-                        color:white;
-                        border:none;
-                        padding:6px 10px;
-                        border-radius:5px;
-                        cursor:pointer;
-                    "
-                >
-                    🗑️ Eliminar foto
-                </button>
-            </div>
-        `)
-        .join("")}
+function pintarFotosHallazgoEditando(fotos, vistaFotos) {
+    if (!vistaFotos) return;
+
+    vistaFotos.innerHTML = `
+        <p style="font-size:12px;color:#123b5d;font-weight:600;">
+            Fotografías adjuntas: ${fotos.length}
+        </p>
+        ${fotos.map((foto, indice) => {
+            const imagen = obtenerImagenDeFoto(foto);
+            const imagenDisponible =
+                typeof imagen === "string" && /^data:image\//i.test(imagen);
+            const mediaId = String(foto?.mediaId || "");
+            const mediaIdSeguro = mediaId.replace(/[&<>"']/g, caracter => ({
+                "&": "&amp;", "<": "&lt;", ">": "&gt;",
+                '"': "&quot;", "'": "&#39;"
+            })[caracter]);
+            const imagenSegura = imagenDisponible
+                ? imagen.replace(/&/g, "&amp;").replace(/"/g, "&quot;")
+                : "";
+
+            return `
+                <div style="display:inline-block;margin:8px;vertical-align:top;text-align:center;max-width:190px;">
+                    ${
+                        imagenDisponible
+                            ? `<img src="${imagenSegura}" alt="Evidencia fotográfica"
+                                style="width:180px;height:135px;object-fit:cover;display:block;margin-bottom:6px;">`
+                            : `<div role="status"
+                                style="width:180px;height:135px;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:10px;background:#fff7ed;border:1px dashed #c2410c;border-radius:6px;color:#9a3412;font-size:12px;">
+                                Fotografía no disponible en la bóveda actual
+                               </div>
+                               ${mediaIdSeguro
+                                   ? `<div style="font-size:10px;color:#64748b;max-width:180px;overflow-wrap:anywhere;margin:4px 0;">${mediaIdSeguro}</div>`
+                                   : ""}`
+                    }
+                    <button type="button" onclick="eliminarFotoHallazgo(${indice})"
+                        style="background:#b91c1c;color:white;border:none;padding:6px 10px;border-radius:5px;cursor:pointer;">
+                        🗑️ Eliminar foto
+                    </button>
+                </div>
+            `;
+        }).join("")}
     `;
 }
-    
+
 function eliminarFotoHallazgo(indice) {
 
     if (
