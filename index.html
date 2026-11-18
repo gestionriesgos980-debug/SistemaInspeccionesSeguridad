@@ -1529,24 +1529,18 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
     <h1 id="tecchnexInspectionsGateTitle">Sistema de Inspecciones de Seguridad</h1>
     <p>Inicia sesión con tu cuenta de empresa para verificar la licencia antes de utilizar el sistema. Tus inspecciones, hallazgos y fotografías locales no se eliminan si la licencia no está disponible.</p>
     <form id="tecchnexInspectionsLoginForm" autocomplete="on">
-      <label for="tecchnexInspectionsSupabaseUrl">URL del proyecto Supabase
-        <input id="tecchnexInspectionsSupabaseUrl" type="url" placeholder="https://ywezkwitbhbyxcwuoiim.supabase.co" autocomplete="url" required>
-      </label>
-      <label for="tecchnexInspectionsSupabaseKey">Clave publicable de Supabase
-        <input id="tecchnexInspectionsSupabaseKey" type="password" placeholder="sb_publishable_… o clave anon pública" autocomplete="off" required>
-      </label>
-      <label for="tecchnexInspectionsEmail">Correo electrónico
+      <label for="tecchnexInspectionsEmail">Usuario / correo electrónico
         <input id="tecchnexInspectionsEmail" type="email" placeholder="usuario@empresa.com" autocomplete="username" required>
       </label>
       <label for="tecchnexInspectionsPassword">Contraseña
         <input id="tecchnexInspectionsPassword" type="password" autocomplete="current-password" required>
       </label>
-      <button id="tecchnexInspectionsLoginButton" type="submit">Iniciar sesión y validar licencia</button>
+      <button id="tecchnexInspectionsLoginButton" type="submit">Iniciar sesión</button>
     </form>
     <button id="tecchnexInspectionsRetryButton" type="button" hidden>Volver a comprobar licencia</button>
     <button id="tecchnexInspectionsLogoutButton" type="button" hidden>Cerrar sesión</button>
     <p id="tecchnexInspectionsStatus" role="status" aria-live="polite">Acceso bloqueado hasta que el servidor confirme la licencia.</p>
-    <p id="tecchnexInspectionsNotice"><strong>LABORATORIO:</strong> el código de producto candidato es CAM-INSPECCIONES; debe coincidir con el catálogo del Administrador Maestro. Esta puerta no configura, crea ni despliega funciones o productos de Supabase.</p>
+    <p id="tecchnexInspectionsNotice">La conexión y la validación comercial se realizan automáticamente. Tus inspecciones y fotografías locales se conservan.</p>
   </section>
 </div>
 <!-- TECCHNEX CAM-INSPECCIONES V25 · END BLOQUE COMERCIAL -->
