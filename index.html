@@ -2994,7 +2994,7 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
 'use strict';
 const KEY='tecchnex_lista_vulnerabilidades_multisector_v1';
 const $=id=>document.getElementById(id);
-const shared=[
+const sharedV1=[
 ['Perímetro y entorno',[
 '¿Se identifican las amenazas externas y las condiciones de seguridad del entorno?',
 '¿El perímetro, cerramientos y accesos exteriores se encuentran en condiciones adecuadas?',
@@ -3047,7 +3047,7 @@ const shared=[
 '¿Los residuos y productos químicos se almacenan, identifican y disponen de forma segura, conforme a los procedimientos aplicables?',
 '¿Se documentan las condiciones inseguras, responsables, fechas de cierre y evidencia de corrección?']]
 ];
-const sector={
+const sectorV1={
 Residencial:[
 ['Portería y convivencia',['¿La portería controla el ingreso de residentes, visitantes y domicilios?','¿Existe un procedimiento para menores extraviados y personas vulnerables?','¿Las zonas comunes, piscinas, gimnasios y salones tienen controles adecuados?','¿Se gestionan parqueaderos, bicicletas y bienes comunes para prevenir hurtos?']],
 ['Rondas y áreas comunes',['¿Las rondas cubren perímetro, parqueaderos y zonas de baja afluencia?','¿Se registran los puntos de ronda y las novedades relevantes?','¿Los cuartos técnicos, cubiertas y depósitos están protegidos?','¿Existen procedimientos de atención de riñas, violencia o alteraciones de convivencia?']]
@@ -3065,7 +3065,124 @@ Industrial:[
 ['Protección industrial',['¿Los portones y accesos de vehículos tienen validación y registro de ingreso?','¿Las bodegas e inventarios cuentan con controles de acceso y trazabilidad?','¿Las áreas de producción, cuartos técnicos y maquinaria están restringidas según su función?','¿Se controlan llaves, herramientas críticas y activos de alto valor?']],
 ['Amenazas y continuidad industrial',['¿Se evalúan sabotaje, intrusión, robo interno y amenazas a la continuidad?','¿Las áreas con sustancias peligrosas tienen controles de acceso y respuesta?','¿Se coordinan seguridad física, SST, mantenimiento y respuesta a emergencias?','¿Existen procedimientos para fallas eléctricas, incendio, derrames o interrupción operativa?']]
 ]};
-let state={id:null,answers:{},notes:{},responsibles:{}};
+// CAM-VULN-CATALOGO-V2 — catálogo reformulado y aprobado.
+// El catálogo V1 se conserva íntegro para interpretar evaluaciones e informes históricos.
+const sharedV2=[
+['Perímetro y entorno',[
+'¿El perímetro cuenta con cerramientos, muros, rejas u otras barreras físicas que dificulten el ingreso de personas no autorizadas?',
+'¿Las puertas, portones, rejas y cerramientos cuentan con mecanismos de cierre y protección que impidan su apertura o manipulación no autorizada?',
+'¿La iluminación exterior permite detectar e identificar personas y movimientos en los puntos críticos durante la noche?',
+'¿El perímetro cuenta con visibilidad suficiente para detectar aproximaciones y movimientos en sus diferentes sectores?',
+'¿La vegetación, las construcciones vecinas, los obstáculos y las condiciones del terreno permiten mantener la visibilidad y dificultan el ocultamiento de personas?',
+'¿Se realizan inspecciones periódicas del perímetro para identificar y corregir daños, anomalías y condiciones que faciliten intrusiones?']],
+['Accesos y circulación',[
+'¿Los accesos peatonales y vehiculares cuentan con controles definidos que permitan impedir ingresos no autorizados?',
+'¿Los procedimientos de ingreso permiten verificar la identidad y autorización de visitantes, contratistas y proveedores?',
+'¿Los registros de visitantes permiten establecer su hora de ingreso, destino, persona que autoriza y hora de salida?',
+'¿El ingreso y la salida de vehículos cuentan con procedimientos de validación y registro de acuerdo con las condiciones del establecimiento?',
+'¿Las áreas restringidas cuentan con barreras, señalización y controles que impidan el acceso de personas no autorizadas?',
+'¿La distribución de las rutas de circulación permite mantener el control y la supervisión de los desplazamientos hacia las áreas críticas?',
+'¿Existen procedimientos definidos para controlar visitantes no anunciados, entregas, contratistas y situaciones excepcionales?']],
+['Vigilancia y operación',[
+'¿El servicio de vigilancia cuenta con consignas y procedimientos documentados para las funciones de protección del establecimiento?',
+'¿Las rondas de vigilancia tienen recorridos, frecuencias y puntos de control definidos de acuerdo con las condiciones de riesgo?',
+'¿La administración o responsable de seguridad dispone de mecanismos para verificar la ejecución de las rondas, conocer las novedades reportadas y realizar seguimiento a las situaciones pendientes?',
+'¿El personal de vigilancia conoce los procedimientos de comunicación, escalamiento y atención de incidentes de seguridad?',
+'¿El personal recibe orientación sobre identificación de amenazas, modalidades de intrusión, hurto, suplantación y reporte de situaciones sospechosas?']],
+['Seguridad electrónica',[
+'¿Los sistemas de CCTV cubren los accesos, perímetros y áreas críticas identificadas en el análisis de seguridad?',
+'¿La ubicación, orientación, calidad de imagen e iluminación de las cámaras permiten identificar personas, vehículos y eventos relevantes?',
+'¿Las cámaras, alarmas, sensores y demás dispositivos de seguridad se encuentran operativos y funcionales?',
+'¿Los sistemas electrónicos de seguridad reciben mantenimiento preventivo y correctivo con registros verificables?',
+'¿El acceso a las plataformas, configuraciones, grabaciones y exportación de imágenes está restringido a usuarios autorizados?',
+'¿Las grabaciones se encuentran disponibles, sincronizadas y conservadas durante el periodo establecido por la organización?',
+'¿Existen mecanismos alternativos para mantener la vigilancia y la detección ante fallas de energía, comunicaciones o sistemas electrónicos?']],
+['Emergencias y continuidad',[
+'¿El plan de emergencias contempla las amenazas identificadas para las características y actividades del establecimiento?',
+'¿Están identificados los responsables de activar, coordinar y dirigir la respuesta ante emergencias?',
+'¿Los sistemas de detección, alarma, extinción y atención de emergencias se encuentran disponibles y reciben mantenimiento?',
+'¿Las rutas de evacuación, salidas, señalización y puntos de encuentro se encuentran identificados y en condiciones funcionales?',
+'¿Se realizan simulacros y se documentan sus resultados, deficiencias y acciones de mejora?',
+'¿Existen procedimientos para mantener o recuperar las funciones esenciales ante interrupciones de servicios o eventos críticos?']],
+['Gestión de seguridad y evidencias',[
+'¿Están definidas las responsabilidades de administración, seguridad, mantenimiento y demás áreas involucradas en la protección del establecimiento?',
+'¿Las vulnerabilidades identificadas se documentan indicando su ubicación, descripción y evidencia disponible?',
+'¿Los hallazgos de seguridad cuentan con responsables formalmente asignados para su gestión?',
+'¿Las acciones correctivas cuentan con plazos, recursos y mecanismos de seguimiento definidos?',
+'¿Se verifica mediante evidencia que las acciones correctivas fueron implementadas y que resultaron eficaces?',
+'¿Se revisan los incidentes, cambios operativos y nuevas amenazas para actualizar las prioridades de seguridad?',
+'¿Existe coordinación entre administración, vigilancia, mantenimiento, SST y organismos externos cuando las condiciones de seguridad lo requieren?']],
+['Gestión ambiental y riesgos asociados',[
+'¿Las áreas de almacenamiento de residuos cuentan con condiciones que eviten su dispersión, acumulación peligrosa o contaminación del entorno?',
+'¿Las áreas de almacenamiento de sustancias peligrosas cuentan con medidas de contención para prevenir fugas y contaminación del suelo o del agua?',
+'¿Existen medios para detectar, contener y controlar oportunamente derrames o liberaciones accidentales de sustancias?',
+'¿Los drenajes, canales y sistemas de evacuación de aguas se encuentran en condiciones que reduzcan el riesgo de inundaciones y daños a las instalaciones?',
+'¿Se encuentran identificadas y controladas las fuentes de emisiones, vertimientos u otras formas de contaminación que puedan afectar el entorno?',
+'¿Existen procedimientos para reportar y atender incidentes ambientales que puedan generar daños a las instalaciones, al entorno o a la continuidad de la operación?']]
+];
+const sectorV2={
+Residencial:[
+['Portería y convivencia',[
+'¿La portería cuenta con procedimientos que permiten verificar la identidad y autorización de ingreso de residentes, visitantes y domiciliarios?',
+'¿El procedimiento de ingreso permite verificar que visitantes y domiciliarios se dirijan a la unidad residencial o persona que autorizó su entrada?',
+'¿Las piscinas, gimnasios, salones sociales y demás zonas comunes cuentan con controles de acceso y uso acordes con sus características?',
+'¿Las bicicletas, depósitos y demás bienes comunes o de uso compartido cuentan con controles de protección y custodia?',
+'¿Los cuartos técnicos, cubiertas, depósitos y áreas de mantenimiento cuentan con restricciones que impidan el ingreso de personas no autorizadas?']],
+['Gestión de incidentes y seguridad residencial',[
+'¿La copropiedad cuenta con mecanismos de comunicación y procedimientos definidos para reportar y atender oportunamente incidentes que afecten la seguridad y convivencia de los residentes?',
+'¿Los incidentes recurrentes que afectan la seguridad de residentes y bienes comunes se documentan y analizan para prevenir su repetición?']]
+],
+Comercial:[
+['Operación comercial y protección de activos',[
+'¿Los accesos de clientes, trabajadores, proveedores y servicios de carga cuentan con controles diferenciados de acuerdo con su función?',
+'¿Los controles de seguridad se ajustan a los horarios y periodos de mayor afluencia de público?',
+'¿Las zonas de aglomeración y congestión cuentan con medidas que permitan mantener la supervisión y circulación segura de las personas?',
+'¿Existen procedimientos para atender alteraciones del orden, agresiones y situaciones sospechosas en las zonas de atención al público?',
+'¿Las cajas, puntos de recaudo y áreas de manejo de dinero cuentan con controles de protección y acceso restringido?',
+'¿Las bodegas e inventarios cuentan con controles que permitan verificar los ingresos, salidas y movimientos de mercancía?']],
+['Proveedores, locales y atención de incidentes',[
+'¿Las zonas de carga y descarga cuentan con procedimientos para verificar vehículos, mercancías y personas que participan en las operaciones?',
+'¿Los locales cerrados, establecimientos fuera del horario comercial y áreas de almacenamiento cuentan con medidas de protección contra intrusiones?',
+'¿Existen procedimientos para identificar, aislar y reportar paquetes u objetos sospechosos?',
+'¿La custodia y entrega de objetos perdidos cuenta con procedimientos de identificación y verificación de las personas que los reclaman?',
+'¿Las zonas de comidas, entretenimiento y eventos cuentan con controles de seguridad acordes con las actividades que se desarrollan?',
+'¿La administración, los locales y el personal de vigilancia tienen definidos mecanismos de coordinación para atender incidentes y emergencias?']]
+],
+Educativo:[
+['Comunidad educativa y control de acceso',[
+'¿Los procedimientos de ingreso permiten diferenciar y verificar la autorización de estudiantes, familiares, docentes, trabajadores y visitantes?',
+'¿El procedimiento de entrega y retiro de estudiantes permite verificar la autorización de las personas responsables?',
+'¿La institución cuenta con procedimientos para localizar oportunamente a estudiantes extraviados o cuya ubicación no pueda establecerse?',
+'¿Existen mecanismos de reporte y atención de situaciones de acoso, violencia, amenazas o agresiones dentro de la institución?']],
+['Protección de estudiantes e instalaciones',[
+'¿Los laboratorios y talleres cuentan con controles que restringen el acceso a personas autorizadas?',
+'¿Las herramientas, equipos y materiales de laboratorio y talleres cuentan con condiciones de custodia y control que eviten su sustracción o uso no autorizado?',
+'¿Las zonas deportivas, auditorios, bibliotecas y espacios de recreación cuentan con controles de seguridad acordes con las actividades que se desarrollan?',
+'¿Los puntos ciegos y las zonas de supervisión prioritaria cuentan con medidas de vigilancia y control?']],
+['Transporte, eventos y continuidad educativa',[
+'¿El transporte escolar cuenta con procedimientos para verificar vehículos, conductores y estudiantes autorizados?',
+'¿Las entradas, salidas, filas y desplazamientos de estudiantes cuentan con medidas de control que reduzcan los riesgos de ingreso indebido, extravío o incidentes?',
+'¿Las actividades extracurriculares, eventos y jornadas fuera del horario habitual cuentan con procedimientos de seguridad definidos?',
+'¿Existe coordinación entre directivos, docentes, personal de seguridad y organismos de respuesta ante situaciones críticas?']]
+],
+Industrial:[
+['Protección industrial y activos críticos',[
+'¿Los accesos de vehículos de carga y transporte cuentan con procedimientos para verificar la identidad del conductor, el vehículo y la operación autorizada?',
+'¿Las bodegas de materias primas, productos terminados e inventarios cuentan con controles de acceso y trazabilidad?',
+'¿Las áreas de producción, cuartos técnicos y zonas de maquinaria cuentan con restricciones de acceso acordes con su criticidad?',
+'¿Las herramientas críticas, repuestos y activos de alto valor cuentan con controles de custodia, entrega y devolución?',
+'¿Se encuentran identificados los escenarios de sabotaje, intrusión, robo interno o interferencia intencional que puedan afectar los procesos productivos?']],
+['Sustancias peligrosas, continuidad y respuesta',[
+'¿Las sustancias peligrosas y sus áreas de almacenamiento cuentan con controles de acceso, identificación y protección acordes con sus características?',
+'¿Se encuentran identificados los procesos, equipos y servicios cuya interrupción podría afectar significativamente la operación?',
+'¿Existen mecanismos para detectar y reportar alteraciones no autorizadas en equipos, instalaciones o procesos críticos?',
+'¿Existen procedimientos de respuesta ante fallas eléctricas, incendios, derrames o interrupciones de servicios esenciales?',
+'¿Se encuentran coordinadas las funciones de seguridad física, SST, mantenimiento y respuesta a emergencias ante eventos que puedan afectar la planta?',
+'¿Las rutas y condiciones de acceso para los organismos de respuesta y atención de emergencias se encuentran identificadas y disponibles?',
+'¿Se realizan ejercicios o verificaciones de los procedimientos de continuidad y recuperación de los procesos críticos?']]
+]
+};
+let state={id:null,catalogVersion:'CAM-VULN-CATALOGO-V2',answers:{},notes:{},responsibles:{}};
 const RESPONSABLES_GESTION_CATALOGO=["Administrador de la copropiedad","Gerente / Dirección","Empresa de vigilancia","Proveedor / mantenimiento especializado","Otro"];
 // Compatibilidad: acepta registros antiguos con un responsable como texto y los nuevos como arreglo.
 function normalizarResponsables(valor){const entrada=Array.isArray(valor)?valor:(typeof valor==='string'&&valor.trim()?[valor]:[]);return [...new Set(entrada.map(v=>String(v??'').trim()).filter(Boolean))]}
@@ -3124,7 +3241,7 @@ function render(){
  host.appendChild(details)});
  updateSummary()
 }
-function data(){return {schema:'TECCHNEX-VULNERABILIDADES-1',id:state.id||('VUL-'+Date.now()),actualizado:new Date().toISOString(),...readMeta(),respuestas:state.answers,observacionesPorPregunta:state.notes,responsablesGestion:state.responsibles}}
+function data(){return {schema:'TECCHNEX-VULNERABILIDADES-1',catalogVersion:state.catalogVersion||'CAM-VULN-CATALOGO-V2',id:state.id||('VUL-'+Date.now()),actualizado:new Date().toISOString(),...readMeta(),respuestas:state.answers,observacionesPorPregunta:state.notes,responsablesGestion:state.responsibles}}
 function updateSummary(){
  const vals=Object.values(state.answers),secciones=allSections(),total=secciones.reduce((n,g)=>n+g[1].length,0),reviewed=vals.length;
  const nc=vals.filter(v=>v==='NC').length,partial=vals.filter(v=>v==='P').length,cumple=vals.filter(v=>v==='C').length,noAplica=vals.filter(v=>v==='NA').length,noVerificado=vals.filter(v=>v==='NV').length;
@@ -3159,7 +3276,7 @@ function persistCurrent(showMessage){
   return true;
  }catch(e){if(showMessage)$('camVulnMensaje').textContent='No se pudo guardar. Verifique el almacenamiento disponible del navegador.';return false}
 }
-function loadRecord(d){if(d){const responsables={};Object.entries(d.responsablesGestion||{}).forEach(([k,v])=>{responsables[k]=normalizarResponsables(v)});state={id:d.id||null,answers:d.respuestas||{},notes:d.observacionesPorPregunta||{},responsibles:responsables};loadMeta(d)}else{state={id:null,answers:{},notes:{},responsibles:{}};loadMeta({fecha:new Date().toISOString().slice(0,10),sector:$('camVulnSector').value,inspeccionIndice:$('camVulnInspeccion').value===''?null:Number($('camVulnInspeccion').value)})}}
+function loadRecord(d){if(d){const responsables={};Object.entries(d.responsablesGestion||{}).forEach(([k,v])=>{responsables[k]=normalizarResponsables(v)});state={id:d.id||null,catalogVersion:d.catalogVersion||'CAM-VULN-CATALOGO-V1',answers:d.respuestas||{},notes:d.observacionesPorPregunta||{},responsibles:responsables};loadMeta(d)}else{state={id:null,catalogVersion:'CAM-VULN-CATALOGO-V2',answers:{},notes:{},responsibles:{}};loadMeta({fecha:new Date().toISOString().slice(0,10),sector:$('camVulnSector').value,inspeccionIndice:$('camVulnInspeccion').value===''?null:Number($('camVulnInspeccion').value)})}}
 function abrir(){
  $('camVulnOverlay').style.display='block';
  let legacy=null;try{legacy=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){}
@@ -3204,7 +3321,7 @@ function abrir(){
 }
 function cerrar(){persistCurrent(false);$('camVulnOverlay').style.display='none'}
 function guardar(){const pendientes=Object.entries(state.answers).filter(([key,valor])=>(valor==='NC'||valor==='P')&&!normalizarResponsables(state.responsibles[key]).length).map(([key])=>key);if(pendientes.length){const primero=pendientes[0].split('-').map(Number);const secciones=allSections();const pregunta=secciones[primero[0]]&&secciones[primero[0]][1][primero[1]];const item=Array.from(document.querySelectorAll('#camVulnPreguntas .cam-v-item')).find(el=>el.querySelector('[data-responsible="'+pendientes[0]+'"]'));if(item){item.scrollIntoView({behavior:'smooth',block:'center'});item.querySelector('input[type=checkbox][data-responsible]').focus();} $('camVulnMensaje').textContent='No se puede completar el guardado: seleccione uno o varios Responsables de la gestión para cada pregunta marcada Parcial o No cumple. Pendientes: '+pendientes.length+(pregunta?' · Primera pregunta: '+pregunta:'')+'.';return;}if(persistCurrent(true)){updateSummary();TECCHNEX_UI_VOLVER_INICIO_TRAS_GUARDAR('camVulnOverlay')}}
-function nueva(){if(!confirm('¿Crear una nueva evaluación? La evaluación actual se guardará antes de iniciar otra.'))return;persistCurrent(false);state={id:null,answers:{},notes:{},responsibles:{}};loadMeta({fecha:new Date().toISOString().slice(0,10),sector:$('camVulnSector').value,inspeccionIndice:$('camVulnInspeccion').value===''?null:Number($('camVulnInspeccion').value)});$('camVulnMensaje').textContent='Nueva evaluación. Las respuestas se guardarán automáticamente.';render()}
+function nueva(){if(!confirm('¿Crear una nueva evaluación? La evaluación actual se guardará antes de iniciar otra.'))return;persistCurrent(false);state={id:null,catalogVersion:'CAM-VULN-CATALOGO-V2',answers:{},notes:{},responsibles:{}};loadMeta({fecha:new Date().toISOString().slice(0,10),sector:$('camVulnSector').value,inspeccionIndice:$('camVulnInspeccion').value===''?null:Number($('camVulnInspeccion').value)});$('camVulnMensaje').textContent='Nueva evaluación. Las respuestas se guardarán automáticamente.';render()}
 function exportarJSON(){const d=data(),blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='TECCHNEX_Vulnerabilidades_'+(d.sector||'sector')+'_'+(d.fecha||'sin-fecha')+'.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)}
 function exportarTexto(){const d=data(),sections=allSections();let out='TECCHNEX — ANÁLISIS DE VULNERABILIDADES\nSector: '+d.sector+'\nEstablecimiento: '+d.lugar+'\nCiudad: '+d.ciudad+'\nAnalista de Riesgos: '+d.inspector+'\nFecha: '+d.fecha+'\nJornada: '+d.jornada+'\n\n';sections.forEach((g,gi)=>{out+=g[0]+'\n';g[1].forEach((q,ii)=>{const k=gi+'-'+ii;out+=(gi+1)+'.'+(ii+1)+' '+q+'\nEstado: '+(state.answers[k]||'Pendiente')+'\nResponsables de la gestión: '+(textoResponsables(state.responsibles[k])||'No asignado')+'\nObservación: '+(state.notes[k]||'—')+'\n'})});out+='Observaciones generales: '+d.observaciones;const blob=new Blob([out],{type:'text/plain;charset=utf-8'});if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(out).then(()=>$('camVulnMensaje').textContent='Resumen copiado.').catch(()=>downloadText(out))}else downloadText(out);function downloadText(t){const u=URL.createObjectURL(new Blob([t],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download='TECCHNEX_Resumen_Vulnerabilidades.txt';a.click();URL.revokeObjectURL(u)}}
 $('camVulnSector').addEventListener('change',()=>{const meta=readMeta();const d=findSaved(meta);loadRecord(d||{...meta,fecha:new Date().toISOString().slice(0,10),jornada:'Diurna'});render();$('camVulnMensaje').textContent=d?'Evaluación recuperada para el cliente y la última inspección seleccionada.':'Sector actualizado. No se reutilizarán respuestas de una visita anterior.'});
@@ -3215,7 +3332,12 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('camVulnOverlay')
 // CAM-VULN-INFORME-CATALOGO-01: el informe consulta el mismo catálogo que muestra la evaluación.
 window.CAMVulnerabilidades={
  abrir,cerrar,guardar,nueva,exportarJSON,exportarTexto,
- obtenerSecciones:(nombreSector)=>[...shared,...(sector[nombreSector]||[])]
+ obtenerSecciones:(nombreSector,version)=>{
+   const v=version||'CAM-VULN-CATALOGO-V1';
+   return v==='CAM-VULN-CATALOGO-V2'
+    ? [...sharedV2,...(sectorV2[nombreSector]||[])]
+    : [...sharedV1,...(sectorV1[nombreSector]||[])]
+  }
 };
 })();
 </script>
@@ -4407,7 +4529,7 @@ function actualizarIndicadoresRiesgoDashboardCAM01() {
     let preguntasCatalogo = 0, pendientes = 0, observacionesPendientes = 0;
     evPorUltima.forEach(({ ev }) => {
         const secciones = window.CAMVulnerabilidades && typeof window.CAMVulnerabilidades.obtenerSecciones === "function"
-            ? window.CAMVulnerabilidades.obtenerSecciones(ev.sector)
+            ? window.CAMVulnerabilidades.obtenerSecciones(ev.sector, ev.catalogVersion)
             : [];
         const respuestas = ev.respuestas || {};
         const notas = ev.observacionesPorPregunta || {};
@@ -9186,7 +9308,7 @@ function revisarCalidadDatosInforme() {
     let totalPreguntas = 0, noAplican = 0, pendientes = 0, noCumple = 0, parcial = 0, sinObservacion = 0;
     if (evaluacion) {
         const secciones = window.CAMVulnerabilidades && typeof window.CAMVulnerabilidades.obtenerSecciones === "function"
-            ? window.CAMVulnerabilidades.obtenerSecciones(evaluacion.sector)
+            ? window.CAMVulnerabilidades.obtenerSecciones(evaluacion.sector, evaluacion.catalogVersion)
             : [];
         const respuestas = evaluacion.respuestas || {};
         const notas = evaluacion.observacionesPorPregunta || {};
@@ -10327,7 +10449,7 @@ function generarChecklist() {
                             type="radio"
                             name="${id}"
                             value="2"
-                            onchange="calcularChecklist(); validarResponsablesChecklist()">
+                            onchange="calcularChecklist(); validarResponsablesChecklist(); guardarBorradorChecklist()">
                         <br>
                         <small>BUENO</small>
                     </label>
@@ -10337,7 +10459,7 @@ function generarChecklist() {
                             type="radio"
                             name="${id}"
                             value="1"
-                            onchange="calcularChecklist(); validarResponsablesChecklist()">
+                            onchange="calcularChecklist(); validarResponsablesChecklist(); guardarBorradorChecklist()">
                         <br>
                         <small>REGULAR</small>
                     </label>
@@ -10347,7 +10469,7 @@ function generarChecklist() {
                             type="radio"
                             name="${id}"
                             value="0"
-                            onchange="calcularChecklist(); validarResponsablesChecklist()">
+                            onchange="calcularChecklist(); validarResponsablesChecklist(); guardarBorradorChecklist()">
                         <br>
                         <small>MALO</small>
                     </label>
@@ -10356,14 +10478,14 @@ function generarChecklist() {
         type="radio"
         name="${id}"
         value="NA"
-        onchange="calcularChecklist(); validarResponsablesChecklist()">
+        onchange="calcularChecklist(); validarResponsablesChecklist(); guardarBorradorChecklist()">
     <br>
     <small>NO APLICA</small>
 </label>
                 </div>
                 <div class="responsable-gestion-checklist" style="display:grid;grid-template-columns:minmax(0,1fr);gap:6px;padding:0 8px 12px;border-bottom:1px solid #eee;">
                     <label for="responsable_${indice}_${i}" style="font-weight:600;color:#123b5d;font-size:13px;">Responsable de la gestión <span style="color:#b91c1c">*</span></label>
-                    <select id="responsable_${indice}_${i}" name="responsable_${indice}_${i}" onchange="validarResponsablesChecklist()" style="width:100%;max-width:520px;min-height:38px;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font:inherit;background:#fff;">
+                    <select id="responsable_${indice}_${i}" name="responsable_${indice}_${i}" onchange="validarResponsablesChecklist(); guardarBorradorChecklist()" style="width:100%;max-width:520px;min-height:38px;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font:inherit;background:#fff;">
                         <option value="">Seleccione responsable (obligatorio para REGULAR o MALO)</option>
                         <option value="Administrador de la copropiedad">Administrador de la copropiedad</option>
                         <option value="Gerente / Dirección">Gerente / Dirección</option>
@@ -10653,6 +10775,58 @@ function validarResponsablesChecklist(mostrarAlerta = false) {
     return pendientes.length === 0;
 }
 
+// CAMBIO V25-AUTOGUARDADO-01 — Guardar el avance del checklist sin exigir que esté completo.
+// Conserva el formato existente en localStorage (checklists) y actualiza el registro de la inspección activa.
+function guardarBorradorChecklist() {
+    const ventana = document.getElementById("ventanaChecklist");
+    if (!ventana || ventana.style.display === "none") return;
+
+    const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
+    const indiceGuardado = localStorage.getItem("indiceInspeccionSeleccionadaInforme");
+    const indiceSeleccionado = indiceGuardado !== null
+        ? Number(indiceGuardado)
+        : inspecciones.length - 1;
+    if (!Number.isInteger(indiceSeleccionado) || indiceSeleccionado < 0) return;
+
+    const registros = JSON.parse(localStorage.getItem("checklists")) || [];
+    const respuestas = {};
+    const responsables = {};
+
+    Object.keys(datosChecklist).forEach((categoria, indice) => {
+        respuestas[categoria] = {};
+        responsables[categoria] = {};
+
+        datosChecklist[categoria].forEach((item, i) => {
+            const id = "check_" + indice + "_" + i;
+            const seleccionado = document.querySelector('input[name="' + id + '"]:checked');
+            if (seleccionado) respuestas[categoria][item] = seleccionado.value;
+
+            const selectorResponsable = document.getElementById("responsable_" + indice + "_" + i);
+            if (selectorResponsable && selectorResponsable.value) {
+                responsables[categoria][item] = selectorResponsable.value;
+            }
+        });
+    });
+
+    const resultadoElemento = document.getElementById("resultadoChecklist");
+    const registroChecklist = {
+        fecha: new Date().toISOString(),
+        inspeccion: indiceSeleccionado,
+        resultado: resultadoElemento ? resultadoElemento.textContent : "",
+        respuestas: respuestas,
+        responsables: responsables,
+        datos: datosChecklist
+    };
+
+    const indiceExistente = registros.findLastIndex(
+        registro => Number(registro.inspeccion) === indiceSeleccionado
+    );
+    if (indiceExistente !== -1) registros[indiceExistente] = registroChecklist;
+    else registros.push(registroChecklist);
+
+    localStorage.setItem("checklists", JSON.stringify(registros));
+}
+
 function guardarChecklist() {
 
     if (!validarResponsablesChecklist(true)) return;
@@ -10765,6 +10939,9 @@ if (ventanaChecklist) {
 }
 
 function cerrarListaChequeo() {
+
+    // Último respaldo del avance antes de ocultar la ventana.
+    guardarBorradorChecklist();
 
     const ventana =
         document.getElementById("ventanaChecklist");
@@ -14633,7 +14810,7 @@ async function generarWordPlantillaMaestra() {
         // Cobertura = (C + P + NC + NV) / preguntas aplicables; No aplica se excluye.
         const metricasVulnerabilidadesResumen = evaluacionTecnicaAsociadaResumen ? (() => {
             const secciones = window.CAMVulnerabilidades && typeof window.CAMVulnerabilidades.obtenerSecciones === "function"
-                ? window.CAMVulnerabilidades.obtenerSecciones(evaluacionVulnerabilidadesResumen.sector)
+                ? window.CAMVulnerabilidades.obtenerSecciones(evaluacionVulnerabilidadesResumen.sector, evaluacionVulnerabilidadesResumen.catalogVersion)
                 : [];
             const respuestas = evaluacionVulnerabilidadesResumen.respuestas || {};
             let total = 0, C = 0, P = 0, NC = 0, NA = 0, NV = 0;
@@ -14960,7 +15137,7 @@ async function generarWordPlantillaMaestra() {
             const responsablesEv = ev.responsablesGestion || {};
             // CAM-VULN-INFORME-CATALOGO-01: usa el mismo catálogo y orden que la evaluación guardada.
             const todosEv = (window.CAMVulnerabilidades && typeof window.CAMVulnerabilidades.obtenerSecciones === "function")
-                ? window.CAMVulnerabilidades.obtenerSecciones(ev.sector)
+                ? window.CAMVulnerabilidades.obtenerSecciones(ev.sector, ev.catalogVersion)
                 : [];
             const etiquetaEv = {C:"Cumple",P:"Parcial",NC:"No cumple",NA:"No aplica",NV:"No verificado"};
             if (!todosEv.length) {
@@ -15677,7 +15854,7 @@ function obtenerSeccionAnalisisVulnerabilidadesTECCHNEX(indiceInspeccion) {
     const respuestas = d.respuestas || {}, notas = d.observacionesPorPregunta || {};
     // CAM-VULN-INFORME-CATALOGO-01: reutiliza las mismas preguntas e índices de la evaluación.
     const all = (window.CAMVulnerabilidades && typeof window.CAMVulnerabilidades.obtenerSecciones === "function")
-        ? window.CAMVulnerabilidades.obtenerSecciones(d.sector)
+        ? window.CAMVulnerabilidades.obtenerSecciones(d.sector, d.catalogVersion)
         : [];
     if (!all.length) {
         return '<section class="bloque-pdf analisis-vulnerabilidades-pdf"><h2>Análisis técnico de vulnerabilidades</h2><p>No se pudo cargar el catálogo de preguntas de esta evaluación. Verifique la versión del módulo antes de generar el informe.</p></section>';
