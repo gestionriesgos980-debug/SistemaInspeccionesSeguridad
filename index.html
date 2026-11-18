@@ -3187,7 +3187,7 @@ const RESPONSABLES_GESTION_CATALOGO=["Administrador de la copropiedad","Gerente 
 // Compatibilidad: acepta registros antiguos con un responsable como texto y los nuevos como arreglo.
 function normalizarResponsables(valor){const entrada=Array.isArray(valor)?valor:(typeof valor==='string'&&valor.trim()?[valor]:[]);return [...new Set(entrada.map(v=>String(v??'').trim()).filter(Boolean))]}
 function textoResponsables(valor){return normalizarResponsables(valor).join(' / ')}
-function allSections(){return [...shared,...sector[$('camVulnSector').value]]}
+function allSections(){const nombreSector=$('camVulnSector').value;return state.catalogVersion==='CAM-VULN-CATALOGO-V2'?[...sharedV2,...(sectorV2[nombreSector]||[])]:[...sharedV1,...(sectorV1[nombreSector]||[])]}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 // CAM-TRAZABILIDAD-02: el nombre normalizado del cliente es la referencia primaria.
 // La fecha de la inspección distingue visitas sucesivas del mismo cliente; el ID es auxiliar.
