@@ -1505,6 +1505,51 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
 </head>
 
 <body>
+<!-- TECCHNEX CAM-INSPECCIONES V25 · START BLOQUE COMERCIAL -->
+<!-- TECCHNEX CAM-INSPECCIONES V25 · PUERTA COMERCIAL LAB CANDIDATA -->
+<style id="tecchnexInspectionsGateStyles">
+  #tecchnexInspectionsLicenseGate{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto;background:linear-gradient(135deg,#f4f8fa,#e2f6f9);font-family:Arial,Helvetica,sans-serif;color:#173c55;box-sizing:border-box}
+  #tecchnexInspectionsLicenseGate *{box-sizing:border-box}
+  #tecchnexInspectionsLicenseGate .tecchnex-gate-card{width:min(100%,520px);background:#fff;border:1px solid #d3e2e9;border-radius:18px;padding:26px;box-shadow:0 18px 48px rgba(18,59,93,.15)}
+  #tecchnexInspectionsLicenseGate .tecchnex-gate-eyebrow{color:#07869b;font-size:12px;letter-spacing:.1em;font-weight:800;text-transform:uppercase}
+  #tecchnexInspectionsLicenseGate h1{font-size:26px;line-height:1.2;margin:10px 0;color:#123b5d}
+  #tecchnexInspectionsLicenseGate p{line-height:1.5;color:#526b7b}
+  #tecchnexInspectionsLicenseGate label{display:block;margin:13px 0 6px;font-weight:700;font-size:13px}
+  #tecchnexInspectionsLicenseGate input{display:block;width:100%;margin-top:6px;padding:12px;border:1px solid #c9d9e2;border-radius:9px;font:inherit;color:#173c55;background:#fff}
+  #tecchnexInspectionsLicenseGate button{width:100%;margin-top:12px;padding:13px;border:0;border-radius:9px;font:inherit;font-weight:700;cursor:pointer}
+  #tecchnexInspectionsLoginButton{background:#123b5d;color:#fff}
+  #tecchnexInspectionsRetryButton,#tecchnexInspectionsLogoutButton{background:#eaf3f6;color:#123b5d}
+  #tecchnexInspectionsStatus{white-space:pre-wrap;min-height:22px;font-size:13px;color:#a22626}
+  #tecchnexInspectionsNotice{font-size:12px;border-top:1px solid #e4edf1;padding-top:12px;margin-top:18px}
+</style>
+<div id="tecchnexInspectionsSessionChip" style="display:none;position:fixed;right:12px;top:12px;z-index:2147483000;align-items:center;gap:8px;padding:8px 10px;background:#fff;border:1px solid #c9dce5;border-radius:10px;box-shadow:0 4px 16px rgba(18,59,93,.15);font:12px Arial,sans-serif;color:#123b5d"><span id="tecchnexInspectionsSessionLabel">Licencia verificada</span><button id="tecchnexInspectionsSessionLogout" type="button" style="margin:0;padding:7px 9px;width:auto;background:#eaf3f6;color:#123b5d;border:0;border-radius:7px;font-weight:700;cursor:pointer">Cerrar sesión</button></div>
+<div id="tecchnexInspectionsLicenseGate" role="dialog" aria-modal="true" aria-labelledby="tecchnexInspectionsGateTitle">
+  <section class="tecchnex-gate-card">
+    <div class="tecchnex-gate-eyebrow">TECCHNEX · CONTROL COMERCIAL</div>
+    <h1 id="tecchnexInspectionsGateTitle">Sistema de Inspecciones de Seguridad</h1>
+    <p>Inicia sesión con tu cuenta de empresa para verificar la licencia antes de utilizar el sistema. Tus inspecciones, hallazgos y fotografías locales no se eliminan si la licencia no está disponible.</p>
+    <form id="tecchnexInspectionsLoginForm" autocomplete="on">
+      <label for="tecchnexInspectionsSupabaseUrl">URL del proyecto Supabase
+        <input id="tecchnexInspectionsSupabaseUrl" type="url" placeholder="https://ywezkwitbhbyxcwuoiim.supabase.co" autocomplete="url" required>
+      </label>
+      <label for="tecchnexInspectionsSupabaseKey">Clave publicable de Supabase
+        <input id="tecchnexInspectionsSupabaseKey" type="password" placeholder="sb_publishable_… o clave anon pública" autocomplete="off" required>
+      </label>
+      <label for="tecchnexInspectionsEmail">Correo electrónico
+        <input id="tecchnexInspectionsEmail" type="email" placeholder="usuario@empresa.com" autocomplete="username" required>
+      </label>
+      <label for="tecchnexInspectionsPassword">Contraseña
+        <input id="tecchnexInspectionsPassword" type="password" autocomplete="current-password" required>
+      </label>
+      <button id="tecchnexInspectionsLoginButton" type="submit">Iniciar sesión y validar licencia</button>
+    </form>
+    <button id="tecchnexInspectionsRetryButton" type="button" hidden>Volver a comprobar licencia</button>
+    <button id="tecchnexInspectionsLogoutButton" type="button" hidden>Cerrar sesión</button>
+    <p id="tecchnexInspectionsStatus" role="status" aria-live="polite">Acceso bloqueado hasta que el servidor confirme la licencia.</p>
+    <p id="tecchnexInspectionsNotice"><strong>LABORATORIO:</strong> el código de producto candidato es CAM-INSPECCIONES; debe coincidir con el catálogo del Administrador Maestro. Esta puerta no configura, crea ni despliega funciones o productos de Supabase.</p>
+  </section>
+</div>
+<!-- TECCHNEX CAM-INSPECCIONES V25 · END BLOQUE COMERCIAL -->
 
 <header class="hero-tecchnex" aria-label="Sistema de Inspecciones de Seguridad TECCHNEX">
     <img class="banner-tecchnex"
@@ -5844,7 +5889,10 @@ async function exportarMediosParaRespaldo(hallazgos) {
 
             const dataUrl = await obtenerDataUrlMedia(foto);
             if (!dataUrl) {
-                continue;
+                throw new Error(
+                    "No se pudo recuperar la fotografía " + foto.mediaId +
+                    " asociada a un hallazgo. El respaldo se canceló para no crear una copia incompleta."
+                );
             }
 
             vistos.add(foto.mediaId);
@@ -6717,64 +6765,101 @@ if (!confirmar) {
 
 const datos = respaldo.datos;
 
-// CAM-RESTAURACION-HALLAZGOS-02: reconstrucción segura de la relación hallazgo-inspección.
-// Prioridad: ID histórico de inspección (cuando es único en el respaldo); índice solo
-// para hallazgos antiguos que no contienen ID. Nunca se usa un índice contradictorio
-// cuando el hallazgo sí trae un ID que no puede resolverse inequívocamente.
+// CAM-RESTAURACION-PUESTO-FECHA-04 — reconstrucción portable de asociaciones.
+// La pertenencia se determina exclusivamente por PUESTO + FECHA.
+// idControl/idControlInspeccion y los índices de origen nunca deciden la asociación.
+// Si la clave aparece más de una vez, el registro queda sin asociar para revisión.
 if (Array.isArray(datos.inspecciones)) {
     datos.inspecciones = datos.inspecciones.map(inspeccion => ({
         ...inspeccion,
         claveInspeccionPuestoFecha: obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion)
     }));
 }
-const indicesInspeccionPorIdRespaldo = new Map();
+
+const indicesPorClavePuestoFechaRespaldo = new Map();
 (datos.inspecciones || []).forEach((inspeccion, indice) => {
-    const id = String(inspeccion?.idControl || "").trim().toUpperCase();
-    if (!id) return;
-    if (!indicesInspeccionPorIdRespaldo.has(id)) indicesInspeccionPorIdRespaldo.set(id, []);
-    indicesInspeccionPorIdRespaldo.get(id).push(indice);
+    const clave = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion);
+    if (!clave) return;
+    if (!indicesPorClavePuestoFechaRespaldo.has(clave)) {
+        indicesPorClavePuestoFechaRespaldo.set(clave, []);
+    }
+    indicesPorClavePuestoFechaRespaldo.get(clave).push(indice);
 });
+
 let hallazgosRestauradosSinAsociacion = 0;
-let hallazgosRestauradosPorId = 0;
-let hallazgosRestauradosPorIndice = 0;
-if (Array.isArray(datos.hallazgos)) {
-    datos.hallazgos = datos.hallazgos.map(hallazgo => {
-        const idOrigen = String(hallazgo?.idControlInspeccion || "").trim().toUpperCase();
-        const indiceOrigenRaw = hallazgo?.inspeccion;
-        const tieneIndiceOrigen = indiceOrigenRaw !== null && indiceOrigenRaw !== undefined &&
-            String(indiceOrigenRaw).trim() !== "" && Number.isInteger(Number(indiceOrigenRaw));
-        const indiceOrigen = tieneIndiceOrigen ? Number(indiceOrigenRaw) : -1;
-        let indiceDestino = -1;
-        let inspeccionOrigen = null;
+let hallazgosRestauradosPorPuestoFecha = 0;
+let registrosOperativosSinAsociacion = 0;
 
-        if (idOrigen) {
-            const coincidenciasId = indicesInspeccionPorIdRespaldo.get(idOrigen) || [];
-            if (coincidenciasId.length === 1) {
-                indiceDestino = coincidenciasId[0];
-                inspeccionOrigen = datos.inspecciones[indiceDestino];
-                hallazgosRestauradosPorId++;
-            }
-            // Si el ID falta en el respaldo o está duplicado, no confiar en el índice
-            // antiguo: podría señalar una inspección distinta en el equipo receptor.
-        } else if (tieneIndiceOrigen && indiceOrigen >= 0 && indiceOrigen < (datos.inspecciones || []).length) {
-            indiceDestino = indiceOrigen;
-            inspeccionOrigen = datos.inspecciones[indiceDestino];
-            hallazgosRestauradosPorIndice++;
-        }
+function reconstruirAsociacionPuestoFechaRespaldo(registro) {
+    const claveDeclarada = String(registro?.claveInspeccionPuestoFecha || "").trim();
+    let claveOrigen = claveDeclarada;
 
-        const { idControlInspeccion, claveInspeccionPuestoFecha, ...hallazgoSinIdsOrigen } = hallazgo || {};
-        if (indiceDestino < 0 || !inspeccionOrigen) {
-            hallazgosRestauradosSinAsociacion++;
-            return { ...hallazgoSinIdsOrigen, inspeccion: null };
+    // Si no existe clave portable, traducir el índice del propio respaldo
+    // a la identidad de la inspección que ocupa esa posición en ese mismo archivo.
+    if (!claveOrigen) {
+        const indiceRaw = registro?.inspeccion;
+        const indiceValido = indiceRaw !== null && indiceRaw !== undefined &&
+            String(indiceRaw).trim() !== "" && Number.isInteger(Number(indiceRaw)) &&
+            Number(indiceRaw) >= 0 && Number(indiceRaw) < (datos.inspecciones || []).length;
+        if (indiceValido) {
+            claveOrigen = obtenerClaveInspeccionPuestoFechaTECCHNEX(
+                datos.inspecciones[Number(indiceRaw)]
+            );
         }
-        const clave = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionOrigen);
+    }
+
+    if (!claveOrigen) return { indice: -1, clave: "" };
+    const coincidencias = indicesPorClavePuestoFechaRespaldo.get(claveOrigen) || [];
+    if (coincidencias.length !== 1) return { indice: -1, clave: claveOrigen };
+    return { indice: coincidencias[0], clave: claveOrigen };
+}
+
+function reconstruirListaOperativaPuestoFechaRespaldo(lista, nombreLista) {
+    if (!Array.isArray(lista)) return lista;
+    return lista.map(registro => {
+        const asociacion = reconstruirAsociacionPuestoFechaRespaldo(registro);
+        if (asociacion.indice < 0) {
+            registrosOperativosSinAsociacion++;
+            return { ...registro, inspeccion: null };
+        }
         return {
-            ...hallazgoSinIdsOrigen,
-            inspeccion: indiceDestino,
-            ...(clave ? { claveInspeccionPuestoFecha: clave } : {})
+            ...registro,
+            inspeccion: asociacion.indice,
+            claveInspeccionPuestoFecha: asociacion.clave
         };
     });
 }
+
+if (Array.isArray(datos.hallazgos)) {
+    datos.hallazgos = datos.hallazgos.map(hallazgo => {
+        const asociacion = reconstruirAsociacionPuestoFechaRespaldo(hallazgo);
+        const {
+            idControlInspeccion,
+            claveInspeccionPuestoFecha,
+            ...hallazgoSinIdsOrigen
+        } = hallazgo || {};
+
+        if (asociacion.indice < 0) {
+            hallazgosRestauradosSinAsociacion++;
+            return { ...hallazgoSinIdsOrigen, inspeccion: null };
+        }
+
+        hallazgosRestauradosPorPuestoFecha++;
+        return {
+            ...hallazgoSinIdsOrigen,
+            inspeccion: asociacion.indice,
+            claveInspeccionPuestoFecha: asociacion.clave
+        };
+    });
+}
+
+datos.checklists = reconstruirListaOperativaPuestoFechaRespaldo(
+    datos.checklists, "checklists"
+);
+datos.matrizRiesgos = reconstruirListaOperativaPuestoFechaRespaldo(
+    datos.matrizRiesgos, "matrizRiesgos"
+);
+
 if (hallazgosRestauradosSinAsociacion > 0) {
     console.warn("CAM-RESTAURACION-HALLAZGOS-02: " + hallazgosRestauradosSinAsociacion +
         " hallazgo(s) quedaron sin asociación porque no fue posible identificar su inspección de origen de forma inequívoca.");
@@ -7075,9 +7160,9 @@ alert(
     (datos.mediosFotograficos || []).length +
     "\nMatrices de clientes incluidas: " +
     (Array.isArray(datos.matricesRiesgosClientes) ? datos.matricesRiesgosClientes.length : "No incluidas en este respaldo antiguo") +
-    (hallazgosRestauradosSinAsociacion > 0
-        ? "\n\nADVERTENCIA: " + hallazgosRestauradosSinAsociacion + " hallazgos quedaron sin asociar porque su inspección de origen no pudo identificarse de forma inequívoca. No se asignaron a otro informe. Revise esos registros antes de emitir informes."
-        : "\n\nAsociación de hallazgos: todos los registros pudieron vincularse de forma segura.")
+    (hallazgosRestauradosSinAsociacion + registrosOperativosSinAsociacion > 0
+        ? "\n\nADVERTENCIA: " + hallazgosRestauradosSinAsociacion + " hallazgos y " + registrosOperativosSinAsociacion + " registros operativos quedaron sin asociar porque PUESTO + FECHA no permitió una identificación única. No se asignaron a otro informe. Revise esos registros antes de emitir informes."
+        : "\n\nAsociación por PUESTO + FECHA: todos los registros pudieron vincularse de forma inequívoca.")
 );
 
     } catch (error) {
@@ -10760,9 +10845,6 @@ function cerrarHallazgos() {
 let fotosHallazgoEditando = [];
 let colaProcesamientoFotosHallazgo = Promise.resolve();
 
-// CAM-REPARACION-FOTOS-EDIT-01 — Control de versiones del render fotográfico.
-let versionRenderFotosHallazgo = 0;
-
 // CAM-FOTOGRAFIAS-02 — Agregar cada selección al borrador del hallazgo.
 // Permite tomar varias fotos consecutivas con la cámara o seleccionar varias
 // desde la galería sin perder las fotos elegidas anteriormente.
@@ -11486,8 +11568,10 @@ function eliminarHallazgo(indice) {
 }
 
 function editarHallazgo(indice) {
+    
+    const hallazgos =
+        JSON.parse(localStorage.getItem("hallazgos")) || [];
 
-    const hallazgos = JSON.parse(localStorage.getItem("hallazgos")) || [];
     const hallazgo = hallazgos[indice];
 
     if (!hallazgo) {
@@ -11495,95 +11579,75 @@ function editarHallazgo(indice) {
         return;
     }
 
-    const campos = {
-        area: document.getElementById("hallazgoArea"),
-        elemento: document.getElementById("hallazgoElemento"),
-        descripcion: document.getElementById("hallazgoDescripcion"),
-        nivel: document.getElementById("hallazgoNivel"),
-        recomendacion: document.getElementById("hallazgoRecomendacion"),
-        palabrasClave: document.getElementById("hallazgoPalabrasClaveBiblioteca"),
-        fotoCamara: document.getElementById("hallazgoFotoCamara"),
-        fotosGaleria: document.getElementById("hallazgoFotosGaleria")
-    };
-
-    const obligatorios = ["area", "elemento", "descripcion", "nivel", "recomendacion"];
-    const campoFaltante = obligatorios.find(clave => !campos[clave]);
-
-    if (campoFaltante) {
-        console.error("CAM-REPARACION-FOTOS-EDIT-01: falta un campo del formulario.", campoFaltante);
-        alert("No fue posible abrir la edición porque falta un campo del formulario. No se modificaron los datos.");
-        return;
-    }
-
     indiceHallazgoEditando = indice;
 
-    campos.area.value = hallazgo.area || "";
-    campos.elemento.value = hallazgo.elemento || "";
-    campos.descripcion.value = hallazgo.descripcion || "";
-    campos.nivel.value = hallazgo.nivel || "";
-    campos.recomendacion.value = hallazgo.recomendacion || "";
+    document.getElementById("hallazgoArea").value =
+        hallazgo.area || "";
 
-    if (campos.palabrasClave) campos.palabrasClave.value = "";
-    if (campos.fotoCamara) campos.fotoCamara.value = "";
-    if (campos.fotosGaleria) campos.fotosGaleria.value = "";
+    document.getElementById("hallazgoElemento").value =
+        hallazgo.elemento || "";
 
-    fotosHallazgoEditando = Array.isArray(hallazgo.fotos)
+    document.getElementById("hallazgoDescripcion").value =
+        hallazgo.descripcion || "";
+
+    document.getElementById("hallazgoNivel").value =
+        hallazgo.nivel || "";
+
+    document.getElementById("hallazgoRecomendacion").value =
+        hallazgo.recomendacion || "";
+
+    document.getElementById("hallazgoPalabrasClaveBiblioteca").value = "";
+    document.getElementById("hallazgoFotoCamara").value = "";
+    document.getElementById("hallazgoFotosGaleria").value = "";
+    mostrarRecomendacionesSugeridas();
+
+fotosHallazgoEditando =
+    Array.isArray(hallazgo.fotos)
         ? [...hallazgo.fotos]
         : [];
+const estadoFotos = document.getElementById("estadoCargaFotosHallazgo");
+if (estadoFotos) estadoFotos.textContent = "";
 
-    const estadoFotos = document.getElementById("estadoCargaFotosHallazgo");
-    if (estadoFotos) estadoFotos.textContent = "";
+mostrarFotosHallazgoEditando();
 
-    // Abrir primero el formulario: la recuperación de fotos no debe bloquear
-    // la edición de los campos descriptivos ni el pintado de la ventana.
-    const ventana = document.getElementById("ventanaHallazgos");
-    if (!ventana) {
-        alert("No se encontró la ventana de edición de hallazgos.");
-        return;
+    const ventana =
+        document.getElementById("ventanaHallazgos");
+
+    if (ventana) {
+        ventana.style.display = "flex";
+
+        // CAM-HALLAZGOS-EDIT-01 — Al editar un hallazgo,
+        // desplazar automáticamente la ventana al primer campo editable.
+        setTimeout(() => {
+            const primerCampoEditable = document.getElementById("hallazgoArea");
+
+            if (primerCampoEditable) {
+                primerCampoEditable.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center"
+                });
+
+                try {
+                    primerCampoEditable.focus({ preventScroll: true });
+                } catch (e) {
+                    primerCampoEditable.focus();
+                }
+            }
+        }, 100);
     }
-    ventana.style.display = "flex";
-
-    try {
-        mostrarRecomendacionesSugeridas();
-    } catch (error) {
-        console.warn("No fue posible actualizar las recomendaciones sugeridas.", error);
-    }
-
-    mostrarFotosHallazgoEditando();
-
-    setTimeout(() => {
-        const primerCampoEditable = document.getElementById("hallazgoArea");
-        if (!primerCampoEditable) return;
-
-        primerCampoEditable.scrollIntoView({
-            behavior: "smooth",
-            block: "center"
-        });
-
-        try {
-            primerCampoEditable.focus({ preventScroll: true });
-        } catch (error) {
-            primerCampoEditable.focus();
-        }
-    }, 100);
 }
-
-// Exposición explícita para los botones inline de la lista de hallazgos.
-window.editarHallazgo = editarHallazgo;
-
 
     
 function mostrarFotosHallazgoEditando() {
 
-    const vistaFotos = document.getElementById("vistaFotosHallazgo");
-    if (!vistaFotos) return;
+    const vistaFotos =
+        document.getElementById("vistaFotosHallazgo");
 
-    const versionActual = ++versionRenderFotosHallazgo;
-    const fotosActuales = Array.isArray(fotosHallazgoEditando)
-        ? [...fotosHallazgoEditando]
-        : [];
+    if (!vistaFotos) {
+        return;
+    }
 
-    if (!fotosActuales.length) {
+    if (!fotosHallazgoEditando.length) {
         vistaFotos.innerHTML = `
             <div style="padding:12px;border:1px dashed #B8B8B8;border-radius:8px;background:#FFFFFF;color:#555;font-size:13px;">
                 Aún no hay fotografías adjuntas. Puede seleccionar varias imágenes de la galería o tomar fotografías consecutivas; aparecerán aquí antes de guardar.
@@ -11592,95 +11656,66 @@ function mostrarFotosHallazgoEditando() {
         return;
     }
 
-    const referenciasPendientes = fotosActuales.filter(foto =>
-        foto && typeof foto === "object" &&
-        foto.mediaId && !tecchnexMediaCache.has(foto.mediaId)
-    );
-
-    // CAM-REPARACION-FOTOS-EDIT-01:
-    // Consultar IndexedDB una sola vez por render. No re-encadenar esta función
-    // a un Promise ya resuelto: una referencia huérfana causaba un bucle infinito
-    // de microtasks que impedía a Chrome pintar la ventana de edición.
-    if (referenciasPendientes.length) {
+    // CAM-ALMACENAMIENTO-01B — Si una referencia aún no está en memoria,
+    // esperar a IndexedDB antes de pintar las miniaturas.
+    if (fotosHallazgoEditando.some(
+        foto => foto?.mediaId && !tecchnexMediaCache.has(foto.mediaId)
+    )) {
         vistaFotos.innerHTML =
-            '<p style="color:#666;font-size:13px;">Comprobando fotografías adjuntas…</p>';
-
-        (async () => {
-            try {
-                await tecchnexMediaReady;
-                await Promise.all(referenciasPendientes.map(async foto => {
-                    try {
-                        await cargarMediaEnCache(foto);
-                    } catch (error) {
-                        console.warn(
-                            "CAM-REPARACION-FOTOS-EDIT-01: no se pudo recuperar una fotografía.",
-                            foto?.mediaId,
-                            error
-                        );
-                    }
-                }));
-            } catch (error) {
-                console.warn(
-                    "CAM-REPARACION-FOTOS-EDIT-01: no fue posible consultar la bóveda fotográfica.",
-                    error
-                );
-            }
-
-            if (versionActual === versionRenderFotosHallazgo) {
-                pintarFotosHallazgoEditando(fotosActuales, vistaFotos);
-            }
-        })();
-
+            "<p style=\"color:#666;\">Cargando fotografías...</p>";
+        tecchnexMediaReady
+            .then(() => mostrarFotosHallazgoEditando())
+            .catch(error => console.warn(
+                "TECCHNEX: no fue posible cargar las fotografías.",
+                error
+            ));
         return;
     }
 
-    pintarFotosHallazgoEditando(fotosActuales, vistaFotos);
-}
-
-function pintarFotosHallazgoEditando(fotos, vistaFotos) {
-    if (!vistaFotos) return;
-
     vistaFotos.innerHTML = `
-        <p style="font-size:12px;color:#123b5d;font-weight:600;">
-            Fotografías adjuntas: ${fotos.length}
-        </p>
-        ${fotos.map((foto, indice) => {
-            const imagen = obtenerImagenDeFoto(foto);
-            const imagenDisponible =
-                typeof imagen === "string" && /^data:image\//i.test(imagen);
-            const mediaId = String(foto?.mediaId || "");
-            const mediaIdSeguro = mediaId.replace(/[&<>"']/g, caracter => ({
-                "&": "&amp;", "<": "&lt;", ">": "&gt;",
-                '"': "&quot;", "'": "&#39;"
-            })[caracter]);
-            const imagenSegura = imagenDisponible
-                ? imagen.replace(/&/g, "&amp;").replace(/"/g, "&quot;")
-                : "";
+        <p style="font-size:12px;color:#123b5d;font-weight:600;">Fotografías adjuntas: ${fotosHallazgoEditando.length}</p>
+        ${fotosHallazgoEditando
+        .map((foto, indice) => `
+            <div
+                style="
+                    display:inline-block;
+                    margin:8px;
+                    vertical-align:top;
+                    text-align:center;
+                "
+            >
+                <img
+                    src="${obtenerImagenDeFoto(foto)}"
+                    alt="Evidencia fotográfica"
+                    style="
+                        width:180px;
+                        height:135px;
+                        object-fit:cover;
+                        display:block;
+                        margin-bottom:6px;
+                    "
+                >
 
-            return `
-                <div style="display:inline-block;margin:8px;vertical-align:top;text-align:center;max-width:190px;">
-                    ${
-                        imagenDisponible
-                            ? `<img src="${imagenSegura}" alt="Evidencia fotográfica"
-                                style="width:180px;height:135px;object-fit:cover;display:block;margin-bottom:6px;">`
-                            : `<div role="status"
-                                style="width:180px;height:135px;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:10px;background:#fff7ed;border:1px dashed #c2410c;border-radius:6px;color:#9a3412;font-size:12px;">
-                                Fotografía no disponible en la bóveda actual
-                               </div>
-                               ${mediaIdSeguro
-                                   ? `<div style="font-size:10px;color:#64748b;max-width:180px;overflow-wrap:anywhere;margin:4px 0;">${mediaIdSeguro}</div>`
-                                   : ""}`
-                    }
-                    <button type="button" onclick="eliminarFotoHallazgo(${indice})"
-                        style="background:#b91c1c;color:white;border:none;padding:6px 10px;border-radius:5px;cursor:pointer;">
-                        🗑️ Eliminar foto
-                    </button>
-                </div>
-            `;
-        }).join("")}
+                <button
+                    type="button"
+                    onclick="eliminarFotoHallazgo(${indice})"
+                    style="
+                        background:#b91c1c;
+                        color:white;
+                        border:none;
+                        padding:6px 10px;
+                        border-radius:5px;
+                        cursor:pointer;
+                    "
+                >
+                    🗑️ Eliminar foto
+                </button>
+            </div>
+        `)
+        .join("")}
     `;
 }
-
+    
 function eliminarFotoHallazgo(indice) {
 
     if (
@@ -13729,14 +13764,14 @@ function obtenerClavesInspeccionPuestoFechaTECCHNEX(inspeccion) {
     if (!inspeccion || typeof inspeccion !== "object") return [];
     const fecha = normalizarFechaClaveInspeccionTECCHNEX(inspeccion.fecha || inspeccion.fechaInspeccion);
     if (!fecha) return [];
-    // La identidad principal es Cliente/Puesto. También se conserva como alias
-    // el nombre de puesto histórico para recuperar hallazgos anteriores al ajuste.
-    const nombres = [
-        inspeccion.cliente || inspeccion.nombreCliente || inspeccion.razonSocial,
-        inspeccion.nombrePuesto,
-        inspeccion.puesto
-    ].map(normalizarPuestoClaveInspeccionTECCHNEX).filter(Boolean);
-    return [...new Set(nombres)].map(nombre => `${fecha}|${nombre}`);
+
+    // CAM-IDENTIDAD-01: el nombre del cliente es el nombre del puesto.
+    // Se obtiene una sola identidad local; no se consulta CRM ni Supabase.
+    const nombrePuesto = normalizarPuestoClaveInspeccionTECCHNEX(
+        inspeccion.nombrePuesto || inspeccion.puesto ||
+        inspeccion.cliente || inspeccion.nombreCliente || inspeccion.razonSocial
+    );
+    return nombrePuesto ? [`${fecha}|${nombrePuesto}`] : [];
 }
 
 function obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion) {
@@ -13748,15 +13783,12 @@ function obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion) {
 // La fecha decide cuál versión prevalece. Los índices locales se mantienen estables.
 function obtenerIdentidadClientePuestoTECCHNEX(inspeccion) {
     if (!inspeccion || typeof inspeccion !== "object") return "";
-    const cliente = normalizarPuestoClaveInspeccionTECCHNEX(
-        inspeccion.cliente || inspeccion.nombreCliente || inspeccion.razonSocial || ""
+    // En CAM-INSPECCIONES, cliente y puesto representan el mismo nombre.
+    // La importación individual usa esta misma identidad local, sin CRM/Supabase.
+    return normalizarPuestoClaveInspeccionTECCHNEX(
+        inspeccion.nombrePuesto || inspeccion.puesto ||
+        inspeccion.cliente || inspeccion.nombreCliente || inspeccion.razonSocial
     );
-    const puesto = normalizarPuestoClaveInspeccionTECCHNEX(
-        inspeccion.nombrePuesto || inspeccion.puesto || cliente
-    );
-    // En versiones actuales cliente y nombrePuesto suelen ser el mismo dato.
-    // Si son distintos, se conserva la combinación para evitar reemplazos cruzados.
-    return cliente && puesto ? `${cliente}|${puesto}` : (cliente || puesto);
 }
 
 function compararFechasInspeccionTECCHNEX(a, b) {
@@ -15662,7 +15694,7 @@ function obtenerSeccionAnalisisVulnerabilidadesTECCHNEX(indiceInspeccion) {
         // CAM-VULN-NA-INFORME-01: no imprimir los ítems marcados "No aplica" ni contarlos en el resumen.
         if(v==="NA") return;
         total++;if(v==="NC")nc++;if(v==="P")parcial++;if(!v)pendientes++;
-        if(v==="NC"||v==="P"||note.trim()){
+        if(v && v!=="NA"){
             const colorResultado = v === "C" ? "#00B050" : v === "P" ? "#FFFF00" : v === "NC" ? "#FF0000" : v === "NV" ? "#DCEAF7" : "#E5E7EB";
             const textoResultado = v === "C" || v === "NC" ? "#FFFFFF" : "#111111";
             const estiloResultado = `background-color:${colorResultado};color:${textoResultado};font-weight:bold;text-align:center;vertical-align:middle;-webkit-print-color-adjust:exact;print-color-adjust:exact;`;
@@ -19344,5 +19376,11 @@ function TECCHNEX_UI_VOLVER_INICIO_TRAS_GUARDAR(referencia, modo = "contenedor")
 })();
 </script>
 
+
+<!-- TECCHNEX CAM-INSPECCIONES V25 · scripts de puerta comercial LAB -->
+<script src="./adapters/contrato-adaptador.js"></script>
+<script src="./tecchnex-inspecciones-config.js"></script>
+<script type="module" src="./tecchnex-inspecciones-license-gate.js"></script>
+<!-- FIN puerta comercial LAB -->
 </body>
 </html>

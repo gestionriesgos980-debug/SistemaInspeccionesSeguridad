@@ -1,0 +1,4 @@
+# Fragmento para fusionar en el config.toml EXISTENTE del proyecto Supabase de Inspecciones.
+# No sustituir el archivo completo ni cambiar otras funciones.
+[functions.tecchnex-product-authorize]
+verify_jwt = true
