@@ -182,7 +182,7 @@ if (
         clientId: membership.client_id,
         projectCode: PRODUCT_CODE,
         productCode: PRODUCT_CODE,
-        secret: Deno.env.get("BRIDGE_PROJECT_HMAC_SECRET") || "",
+       secret: Deno.env.get("CAM_INSPECCIONES_PROJECT_HMAC_SECRET") || "",
       });
       if (central.authorized) {
         authorizedClientId = membership.client_id;
