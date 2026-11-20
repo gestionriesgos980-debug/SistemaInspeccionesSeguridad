@@ -1,6 +1,6 @@
 /* CAM-CACHE-01 — actualización automática controlada.
    No elimina localStorage ni IndexedDB; solo administra Cache Storage. */
-const CACHE_NAME = "inspecciones-seguridad-v25-bridge-lab-v3";
+const CACHE_NAME = "inspecciones-seguridad-v25-bridge-lab-v4";
 const ARCHIVOS_BASE = [
   "./",
   "./index.html",
@@ -8,7 +8,8 @@ const ARCHIVOS_BASE = [
   "./tecchnex-banner-compacto.jpg",
   "./adapters/contrato-adaptador.js",
   "./tecchnex-inspecciones-config.js",
-  "./tecchnex-inspecciones-license-gate.js"
+  "./tecchnex-inspecciones-license-gate.js",
+  "./cam-inspecciones-sync-client-v1.js"
 ];
 
 self.addEventListener("install", event => {

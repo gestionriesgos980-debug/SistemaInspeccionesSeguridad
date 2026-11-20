@@ -106,3 +106,45 @@ Se retiraron del paquete ejecutable los HTML históricos duplicados, capturas de
 ### Límites y estado
 **Candidata limpia LAB; no desplegada y no aprobada para producción.**  
 Antes de reemplazar la versión estable, falta probar en navegador con datos de prueba: restauración en otro perfil/dispositivo, colisión de dos inspecciones con mismo puesto+fecha, checklists, matriz, fotografías, Word/PDF y conexión comercial. Los datos actuales del usuario no se modificaron.
+
+
+## CAM-ALMACENAMIENTO-05A — Restauración fotográfica estricta
+
+**Fecha de intervención:** 2026-11-20
+
+**Base:** `V1_3_ALMACENAMIENTO_01` (copia de trabajo; ZIP original intacto).
+
+**Problema confirmado:** `restaurarMediosDesdeRespaldo()` omitía errores individuales y retornaba sin error cuando IndexedDB no estaba disponible. El flujo general ya había reemplazado datos de `localStorage` antes de intentar restaurar los medios, por lo que podía mostrar éxito con fotografías faltantes.
+
+**Cambio aplicado:** la restauración fotográfica ahora exige IndexedDB disponible, valida cada `dataUrl`, guarda y vuelve a leer cada Blob, reúne fallos y cancela ante cualquier medio no verificable. Las referencias de hallazgos se remapean en memoria. La etapa de medios se ejecuta antes del primer reemplazo de datos estructurados en `localStorage`. La migración compatible de fotografías inline antiguas permanece después de escribir los datos.
+
+**Límites de esta intervención:** no se modificaron Supabase, SQL, RPC, funciones Edge, Universal Bridge, esquema IndexedDB, plantilla Word ni PDF. Si una restauración falla después de haber guardado algunos Blobs, pueden quedar medios huérfanos en IndexedDB; no se reemplazan los datos estructurados anteriores. La recuperación transaccional completa de todas las claves `localStorage` es una revisión separada.
+
+**Validación:** pruebas automatizadas ampliadas de 18 a 20; ambas nuevas pruebas verifican el bloqueo de errores fotográficos y que la restauración de medios anteceda al reemplazo de datos. Pendiente prueba funcional real en navegador con un respaldo de laboratorio y un perfil limpio.
+
+---
+
+## CAM-ALMACENAMIENTO-06A — protección del guardado ante indisponibilidad de IndexedDB
+**Fecha:** 2026-11-20
+
+**Hallazgo preventivo:** `guardarFotosHallazgoEnBoveda()` tenía una salida de compatibilidad que devolvía las fotografías originales si `tecchnexMediaDB` no estaba disponible. Eso permitía que el flujo continuara sin referencias persistidas en la bóveda.
+
+**Cambio aplicado:**
+- La función ahora lanza un error explícito si IndexedDB no está disponible.
+- El flujo de guardado de hallazgos espera `tecchnexMediaReady` y comprueba que la bóveda esté disponible antes de persistir el hallazgo.
+- Si hay fotografías y falla la bóveda, el proceso se detiene antes de modificar `localStorage`; se informa al usuario y se conserva el contenido del formulario para reintentar.
+- Si el hallazgo no contiene fotografías, el guardado estructurado puede continuar sin depender de IndexedDB.
+
+**Alcance preservado:** no se cambió el esquema de IndexedDB, las tablas/funciones Supabase, el Universal Bridge, la autorización comercial, las asociaciones, los informes ni la plantilla Word.
+
+**Prueba:** suite `node --test tests/cam-inspecciones-v25-preparation.test.mjs`: 21 pruebas aprobadas, 0 fallidas. Se agregó `INS-V25-21` para verificar que el guardado con fotografías se detenga si IndexedDB no está disponible.
+
+**Pendiente:** validación funcional en navegador con datos de prueba: guardado normal con fotografías, reapertura, edición y simulación controlada de indisponibilidad de IndexedDB. Esta versión no se declara validada en navegador ni apta para producción.
+
+
+## 2026-11-20 — SYNC LAB V1.4: preparación de escritura controlada
+- Se añade generación local de una única operación sintética de inspección, marcada `_tecchnex_sync_lab_test_v1`, sin datos personales ni modificación de la colección funcional `inspecciones`.
+- Se añade un emisor dedicado que selecciona exclusivamente la operación sintética; no procesa el resto de la cola.
+- La preparación local no realiza red. El envío dedicado sí invoca la ruta normal de Edge y RPC, y puede crear registros persistentes en las tablas existentes.
+- No se ejecutó la preparación en navegador, POST, RPC ni escritura real durante la construcción del paquete. Requiere prueba local y autorización expresa antes del envío.
+- Se mantiene sin cambios la versión estable, AUTH-01, el Universal Bridge y el esquema de tablas.

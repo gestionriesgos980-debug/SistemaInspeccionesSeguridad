@@ -68,7 +68,7 @@ test("INS-V25-07: el cliente servidor firma el contrato USER histórico", async 
 
 test("INS-V25-08: Service Worker usa caché LAB V25 y precarga los tres recursos", async () => {
   const sw = await read("sw.js");
-  assert.match(sw, /inspecciones-seguridad-v25-bridge-lab-v3/);
+  assert.match(sw, /inspecciones-seguridad-v25-bridge-lab-v4/);
   for (const rel of ["./adapters/contrato-adaptador.js", "./tecchnex-inspecciones-config.js", "./tecchnex-inspecciones-license-gate.js"]) {
     assert.ok(sw.includes(rel), `Falta precarga de ${rel}`);
   }
@@ -174,4 +174,47 @@ test("INS-V25-18: identidad operativa única usa puesto + fecha sin alias client
   assert.match(bloque, /inspeccion\.nombrePuesto\s*\|\|\s*inspeccion\.puesto/);
   assert.match(bloque, /return nombrePuesto \?/);
   assert.doesNotMatch(bloque, /const nombres\s*=/);
+});
+
+test("INS-V25-19: restauración estricta verifica IndexedDB y no oculta fallos fotográficos", async () => {
+  const html = await read("index.html");
+  const inicio = html.indexOf("async function restaurarMediosDesdeRespaldo");
+  const fin = html.indexOf("async function prepararFotografiasParaInforme", inicio);
+  const bloque = html.slice(inicio, fin);
+  assert.match(bloque, /if \(!tecchnexMediaDB\)\s*\{\s*throw new Error/);
+  assert.match(bloque, /leerMediaPorId\(referencia\.mediaId\)/);
+  assert.match(bloque, /Compatibilidad con respaldos antiguos/);
+  assert.match(bloque, /mapaIds\.set\(foto\.mediaId, referencia\.mediaId\)/);
+  assert.match(bloque, /if \(errores\.length\)\s*\{/);
+  assert.match(bloque, /return hallazgos\.map/);
+  assert.doesNotMatch(bloque, /console\.warn\("CAM-ALMACENAMIENTO-01B: no se pudo restaurar un medio/);
+});
+
+test("INS-V25-20: valida y prepara las fotografías antes de reemplazar datos en localStorage", async () => {
+  const html = await read("index.html");
+  const inicio = html.indexOf("// CAM-ALMACENAMIENTO-05A: validar y restaurar todos los medios");
+  const escritura = html.indexOf('localStorage.setItem(\n    "inspecciones"', inicio);
+  const llamadaFinalAntigua = html.indexOf("await restaurarMediosDesdeRespaldo(", escritura + 1);
+  assert.ok(inicio >= 0 && escritura > inicio, "la verificación de medios debe preceder al primer reemplazo de inspecciones");
+  assert.equal(llamadaFinalAntigua, -1, "no debe quedar una segunda restauración posterior a la escritura");
+  assert.match(html.slice(inicio, escritura), /datos\.hallazgos\s*=\s*await restaurarMediosDesdeRespaldo/);
+});
+
+test("INS-V25-21: detiene el guardado de hallazgos con fotografías si IndexedDB no está disponible", async () => {
+  const html = await read("index.html");
+  const inicioHelper = html.indexOf("async function guardarFotosHallazgoEnBoveda");
+  const finHelper = html.indexOf("async function obtenerDataUrlMedia", inicioHelper);
+  const helper = html.slice(inicioHelper, finHelper);
+  assert.match(helper, /if \(!tecchnexMediaDB\)\s*\{\s*throw new Error/);
+  assert.doesNotMatch(helper, /resultado:\s*Array\.isArray\(fotos\)/);
+
+  const inicioGuardado = html.indexOf("// CAM-ALMACENAMIENTO-01B / 06A");
+  const finGuardado = html.indexOf("const hallazgoActualizado =", inicioGuardado);
+  const guardado = html.slice(inicioGuardado, finGuardado + "const hallazgoActualizado =".length);
+  assert.match(guardado, /await tecchnexMediaReady/);
+  assert.match(guardado, /if \(!bovedaDisponible \|\| !tecchnexMediaDB\)/);
+  assert.match(guardado, /Sus datos y fotografías siguen en el formulario/);
+  assert.match(guardado, /return;/);
+  assert.ok(finGuardado > inicioGuardado);
+  assert.ok(html.indexOf("return;", inicioGuardado) < finGuardado);
 });

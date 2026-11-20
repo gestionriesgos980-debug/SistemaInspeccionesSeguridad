@@ -44,3 +44,21 @@ Estas pruebas no reemplazan la validación E2E en navegador, `deno check` ni las
 
 ## Importante
 Esta versión limpia organiza los archivos y contiene un ajuste acotado de restauración/respaldo. Aún requiere pruebas funcionales con copias de datos de prueba: respaldo general, restauración en otro perfil/navegador, fotografías, duplicidad de puesto+fecha, checklists, matriz, informe Word/PDF y conexión comercial. No usar todavía como reemplazo de la versión estable publicada.
+
+## CAM-ALMACENAMIENTO-06A — guardado seguro de hallazgos con fotografías
+- Si IndexedDB no está disponible, el guardado de un hallazgo que contiene fotografías se detiene antes de actualizar `localStorage`.
+- El formulario conserva los datos y fotografías para que el usuario pueda reintentar; no se presenta un guardado exitoso.
+- No se cambia el esquema `TECCHNEX_MEDIA_V1` / `fotos`, ni Supabase, tablas, informes o la plantilla Word.
+- Se añadió la prueba automatizada `INS-V25-21`. La validación real en navegador sigue pendiente.
+
+
+SYNC LAB V1.2 — VALIDACIÓN SIN ESCRITURA
+El botón “Validar operación (sin escritura)” toma la última operación local completada y envía mode=VALIDATE_ONLY a la Edge Function. Requiere sesión y autorización comercial vigentes; realiza una solicitud HTTPS y lecturas de autorización en servidor, pero la ruta VALIDATE_ONLY se detiene antes del RPC y no escribe en Supabase. No modifica la cola local. El botón “Sincronizar pendientes” conserva su comportamiento de escritura y solo debe usarse con autorización expresa.
+
+
+## SYNC LAB V1.4 — prueba de escritura controlada
+- `Preparar prueba local` crea una única operación sintética `INSERT` de tipo `inspeccion` en la cola local existente. No modifica la colección funcional de inspecciones, no usa datos personales y no realiza solicitudes de red.
+- `Enviar prueba controlada` envía exclusivamente esa operación marcada como laboratorio; no procesa otras operaciones pendientes. Al ejecutarlo, la Edge Function valida sesión y contrato y la ruta normal invoca el RPC, por lo que puede insertar un registro sintético persistente en las tablas existentes `tecchnex_cam_inspecciones_sync_ops` y `tecchnex_cam_inspecciones_records`.
+- No pulsar `Enviar prueba controlada` sin autorización expresa para esta escritura real. Si la respuesta de red es incierta, no repetir: conservar el mismo `operation_id` y revisar primero el estado en servidor.
+- La prueba se considera completada solo con HTTP 200 y `ok:true`. El registro queda marcado en el payload con `_tecchnex_sync_lab_test_v1: true`; no se elimina automáticamente.
+- `Sincronizar pendientes` sigue siendo el botón general y no debe usarse para esta prueba; usar únicamente `Enviar prueba controlada` después de revisar el registro local y autorizar la escritura.

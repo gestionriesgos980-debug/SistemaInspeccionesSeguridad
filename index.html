@@ -1529,18 +1529,24 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
     <h1 id="tecchnexInspectionsGateTitle">Sistema de Inspecciones de Seguridad</h1>
     <p>Inicia sesión con tu cuenta de empresa para verificar la licencia antes de utilizar el sistema. Tus inspecciones, hallazgos y fotografías locales no se eliminan si la licencia no está disponible.</p>
     <form id="tecchnexInspectionsLoginForm" autocomplete="on">
-      <label for="tecchnexInspectionsEmail">Usuario / correo electrónico
+      <label for="tecchnexInspectionsSupabaseUrl">URL del proyecto Supabase
+        <input id="tecchnexInspectionsSupabaseUrl" type="url" placeholder="https://ywezkwitbhbyxcwuoiim.supabase.co" autocomplete="url" required>
+      </label>
+      <label for="tecchnexInspectionsSupabaseKey">Clave publicable de Supabase
+        <input id="tecchnexInspectionsSupabaseKey" type="password" placeholder="sb_publishable_… o clave anon pública" autocomplete="off" required>
+      </label>
+      <label for="tecchnexInspectionsEmail">Correo electrónico
         <input id="tecchnexInspectionsEmail" type="email" placeholder="usuario@empresa.com" autocomplete="username" required>
       </label>
       <label for="tecchnexInspectionsPassword">Contraseña
         <input id="tecchnexInspectionsPassword" type="password" autocomplete="current-password" required>
       </label>
-      <button id="tecchnexInspectionsLoginButton" type="submit">Iniciar sesión</button>
+      <button id="tecchnexInspectionsLoginButton" type="submit">Iniciar sesión y validar licencia</button>
     </form>
     <button id="tecchnexInspectionsRetryButton" type="button" hidden>Volver a comprobar licencia</button>
     <button id="tecchnexInspectionsLogoutButton" type="button" hidden>Cerrar sesión</button>
     <p id="tecchnexInspectionsStatus" role="status" aria-live="polite">Acceso bloqueado hasta que el servidor confirme la licencia.</p>
-    <p id="tecchnexInspectionsNotice">La conexión y la validación comercial se realizan automáticamente. Tus inspecciones y fotografías locales se conservan.</p>
+    <p id="tecchnexInspectionsNotice"><strong>LABORATORIO:</strong> el código de producto candidato es CAM-INSPECCIONES; debe coincidir con el catálogo del Administrador Maestro. Esta puerta no configura, crea ni despliega funciones o productos de Supabase.</p>
   </section>
 </div>
 <!-- TECCHNEX CAM-INSPECCIONES V25 · END BLOQUE COMERCIAL -->
@@ -4556,6 +4562,100 @@ function cerrarDashboard() {
         return { fechaActualizacion:actualizacion, dias, estado:"VIGENTE", clase:"inspeccion-vigente" };
     }
 
+/* CAM-SYNC-LOCAL-01 — Cola local inicial de inspecciones.
+   No realiza llamadas de red ni modifica los registros funcionales existentes.
+   La cola se guarda en una clave independiente de localStorage.
+*/
+const CAM_SYNC_QUEUE_KEY_V1 = "tecchnex_cam_inspecciones_sync_queue_v1";
+const CAM_SYNC_RECORDS_KEY_V1 = "tecchnex_cam_inspecciones_sync_records_v1";
+
+function camSyncUuidV1() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+    if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+        const bytes = new Uint8Array(16);
+        window.crypto.getRandomValues(bytes);
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+        return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+    }
+    throw new Error("Este navegador no permite generar identificadores seguros para la cola.");
+}
+
+function camSyncLeerJsonV1(clave, valorInicial) {
+    try {
+        const valor = JSON.parse(localStorage.getItem(clave) || "null");
+        return valor === null ? valorInicial : valor;
+    } catch (_) { return valorInicial; }
+}
+
+function camSyncRegistrarInspeccionLocalV1(inspeccionActual, inspeccionAnterior = null) {
+    if (!inspeccionActual || typeof inspeccionActual !== "object") return false;
+    const idActual = String(inspeccionActual.idControl || "").trim();
+    if (!idActual) throw new Error("La inspección no tiene idControl; no se agregó a la cola.");
+
+    const registros = camSyncLeerJsonV1(CAM_SYNC_RECORDS_KEY_V1, {});
+    const cola = camSyncLeerJsonV1(CAM_SYNC_QUEUE_KEY_V1, []);
+    if (!registros || typeof registros !== "object" || Array.isArray(registros) || !Array.isArray(cola)) {
+        throw new Error("La estructura local de sincronización no es válida.");
+    }
+
+    const idAnterior = String(inspeccionAnterior?.idControl || "").trim();
+    const metaAnterior = idAnterior && registros[idAnterior] ? registros[idAnterior] : null;
+    const metaActual = registros[idActual] || null;
+    const syncId = String(metaAnterior?.record_sync_id || metaActual?.record_sync_id || camSyncUuidV1());
+    const versionServidor = Number(metaAnterior?.server_version ?? metaActual?.server_version ?? 0);
+    const tipoOperacion = versionServidor > 0 ? "UPDATE" : "INSERT";
+    const versionEsperada = tipoOperacion === "UPDATE" ? versionServidor : null;
+
+    // Si aún no se ha enviado, consolidar los cambios locales en una sola operación pendiente.
+    const pendiente = cola.find(op => op && op.record_sync_id === syncId && op.status === "pending");
+    const operacion = {
+        operation_id: camSyncUuidV1(),
+        record_sync_id: syncId,
+        operation_type: tipoOperacion,
+        expected_version: versionEsperada,
+        record_type: "inspeccion",
+        parent_sync_id: null,
+        payload: JSON.parse(JSON.stringify(inspeccionActual)),
+        status: "pending",
+        created_at: new Date().toISOString(),
+        attempts: 0
+    };
+
+    let nuevaCola;
+    if (pendiente) {
+        nuevaCola = cola.map(op => op === pendiente ? operacion : op);
+    } else {
+        nuevaCola = [...cola, operacion];
+    }
+
+    const meta = {
+        record_sync_id: syncId,
+        server_version: versionServidor,
+        local_record_id: idActual,
+        updated_at: new Date().toISOString()
+    };
+    const nuevosRegistros = { ...registros, [idActual]: meta };
+    if (idAnterior && idAnterior !== idActual) delete nuevosRegistros[idAnterior];
+
+    // Escritura protegida: si una clave falla, se restaura el valor anterior de ambas claves.
+    const anteriores = {
+        [CAM_SYNC_QUEUE_KEY_V1]: localStorage.getItem(CAM_SYNC_QUEUE_KEY_V1),
+        [CAM_SYNC_RECORDS_KEY_V1]: localStorage.getItem(CAM_SYNC_RECORDS_KEY_V1)
+    };
+    try {
+        localStorage.setItem(CAM_SYNC_QUEUE_KEY_V1, JSON.stringify(nuevaCola));
+        localStorage.setItem(CAM_SYNC_RECORDS_KEY_V1, JSON.stringify(nuevosRegistros));
+    } catch (error) {
+        for (const [clave, valor] of Object.entries(anteriores)) {
+            try { if (valor === null) localStorage.removeItem(clave); else localStorage.setItem(clave, valor); } catch (_) {}
+        }
+        throw error;
+    }
+    return true;
+}
+
     document.getElementById("formInspeccion")
     .addEventListener("submit", async function(event) {
 
@@ -4914,6 +5014,7 @@ if (clavePuestoFechaNueva) {
 
 let indiceReemplazoVigente = null;
 let limpiezaReemplazoVigente = null;
+let inspeccionBaseParaSync = inspeccionAnteriorEdicion || null;
 if (indiceEdicion !== undefined && indiceEdicion !== "") {
 
     inspecciones[Number(indiceEdicion)] = inspeccion;
@@ -4968,6 +5069,7 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
         );
         if (!confirmacionReemplazo) return;
         limpiezaReemplazoVigente = prepararReemplazoInspeccionVigenteTECCHNEX(vigente.indice, inspeccion);
+        inspeccionBaseParaSync = vigente.registro || null;
         inspecciones[vigente.indice] = inspeccion;
         indiceReemplazoVigente = vigente.indice;
         localStorage.setItem("indiceInspeccionSeleccionadaInforme", String(vigente.indice));
@@ -5053,6 +5155,15 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
                     ? "Inspección modificada"
                     : "Inspección creada"
             });
+
+            // CAM-SYNC-LOCAL-01: registrar la inspección guardada en cola local independiente.
+            // Un fallo de cola no revierte ni bloquea el guardado funcional ya completado.
+            try {
+                camSyncRegistrarInspeccionLocalV1(inspeccion, inspeccionBaseParaSync);
+            } catch (errorColaSync) {
+                console.error("CAM-SYNC-LOCAL-01: la inspección se guardó, pero no se pudo registrar en la cola.", errorColaSync);
+                alert("La inspección se guardó correctamente, pero quedó pendiente registrar su sincronización local. Cree un respaldo y comunique esta incidencia antes de sincronizar.");
+            }
 
             actualizarContadores();
 
@@ -5823,13 +5934,12 @@ const tecchnexMediaReady = (async function () {
 })();
 
 async function guardarFotosHallazgoEnBoveda(fotos) {
-    // Si IndexedDB no está disponible, conservar compatibilidad con el almacenamiento
-    // anterior para no inutilizar la aplicación en un entorno no compatible.
+    // CAM-ALMACENAMIENTO-06A — No permitir que un hallazgo con fotografías
+    // se confirme usando el almacenamiento estructurado como sustituto de IndexedDB.
+    // Si la bóveda no está disponible, el llamador debe detener el guardado y
+    // conservar el borrador del usuario sin modificar localStorage.
     if (!tecchnexMediaDB) {
-        return {
-            resultado: Array.isArray(fotos) ? [...fotos] : [],
-            nuevasReferencias: []
-        };
+        throw new Error("IndexedDB no está disponible. Las fotografías no se guardaron y el hallazgo no puede confirmarse.");
     }
 
     const resultado = [];
@@ -5900,15 +6010,21 @@ async function exportarMediosParaRespaldo(hallazgos) {
     return medios;
 }
 
-async function restaurarMediosDesdeRespaldo(medios) {
+async function restaurarMediosDesdeRespaldo(medios, hallazgosRespaldo) {
+    // CAM-ALMACENAMIENTO-05A: restauración estricta y previa al reemplazo
+    // de localStorage. Nunca declarar éxito si IndexedDB no está disponible.
     if (!tecchnexMediaDB) {
-        return;
+        throw new Error("No se puede restaurar el respaldo porque IndexedDB no está disponible. Los datos actuales se conservaron.");
     }
 
+    const listaMedios = Array.isArray(medios) ? medios : [];
+    const hallazgos = Array.isArray(hallazgosRespaldo) ? hallazgosRespaldo : [];
     const mapaIds = new Map();
+    const errores = [];
 
-    for (const medio of (Array.isArray(medios) ? medios : [])) {
-        if (!medio || !medio.dataUrl) {
+    for (const [indice, medio] of listaMedios.entries()) {
+        if (!medio || typeof medio.dataUrl !== "string" || !/^data:image\//i.test(medio.dataUrl)) {
+            errores.push(`Medio ${indice + 1}: no contiene una imagen válida en el respaldo`);
             continue;
         }
 
@@ -5918,37 +6034,75 @@ async function restaurarMediosDesdeRespaldo(medios) {
                 imagen: medio.dataUrl
             });
 
-            if (medio.mediaId && referencia?.mediaId) {
+            if (!referencia?.mediaId) {
+                throw new Error("IndexedDB no devolvió una referencia válida");
+            }
+
+            const registroVerificado = await leerMediaPorId(referencia.mediaId);
+            if (!registroVerificado?.blob || registroVerificado.blob.size <= 0) {
+                throw new Error("La fotografía guardada no superó la verificación de lectura");
+            }
+
+            if (medio.mediaId) {
                 mapaIds.set(medio.mediaId, referencia.mediaId);
             }
         } catch (error) {
-            console.warn("CAM-ALMACENAMIENTO-01B: no se pudo restaurar un medio.", error);
+            errores.push(`Medio ${indice + 1}${medio.mediaId ? ` (${medio.mediaId})` : ""}: ${error?.message || "error desconocido"}`);
         }
     }
 
-    // Reenlaza las referencias del respaldo al ID real de IndexedDB.
-    if (mapaIds.size) {
-        const hallazgos = JSON.parse(localStorage.getItem("hallazgos")) || [];
-        let huboCambios = false;
-
-        hallazgos.forEach(hallazgo => {
-            if (!Array.isArray(hallazgo.fotos)) return;
-            hallazgo.fotos = hallazgo.fotos.map(foto => {
-                if (foto?.mediaId && mapaIds.has(foto.mediaId)) {
-                    huboCambios = true;
-                    return { ...foto, mediaId: mapaIds.get(foto.mediaId) };
+    // Compatibilidad con respaldos antiguos: si una foto trae mediaId y
+    // también conserva su imagen inline, reconstruir una referencia local nueva.
+    for (const [indiceHallazgo, hallazgo] of hallazgos.entries()) {
+        for (const [indiceFoto, foto] of (Array.isArray(hallazgo?.fotos) ? hallazgo.fotos : []).entries()) {
+            if (!foto?.mediaId || mapaIds.has(foto.mediaId)) continue;
+            const imagenInline = foto.dataUrl || foto.imagen || foto.data || "";
+            if (!/^data:image\//i.test(imagenInline)) continue;
+            try {
+                const referencia = await guardarMediaEnBoveda({
+                    ...foto,
+                    dataUrl: imagenInline,
+                    imagen: imagenInline
+                });
+                if (!referencia?.mediaId) throw new Error("No se obtuvo una referencia local");
+                const registroVerificado = await leerMediaPorId(referencia.mediaId);
+                if (!registroVerificado?.blob || registroVerificado.blob.size <= 0) {
+                    throw new Error("La fotografía inline no superó la verificación de lectura");
                 }
-                return foto;
-            });
-        });
-
-        if (huboCambios) {
-            localStorage.setItem("hallazgos", JSON.stringify(hallazgos));
+                mapaIds.set(foto.mediaId, referencia.mediaId);
+            } catch (error) {
+                errores.push(`Hallazgo ${indiceHallazgo + 1}, foto ${indiceFoto + 1}: ${error?.message || "no se pudo recuperar la imagen inline"}`);
+            }
         }
     }
 
-    // Reenlaza respaldos antiguos que contengan fotografías inline.
-    await migrarFotosAntiguasABoveda();
+    // Toda referencia incluida en hallazgos debe quedar resuelta antes de
+    // permitir que el proceso principal reemplace los datos estructurados.
+    for (const [indiceHallazgo, hallazgo] of hallazgos.entries()) {
+        for (const [indiceFoto, foto] of (Array.isArray(hallazgo?.fotos) ? hallazgo.fotos : []).entries()) {
+            if (foto?.mediaId && !mapaIds.has(foto.mediaId)) {
+                errores.push(`Hallazgo ${indiceHallazgo + 1}, foto ${indiceFoto + 1}: referencia ${foto.mediaId} sin medio recuperado`);
+            }
+        }
+    }
+
+    if (errores.length) {
+        const detalle = errores.slice(0, 8).join("; ");
+        const adicionales = errores.length > 8 ? `; y ${errores.length - 8} más` : "";
+        throw new Error(
+            `Restauración cancelada: ${errores.length} fotografía(s) no pudieron verificarse. Los datos estructurados actuales no se han reemplazado. Detalle: ${detalle}${adicionales}`
+        );
+    }
+
+    // Prepara los hallazgos en memoria; todavía no modifica localStorage.
+    return hallazgos.map(hallazgo => ({
+        ...hallazgo,
+        fotos: Array.isArray(hallazgo?.fotos)
+            ? hallazgo.fotos.map(foto => foto?.mediaId && mapaIds.has(foto.mediaId)
+                ? { ...foto, mediaId: mapaIds.get(foto.mediaId) }
+                : foto)
+            : hallazgo?.fotos
+    }));
 }
 
 async function prepararFotografiasParaInforme(indiceInspeccion) {
@@ -6876,6 +7030,14 @@ try {
     evaluacionActualLocalAntesDeRestaurar = JSON.parse(localStorage.getItem("tecchnex_lista_vulnerabilidades_multisector_v1") || "null");
 } catch (_) {}
 
+// CAM-ALMACENAMIENTO-05A: validar y restaurar todos los medios antes de
+// reemplazar cualquier dato estructurado del respaldo en localStorage.
+await tecchnexMediaReady;
+datos.hallazgos = await restaurarMediosDesdeRespaldo(
+    datos.mediosFotograficos || [],
+    datos.hallazgos || []
+);
+
 localStorage.setItem(
     "inspecciones",
     JSON.stringify(datos.inspecciones || [])
@@ -7133,10 +7295,8 @@ if (Array.isArray(datos.directorioClientesOM16)) {
 }
 sincronizarDirectorioClientesDesdeInspeccionesOM16(directorioActual);
 
-await tecchnexMediaReady;
-        await restaurarMediosDesdeRespaldo(
-            datos.mediosFotograficos || []
-        );
+// Compatibilidad posterior con fotografías inline de respaldos antiguos.
+await migrarFotosAntiguasABoveda();
 
 actualizarContadores();
 if (window.CAMAgenda && typeof window.CAMAgenda.actualizarAlertas === "function") {
@@ -9420,6 +9580,7 @@ function generarInformeDesdeModulo() {
             try {
                 ventana.document.open();
                 ventana.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Error al generar informe</title></head><body style="font-family:Arial;padding:24px;color:#7f1d1d"><h2>No fue posible generar el informe</h2><p>El laboratorio detectó este error:</p><pre style="white-space:pre-wrap;background:#fef2f2;padding:12px;border:1px solid #fecaca">${mensaje}</pre><p>La versión estable no se ha modificado.</p>
+
 
 
 </body></html>`);
@@ -11960,10 +12121,24 @@ async function guardarHallazgo() {
     // fotografías nuevas agregadas desde cámara o galería antes de guardar.
     const fotosParaGuardar = [...fotosHallazgoEditando];
 
-    // CAM-ALMACENAMIENTO-01B — Primero guarda las fotografías en IndexedDB.
+    // CAM-ALMACENAMIENTO-01B / 06A — Primero guarda las fotografías en IndexedDB.
     // Solo después se actualiza localStorage con referencias ligeras.
-    await tecchnexMediaReady;
-    const fotosPersistidas = await guardarFotosHallazgoEnBoveda(fotosParaGuardar);
+    // Si hay fotografías y la bóveda no inició correctamente, detener aquí:
+    // no confirmar el hallazgo ni reemplazar sus referencias existentes.
+    let fotosPersistidas = { resultado: [], nuevasReferencias: [] };
+    if (fotosParaGuardar.length > 0) {
+        try {
+            const bovedaDisponible = await tecchnexMediaReady;
+            if (!bovedaDisponible || !tecchnexMediaDB) {
+                throw new Error("IndexedDB no está disponible.");
+            }
+            fotosPersistidas = await guardarFotosHallazgoEnBoveda(fotosParaGuardar);
+        } catch (error) {
+            console.error("CAM-ALMACENAMIENTO-06A: guardado de hallazgo detenido para proteger las fotografías.", error);
+            alert("No se guardó el hallazgo porque el almacenamiento seguro de fotografías (IndexedDB) no está disponible. Sus datos y fotografías siguen en el formulario. Intente nuevamente cuando se restablezca el almacenamiento.");
+            return;
+        }
+    }
 
     const hallazgoActualizado = {
 
@@ -14535,15 +14710,12 @@ async function generarWordPlantillaMaestra() {
         // cuando coincide con el nombre del cliente; solo aplica a diagnóstico inicial.
         // CAM-DIAGNOSTICO-INICIAL-03: en el encabezado del diagnóstico inicial,
         // mostrar el nombre del cliente una sola vez cuando el puesto sea el mismo.
-        // CAM-WORD-ENCABEZADO-SIN-DUPLICADOS-01:
-        // Si el puesto y el cliente son el mismo texto, se imprime una sola vez
-        // en el encabezado para cualquier tipo de informe.
-        const puesto=(String(puestoOriginal).trim().toLocaleLowerCase("es") === String(clienteDocumento).trim().toLocaleLowerCase("es"))
+        const puesto=(esDiagnosticoInicial && String(puestoOriginal).trim().toLocaleLowerCase("es") === String(clienteDocumento).trim().toLocaleLowerCase("es"))
             ? ""
             : puestoOriginal;
-        // CAM-ID-INSPECCION-DOCUMENTO-01: el ID de inspección es una referencia
-        // exclusiva del analista y no se imprime ni interviene en el documento.
-        // Se conserva la identificación propia del informe.
+        // CAM-RESTAURACION-HALLAZGOS-01: imprimir el ID comercial del informe generado.
+        // La plantilla maestra original permanece intacta; solo se modifica la copia en memoria.
+        const idInspeccionDocumento=String(inspeccion.idControl||"SIN ID").trim()||"SIN ID";
         const idInformeDocumento=String(inspeccion.idInforme||"SIN ID").trim()||"SIN ID";
         const headerEntry=zip.file("word/header1.xml");
         if(headerEntry){
@@ -14553,12 +14725,13 @@ async function generarWordPlantillaMaestra() {
                 ["{{TITULO_DOCUMENTO}}",tituloDocumento],
                 ["{{CLIENTE}}",clienteDocumento]
             ].forEach(([m,v])=>headerXml=headerXml.split(m).join(escaparXmlWord(v)));
-            // CAM-WORD-ID-INSPECCION-02 — Encabezado sin ID de inspección.
-            // El ID de inspección no forma parte del documento descargable.
-            // Se conserva el ID propio del informe y el salto de línea del puesto.
+            // CAM-WORD-ID-INSPECCION-02 — Encabezado compacto.
+            // El marcador PUESTO ya tiene un salto de línea previo desde CLIENTE.
+            // Si el puesto está vacío, no insertar un segundo salto: evita una línea en blanco.
+            // Si hay puesto, conservar una sola línea de separación entre el puesto y el ID.
             const contenidoPuestoEId = String(puesto).trim()
-                ? escaparXmlWord(puesto)+"</w:t><w:br/><w:t>ID DE INFORME: "+escaparXmlWord(idInformeDocumento)
-                : "</w:t><w:t>ID DE INFORME: "+escaparXmlWord(idInformeDocumento);
+                ? escaparXmlWord(puesto)+"</w:t><w:br/><w:t>ID DE INSPECCIÓN: "+escaparXmlWord(idInspeccionDocumento)+"</w:t><w:br/><w:t>ID DE INFORME: "+escaparXmlWord(idInformeDocumento)
+                : "</w:t><w:t>ID DE INSPECCIÓN: "+escaparXmlWord(idInspeccionDocumento)+"</w:t><w:br/><w:t>ID DE INFORME: "+escaparXmlWord(idInformeDocumento);
             headerXml=headerXml.split("{{PUESTO}}").join(contenidoPuestoEId);
             // La plantilla aprobada contiene el título preventivo como texto fijo,
             // no como marcador. En la copia generada se sustituye solo ese valor,
@@ -14746,6 +14919,7 @@ async function generarWordPlantillaMaestra() {
         const info=camposDiligenciados([
             ["Cliente",inspeccion.cliente],["NIT",inspeccion.nit],["Dirección",inspeccion.direccion],["Ciudad",inspeccion.ciudad],
             ["Contacto",inspeccion.contacto],["Teléfono",inspeccion.telefono],["Correo",inspeccion.correo],["Fecha de visita",inspeccion.fecha],
+            ["ID de informe",inspeccion.idInforme||"Sin ID"],
             ["Puesto",inspeccion.nombrePuesto],["Sector",inspeccion.sectorInspeccion],
             ["Analista de Riesgos",inspeccion.inspector],["Director Operativo",inspeccion.director],["Tipo de inspección",inspeccion.tipo]
         ]);
@@ -15588,7 +15762,7 @@ h3{color:#000!important;border-bottom:1px solid #F2C500!important}
                 <tr><td class="marca"><img src="logo-cotraser.png" alt="COTRASER C.T.A." style="width:100%;max-width:125px;max-height:65px;object-fit:contain" onerror="this.style.display='none'"></td>
                     <td class="titulo">${e(tituloInforme)}</td><td class="codigo"><strong>PSOF004</strong><br>Versión No. 003<br>Fecha: ${e(inspeccion.fecha || "")}</td></tr>
                 <tr><td colspan="3" class="confidencial">- CONFIDENCIAL -</td></tr>
-                <tr><td colspan="3" class="cliente">${e(inspeccion.cliente || "")}<br><strong>ID DE INFORME: ${e(inspeccion.idInforme || "SIN ID")}</strong></td></tr>
+                <tr><td colspan="3" class="cliente">${e(inspeccion.cliente || "")}<br><strong>ID DE INSPECCIÓN: ${e(inspeccion.idControl || "SIN ID")}</strong><br><strong>ID DE INFORME: ${e(inspeccion.idInforme || "SIN ID")}</strong></td></tr>
             </tbody></table>
             ${resumenEjecutivoDiagnosticoPDF}
             <h2>1. Información del cliente y del puesto</h2>
@@ -15689,7 +15863,7 @@ function obtenerSeccionAnalisisVulnerabilidadesTECCHNEX(indiceInspeccion) {
         // CAM-VULN-NA-INFORME-01: no imprimir los ítems marcados "No aplica" ni contarlos en el resumen.
         if(v==="NA") return;
         total++;if(v==="NC")nc++;if(v==="P")parcial++;if(!v)pendientes++;
-        if(v && v!=="NA"){
+        if(v==="NC"||v==="P"||note.trim()){
             const colorResultado = v === "C" ? "#00B050" : v === "P" ? "#FFFF00" : v === "NC" ? "#FF0000" : v === "NV" ? "#DCEAF7" : "#E5E7EB";
             const textoResultado = v === "C" || v === "NC" ? "#FFFFFF" : "#111111";
             const estiloResultado = `background-color:${colorResultado};color:${textoResultado};font-weight:bold;text-align:center;vertical-align:middle;-webkit-print-color-adjust:exact;print-color-adjust:exact;`;
@@ -17786,6 +17960,8 @@ h3{color:#000!important;border-bottom:1px solid #F2C500!important}
     ${escapar(inspeccion.cliente)}
     <br>
     <strong>
+        ID DE INSPECCIÓN: ${escapar(inspeccion.idControl || "SIN ID")}
+        <br>
         ID DE INFORME: ${escapar(inspeccion.idInforme || "SIN ID")}
     </strong>
 </td>
@@ -19370,10 +19546,17 @@ function TECCHNEX_UI_VOLVER_INICIO_TRAS_GUARDAR(referencia, modo = "contenedor")
 </script>
 
 
+<div id="camSyncPanelV1" style="position:fixed;right:14px;bottom:14px;z-index:2500;background:#fff;border:1px solid #b8cadd;border-radius:10px;padding:10px 12px;box-shadow:0 4px 18px rgba(18,59,93,.18);max-width:min(360px,calc(100vw - 28px));font:13px Aptos,Arial,sans-serif">
+  <div style="font-weight:700;color:#123b5d;margin-bottom:6px">Sincronización TECCHNEX</div>
+  <div id="camSyncStatusV1" role="status" aria-live="polite" style="color:#475569;margin-bottom:8px">Preparando cola local…</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap"><button id="camSyncValidateV1" type="button" style="background:#e8f2fb;color:#123b5d;border:1px solid #9bbbd7;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Validar operación (sin escritura)</button><button id="camSyncPrepareTestV1" type="button" style="background:#f1f5f9;color:#123b5d;border:1px solid #94a3b8;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Preparar prueba local</button><button id="camSyncSendTestV1" type="button" disabled style="background:#0f766e;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer;opacity:.55">Enviar prueba controlada</button><button id="camSyncSendV1" type="button" style="background:#1769aa;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Sincronizar pendientes</button></div>
+</div>
+
 <!-- TECCHNEX CAM-INSPECCIONES V25 · scripts de puerta comercial LAB -->
 <script src="./adapters/contrato-adaptador.js"></script>
 <script src="./tecchnex-inspecciones-config.js"></script>
 <script type="module" src="./tecchnex-inspecciones-license-gate.js"></script>
+<script src="./cam-inspecciones-sync-client-v1.js"></script>
 <!-- FIN puerta comercial LAB -->
 </body>
 </html>
