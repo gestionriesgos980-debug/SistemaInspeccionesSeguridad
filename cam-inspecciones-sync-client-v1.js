@@ -1,292 +1,485 @@
-/* TECCHNEX CAM-INSPECCIONES SYNC CLIENT V1 — integración manual y controlada.
-   Reutiliza la cola local existente. No cambia registros funcionales ni dispara POST automático.
-   El envío ocurre únicamente al pulsar “Sincronizar pendientes”. */
-const QUEUE_KEY = "tecchnex_cam_inspecciones_sync_queue_v1";
-const RECORDS_KEY = "tecchnex_cam_inspecciones_sync_records_v1";
-const CONFIG_KEY = "tecchnex_inspecciones_supabase_public_config_v1";
-const FUNCTION_NAME = "tecchnex-cam-inspecciones-sync";
-const $ = (id) => document.getElementById(id);
-let busy = false;
+/*
+ * TECCHNEX CAM-INSPECCIONES — cliente de sincronización V1 (LAB)
+ *
+ * Alcance de esta entrega:
+ * - Conecta con la Edge Function existente mediante la sesión Supabase del gate.
+ * - Conserva la validación individual de la cola local.
+ * - Valida y sincroniza paquetes mediante la Edge Function agrupada V1.
+ * - La escritura real requiere confirmación expresa del usuario en pantalla.
+ * - Las fotografías permanecen pendientes para una etapa posterior de Storage.
+ *
+ * Seguridad: usa únicamente la clave publicable configurada y el JWT de sesión.
+ * Nunca contiene ni solicita credenciales administrativas, secretos HMAC ni tokens manuales.
+ */
+(function () {
+    "use strict";
 
-function readJson(key, fallback) {
-  try { const value = JSON.parse(localStorage.getItem(key) || "null"); return value == null ? fallback : value; }
-  catch { return fallback; }
-}
-function writePair(queue, records) {
-  const previous = { [QUEUE_KEY]: localStorage.getItem(QUEUE_KEY), [RECORDS_KEY]: localStorage.getItem(RECORDS_KEY) };
-  try {
-    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
-    localStorage.setItem(RECORDS_KEY, JSON.stringify(records));
-  } catch (error) {
-    for (const [key, value] of Object.entries(previous)) {
-      try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch {}
-    }
-    throw error;
-  }
-}
-function status(message, color = "#475569") {
-  const el = $("camSyncStatusV1");
-  if (el) { el.textContent = message; el.style.color = color; }
-}
-function getConfig() {
-  const cfg = window.TECCHNEX_INSPECCIONES_CONFIG || {};
-  const keyName = typeof cfg.configStorageKey === "string" ? cfg.configStorageKey : CONFIG_KEY;
-  const saved = readJson(keyName, {});
-  const url = String(cfg.projectUrl || saved.url || "").replace(/\/$/, "");
-  const anonKey = String(saved.key || "");
-  if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url) || !anonKey) {
-    throw new Error("No se encontró la configuración pública de Supabase guardada en la puerta de acceso.");
-  }
-  return { url, anonKey };
-}
-function makeRequestBody(op) {
-  if (!op || typeof op !== "object" || !op.operation_id || !op.record_sync_id || !op.record_type || !op.operation_type || !op.payload || typeof op.payload !== "object" || Array.isArray(op.payload)) {
-    throw new Error("Hay una operación pendiente con estructura inválida. No se envió.");
-  }
-  return {
-    operation_id: op.operation_id,
-    record_sync_id: op.record_sync_id,
-    operation_type: op.operation_type,
-    expected_version: op.expected_version ?? null,
-    record_type: op.record_type,
-    parent_sync_id: op.parent_sync_id ?? null,
-    payload: op.payload
-  };
-}
-async function sendOne(op) {
-  const auth = window.TECCHNEX_CAM_INSPECCIONES_AUTH;
-  if (!auth || typeof auth.getAccessToken !== "function") throw new Error("La interfaz de sesión AUTH no está disponible.");
-  const token = await auth.getAccessToken();
-  const { url, anonKey } = getConfig();
-  const body = makeRequestBody(op);
-  let response, data = null;
-  try {
-    response = await fetch(`${url}/functions/v1/${FUNCTION_NAME}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, apikey: anonKey, "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
-    try { data = await response.json(); } catch {}
-  } catch (error) {
-    return { state: "delivery_uncertain", confirmed: false, code: "NETWORK_ERROR", message: "No se pudo confirmar la respuesta de red." };
-  }
-  if (response.status === 200 && data?.ok === true) return { state: "completed", confirmed: true, data, httpStatus: response.status };
-  if (response.status === 409) return { state: "conflict", confirmed: false, code: data?.code || "HTTP_409", httpStatus: response.status };
-  if (response.status === 401 || response.status === 403) return { state: "authorization_required", confirmed: false, code: data?.code || `HTTP_${response.status}`, httpStatus: response.status };
-  if (response.status === 429 || response.status >= 500) return { state: "pending", confirmed: false, code: data?.code || `HTTP_${response.status}`, httpStatus: response.status };
-  return { state: "request_rejected", confirmed: false, code: data?.code || `HTTP_${response.status}`, httpStatus: response.status };
-}
-async function syncPending() {
-  if (busy) return;
-  busy = true;
-  const button = $("camSyncSendV1");
-  if (button) button.disabled = true;
-  try {
-    const queue = readJson(QUEUE_KEY, []);
-    const records = readJson(RECORDS_KEY, {});
-    if (!Array.isArray(queue) || !records || typeof records !== "object" || Array.isArray(records)) throw new Error("La estructura de la cola local no es válida.");
-    const pending = queue.filter(op => op && op.status === "pending");
-    if (!pending.length) { status(`Cola revisada: ${queue.length} operación(es), ninguna pendiente.`, "#146d4a"); return; }
-    status(`Enviando 1 de ${pending.length} operación(es) pendiente(s)…`);
-    let completed = 0, blocked = false;
-    for (const op of pending) {
-      // Se relee antes de cada intento para no sobrescribir cambios externos recientes.
-      const currentQueue = readJson(QUEUE_KEY, []);
-      const index = currentQueue.findIndex(item => item?.operation_id === op.operation_id && item?.status === "pending");
-      if (index < 0) continue;
-      const current = currentQueue[index];
-      current.attempts = Number(current.attempts || 0) + 1;
-      current.last_attempt_at = new Date().toISOString();
-      let result;
-      try { result = await sendOne(current); }
-      catch (error) { result = { state: "authorization_required", confirmed: false, code: "CLIENT_PRECHECK_FAILED", message: error?.message || "No se pudo preparar la solicitud." }; }
-      current.last_response = { state: result.state, code: result.code || result.data?.code || null, http_status: result.httpStatus ?? null, occurred_at: new Date().toISOString() };
-      if (result.confirmed) {
-        current.status = "completed";
-        current.completed_at = new Date().toISOString();
-        current.result_version = Number(result.data?.result_version ?? result.data?.version ?? 0) || null;
-        const meta = records[current.local_record_id] || records[Object.keys(records).find(k => records[k]?.record_sync_id === current.record_sync_id)] || null;
-        const metaKey = current.local_record_id || Object.keys(records).find(k => records[k]?.record_sync_id === current.record_sync_id);
-        if (meta && metaKey) records[metaKey] = { ...meta, server_version: current.result_version ?? meta.server_version ?? 0, updated_at: new Date().toISOString() };
-        completed++;
-      } else if (["conflict", "authorization_required", "request_rejected"].includes(result.state)) {
-        current.status = result.state;
-        blocked = true;
-      } else {
-        // Error temporal o entrega incierta: permanece pendiente; mismo operation_id y payload.
-        current.status = "pending";
-        blocked = true;
-      }
-      writePair(currentQueue, records);
-      status(`Resultado ${completed}/${pending.length} completada(s). Última operación: ${current.status}.`);
-      if (blocked) break;
-    }
-    const finalQueue = readJson(QUEUE_KEY, []);
-    const remaining = finalQueue.filter(op => op?.status === "pending").length;
-    status(`Sincronización finalizada: ${completed} completada(s); ${remaining} pendiente(s).`, completed && !remaining ? "#146d4a" : "#8a5200");
-  } catch (error) {
-    status(error?.message || "No fue posible iniciar la sincronización.", "#a22626");
-  } finally {
-    busy = false;
-    if (button) button.disabled = false;
-  }
-}
+    const QUEUE_KEY = "tecchnex_cam_inspecciones_sync_queue_v1";
+    const CONFIG = window.TECCHNEX_INSPECCIONES_CONFIG || {};
+    const FUNCTION_NAME = "tecchnex-cam-inspecciones-sync";
+    const PACKAGE_FUNCTION_NAME = "tecchnex-cam-inspecciones-sync-package";
+    const READ_FUNCTION_NAME = "tecchnex-cam-inspecciones-read";
+    const REAL_INSPECTION_READ_ID = "e60d753a-8a9e-4d7f-af59-57511416db50";
+    const MAX_VALIDATE_BATCH = 10;
+    const MAX_PACKAGE_RECORDS = 11;
+    const MAX_REQUEST_BYTES = 1024 * 1024;
+    let importedPackage = null;
+    // Progreso de VALIDATE_ONLY conservado solo en memoria durante esta sesión.
+    let packageValidationProgress = null;
 
-async function validateCompletedOnly() {
-  if (busy) return;
-  busy = true;
-  const button = $("camSyncValidateV1");
-  if (button) button.disabled = true;
-  try {
-    const queue = readJson(QUEUE_KEY, []);
-    if (!Array.isArray(queue)) throw new Error("La estructura de la cola local no es válida.");
-    const candidate = [...queue].reverse().find(op => op && op.status === "completed");
-    if (!candidate) { status("No hay una operación completada disponible para validar.", "#8a5200"); return; }
-    const auth = window.TECCHNEX_CAM_INSPECCIONES_AUTH;
-    if (!auth || typeof auth.getAccessToken !== "function") throw new Error("La interfaz de sesión AUTH no está disponible.");
-    const token = await auth.getAccessToken();
-    const { url, anonKey } = getConfig();
-    const body = { ...makeRequestBody(candidate), mode: "VALIDATE_ONLY" };
-    status("Validando estructura y autorización comercial. No se ejecutará RPC ni escritura…");
-    const response = await fetch(`${url}/functions/v1/${FUNCTION_NAME}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, apikey: anonKey, "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
-    let data = null;
-    try { data = await response.json(); } catch {}
-    if (response.status === 200 && data?.ok === true && data?.code === "VALIDATE_ONLY_PASSED" && data?.write_executed === false && data?.rpc_executed === false) {
-      status("VALIDACIÓN SUPERADA: JWT, contrato, puente y operación correctos. Sin RPC ni escritura. Cola intacta.", "#146d4a");
+    const $ = (id) => document.getElementById(id);
+    const statusNode = () => $("camSyncStatusV1");
+    let clientPromise = null;
+    let preparedTest = null;
+    let busy = false;
+
+    function setStatus(message, kind = "info") {
+        const node = statusNode();
+        if (!node) return;
+        node.textContent = message;
+        node.style.color = kind === "ok" ? "#146d4a" : kind === "error" ? "#a22626" : "#475569";
+    }
+
+    function readQueue() {
+        let value;
+        try { value = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]"); }
+        catch (_) { throw new Error("La cola local no contiene JSON válido."); }
+        if (!Array.isArray(value)) throw new Error("La cola local tiene una estructura inesperada.");
+        return value.filter((item) => item && item.status === "pending");
+    }
+
+    function uuid() {
+        if (!window.crypto || typeof window.crypto.randomUUID !== "function") {
+            throw new Error("Este navegador no permite generar UUID seguros.");
+        }
+        return window.crypto.randomUUID();
+    }
+
+    async function getClient() {
+        if (clientPromise) return clientPromise;
+        clientPromise = (async () => {
+            const url = String(CONFIG.projectUrl || "").trim().replace(/\/+$/, "");
+            const key = String(CONFIG.supabaseAnonKey || "").trim();
+            if (!url || !key || !/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)) {
+                throw new Error("La configuración pública de Supabase está incompleta o no es válida.");
+            }
+            const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+            // Supabase usa la misma clave de almacenamiento de sesión por project-ref
+            // que el gate comercial, por lo que se reutiliza el login ya existente.
+            return createClient(url, key, {
+                auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+            });
+        })().catch((error) => {
+            clientPromise = null;
+            throw error;
+        });
+        return clientPromise;
+    }
+
+    async function invokeValidation(operation, mode = "VALIDATE_ONLY") {
+        const client = await getClient();
+        const { data: sessionData, error: sessionError } = await client.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
+        if (sessionError || !accessToken) {
+            throw new Error("No hay una sesión autenticada. Inicia sesión en la puerta comercial y vuelve a intentar.");
+        }
+
+        const body = mode === "DRY_RUN"
+            ? { mode: "DRY_RUN" }
+            : {
+                mode: "VALIDATE_ONLY",
+                operation_id: operation.operation_id,
+                record_sync_id: operation.record_sync_id,
+                operation_type: operation.operation_type,
+                expected_version: operation.expected_version ?? null,
+                record_type: operation.record_type,
+                parent_sync_id: operation.parent_sync_id ?? null,
+                payload: operation.payload
+            };
+
+        const { data, error } = await client.functions.invoke(FUNCTION_NAME, { body });
+        if (error) {
+            let detail = "";
+            let responseBody = null;
+            let httpStatus = Number(error.context?.status || 0);
+            try {
+                if (error.context && typeof error.context.clone === "function") {
+                    const response = error.context.clone();
+                    httpStatus = Number(response.status || httpStatus);
+                    responseBody = await response.json();
+                    detail = JSON.stringify(responseBody);
+                }
+            } catch (_) { /* No se exponen tokens, cabeceras ni cuerpos ajenos al error. */ }
+            const code = String(responseBody?.code || responseBody?.error || "");
+            let retryAfterSeconds = Number(responseBody?.retry_after_seconds || 0);
+            try {
+                const headerValue = error.context?.headers?.get?.("Retry-After");
+                if (headerValue && Number.isFinite(Number(headerValue))) retryAfterSeconds = Math.max(retryAfterSeconds, Number(headerValue));
+            } catch (_) { /* El cuerpo JSON es la fuente alternativa. */ }
+            const failure = new Error(code === "RATE_LIMIT_EXCEEDED"
+                ? `RATE_LIMIT_EXCEEDED: el Universal Bridge alcanzó su límite${retryAfterSeconds > 0 ? `. Espera ${retryAfterSeconds} segundos antes de reanudar.` : ". El servidor no informó el tiempo de espera."}`
+                : `La función de sincronización no respondió correctamente.${detail ? " " + detail : ""}`);
+            failure.code = code;
+            failure.httpStatus = httpStatus;
+            failure.retryAfterSeconds = retryAfterSeconds;
+            throw failure;
+        }
+        if (!data || data.ok !== true || data.write_executed !== false) {
+            throw new Error(`Validación rechazada: ${String(data?.code || "RESPUESTA_INVALIDA")}`);
+        }
+        if (mode === "VALIDATE_ONLY" && data.rpc_executed !== false) {
+            throw new Error("La respuesta no confirmó que el RPC de escritura permaneció sin ejecutar.");
+        }
+        return data;
+    }
+
+    function makeLocalTestOperation() {
+        return {
+            operation_id: uuid(),
+            record_sync_id: uuid(),
+            operation_type: "INSERT",
+            expected_version: null,
+            record_type: "inspeccion",
+            parent_sync_id: null,
+            payload: {
+                _tecchnex_sync_lab_test_v1: true,
+                _note: "VALIDACION_CONTROLADA_SIN_ESCRITURA",
+                fecha_prueba: new Date().toISOString()
+            }
+        };
+    }
+
+    async function withBusy(task) {
+        if (busy) return;
+        busy = true;
+        for (const id of ["camSyncValidateV1", "camSyncPrepareTestV1", "camSyncSendTestV1", "camSyncReadTestV1", "camSyncSendV1", "camSyncValidatePackageV18"]) {
+            const node = $(id);
+            if (node) node.disabled = true;
+        }
+        try { await task(); }
+        catch (error) { setStatus(error?.message || "No fue posible completar la validación.", "error"); }
+        finally {
+            busy = false;
+            const pending = (() => { try { return readQueue().length; } catch (_) { return 0; } })();
+            const validate = $("camSyncValidateV1");
+            const prepare = $("camSyncPrepareTestV1");
+            const sendTest = $("camSyncSendTestV1");
+            const readTest = $("camSyncReadTestV1");
+            const send = $("camSyncSendV1");
+            const validatePackage = $("camSyncValidatePackageV18");
+            if (validate) validate.disabled = pending === 0;
+            if (prepare) prepare.disabled = false;
+            if (sendTest) sendTest.disabled = !preparedTest;
+            if (validatePackage) { validatePackage.disabled = !importedPackage; validatePackage.style.opacity = importedPackage ? "1" : ".55"; }
+            if (readTest) readTest.disabled = false;
+            // V1 deliberadamente no permite sincronización con escritura.
+            if (send) {
+                send.disabled = !importedPackage;
+                send.title = importedPackage ? "Sincroniza el paquete completo mediante una autorización comercial." : "Primero importa el paquete JSON.";
+            }
+        }
+    }
+
+    async function validateFirstPending() {
+        const pending = readQueue();
+        if (!pending.length) {
+            setStatus("No hay operaciones pendientes en la cola local.");
+            return;
+        }
+        const op = pending[0];
+        setStatus("Validando la primera operación pendiente con el servidor; no se guardarán cambios…");
+        const result = await invokeValidation(op);
+        setStatus(`Validación aprobada (${result.code}). Escritura: no ejecutada. RPC: no ejecutado.`, "ok");
+    }
+
+    async function validatePreparedTest() {
+        if (!preparedTest) throw new Error("Primero prepara la prueba local.");
+        setStatus("Enviando una solicitud VALIDATE_ONLY de laboratorio; no se creará ningún registro…");
+        const result = await invokeValidation(preparedTest);
+        setStatus(`Prueba validada (${result.code}). write_executed=false; rpc_executed=false.`, "ok");
+    }
+
+    function validateImportedPackage(pkg) {
+        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        const allowed = new Set(["inspeccion", "hallazgo", "checklist", "resultado_checklist", "matriz_riesgos", "matriz_cliente", "vulnerabilidad", "agenda_visita", "actividad_gestion", "seguimiento_proceso", "evento_trazabilidad"]);
+        if (!pkg || pkg.schema !== "TECCHNEX-CAM-INSPECCIONES-SYNC-PACKAGE-1" || pkg.mode !== "LOCAL_PACKAGE_ONLY") {
+            throw new Error("El archivo no corresponde a un paquete TECCHNEX LOCAL_PACKAGE_ONLY.");
+        }
+        if (pkg.source?.id_control !== "INS-2026-0008" || pkg.source?.id_inspeccion_interno !== "d0ac9734-16ae-4bdc-8a63-36687efdccaf") {
+            throw new Error("El paquete no corresponde a la inspección INS-2026-0008 esperada.");
+        }
+        if (!Array.isArray(pkg.records) || pkg.records.length !== MAX_PACKAGE_RECORDS || pkg.counts?.records !== MAX_PACKAGE_RECORDS) {
+            throw new Error("Se esperaban exactamente 11 operaciones en el paquete.");
+        }
+        const ids = new Set();
+        const operations = new Set();
+        for (let i = 0; i < pkg.records.length; i++) {
+            const op = pkg.records[i];
+            if (!op || !uuidPattern.test(String(op.operation_id || "")) || !uuidPattern.test(String(op.record_sync_id || ""))) {
+                throw new Error(`La operación ${i + 1} contiene identificadores UUID inválidos.`);
+            }
+            if (ids.has(op.record_sync_id) || operations.has(op.operation_id)) throw new Error("El paquete contiene identificadores duplicados.");
+            ids.add(op.record_sync_id); operations.add(op.operation_id);
+            if (op.operation_type !== "INSERT" || op.expected_version !== null || !allowed.has(op.record_type) || !op.payload || typeof op.payload !== "object" || Array.isArray(op.payload)) {
+                throw new Error(`La operación ${i + 1} no cumple el contrato INSERT esperado.`);
+            }
+            if (i === 0) {
+                if (op.record_type !== "inspeccion" || op.parent_sync_id !== null || op.record_sync_id !== pkg.source.id_inspeccion_interno) {
+                    throw new Error("La primera operación debe ser la inspección principal, sin padre.");
+                }
+            } else if (op.parent_sync_id !== pkg.source.id_inspeccion_interno) {
+                throw new Error(`La operación hija ${i + 1} no apunta a la inspección principal.`);
+            }
+            const body = { mode: "VALIDATE_ONLY", operation_id: op.operation_id, record_sync_id: op.record_sync_id,
+                operation_type: op.operation_type, expected_version: op.expected_version,
+                record_type: op.record_type, parent_sync_id: op.parent_sync_id, payload: op.payload };
+            const size = new TextEncoder().encode(JSON.stringify(body)).byteLength;
+            if (size > MAX_REQUEST_BYTES) throw new Error(`La operación ${i + 1} supera el límite de 1 MiB (${size} bytes).`);
+        }
+        if (pkg.records[0].record_type !== "inspeccion" || pkg.records.slice(1).some(x => x.record_type === "inspeccion")) {
+            throw new Error("El orden o la cantidad de inspecciones del paquete no es válido.");
+        }
+        if (!Array.isArray(pkg.photo_manifest) || pkg.photo_manifest.length !== 16 ||
+            pkg.photo_manifest.some(photo => photo.transfer_status !== "PENDING_STORAGE_UPLOAD" ||
+                photo.parent_record_sync_id !== pkg.source.id_inspeccion_interno ||
+                !/^[0-9a-f]{64}$/i.test(String(photo.hash_sha256 || "")))) {
+            throw new Error("El manifiesto de 16 fotografías no conserva el estado pendiente y sus hashes válidos.");
+        }
+        return true;
+    }
+
+    async function importPackageFile(file) {
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) throw new Error("El archivo del paquete supera el límite local de 2 MiB.");
+        const parsed = JSON.parse(await file.text());
+        validateImportedPackage(parsed);
+        importedPackage = parsed;
+        packageValidationProgress = {
+            packageKey: parsed.records.map(record => record.operation_id).join("|"),
+            nextIndex: 0,
+            passed: 0,
+            details: []
+        };
+        const button = $("camSyncValidatePackageV18");
+        if (button) { button.disabled = false; button.style.opacity = "1"; }
+        const sendButton = $("camSyncSendV1"); if (sendButton) { sendButton.disabled = false; sendButton.title = "Sincroniza el paquete completo mediante una autorización comercial."; }
+        setStatus(`Paquete V1.8 cargado en memoria: ${parsed.records.length} operaciones. Aún no se ha enviado ninguna solicitud.`, "ok");
+    }
+
+    async function invokePackage(mode) {
+        if (!importedPackage) throw new Error("Primero selecciona el JSON del paquete V1.8.");
+        validateImportedPackage(importedPackage);
+        const client = await getClient();
+        const { data: sessionData, error: sessionError } = await client.auth.getSession();
+        if (sessionError || !sessionData?.session?.access_token) throw new Error("No hay una sesión autenticada. Inicia sesión y vuelve a intentar.");
+        const { data, error } = await client.functions.invoke(PACKAGE_FUNCTION_NAME, {
+            body: { mode, package: importedPackage }
+        });
+        if (error) {
+            // Supabase convierte respuestas HTTP 207 en FunctionsHttpError.
+            // Recuperamos el cuerpo para mostrar el avance parcial real y
+            // permitir reintentar el mismo paquete con sus UUID originales.
+            let responseBody = null;
+            let httpStatus = Number(error.context?.status || 0);
+            try {
+                if (error.context && typeof error.context.clone === "function") {
+                    const response = error.context.clone();
+                    httpStatus = Number(response.status || httpStatus);
+                    responseBody = await response.json();
+                }
+            } catch (_) { /* La respuesta puede no contener JSON. */ }
+            if (httpStatus === 207 && responseBody?.code === "PACKAGE_PARTIAL_FAILURE") return responseBody;
+            const code = String(responseBody?.code || responseBody?.error || "");
+            throw new Error(`El servidor no confirmó el paquete${code ? ` (${code})` : ""}.${responseBody ? " " + JSON.stringify(responseBody) : ""}`);
+        }
+        return data;
+    }
+
+    async function validateImportedPackageV18() {
+        if (!importedPackage) throw new Error("Primero selecciona el JSON del paquete V1.8.");
+        setStatus("Validando el paquete completo con una sola autorización comercial; sin escrituras…");
+        const result = await invokePackage("VALIDATE_ONLY");
+        if (!result || result.ok !== true || result.code !== "PACKAGE_VALIDATED" ||
+            result.package_records !== importedPackage.records.length || result.bridge_authorizations !== 1 ||
+            result.write_executed !== false || result.rpc_executed !== false) {
+            throw new Error(`Validación de paquete no confirmada: ${String(result?.code || "RESPUESTA_INVALIDA")}`);
+        }
+        const node = $("camSyncPackageResultsV18");
+        if (node) node.textContent = `✓ Paquete validado: ${result.package_records}/${result.package_records}\n✓ Autorizaciones Universal Bridge: 1\n✓ Escrituras: 0 · RPC: 0 · Fotografías: pendientes`;
+        setStatus("PAQUETE VALIDADO. Una autorización comercial para todo el lote. Sin escrituras ni RPC.", "ok");
+    }
+
+    async function syncImportedPackage() {
+        if (!importedPackage) throw new Error("Primero selecciona el JSON del paquete V1.8.");
+        validateImportedPackage(importedPackage);
+        const accepted = window.confirm(
+            `Se enviará INS-2026-0008 como un solo paquete de ${importedPackage.records.length} registros. ` +
+            "El servidor realizará UNA autorización Universal Bridge y luego ejecutará INSERT en las tablas existentes mediante el RPC actual. " +
+            "Si una operación falla, el resultado puede ser parcial; el mismo paquete podrá reintentarse con idempotencia. " +
+            "Las 16 fotografías NO se transferirán en esta etapa. ¿Autorizar la escritura real de este paquete?"
+        );
+        if (!accepted) { setStatus("Sincronización cancelada. No se realizaron escrituras."); return; }
+        setStatus("Enviando paquete completo. Una autorización comercial; registros en orden…");
+        const result = await invokePackage("SYNC");
+        const node = $("camSyncPackageResultsV18");
+        if (node) node.textContent = (result?.results || []).map(x => `${x.ok ? "✓" : "✗"} ${x.index}/${result.total} · ${x.record_type} · ${x.code}`).join("\n");
+        if (result?.ok === true && result.code === "PACKAGE_SYNC_COMPLETED" && result.completed === importedPackage.records.length) {
+            setStatus(`SINCRONIZACIÓN COMPLETADA: ${result.completed}/${result.total} registros. Autorizaciones Universal Bridge: 1. Fotografías: pendientes de Storage.`, "ok");
+            return;
+        }
+        throw new Error(`Paquete con resultado parcial: ${result?.completed ?? 0}/${result?.total ?? importedPackage.records.length}. Código: ${result?.code || "RESPUESTA_INVALIDA"}. Conserva el mismo JSON para reintentar de forma idempotente.`);
+    }
+
+
+    async function validatePendingBatch() {
+        const pending = readQueue().slice(0, MAX_VALIDATE_BATCH);
+        if (!pending.length) {
+            setStatus("No hay operaciones pendientes para validar.");
+            return;
+        }
+        let passed = 0;
+        for (let i = 0; i < pending.length; i++) {
+            setStatus(`Validando operación ${i + 1} de ${pending.length}; sin escrituras…`);
+            await invokeValidation(pending[i]);
+            passed++;
+        }
+        setStatus(`${passed} operación(es) validadas. Ninguna fue escrita ni marcada como sincronizada.`, "ok");
+    }
+
+    function initialize() {
+        const validate = $("camSyncValidateV1");
+        const prepare = $("camSyncPrepareTestV1");
+        const sendTest = $("camSyncSendTestV1");
+        const readTest = $("camSyncReadTestV1");
+        const send = $("camSyncSendV1");
+        const packageInput = $("camSyncPackageFileV18");
+        const validatePackage = $("camSyncValidatePackageV18");
+        if (!statusNode() || !validate || !prepare || !sendTest || !readTest || !send) return;
+
+        validate.addEventListener("click", () => withBusy(validateFirstPending));
+        if (packageInput && validatePackage) {
+            packageInput.addEventListener("change", () => withBusy(async () => {
+                importedPackage = null; validatePackage.disabled = true;
+                await importPackageFile(packageInput.files && packageInput.files[0]);
+            }));
+            validatePackage.addEventListener("click", () => withBusy(validateImportedPackageV18));
+            validatePackage.disabled = true;
+        }
+        prepare.addEventListener("click", () => withBusy(async () => {
+            preparedTest = makeLocalTestOperation();
+            sendTest.disabled = false;
+            setStatus("Prueba local preparada en memoria. Aún no se ha enviado ni guardado en Supabase.", "ok");
+        }));
+        readTest.addEventListener("click", () => withBusy(async () => {
+            const accepted = window.confirm(
+                "Se consultará UNA inspección real ya registrada en Admin Maestro. " +
+                "La consulta será exclusivamente de lectura: no modificará registros, " +
+                "no guardará datos en este dispositivo y no descargará fotografías. ¿Continuar?"
+            );
+            if (!accepted) {
+                setStatus("Consulta cancelada. No se realizaron cambios.");
+                return;
+            }
+            setStatus("Consultando la inspección real en Admin Maestro…");
+            const client = await getClient();
+            const { data: sessionData, error: sessionError } = await client.auth.getSession();
+            const accessToken = sessionData?.session?.access_token;
+            if (sessionError || !accessToken) {
+                throw new Error("No hay una sesión autenticada. Inicia sesión y vuelve a intentar.");
+            }
+            const { data, error } = await client.functions.invoke(READ_FUNCTION_NAME, {
+                body: { record_sync_id: REAL_INSPECTION_READ_ID }
+            });
+            if (error) {
+                let detail = "";
+                try { detail = error.context && typeof error.context.json === "function" ? JSON.stringify(await error.context.json()) : ""; }
+                catch (_) { /* no se expone información sensible */ }
+                throw new Error(`La función de lectura no respondió correctamente.${detail ? " " + detail : ""}`);
+            }
+            if (!data || data.ok !== true || data.code !== "RECORD_RECOVERED" ||
+                data.record?.record_sync_id !== REAL_INSPECTION_READ_ID ||
+                data.record?.record_type !== "inspeccion" ||
+                !data.record?.payload || typeof data.record.payload !== "object" ||
+                data.record.payload._tecchnex_sync_lab_test_v1 === true) {
+                throw new Error(`Lectura no confirmada: ${String(data?.code || "RESPUESTA_INVALIDA")}`);
+            }
+            const payload = data.record.payload;
+            const cliente = String(payload.cliente || "Cliente no especificado").slice(0, 90);
+            const puesto = String(payload.nombrePuesto || payload.idControl || "Puesto no especificado").slice(0, 90);
+            const ciudad = String(payload.ciudad || "Ciudad no especificada").slice(0, 70);
+            const fecha = String(payload.fecha || "Fecha no especificada").slice(0, 30);
+            const campos = Object.keys(payload).length;
+            const relacionados = Array.isArray(data.related_records) ? data.related_records : [];
+            const resumen = relacionados.reduce((acc, item) => {
+                const tipo = String(item?.record_type || "otro").toLowerCase();
+                acc[tipo] = (acc[tipo] || 0) + 1;
+                return acc;
+            }, {});
+            const detalle = `Relacionados: ${relacionados.length} (hallazgos: ${resumen.hallazgo || resumen.hallazgos || 0}, checklists: ${resumen.checklist || resumen.checklists || 0}, matrices: ${resumen.matriz_riesgos || resumen.matriz || 0}).`;
+            const integridad = data.related_records_complete === false ? " Hay más de 500 registros relacionados; lectura parcial." : "";
+            setStatus(`INSPECCIÓN REAL RECUPERADA: ${cliente} · ${puesto} · ${ciudad} · ${fecha}. ${campos} campos, versión ${data.record.version}. ${detalle}${integridad} Solo lectura; sin escrituras ni cambios locales. Fotografías: pendiente de contrato de Storage.`, "ok");
+        }));
+
+        sendTest.addEventListener("click", () => withBusy(async () => {
+            if (!preparedTest) throw new Error("Primero prepara la prueba local.");
+            const accepted = window.confirm(
+                "Se enviará UNA inspección ficticia de laboratorio a Supabase. " +
+                "Se crearán un registro y una operación en las tablas existentes. ¿Continuar?"
+            );
+            if (!accepted) {
+                setStatus("Envío cancelado. No se realizaron escrituras.");
+                return;
+            }
+
+            setStatus("Enviando una única inspección ficticia a Supabase…");
+            const client = await getClient();
+            const { data: sessionData, error: sessionError } = await client.auth.getSession();
+            const accessToken = sessionData?.session?.access_token;
+            if (sessionError || !accessToken) {
+                throw new Error("No hay una sesión autenticada. Inicia sesión y vuelve a preparar la prueba.");
+            }
+
+            const body = {
+                operation_id: preparedTest.operation_id,
+                record_sync_id: preparedTest.record_sync_id,
+                operation_type: "INSERT",
+                expected_version: null,
+                record_type: "inspeccion",
+                parent_sync_id: null,
+                payload: preparedTest.payload
+            };
+            const { data, error } = await client.functions.invoke(FUNCTION_NAME, { body });
+            if (error) {
+                throw new Error("La función de sincronización no confirmó la escritura. Revisa el estado remoto antes de reintentar.");
+            }
+            if (!data || data.ok !== true || data.code !== "COMPLETED") {
+                throw new Error(`La operación no se completó: ${String(data?.code || "RESPUESTA_INVALIDA")}`);
+            }
+
+            preparedTest = null;
+            setStatus(
+                `Prueba controlada completada. Registro ficticio creado. Versión ${data.result_version}. No se enviaron fotografías.`,
+                "ok"
+            );
+        }));
+        send.addEventListener("click", (event) => { event.preventDefault(); withBusy(syncImportedPackage); });
+
+        try {
+            const count = readQueue().length;
+            validate.disabled = count === 0;
+            send.disabled = !importedPackage;
+            send.title = "Importa un paquete para habilitar sincronización integrada.";
+            setStatus(`Cliente V1.12 cargado. ${count} operación(es) pendientes en cola local. La sincronización por paquete requiere importar el JSON.`);
+        } catch (error) {
+            validate.disabled = true;
+            send.disabled = true;
+            setStatus(error.message, "error");
+        }
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initialize, { once: true });
     } else {
-      status(`Validación no superada: ${data?.code || `HTTP_${response.status}`}. La cola permanece intacta.`, "#a22626");
+        initialize();
     }
-  } catch (error) {
-    status(error?.message || "No fue posible validar la operación.", "#a22626");
-  } finally {
-    busy = false;
-    if (button) button.disabled = false;
-  }
-}
-
-
-// PRUEBA CONTROLADA V1.4: crea un único registro sintético en la cola local.
-// No modifica inspecciones funcionales ni realiza solicitudes de red.
-const TEST_MARKER = "_tecchnex_sync_lab_test_v1";
-function secureUuid() {
-  if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
-  throw new Error("El navegador no permite generar UUID seguros para la prueba.");
-}
-function updateTestButton() {
-  const queue = readJson(QUEUE_KEY, []);
-  const test = Array.isArray(queue) ? queue.find(op => op?.payload?.[TEST_MARKER] === true) : null;
-  const button = $("camSyncSendTestV1");
-  if (button) {
-    button.disabled = !(test && test.status === "pending");
-    button.style.opacity = button.disabled ? ".55" : "1";
-  }
-}
-function prepareLocalTest() {
-  try {
-    const queue = readJson(QUEUE_KEY, []);
-    const records = readJson(RECORDS_KEY, {});
-    if (!Array.isArray(queue) || !records || typeof records !== "object" || Array.isArray(records)) {
-      throw new Error("La estructura de la cola local no es válida.");
-    }
-    const existing = queue.find(op => op?.payload?.[TEST_MARKER] === true);
-    if (existing) {
-      updateTestButton();
-      status(`Ya existe una prueba de laboratorio: ${existing.status}. No se creó otra operación.`, "#8a5200");
-      return;
-    }
-    const stamp = new Date().toISOString();
-    const date = stamp.slice(0, 10);
-    const suffix = secureUuid().slice(0, 8).toUpperCase();
-    const payload = {
-      idControl: `LAB-SYNC-${date.replaceAll("-", "")}-${suffix}`,
-      fecha: date,
-      nombrePuesto: "TECCHNEX - PRUEBA TÉCNICA DE SINCRONIZACIÓN",
-      estado: "REGISTRO_SINTETICO_DE_LABORATORIO",
-      descripcion: "Registro sintético sin datos personales ni información de un cliente real.",
-      [TEST_MARKER]: true
-    };
-    const operation = {
-      operation_id: secureUuid(),
-      record_sync_id: secureUuid(),
-      operation_type: "INSERT",
-      expected_version: null,
-      record_type: "inspeccion",
-      parent_sync_id: null,
-      payload,
-      status: "pending",
-      created_at: stamp,
-      attempts: 0,
-      local_record_id: "__TECCHNEX_SYNC_LAB_TEST__",
-      lab_test: true
-    };
-    writePair([...queue, operation], records);
-    updateTestButton();
-    status(`Prueba local preparada: ${payload.idControl}. No se envió nada al servidor.`, "#146d4a");
-  } catch (error) {
-    status(error?.message || "No fue posible preparar la prueba local.", "#a22626");
-  }
-}
-async function syncOnlyTest() {
-  if (busy) return;
-  busy = true;
-  const button = $("camSyncSendTestV1");
-  if (button) button.disabled = true;
-  try {
-    const queue = readJson(QUEUE_KEY, []);
-    const records = readJson(RECORDS_KEY, {});
-    if (!Array.isArray(queue) || !records || typeof records !== "object" || Array.isArray(records)) {
-      throw new Error("La estructura de la cola local no es válida.");
-    }
-    const index = queue.findIndex(op => op?.payload?.[TEST_MARKER] === true && op.status === "pending");
-    if (index < 0) throw new Error("No hay una prueba sintética pendiente para enviar.");
-    const currentQueue = [...queue];
-    const operation = { ...currentQueue[index] };
-    operation.attempts = Number(operation.attempts || 0) + 1;
-    operation.last_attempt_at = new Date().toISOString();
-    status("Enviando únicamente el registro sintético de laboratorio. Esta acción escribe en Supabase…", "#8a5200");
-    let result;
-    try { result = await sendOne(operation); }
-    catch (error) { result = { state: "authorization_required", confirmed: false, code: "CLIENT_PRECHECK_FAILED", message: error?.message || "No se pudo preparar la solicitud." }; }
-    operation.last_response = { state: result.state, code: result.code || result.data?.code || null, http_status: result.httpStatus ?? null, occurred_at: new Date().toISOString() };
-    if (result.confirmed) {
-      operation.status = "completed";
-      operation.completed_at = new Date().toISOString();
-      operation.result_version = Number(result.data?.result_version ?? result.data?.version ?? 0) || null;
-      status(`PRUEBA ESCRITA Y CONFIRMADA. Registro ${operation.payload.idControl}; versión ${operation.result_version ?? "confirmación recibida"}.`, "#146d4a");
-    } else if (["conflict", "authorization_required", "request_rejected"].includes(result.state)) {
-      operation.status = result.state;
-      status(`Prueba no completada: ${result.code || result.state}. Revisar respuesta; no repetir automáticamente.`, "#a22626");
-    } else {
-      operation.status = "pending";
-      status("No se confirmó la entrega. La prueba permanece pendiente con el mismo operation_id; no repetir hasta revisar.", "#8a5200");
-    }
-    currentQueue[index] = operation;
-    writePair(currentQueue, records);
-    refreshLabel();
-  } catch (error) {
-    status(error?.message || "No fue posible enviar la prueba controlada.", "#a22626");
-  } finally {
-    busy = false;
-    updateTestButton();
-    const generalButton = $("camSyncSendV1");
-    if (generalButton) generalButton.disabled = false;
-  }
-}
-
-function refreshLabel() {
-  const queue = readJson(QUEUE_KEY, []);
-  if (!Array.isArray(queue)) { status("La cola local requiere revisión.", "#a22626"); return; }
-  const pending = queue.filter(op => op?.status === "pending").length;
-  status(`${pending} pendiente(s) · ${queue.filter(op => op?.status === "completed").length} completada(s).`);
-}
-$("camSyncSendV1")?.addEventListener("click", syncPending);
-$("camSyncValidateV1")?.addEventListener("click", validateCompletedOnly);
-$("camSyncPrepareTestV1")?.addEventListener("click", prepareLocalTest);
-$("camSyncSendTestV1")?.addEventListener("click", syncOnlyTest);
-refreshLabel();
-updateTestButton();
-status("Cliente de sincronización cargado. Listo para validación manual.", "#146d4a");
+})();
