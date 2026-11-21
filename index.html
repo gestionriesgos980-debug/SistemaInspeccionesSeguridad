@@ -1864,9 +1864,9 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
                     <input type="hidden" id="nombrePuesto">
 
                     <div class="campo completo">
-                        <label for="idInformeEditable">ID del informe (editable)</label>
-                        <input type="text" id="idInformeEditable" placeholder="Se asignará al generar el informe si se deja vacío">
-                        <small style="display:block;margin-top:5px;color:#64748b;">Puede corregir este identificador sin modificar el ID interno de la inspección ni sus hallazgos o fotografías.</small>
+                        <label for="idInformeEditable">Referencia del informe (cliente / puesto)</label>
+                        <input type="text" id="idInformeEditable" placeholder="Se asignará el nombre del cliente / puesto" readonly>
+                        <small style="display:block;margin-top:5px;color:#64748b;">Referencia visible del informe. La identidad técnica interna permanece oculta y no cambia.</small>
                     </div>
 
                     <div class="campo">
@@ -4670,6 +4670,9 @@ function camSyncRegistrarInspeccionLocalV1(inspeccionActual, inspeccionAnterior 
             const indiceEdicion = formulario.dataset.editando;
             const idInformeIngresado = String(document.getElementById("idInformeEditable")?.value || "").trim();
             const inspeccionesParaId = JSON.parse(localStorage.getItem("inspecciones") || "[]");
+            const inspeccionAnteriorIdentidad = (indiceEdicion !== undefined && indiceEdicion !== "")
+                ? inspeccionesParaId[Number(indiceEdicion)] : null;
+            const idInspeccionInterno = String(inspeccionAnteriorIdentidad?.idInspeccionInterno || generarIdentidadInternaInspeccionTECCHNEX());
             let idControl;
             let siguienteIdGenerado = null;
             if (indiceEdicion !== undefined && indiceEdicion !== "") {
@@ -4811,6 +4814,7 @@ if (typeof imagenEarthParaGuardar === "string" && /^data:image\//i.test(imagenEa
             const inspeccion = {
 
                                 idControl: idControl,
+                idInspeccionInterno: idInspeccionInterno,
                 idInforme: idInformeIngresado,
 
                 // CAMBIO OM-17 — Mantener la referencia del cliente seleccionado.
@@ -4994,13 +4998,8 @@ const informeExistenteMismaIdentidad = inspecciones.find(registro =>
 if (clavePuestoFechaNueva) {
     // El ID escrito manualmente tiene prioridad; si está vacío, conservar el anterior
     // cuando la identidad cliente/fecha no cambió, o el ID ya asociado a esa identidad.
-    const idInformeConservado = idInformeIngresado ||
-        (obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionAnteriorEdicion) === clavePuestoFechaNueva
-            ? inspeccionAnteriorEdicion?.idInforme
-            : "") ||
-        informeExistenteMismaIdentidad?.idInforme ||
-        "";
-    if (idInformeConservado) inspeccion.idInforme = String(idInformeConservado).trim();
+    const idInformeConservado = generarIdInformePuestoFechaTECCHNEX(inspeccion);
+    if (idInformeConservado) inspeccion.idInforme = idInformeConservado;
     else delete inspeccion.idInforme;
 } else {
     delete inspeccion.idInforme;
@@ -5117,13 +5116,19 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
                                 const indiceRaw = hallazgo?.inspeccion;
                                 const indiceValido = indiceRaw !== null && indiceRaw !== undefined &&
                                     String(indiceRaw).trim() !== "" && Number.isInteger(Number(indiceRaw));
-                                const pertenece = (claveHallazgo && clavesAnteriores.has(claveHallazgo)) ||
-                                    (!claveHallazgo && indiceValido && Number(indiceRaw) === indiceEditado);
+                                const idInternoHallazgo = String(hallazgo?.idInspeccionInterno || "").trim();
+                                const idInternoAnterior = String(inspeccionAnteriorEdicion?.idInspeccionInterno || "").trim();
+                                const claveAnteriorUnica = clavesAnteriores.size === 1 &&
+                                    inspecciones.filter(x => obtenerClavesInspeccionPuestoFechaTECCHNEX(x).some(k => clavesAnteriores.has(k))).length === 1;
+                                const pertenece = idInternoAnterior
+                                    ? idInternoHallazgo === idInternoAnterior
+                                    : (claveAnteriorUnica && ((claveHallazgo && clavesAnteriores.has(claveHallazgo)) ||
+                                        (!claveHallazgo && indiceValido && Number(indiceRaw) === indiceEditado)));
                                 if (!pertenece) return hallazgo;
                                 const { idControlInspeccion, claveInspeccionPuestoFecha, ...hallazgoSinIds } = hallazgo || {};
                                 return clavePuestoFechaNueva
-                                    ? { ...hallazgoSinIds, inspeccion: indiceEditado, claveInspeccionPuestoFecha: clavePuestoFechaNueva }
-                                    : { ...hallazgoSinIds, inspeccion: indiceEditado };
+                                    ? { ...hallazgoSinIds, inspeccion: indiceEditado, idInspeccionInterno: idInternoAnterior || idInternoHallazgo, claveInspeccionPuestoFecha: clavePuestoFechaNueva }
+                                    : { ...hallazgoSinIds, inspeccion: indiceEditado, idInspeccionInterno: idInternoAnterior || idInternoHallazgo };
                             });
                             localStorage.setItem("hallazgos", JSON.stringify(hallazgosReasociados));
                         }
@@ -5668,12 +5673,36 @@ async function guardarMediaEnBoveda(foto) {
     });
 
     if (existente) {
+        // CAM-FOTOGRAFIAS-ORIGINALES-01:
+        // Si la evidencia sellada ya existía sin original, completar el registro
+        // sin reemplazar el Blob sellado ni alterar referencias históricas.
+        if (!existente.originalBlob && foto.originalBlob instanceof Blob) {
+            const registroActualizado = {
+                ...existente,
+                originalBlob: foto.originalBlob,
+                originalName: foto.originalName || "fotografia-original",
+                originalType: foto.originalType || foto.originalBlob.type || "application/octet-stream",
+                originalSize: foto.originalSize || foto.originalBlob.size,
+                originalHashSha256: foto.originalHashSha256 || "",
+                originalTimestamp: foto.timestamp || new Date().toISOString()
+            };
+            await new Promise((resolve, reject) => {
+                const tx = db.transaction(TECCHNEX_MEDIA_STORE, "readwrite");
+                tx.objectStore(TECCHNEX_MEDIA_STORE).put(registroActualizado);
+                tx.oncomplete = resolve;
+                tx.onerror = () => reject(tx.error || new Error("No fue posible conservar la fotografía original."));
+                tx.onabort = () => reject(tx.error || new Error("Se canceló la conservación de la fotografía original."));
+            });
+            Object.assign(existente, registroActualizado);
+        }
+
         const referenciaExistente = {
             mediaId: existente.id,
             timestamp: existente.timestamp || foto.timestamp || "",
             hashSha256: existente.hashSha256 || hash,
             idControl: existente.idControl || foto.idControl || "",
-            hallazgo: existente.hallazgo || foto.hallazgo || ""
+            hallazgo: existente.hallazgo || foto.hallazgo || "",
+            originalDisponible: Boolean(existente.originalBlob || foto.originalBlob)
         };
         tecchnexMediaCache.set(existente.id, dataUrl);
         return referenciaExistente;
@@ -5683,6 +5712,16 @@ async function guardarMediaEnBoveda(foto) {
     const registro = {
         id,
         blob: blobDesdeDataUrl(dataUrl),
+        // El Blob original se conserva aparte, sin redimensionar ni sellar.
+        // Los registros históricos siguen siendo válidos aunque no tengan este campo.
+        ...(foto.originalBlob instanceof Blob ? {
+            originalBlob: foto.originalBlob,
+            originalName: foto.originalName || "fotografia-original",
+            originalType: foto.originalType || foto.originalBlob.type || "application/octet-stream",
+            originalSize: foto.originalSize || foto.originalBlob.size,
+            originalHashSha256: foto.originalHashSha256 || "",
+            originalTimestamp: foto.timestamp || new Date().toISOString()
+        } : {}),
         timestamp: foto.timestamp || new Date().toISOString(),
         hashSha256: hash,
         idControl: foto.idControl || "",
@@ -5704,7 +5743,28 @@ async function guardarMediaEnBoveda(foto) {
         timestamp: registro.timestamp,
         hashSha256: registro.hashSha256,
         idControl: registro.idControl,
-        hallazgo: registro.hallazgo
+        hallazgo: registro.hallazgo,
+        originalDisponible: Boolean(registro.originalBlob)
+    };
+}
+
+// CAM-FOTOGRAFIAS-ORIGINALES-01 — Recuperación del archivo original.
+// No convierte ni modifica el original; devuelve el Blob tal como fue capturado.
+async function obtenerBlobOriginalMedia(foto) {
+    if (!foto?.mediaId) {
+        throw new Error("La fotografía no tiene una referencia de almacenamiento válida.");
+    }
+    const registro = await leerMediaPorId(foto.mediaId);
+    if (!registro?.originalBlob) {
+        throw new Error("Esta fotografía es histórica o no tiene una copia original independiente.");
+    }
+    return {
+        blob: registro.originalBlob,
+        nombre: registro.originalName || "fotografia-original",
+        tipo: registro.originalType || registro.originalBlob.type || "application/octet-stream",
+        tamano: registro.originalSize || registro.originalBlob.size,
+        hashSha256: registro.originalHashSha256 || "",
+        timestamp: registro.originalTimestamp || registro.timestamp || ""
     };
 }
 
@@ -5993,10 +6053,30 @@ async function exportarMediosParaRespaldo(hallazgos) {
                 );
             }
 
+            const registro = await leerMediaPorId(foto.mediaId);
+            let originalDataUrl = "";
+            if (registro?.originalBlob) {
+                originalDataUrl = await dataUrlDesdeBlob(registro.originalBlob);
+                if (!/^data:image\//i.test(originalDataUrl)) {
+                    throw new Error(
+                        "No se pudo verificar la fotografía original " + foto.mediaId +
+                        ". El respaldo se canceló para no omitir el archivo original."
+                    );
+                }
+            }
+
             vistos.add(foto.mediaId);
             medios.push({
                 ...foto,
-                dataUrl
+                dataUrl,
+                ...(originalDataUrl ? {
+                    originalDataUrl,
+                    originalName: registro.originalName || "fotografia-original",
+                    originalType: registro.originalType || registro.originalBlob.type || "image/jpeg",
+                    originalSize: registro.originalSize || registro.originalBlob.size,
+                    originalHashSha256: registro.originalHashSha256 || "",
+                    originalTimestamp: registro.originalTimestamp || registro.timestamp || ""
+                } : {})
             });
         }
     }
@@ -6025,7 +6105,10 @@ async function restaurarMediosDesdeRespaldo(medios, hallazgosRespaldo) {
         try {
             const referencia = await guardarMediaEnBoveda({
                 ...medio,
-                imagen: medio.dataUrl
+                imagen: medio.dataUrl,
+                ...(typeof medio.originalDataUrl === "string" && /^data:image\//i.test(medio.originalDataUrl)
+                    ? { originalBlob: blobDesdeDataUrl(medio.originalDataUrl) }
+                    : {})
             });
 
             if (!referencia?.mediaId) {
@@ -6110,15 +6193,26 @@ async function prepararFotografiasParaInforme(indiceInspeccion) {
     }
 
     const hallazgos = JSON.parse(localStorage.getItem("hallazgos")) || [];
-    const inspecciones = JSON.parse(localStorage.getItem("inspecciones")) || [];
+    const inspecciones = asegurarIdentidadesInternasInspeccionesTECCHNEX();
     const inspeccionSeleccionada = inspecciones[Number(indiceInspeccion)];
 
     if (!inspeccionSeleccionada) {
         throw new Error("No se encontró la inspección seleccionada al preparar sus fotografías.");
     }
 
+    const claveObjetivoInforme = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionSeleccionada);
+    const claveDuplicadaInforme = claveObjetivoInforme && inspecciones.filter(x => obtenerClaveInspeccionPuestoFechaTECCHNEX(x) === claveObjetivoInforme).length > 1;
+    const hayHallazgosLegadosAmbiguos = claveDuplicadaInforme && hallazgos.some(h =>
+        !String(h?.idInspeccionInterno || "").trim() &&
+        (String(h?.claveInspeccionPuestoFecha || "").trim() === claveObjetivoInforme ||
+         (!String(h?.claveInspeccionPuestoFecha || "").trim() && Number(h?.inspeccion) === Number(indiceInspeccion)))
+    );
+    if (hayHallazgosLegadosAmbiguos) {
+        throw new Error("No se generó el informe: hay hallazgos históricos sin identidad verificable entre inspecciones que comparten cliente/puesto y fecha. Primero debe depurarse esa asociación para evitar incluir hallazgos ajenos.");
+    }
+
     // Mantener exactamente el mismo criterio de selección de hallazgos que usa
-    // generarInforme(), sin alterar IDs ni reasignar relaciones.
+    // generarInforme(), sin alterar relaciones.
     const hallazgosInspeccion = obtenerRegistrosDeInspeccion(
         hallazgos,
         inspeccionSeleccionada,
@@ -6305,7 +6399,7 @@ async function exportarInspeccionSeleccionada() {
         }
 
         const indice = Number(indiceGuardado);
-        const inspecciones = JSON.parse(localStorage.getItem("inspecciones") || "[]");
+        const inspecciones = asegurarIdentidadesInternasInspeccionesTECCHNEX();
         const inspeccion = Number.isInteger(indice) && indice >= 0 ? inspecciones[indice] : null;
 
         if (!inspeccion) {
@@ -6362,6 +6456,16 @@ async function exportarInspeccionSeleccionada() {
         const checklists = obtenerRegistrosDeInspeccion(checklistsTodos, inspeccion, indice);
         const hallazgos = obtenerRegistrosDeInspeccion(hallazgosTodos, inspeccion, indice);
         const matrizRiesgos = obtenerRegistrosDeInspeccion(matrizTodos, inspeccion, indice);
+        const claveExportacion = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion);
+        const duplicidadLocal = claveExportacion && inspecciones.filter(x => obtenerClaveInspeccionPuestoFechaTECCHNEX(x) === claveExportacion).length > 1;
+        const hallazgosAmbiguos = duplicidadLocal && hallazgosTodos.some(h =>
+            !String(h?.idInspeccionInterno || "").trim() &&
+            (String(h?.claveInspeccionPuestoFecha || "").trim() === claveExportacion ||
+             (!String(h?.claveInspeccionPuestoFecha || "").trim() && Number(h?.inspeccion) === indice))
+        );
+        if (hallazgosAmbiguos) {
+            throw new Error("Esta inspección comparte cliente/puesto y fecha con otra inspección, y existen hallazgos históricos sin identidad interna verificable. No se exportó ningún hallazgo para evitar mezclar información. Se requiere depuración controlada de esos registros antes de exportar.");
+        }
 
         const normalizarCliente = valor => String(valor || "")
             .normalize("NFD")
@@ -6394,7 +6498,7 @@ async function exportarInspeccionSeleccionada() {
         const paquete = {
             sistema: "Sistema de Inspecciones de Seguridad",
             tipoArchivo: "inspeccion-individual",
-            versionExportacion: "1.1", // CAM-DATOS-01: incluye evaluación técnica cuando está vinculada.
+            versionExportacion: "1.2", // CAM-IDENTIDAD-INSPECCION: incluye UUID estable y asociación por propietario.
             fechaExportacion: new Date().toISOString(),
             indiceOriginal: indice,
             idControl: inspeccion.idControl || null,
@@ -6415,7 +6519,7 @@ async function exportarInspeccionSeleccionada() {
         const archivo = new Blob([contenido], { type: "application/json" });
         const url = URL.createObjectURL(archivo);
         const enlace = document.createElement("a");
-        const nombreBase = String(inspeccion.idControl || inspeccion.cliente || "inspeccion")
+        const nombreBase = String(inspeccion.nombrePuesto || inspeccion.puesto || inspeccion.cliente || "inspeccion")
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g, "")
             .replace(/[^a-zA-Z0-9_-]+/g, "-")
@@ -6431,7 +6535,7 @@ async function exportarInspeccionSeleccionada() {
 
         alert(
             "Exportación individual completada.\n\n" +
-            "Inspección: " + (inspeccion.idControl || inspeccion.cliente || "Seleccionada") +
+            "Cliente / puesto: " + (inspeccion.nombrePuesto || inspeccion.puesto || inspeccion.cliente || "Seleccionado") +
             "\nChecklist: " + checklists.length +
             "\nHallazgos: " + hallazgos.length +
             "\nRegistros de matriz de riesgos: " + matrizRiesgos.length +
@@ -6499,8 +6603,21 @@ function importarInspeccionIndividual() {
                 const idControlOriginal = String(inspeccionImportada.idControl || paquete.idControl || "").trim();
                 const checklistsImportados = Array.isArray(datos.checklists) ? datos.checklists : [];
                 const hallazgosImportados = Array.isArray(datos.hallazgos) ? datos.hallazgos : [];
-                const matrizImportada = Array.isArray(datos.matrizRiesgos) ? datos.matrizRiesgos : [];
                 const mediosImportados = Array.isArray(datos.mediosFotograficos) ? datos.mediosFotograficos : [];
+                // CAM-IDENTIDAD-INSPECCION-02: los marcadores heredados de fotos NO
+                // se usan para asociar. Si muestran más de una inspección de origen,
+                // se bloquea la importación para evitar consolidar un paquete mezclado.
+                const idsOrigenFotos = new Set();
+                for (const h of hallazgosImportados) {
+                    for (const f of (Array.isArray(h?.fotos) ? h.fotos : [])) {
+                        const idOrigen = String(f?.idControl || "").trim();
+                        if (idOrigen) idsOrigenFotos.add(idOrigen);
+                    }
+                }
+                if (idsOrigenFotos.size > 1) {
+                    throw new Error("El archivo contiene hallazgos con referencias fotográficas de varias inspecciones (" + Array.from(idsOrigenFotos).join(", ") + "). La importación se detuvo para evitar copiar hallazgos ajenos. Genere un respaldo individual limpio desde la inspección de origen.");
+                }
+                const matrizImportada = Array.isArray(datos.matrizRiesgos) ? datos.matrizRiesgos : [];
                 const matricesClienteImportadas = Array.isArray(datos.matricesRiesgosClientes) ? datos.matricesRiesgosClientes : [];
                 const inspeccionesActuales = JSON.parse(localStorage.getItem("inspecciones") || "[]");
                 if (!Array.isArray(inspeccionesActuales)) throw new Error("La lista local de inspecciones no tiene un formato válido.");
@@ -6533,7 +6650,16 @@ function importarInspeccionIndividual() {
                 const siguienteIdLocal = generarSiguienteIdInspeccionLocalTECCHNEX(inspeccionesActuales, inspeccionImportada.fecha || inspeccionImportada.fechaInspeccion);
                 const idControl = siguienteIdLocal.id;
                 inspeccionImportada.idControl = idControl;
+                const identidadesLocales = new Set(inspeccionesActuales
+                    .filter((x, i) => indiceReemplazoImportacion === null || i !== indiceReemplazoImportacion)
+                    .map(x => String(x?.idInspeccionInterno || "").trim()).filter(Boolean));
+                let idInternoImportado = String(inspeccionImportada.idInspeccionInterno || "").trim();
+                if (!idInternoImportado || identidadesLocales.has(idInternoImportado)) {
+                    idInternoImportado = generarIdentidadInternaInspeccionTECCHNEX();
+                }
+                inspeccionImportada.idInspeccionInterno = idInternoImportado;
                 inspeccionImportada.claveInspeccionPuestoFecha = claveIdentidadImportada;
+                inspeccionImportada.idInforme = generarIdInformePuestoFechaTECCHNEX(inspeccionImportada);
 
                 const mediosConDatos = new Set(
                     mediosImportados
@@ -6555,7 +6681,7 @@ function importarInspeccionIndividual() {
                 }
 
                 const resumen =
-                    "Inspección asignada en este equipo: " + idControl + (idControlOriginal && idControl !== idControlOriginal ? "\nID del equipo de origen reemplazado: " + idControlOriginal : "") + "\n" +
+                    "Cliente / puesto: " + (inspeccionImportada.nombrePuesto || inspeccionImportada.puesto || inspeccionImportada.cliente || "Sin nombre") + "\n" +
                     "Checklist: " + checklistsImportados.length + "\n" +
                     "Hallazgos: " + hallazgosImportados.length + "\n" +
                     "Registros de matriz de riesgos: " + matrizImportada.length + "\n" +
@@ -6631,6 +6757,7 @@ function importarInspeccionIndividual() {
                     const nuevoHallazgo = {
                         ...hallazgo,
                         inspeccion: nuevoIndice,
+                        idInspeccionInterno: idInternoImportado,
                         claveInspeccionPuestoFecha: inspeccionImportada.claveInspeccionPuestoFecha
                     };
                     // El ID local de origen se conserva solo como dato legado, nunca como vínculo.
@@ -6676,11 +6803,13 @@ function importarInspeccionIndividual() {
                 const checklistsNuevos = checklistsImportados.map(registro => ({
                     ...registro,
                     inspeccion: nuevoIndice,
+                    idInspeccionInterno: idInternoImportado,
                     idControlInspeccion: idControl
                 }));
                 const matrizNueva = matrizImportada.map(registro => ({
                     ...registro,
                     inspeccion: nuevoIndice,
+                    idInspeccionInterno: idInternoImportado,
                     idControlInspeccion: idControl
                 }));
 
@@ -6806,7 +6935,7 @@ function importarInspeccionIndividual() {
 
                 alert(
                     "Importación individual completada.\n\n" +
-                    "Inspección: " + idControl + (idControlOriginal && idControl !== idControlOriginal ? "\nID de origen reemplazado: " + idControlOriginal : "") + "\n" +
+                    "Cliente / puesto: " + (inspeccionImportada.nombrePuesto || inspeccionImportada.puesto || inspeccionImportada.cliente || "Sin nombre") + "\n" +
                     "Checklist: " + checklistsNuevos.length + "\n" +
                     "Hallazgos: " + hallazgosNuevos.length + "\n" +
                     "Registros de matriz de riesgos: " + matrizNueva.length + "\n" +
@@ -6907,13 +7036,14 @@ if (!confirmar) {
 
 const datos = respaldo.datos;
 
-// CAM-RESTAURACION-PUESTO-FECHA-04 — reconstrucción portable de asociaciones.
-// La pertenencia se determina exclusivamente por PUESTO + FECHA.
-// idControl/idControlInspeccion y los índices de origen nunca deciden la asociación.
-// Si la clave aparece más de una vez, el registro queda sin asociar para revisión.
+// CAM-IDENTIDAD-INSPECCION-03 — reconstrucción segura de asociaciones.
+// La identidad UUID viaja en los respaldos y es la relación primaria.
+// Para respaldos históricos sin UUID, puesto + fecha solo se acepta si es único.
+// idControl e índices de origen nunca se usan para adivinar una pertenencia.
 if (Array.isArray(datos.inspecciones)) {
     datos.inspecciones = datos.inspecciones.map(inspeccion => ({
         ...inspeccion,
+        idInspeccionInterno: String(inspeccion?.idInspeccionInterno || generarIdentidadInternaInspeccionTECCHNEX()),
         claveInspeccionPuestoFecha: obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion)
     }));
 }
@@ -6933,6 +7063,19 @@ let hallazgosRestauradosPorPuestoFecha = 0;
 let registrosOperativosSinAsociacion = 0;
 
 function reconstruirAsociacionPuestoFechaRespaldo(registro) {
+    const identidadInterna = String(registro?.idInspeccionInterno || "").trim();
+    if (identidadInterna) {
+        const indicePorIdentidad = (datos.inspecciones || []).findIndex(inspeccion =>
+            String(inspeccion?.idInspeccionInterno || "").trim() === identidadInterna
+        );
+        if (indicePorIdentidad >= 0) {
+            return {
+                indice: indicePorIdentidad,
+                clave: obtenerClaveInspeccionPuestoFechaTECCHNEX(datos.inspecciones[indicePorIdentidad])
+            };
+        }
+        return { indice: -1, clave: "" };
+    }
     const claveDeclarada = String(registro?.claveInspeccionPuestoFecha || "").trim();
     let claveOrigen = claveDeclarada;
 
@@ -6967,6 +7110,7 @@ function reconstruirListaOperativaPuestoFechaRespaldo(lista, nombreLista) {
         return {
             ...registro,
             inspeccion: asociacion.indice,
+            idInspeccionInterno: datos.inspecciones[asociacion.indice]?.idInspeccionInterno || "",
             claveInspeccionPuestoFecha: asociacion.clave
         };
     });
@@ -6990,6 +7134,7 @@ if (Array.isArray(datos.hallazgos)) {
         return {
             ...hallazgoSinIdsOrigen,
             inspeccion: asociacion.indice,
+            idInspeccionInterno: datos.inspecciones[asociacion.indice]?.idInspeccionInterno || "",
             claveInspeccionPuestoFecha: asociacion.clave
         };
     });
@@ -8180,7 +8325,7 @@ function mostrarInspeccionesClienteOM16(indiceCliente) {
             <table style="width:100%;border-collapse:collapse;font-size:13px;background:#fff;">
                 <thead>
                     <tr style="background:#123b5d;color:#fff;">
-                        <th style="padding:8px;border:1px solid #9ca3af;">ID de inspección</th>
+                        <th style="padding:8px;border:1px solid #9ca3af;">Cliente / puesto</th>
                         <th style="padding:8px;border:1px solid #9ca3af;">Fecha</th>
                         <th style="padding:8px;border:1px solid #9ca3af;">Analista de riesgos</th>
                         <th style="padding:8px;border:1px solid #9ca3af;">Tipo de inspección</th>
@@ -8197,7 +8342,7 @@ function mostrarInspeccionesClienteOM16(indiceCliente) {
 
                         return `
                             <tr>
-                                <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">${escaparClienteOM16(inspeccion.idControl || `INS-${String(item.indiceOriginal + 1).padStart(4, "0")}`)}</td>
+                                <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">${escaparClienteOM16(inspeccion.nombrePuesto || inspeccion.puesto || inspeccion.cliente || "Sin cliente / puesto")}</td>
                                 <td style="padding:8px;border:1px solid #ddd;">${escaparClienteOM16(inspeccion.fecha || "—")}</td>
                                 <td style="padding:8px;border:1px solid #ddd;">${escaparClienteOM16(inspeccion.inspector || "—")}</td>
                                 <td style="padding:8px;border:1px solid #ddd;">${escaparClienteOM16(inspeccion.tipo || "—")}</td>
@@ -8963,7 +9108,7 @@ const diferencia =
         border:1px solid #999;
         font-weight:bold;
     ">
-        ${item.inspeccion.idControl || "—"}
+        ${item.inspeccion.nombrePuesto || item.inspeccion.puesto || item.inspeccion.cliente || "—"}
     </td>
 
     <td style="
@@ -9699,7 +9844,7 @@ function actualizarPanelModularInspeccionOM22(indice) {
 
     if (idElemento) {
         idElemento.textContent =
-            disponible ? (inspeccion.idControl || "SIN ID") : "Pendiente de guardar";
+            disponible ? (inspeccion.nombrePuesto || inspeccion.puesto || inspeccion.cliente || "Sin cliente / puesto") : "Pendiente de guardar";
     }
 
     if (estadoElemento) {
@@ -9797,7 +9942,7 @@ modal.style.display = "block";
     document.getElementById("cliente").value =
         inspeccion.cliente || inspeccion.nombreCliente || inspeccion.razonSocial || inspeccion.nombrePuesto || "";
     const campoIdInformeEdicion = document.getElementById("idInformeEditable");
-    if (campoIdInformeEdicion) campoIdInformeEdicion.value = inspeccion.idInforme || "";
+    if (campoIdInformeEdicion) campoIdInformeEdicion.value = generarIdInformePuestoFechaTECCHNEX(inspeccion);
     const campoNombrePuestoEdicion = document.getElementById("nombrePuesto");
     if (campoNombrePuestoEdicion) campoNombrePuestoEdicion.value = document.getElementById("cliente").value;
 
@@ -10132,7 +10277,7 @@ document.getElementById("objetivo").value =
   function eliminarInspeccion(indice) {
 
     const inspecciones =
-        JSON.parse(localStorage.getItem("inspecciones")) || [];
+        asegurarIdentidadesInternasInspeccionesTECCHNEX();
 
     if (!inspecciones[indice]) {
         alert("No se encontró la inspección seleccionada.");
@@ -10174,21 +10319,19 @@ document.getElementById("totalClientes").textContent =
 
 document.getElementById("totalHallazgos").textContent =
     todosLosHallazgos.length;
+    const identidadEliminada = String(inspeccion.idInspeccionInterno || "").trim();
     const hallazgosFiltrados =
         hallazgos
-            .filter(
-                hallazgo =>
-                    Number(hallazgo.inspeccion) !== indice
-            )
+            .filter(hallazgo => identidadEliminada
+                ? String(hallazgo?.idInspeccionInterno || "").trim() !== identidadEliminada
+                : Number(hallazgo.inspeccion) !== indice)
             .map(hallazgo => {
-
-                if (
-                    Number(hallazgo.inspeccion) > indice
-                ) {
-                    hallazgo.inspeccion =
-                        Number(hallazgo.inspeccion) - 1;
+                const tieneIdentidad = !!String(hallazgo?.idInspeccionInterno || "").trim();
+                if (!tieneIdentidad && Number(hallazgo.inspeccion) === indice) {
+                    hallazgo.inspeccion = null;
+                } else if (Number(hallazgo.inspeccion) > indice) {
+                    hallazgo.inspeccion = Number(hallazgo.inspeccion) - 1;
                 }
-
                 return hallazgo;
             });
 
@@ -10200,23 +10343,16 @@ document.getElementById("totalHallazgos").textContent =
     const matriz =
         JSON.parse(localStorage.getItem("matrizRiesgos")) || [];
 
-    const matrizFiltrada =
-        matriz
-            .filter(
-                registro =>
-                    Number(registro.inspeccion) !== indice
-            )
-            .map(registro => {
-
-                if (
-                    Number(registro.inspeccion) > indice
-                ) {
-                    registro.inspeccion =
-                        Number(registro.inspeccion) - 1;
-                }
-
-                return registro;
-            });
+    const matrizFiltrada = matriz
+        .filter(registro => identidadEliminada
+            ? String(registro?.idInspeccionInterno || "").trim() !== identidadEliminada
+            : Number(registro.inspeccion) !== indice)
+        .map(registro => {
+            const tieneIdentidad = !!String(registro?.idInspeccionInterno || "").trim();
+            if (!tieneIdentidad && Number(registro.inspeccion) === indice) registro.inspeccion = null;
+            else if (Number(registro.inspeccion) > indice) registro.inspeccion = Number(registro.inspeccion) - 1;
+            return registro;
+        });
 
     localStorage.setItem(
         "matrizRiesgos",
@@ -10226,23 +10362,16 @@ document.getElementById("totalHallazgos").textContent =
     const checklists =
         JSON.parse(localStorage.getItem("checklists")) || [];
 
-    const checklistsFiltrados =
-        checklists
-            .filter(
-                registro =>
-                    Number(registro.inspeccion) !== indice
-            )
-            .map(registro => {
-
-                if (
-                    Number(registro.inspeccion) > indice
-                ) {
-                    registro.inspeccion =
-                        Number(registro.inspeccion) - 1;
-                }
-
-                return registro;
-            });
+    const checklistsFiltrados = checklists
+        .filter(registro => identidadEliminada
+            ? String(registro?.idInspeccionInterno || "").trim() !== identidadEliminada
+            : Number(registro.inspeccion) !== indice)
+        .map(registro => {
+            const tieneIdentidad = !!String(registro?.idInspeccionInterno || "").trim();
+            if (!tieneIdentidad && Number(registro.inspeccion) === indice) registro.inspeccion = null;
+            else if (Number(registro.inspeccion) > indice) registro.inspeccion = Number(registro.inspeccion) - 1;
+            return registro;
+        });
 
     localStorage.setItem(
         "checklists",
@@ -11918,10 +12047,9 @@ async function calcularHashFoto(dataUrl) {
 function obtenerIdControlFoto(indiceInspeccion) {
     const inspecciones =
         JSON.parse(localStorage.getItem("inspecciones")) || [];
-
-    return indiceInspeccion !== null &&
-        inspecciones[Number(indiceInspeccion)]
-        ? (inspecciones[Number(indiceInspeccion)].idControl || "")
+    const inspeccion = indiceInspeccion !== null ? inspecciones[Number(indiceInspeccion)] : null;
+    return inspeccion
+        ? String(inspeccion.nombrePuesto || inspeccion.puesto || inspeccion.cliente || "").trim()
         : "";
 }
 
@@ -11960,7 +12088,7 @@ async function procesarFotoConTimestamp(archivo, indiceInspeccion, numeroHallazg
                     const fechaHora = new Date();
                     const selloFecha = fechaHora.toLocaleDateString("es-CO");
                     const selloHora = fechaHora.toLocaleTimeString("es-CO", { hour12: false });
-                    const idControl = obtenerIdControlFoto(indiceInspeccion);
+                    const referenciaClientePuesto = obtenerIdControlFoto(indiceInspeccion);
 
                     // AJUSTE TIMESTAMP FOTOGRÁFICO — Aumentar la visibilidad del sello
                     // directamente sobre la fotografía, manteniendo la información integrada
@@ -12011,7 +12139,7 @@ async function procesarFotoConTimestamp(archivo, indiceInspeccion, numeroHallazg
                         contexto.fillStyle = "#ffffff";
                         contexto.font = `bold ${Math.max(10, Math.round(ancho * 0.014))}px Arial`;
                         contexto.fillText(
-                            `TECCHNEX | ${idControl || "SIN-ID"} | HALLAZGO ${numeroHallazgo}`,
+                            `TECCHNEX | ${referenciaClientePuesto || "SIN-CLIENTE/PUESTO"} | HALLAZGO ${numeroHallazgo}`,
                             inicioTexto,
                             selloY + Math.round(altoSello * 0.38),
                             espacioTexto
@@ -12031,7 +12159,7 @@ async function procesarFotoConTimestamp(archivo, indiceInspeccion, numeroHallazg
                         contexto.fillStyle = "#ffffff";
                         contexto.font = `bold ${Math.max(10, Math.round(ancho * 0.014))}px Arial`;
                         contexto.fillText(
-                            `TECCHNEX | ${idControl || "SIN-ID"} | HALLAZGO ${numeroHallazgo}`,
+                            `TECCHNEX | ${referenciaClientePuesto || "SIN-CLIENTE/PUESTO"} | HALLAZGO ${numeroHallazgo}`,
                             margenSello,
                             selloY + Math.round(altoSello * 0.38)
                         );
@@ -12049,6 +12177,13 @@ async function procesarFotoConTimestamp(archivo, indiceInspeccion, numeroHallazg
 
                     resolve({
                         imagen: imagenSellada,
+                        // Archivo original de cámara/galería: se guarda como Blob
+                        // independiente, sin redimensionamiento ni sello TECCHNEX.
+                        originalBlob: archivo.slice(0, archivo.size, archivo.type || "application/octet-stream"),
+                        originalName: archivo.name || `fotografia-${fechaHora.getTime()}`,
+                        originalType: archivo.type || "application/octet-stream",
+                        originalSize: archivo.size,
+                        originalHashSha256: await calcularHashFoto(String(evento.target.result || "")),
                         timestamp: fechaHora.toISOString(),
                         hashSha256: hash,
                         idControl: idControl,
@@ -12103,13 +12238,17 @@ async function guardarHallazgo() {
             : (indiceInspeccion !== null ? Number(indiceInspeccion) : null);
 
     const inspeccionesParaAsociarHallazgo =
-        JSON.parse(localStorage.getItem("inspecciones")) || [];
+        asegurarIdentidadesInternasInspeccionesTECCHNEX();
     const inspeccionActivaHallazgo =
         inspeccionHallazgo !== null && Number.isInteger(inspeccionHallazgo)
             ? inspeccionesParaAsociarHallazgo[inspeccionHallazgo]
             : null;
     // CAM-RESTAURACION-HALLAZGOS-01: vínculo independiente del equipo que captura.
     const clavePuestoFechaHallazgo = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionActivaHallazgo);
+    const identidadInternaHallazgo = String(
+        (indiceHallazgoEditando !== null ? hallazgos[indiceHallazgoEditando]?.idInspeccionInterno : "") ||
+        inspeccionActivaHallazgo?.idInspeccionInterno || ""
+    ).trim();
 
     // Incluye tanto las fotografías existentes (si se edita) como todas las
     // fotografías nuevas agregadas desde cámara o galería antes de guardar.
@@ -12147,6 +12286,7 @@ async function guardarHallazgo() {
         : inspeccionHallazgo,
 
     ...(clavePuestoFechaHallazgo ? { claveInspeccionPuestoFecha: clavePuestoFechaHallazgo } : {}),
+    ...(identidadInternaHallazgo ? { idInspeccionInterno: identidadInternaHallazgo } : {}),
 
     area: area,
 
@@ -13969,10 +14109,22 @@ function prepararReemplazoInspeccionVigenteTECCHNEX(indice, nuevaInspeccion) {
         if (!Array.isArray(valor)) throw new Error(`La información local «${clave}» no tiene un formato válido. No se reemplazó la inspección.`);
         return valor;
     };
-    const clavesAnteriores = new Set(obtenerClavesInspeccionPuestoFechaTECCHNEX(
-        (JSON.parse(localStorage.getItem("inspecciones") || "[]") || [])[idx]
-    ));
+    const inspeccionesLocales = JSON.parse(localStorage.getItem("inspecciones") || "[]") || [];
+    const inspeccionAnterior = inspeccionesLocales[idx] || null;
+    const idInternoAnterior = String(inspeccionAnterior?.idInspeccionInterno || "").trim();
+    const clavesAnteriores = new Set(obtenerClavesInspeccionPuestoFechaTECCHNEX(inspeccionAnterior));
+    const claveAnteriorUnica = clavesAnteriores.size === 1 &&
+        inspeccionesLocales.filter(x => obtenerClavesInspeccionPuestoFechaTECCHNEX(x).some(k => clavesAnteriores.has(k))).length === 1;
     const filtrarIndice = clave => leerLista(clave).filter(registro => {
+        if (idInternoAnterior) {
+            if (String(registro?.idInspeccionInterno || "").trim()) {
+                return String(registro.idInspeccionInterno).trim() !== idInternoAnterior;
+            }
+            // Los registros legados sin UUID solo se eliminan si la clave era única.
+            if (claveAnteriorUnica && clavesAnteriores.has(String(registro?.claveInspeccionPuestoFecha || "").trim())) return false;
+            return true;
+        }
+        if (!claveAnteriorUnica) return true;
         const indiceValido = registro && registro.inspeccion !== null && registro.inspeccion !== undefined &&
             String(registro.inspeccion).trim() !== "" && Number.isInteger(Number(registro.inspeccion));
         const mismoIndice = indiceValido && Number(registro.inspeccion) === idx;
@@ -14075,16 +14227,8 @@ function completarIdsHistoricosCronologicosTECCHNEX(inspecciones) {
 }
 
 function generarIdInformePuestoFechaTECCHNEX(inspeccion) {
-    const clave = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion);
-    if (!clave) return "";
-    const [fecha, puesto] = clave.split("|");
-    const fechaCompacta = fecha.replace(/-/g, "");
-    const puestoLegible = puesto.normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toUpperCase()
-        .replace(/[^A-Z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "") || "PUESTO";
-    return `INF-${fechaCompacta}-${puestoLegible}`;
+    return String(inspeccion?.nombrePuesto || inspeccion?.puesto || inspeccion?.cliente ||
+        inspeccion?.nombreCliente || inspeccion?.razonSocial || "").trim();
 }
 
 function asegurarIdInformePuestoFechaTECCHNEX(inspecciones, indice) {
@@ -14103,7 +14247,7 @@ function asegurarIdInformePuestoFechaTECCHNEX(inspecciones, indice) {
         String(registro.idInforme || "").trim()
     );
     // Si el usuario corrigió el ID en la ficha, ese valor debe prevalecer al emitir Word/PDF.
-    const idInforme = String(objetivo.idInforme || existente?.idInforme || generarIdInformePuestoFechaTECCHNEX(objetivo)).trim();
+    const idInforme = generarIdInformePuestoFechaTECCHNEX(objetivo);
     lista.forEach(registro => {
         if (obtenerClaveInspeccionPuestoFechaTECCHNEX(registro) === clave) {
             registro.claveInspeccionPuestoFecha = clave;
@@ -14114,62 +14258,111 @@ function asegurarIdInformePuestoFechaTECCHNEX(inspecciones, indice) {
     return objetivo;
 }
 
-/* CAM-RESTAURACION-HALLAZGOS-01/03 — Relación portable por puesto + fecha.
-   El índice se usa únicamente para traducir registros históricos que aún no
-   tienen clave propia y solo si es un entero no negativo explícito; el idControl
-   del navegador nunca decide la pertenencia. */
-function obtenerRegistrosDeInspeccion(registros, inspeccion, indice) {
-    const lista = Array.isArray(registros) ? registros : [];
-    const clavesObjetivo = new Set(obtenerClavesInspeccionPuestoFechaTECCHNEX(inspeccion));
-    const claveObjetivo = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion);
-    if (claveObjetivo) {
-        let inspeccionesLocales = [];
-        try {
-            const guardadas = JSON.parse(localStorage.getItem("inspecciones") || "[]");
-            if (Array.isArray(guardadas)) inspeccionesLocales = guardadas;
-        } catch (_) {}
-        const registrosConClave = lista.filter(registro => {
-            let claveRegistro = String(registro?.claveInspeccionPuestoFecha || "").trim();
-            const indiceRegistro = registro?.inspeccion;
-            const tieneIndiceRegistro = indiceRegistro !== null && indiceRegistro !== undefined &&
-                String(indiceRegistro).trim() !== "" && Number.isInteger(Number(indiceRegistro));
-            if (claveRegistro) return clavesObjetivo.has(claveRegistro);
-            if (tieneIndiceRegistro) {
-                const inspeccionReferencia = inspeccionesLocales[Number(indiceRegistro)];
-                const clavesReferencia = obtenerClavesInspeccionPuestoFechaTECCHNEX(inspeccionReferencia);
-                return clavesReferencia.some(clave => clavesObjetivo.has(clave));
-            }
-            return false;
-        });
-        const hayTrazabilidadPortable = lista.some(registro =>
-            String(registro?.claveInspeccionPuestoFecha || "").trim() ||
-            (registro?.inspeccion !== null && registro?.inspeccion !== undefined &&
-             String(registro.inspeccion).trim() !== "" && Number.isInteger(Number(registro.inspeccion)) &&
-             Boolean(obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionesLocales[Number(registro.inspeccion)])))
-        );
-        if (registrosConClave.length || hayTrazabilidadPortable) return registrosConClave;
+// CAM-IDENTIDAD-INSPECCION-01 — Identidad técnica estable e independiente del consecutivo visible.
+function generarIdentidadInternaInspeccionTECCHNEX() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+    if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+        const bytes = new Uint8Array(16);
+        window.crypto.getRandomValues(bytes);
+        return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
     }
-
-    // CAM-RESTAURACION-HALLAZGOS-03 — Compatibilidad histórica segura.
-    // Number(null) y Number("") devuelven 0; por eso nunca comparar índices
-    // antes de validar explícitamente que ambos sean índices enteros no negativos.
-    const indiceObjetivoRaw = indice;
-    const tieneIndiceObjetivo = indiceObjetivoRaw !== null && indiceObjetivoRaw !== undefined &&
-        String(indiceObjetivoRaw).trim() !== "" && Number.isInteger(Number(indiceObjetivoRaw)) &&
-        Number(indiceObjetivoRaw) >= 0;
-    if (!tieneIndiceObjetivo) return [];
-    const indiceObjetivo = Number(indiceObjetivoRaw);
-
-    return lista.filter(registro => {
-        if (String(registro?.claveInspeccionPuestoFecha || "").trim()) return false;
-        const indiceRegistroRaw = registro?.inspeccion;
-        const tieneIndiceRegistro = indiceRegistroRaw !== null && indiceRegistroRaw !== undefined &&
-            String(indiceRegistroRaw).trim() !== "" && Number.isInteger(Number(indiceRegistroRaw)) &&
-            Number(indiceRegistroRaw) >= 0;
-        return tieneIndiceRegistro && Number(indiceRegistroRaw) === indiceObjetivo;
-    });
+    throw new Error("No fue posible generar una identidad interna segura para la inspección.");
 }
 
+// Asigna identidad a inspecciones y registros históricos SOLO cuando la relación
+// puede demostrarse sin ambigüedad. Si puesto+fecha está repetido, no adivina.
+function asegurarIdentidadesInternasInspeccionesTECCHNEX() {
+    const leer = clave => {
+        const valor = JSON.parse(localStorage.getItem(clave) || "[]");
+        if (!Array.isArray(valor)) throw new Error("La lista local " + clave + " no tiene un formato válido.");
+        return valor;
+    };
+    const inspecciones = leer("inspecciones");
+    const claves = inspecciones.map(obtenerClaveInspeccionPuestoFechaTECCHNEX);
+    inspecciones.forEach(inspeccion => {
+        if (!String(inspeccion?.idInspeccionInterno || "").trim()) {
+            inspeccion.idInspeccionInterno = generarIdentidadInternaInspeccionTECCHNEX();
+        }
+    });
+    let cambios = false;
+    for (const claveLista of ["hallazgos", "checklists", "matrizRiesgos"]) {
+        const registros = leer(claveLista);
+        for (const registro of registros) {
+            if (!registro || String(registro.idInspeccionInterno || "").trim()) continue;
+            let claveRegistro = String(registro.claveInspeccionPuestoFecha || "").trim();
+            let indice = registro.inspeccion;
+            if (!claveRegistro && indice !== null && indice !== undefined && String(indice).trim() !== "" && Number.isInteger(Number(indice))) {
+                claveRegistro = claves[Number(indice)] || "";
+            }
+            if (claveRegistro) {
+                const coincidencias = inspecciones.filter(x => obtenerClaveInspeccionPuestoFechaTECCHNEX(x) === claveRegistro);
+                if (coincidencias.length !== 1) continue;
+                registro.idInspeccionInterno = coincidencias[0].idInspeccionInterno;
+                cambios = true;
+            } else if (indice !== null && indice !== undefined && String(indice).trim() !== "" && Number.isInteger(Number(indice))) {
+                const objetivo = inspecciones[Number(indice)];
+                if (objetivo) { registro.idInspeccionInterno = objetivo.idInspeccionInterno; cambios = true; }
+            }
+        }
+        if (cambios) localStorage.setItem(claveLista, JSON.stringify(registros));
+    }
+    localStorage.setItem("inspecciones", JSON.stringify(inspecciones));
+    return inspecciones;
+}
+
+/* CAM-IDENTIDAD-INSPECCION-01 — La identidad técnica UUID es la relación primaria.
+   La clave cliente/puesto+fecha solo se usa para migrar registros históricos cuando
+   identifica una única inspección. Ante duplicidad, no se adivina usando el índice. */
+function obtenerRegistrosDeInspeccion(registros, inspeccion, indice) {
+    const lista = Array.isArray(registros) ? registros : [];
+    const identidad = String(inspeccion?.idInspeccionInterno || "").trim();
+    if (identidad) {
+        // Si el registro tiene identidad técnica, esa relación prevalece siempre.
+        // No se permite volver a índice/puesto/fecha cuando la identidad no coincide.
+        const registrosConIdentidad = lista.filter(r => String(r?.idInspeccionInterno || "").trim());
+        if (registrosConIdentidad.length) {
+            return registrosConIdentidad.filter(r => String(r.idInspeccionInterno).trim() === identidad);
+        }
+    }
+
+    const claveObjetivo = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion);
+    let inspeccionesLocales = [];
+    try {
+        const guardadas = JSON.parse(localStorage.getItem("inspecciones") || "[]");
+        if (Array.isArray(guardadas)) inspeccionesLocales = guardadas;
+    } catch (_) {}
+    const coincidenciasClave = claveObjetivo
+        ? inspeccionesLocales.filter(x => obtenerClaveInspeccionPuestoFechaTECCHNEX(x) === claveObjetivo)
+        : [];
+
+    // Legado: puesto+fecha solo sirve si identifica una única inspección.
+    if (claveObjetivo && coincidenciasClave.length === 1) {
+        return lista.filter(registro => {
+            if (String(registro?.idInspeccionInterno || "").trim()) return false;
+            const claveRegistro = String(registro?.claveInspeccionPuestoFecha || "").trim();
+            if (claveRegistro) return claveRegistro === claveObjetivo;
+            const idx = registro?.inspeccion;
+            return idx !== null && idx !== undefined && String(idx).trim() !== "" &&
+                Number.isInteger(Number(idx)) &&
+                obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionesLocales[Number(idx)]) === claveObjetivo;
+        });
+    }
+
+    // Cuando hay duplicidad o la relación es incierta, no usar el índice: puede
+    // repetirse tras importar, eliminar o restaurar. Excluir es más seguro que mezclar.
+    if (claveObjetivo && coincidenciasClave.length > 1) return [];
+
+    // Compatibilidad muy antigua sin clave: solo aceptar el índice si no existe
+    // una identidad/clave alternativa y el llamador solicita un índice válido.
+    const idx = Number(indice);
+    if (!claveObjetivo && Number.isInteger(idx) && idx >= 0) {
+        return lista.filter(r => !String(r?.idInspeccionInterno || "").trim() &&
+            !String(r?.claveInspeccionPuestoFecha || "").trim() &&
+            r?.inspeccion !== null && r?.inspeccion !== undefined &&
+            String(r.inspeccion).trim() !== "" && Number(r.inspeccion) === idx);
+    }
+    return [];
+}
 
 // =========================================================
 // CAM-SEGUIMIENTO-01 — COMPARACIÓN HISTÓRICA DE INSPECCIONES
@@ -14297,8 +14490,8 @@ function renderizarComparativoInspeccionesCAM01(clienteElegido) {
         const listaHallazgos = lista => lista.length ? `<ul style="margin:6px 0;padding-left:20px;">${lista.slice(0,12).map(h => `<li style="margin:4px 0;">${escapar(h.area || "Sin área")} — ${escapar(h.elemento || "Sin elemento")} — ${escapar(h.descripcion || h.hallazgo || "Hallazgo registrado")}</li>`).join("")}${lista.length>12?`<li>Y ${lista.length-12} registro(s) más.</li>`:""}</ul>` : `<p style="margin:6px 0;color:#64748b;">Ninguno registrado.</p>`;
         contenido = `
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:14px 0;">
-            <div style="padding:14px;border:1px solid #bfdbfe;border-radius:9px;background:#eff6ff;"><div style="font-size:12px;color:#475569;">Inspección anterior</div><div style="font-weight:800;font-size:18px;color:#123b5d;">${escapar(fechaLegible(anterior.fecha))}</div><div style="font-size:12px;">${escapar(anterior.inspeccion.idControl || `Registro #${anterior.indice+1}`)}</div></div>
-            <div style="padding:14px;border:1px solid #a5f3fc;border-radius:9px;background:#ecfeff;"><div style="font-size:12px;color:#475569;">Última inspección</div><div style="font-weight:800;font-size:18px;color:#123b5d;">${escapar(fechaLegible(reciente.fecha))}</div><div style="font-size:12px;">${escapar(reciente.inspeccion.idControl || `Registro #${reciente.indice+1}`)}</div></div>
+            <div style="padding:14px;border:1px solid #bfdbfe;border-radius:9px;background:#eff6ff;"><div style="font-size:12px;color:#475569;">Inspección anterior</div><div style="font-weight:800;font-size:18px;color:#123b5d;">${escapar(fechaLegible(anterior.fecha))}</div><div style="font-size:12px;">${escapar(anterior.inspeccion.nombrePuesto || anterior.inspeccion.puesto || anterior.inspeccion.cliente || "Cliente sin nombre")}</div></div>
+            <div style="padding:14px;border:1px solid #a5f3fc;border-radius:9px;background:#ecfeff;"><div style="font-size:12px;color:#475569;">Última inspección</div><div style="font-weight:800;font-size:18px;color:#123b5d;">${escapar(fechaLegible(reciente.fecha))}</div><div style="font-size:12px;">${escapar(reciente.inspeccion.nombrePuesto || reciente.inspeccion.puesto || reciente.inspeccion.cliente || "Cliente sin nombre")}</div></div>
             <div style="padding:14px;border:1px solid #ddd6fe;border-radius:9px;background:#f5f3ff;"><div style="font-size:12px;color:#475569;">Posibles riesgos recurrentes</div><div style="font-weight:800;font-size:26px;color:#5b21b6;">${recurrenciasRiesgo.length}</div><div style="font-size:12px;">Coincidencias normalizadas.</div></div>
             <div style="padding:14px;border:1px solid #fed7aa;border-radius:9px;background:#fff7ed;"><div style="font-size:12px;color:#475569;">Posibles hallazgos recurrentes</div><div style="font-weight:800;font-size:26px;color:#9a3412;">${recurrenciasHallazgo.length}</div><div style="font-size:12px;">Coincidencias normalizadas.</div></div>
           </div>
@@ -14709,7 +14902,6 @@ async function generarWordPlantillaMaestra() {
             : puestoOriginal;
         // CAM-RESTAURACION-HALLAZGOS-01: imprimir el ID comercial del informe generado.
         // La plantilla maestra original permanece intacta; solo se modifica la copia en memoria.
-        const idInspeccionDocumento=String(inspeccion.idControl||"SIN ID").trim()||"SIN ID";
         const idInformeDocumento=String(inspeccion.idInforme||"SIN ID").trim()||"SIN ID";
         const headerEntry=zip.file("word/header1.xml");
         if(headerEntry){
@@ -14724,8 +14916,8 @@ async function generarWordPlantillaMaestra() {
             // Si el puesto está vacío, no insertar un segundo salto: evita una línea en blanco.
             // Si hay puesto, conservar una sola línea de separación entre el puesto y el ID.
             const contenidoPuestoEId = String(puesto).trim()
-                ? escaparXmlWord(puesto)+"</w:t><w:br/><w:t>ID DE INSPECCIÓN: "+escaparXmlWord(idInspeccionDocumento)+"</w:t><w:br/><w:t>ID DE INFORME: "+escaparXmlWord(idInformeDocumento)
-                : "</w:t><w:t>ID DE INSPECCIÓN: "+escaparXmlWord(idInspeccionDocumento)+"</w:t><w:br/><w:t>ID DE INFORME: "+escaparXmlWord(idInformeDocumento);
+                ? escaparXmlWord(puesto)+"</w:t><w:br/><w:t>REFERENCIA: "+escaparXmlWord(idInformeDocumento)
+                : "</w:t><w:t>REFERENCIA: "+escaparXmlWord(idInformeDocumento);
             headerXml=headerXml.split("{{PUESTO}}").join(contenidoPuestoEId);
             // La plantilla aprobada contiene el título preventivo como texto fijo,
             // no como marcador. En la copia generada se sustituye solo ese valor,
@@ -15756,7 +15948,7 @@ h3{color:#000!important;border-bottom:1px solid #F2C500!important}
                 <tr><td class="marca"><img src="logo-cotraser.png" alt="COTRASER C.T.A." style="width:100%;max-width:125px;max-height:65px;object-fit:contain" onerror="this.style.display='none'"></td>
                     <td class="titulo">${e(tituloInforme)}</td><td class="codigo"><strong>PSOF004</strong><br>Versión No. 003<br>Fecha: ${e(inspeccion.fecha || "")}</td></tr>
                 <tr><td colspan="3" class="confidencial">- CONFIDENCIAL -</td></tr>
-                <tr><td colspan="3" class="cliente">${e(inspeccion.cliente || "")}<br><strong>ID DE INSPECCIÓN: ${e(inspeccion.idControl || "SIN ID")}</strong><br><strong>ID DE INFORME: ${e(inspeccion.idInforme || "SIN ID")}</strong></td></tr>
+                <tr><td colspan="3" class="cliente">${e(inspeccion.cliente || "")}<br><strong>REFERENCIA: ${e(inspeccion.idInforme || inspeccion.nombrePuesto || inspeccion.cliente || "Sin referencia")}</strong></td></tr>
             </tbody></table>
             ${resumenEjecutivoDiagnosticoPDF}
             <h2>1. Información del cliente y del puesto</h2>
@@ -17954,9 +18146,7 @@ h3{color:#000!important;border-bottom:1px solid #F2C500!important}
     ${escapar(inspeccion.cliente)}
     <br>
     <strong>
-        ID DE INSPECCIÓN: ${escapar(inspeccion.idControl || "SIN ID")}
-        <br>
-        ID DE INFORME: ${escapar(inspeccion.idInforme || "SIN ID")}
+        REFERENCIA: ${escapar(inspeccion.idInforme || inspeccion.nombrePuesto || inspeccion.cliente || "Sin referencia")}
     </strong>
 </td>
 
@@ -19543,7 +19733,18 @@ function TECCHNEX_UI_VOLVER_INICIO_TRAS_GUARDAR(referencia, modo = "contenedor")
 <div id="camSyncPanelV1" style="position:fixed;right:14px;bottom:14px;z-index:2500;background:#fff;border:1px solid #b8cadd;border-radius:10px;padding:10px 12px;box-shadow:0 4px 18px rgba(18,59,93,.18);max-width:min(360px,calc(100vw - 28px));font:13px Aptos,Arial,sans-serif">
   <div style="font-weight:700;color:#123b5d;margin-bottom:6px">Sincronización TECCHNEX</div>
   <div id="camSyncStatusV1" role="status" aria-live="polite" style="color:#475569;margin-bottom:8px">Preparando cola local…</div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap"><button id="camSyncValidateV1" type="button" style="background:#e8f2fb;color:#123b5d;border:1px solid #9bbbd7;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Validar operación (sin escritura)</button><button id="camSyncPrepareTestV1" type="button" style="background:#f1f5f9;color:#123b5d;border:1px solid #94a3b8;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Preparar prueba local</button><button id="camSyncSendTestV1" type="button" disabled style="background:#0f766e;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer;opacity:.55">Enviar prueba controlada</button><button id="camSyncSendV1" type="button" style="background:#1769aa;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Sincronizar pendientes</button></div>
+  <div style="border-top:1px solid #dbe5ef;margin-top:8px;padding-top:8px">
+    <label for="camSyncImportJsonV1" style="display:block;color:#123b5d;font-weight:700;margin-bottom:5px">Auditar respaldo individual (solo local)</label>
+    <input id="camSyncImportJsonV1" type="file" accept=".json,application/json" style="max-width:100%;font-size:12px" />
+    <div id="camSyncImportResultV1" role="status" aria-live="polite" style="margin-top:6px;color:#475569;font-size:12px">Selecciona el JSON para comprobar hallazgos, riesgos, vulnerabilidades y fotografías. No se envía al servidor.</div>
+  </div>
+  <div style="border-top:1px solid #dbe5ef;margin-top:8px;padding-top:8px">
+    <label for="camSyncPackageFileV18" style="display:block;color:#123b5d;font-weight:700;margin-bottom:5px">Paquete INS-2026-0008 · validación agrupada</label>
+    <input id="camSyncPackageFileV18" type="file" accept=".json,application/json" style="max-width:100%;font-size:12px" />
+    <button id="camSyncValidatePackageV18" type="button" disabled style="background:#146d4a;color:#fff;border:0;border-radius:6px;padding:8px 10px;font-weight:700;cursor:pointer;margin-top:6px;width:100%;opacity:.55">Validar paquete completo — 1 autorización</button>
+    <pre id="camSyncPackageResultsV18" role="status" aria-live="polite" style="white-space:pre-wrap;max-height:150px;overflow:auto;font:11px Aptos,Arial,sans-serif;color:#475569;margin:6px 0 0"></pre>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap"><button id="camSyncValidateV1" type="button" style="background:#e8f2fb;color:#123b5d;border:1px solid #9bbbd7;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Validar operación (sin escritura)</button><button id="camSyncPrepareTestV1" type="button" style="background:#f1f5f9;color:#123b5d;border:1px solid #94a3b8;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Preparar prueba local</button><button id="camSyncReadTestV1" type="button" style="background:#0b6478;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Leer inspección real</button><button id="camSyncSendTestV1" type="button" disabled style="background:#0f766e;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer;opacity:.55">Enviar prueba controlada</button><button id="camSyncSendV1" type="button" style="background:#1769aa;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Sincronizar paquete (escritura real)</button></div>
 </div>
 
 <!-- TECCHNEX CAM-INSPECCIONES V25 · scripts de puerta comercial LAB -->
@@ -19551,6 +19752,10 @@ function TECCHNEX_UI_VOLVER_INICIO_TRAS_GUARDAR(referencia, modo = "contenedor")
 <script src="./tecchnex-inspecciones-config.js"></script>
 <script type="module" src="./tecchnex-inspecciones-license-gate.js"></script>
 <script src="./cam-inspecciones-sync-client-v1.js"></script>
+<script src="./cam-inspecciones-export-adapter-v1.js"></script>
+<script src="./cam-inspecciones-export-audit-ui-v1.js"></script>
+<script src="./cam-inspecciones-sync-package-v1-8.js"></script>
+<script src="./cam-inspecciones-sync-package-ui-v1-8.js"></script>
 <!-- FIN puerta comercial LAB -->
 </body>
 </html>
