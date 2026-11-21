@@ -350,17 +350,20 @@
             throw new Error("No hay una sesión autenticada. Inicia sesión y vuelve a intentar.");
         }
 
-        const pageSize = 5;
-        const maxPages = 100;
-        const all = [];
+        // Contrato alineado con la Edge Function desplegada:
+        // mode=LIST, page_size y cursor {updated_at, sync_id}.
+        // La función devuelve records[] y next_cursor; no usa page/page_size
+        // ni devuelve inspections[].
+        const pageSize = 50;
+        const maxPages = 1000;
+        const records = [];
+        let cursor = null;
         let page = 0;
-        let total = null;
-        let hasMore = true;
-        while (hasMore && page < maxPages) {
-            setStatus(`Consultando inspecciones remotas: página ${page + 1}…`);
-            const { data, error } = await client.functions.invoke(READ_FUNCTION_NAME, {
-                body: { mode: "LIST_INSPECTIONS", page, page_size: pageSize }
-            });
+        while (page < maxPages) {
+            setStatus(`Consultando registros remotos: página ${page + 1}…`);
+            const body = { mode: "LIST", page_size: pageSize };
+            if (cursor) body.cursor = cursor;
+            const { data, error } = await client.functions.invoke(READ_FUNCTION_NAME, { body });
             if (error) {
                 let detail = "";
                 try {
@@ -370,27 +373,49 @@
                 } catch (_) { /* no se exponen cabeceras ni datos sensibles */ }
                 throw new Error(`No fue posible recuperar la página ${page + 1}.${detail}`);
             }
-            if (!data || data.ok !== true || data.code !== "INSPECTIONS_LISTED" ||
-                !Array.isArray(data.inspections) || data.page !== page ||
-                data.write_executed !== false) {
+            if (!data || data.ok !== true || data.code !== "RECORD_PAGE_RECOVERED" ||
+                !Array.isArray(data.records) || !Number.isInteger(data.page_size) ||
+                data.page_size < 1 || data.page_size > pageSize) {
                 throw new Error(`Respuesta de recuperación no válida en página ${page + 1}: ${String(data?.code || "RESPUESTA_INVALIDA")}`);
             }
-            if (total === null) total = Number.isInteger(data.total_inspections) ? data.total_inspections : 0;
-            for (const item of data.inspections) {
-                if (item?.record?.record_type !== "inspeccion" ||
-                    typeof item.record.record_sync_id !== "string" ||
-                    !item.record.payload || typeof item.record.payload !== "object" ||
-                    !Array.isArray(item.related_records)) {
-                    throw new Error("El servidor devolvió una inspección con estructura incompleta. No se guardó información local.");
+            for (const record of data.records) {
+                if (!record || typeof record.record_sync_id !== "string" ||
+                    typeof record.record_type !== "string" ||
+                    (record.parent_sync_id !== null && typeof record.parent_sync_id !== "string") ||
+                    !record.payload || typeof record.payload !== "object" || Array.isArray(record.payload)) {
+                    throw new Error("El servidor devolvió un registro con estructura incompleta. No se guardó información local.");
                 }
-                all.push(item);
+                records.push(record);
             }
-            hasMore = data.has_more === true;
+            const next = data.next_cursor;
+            if (next === null || next === undefined) break;
+            if (!next || typeof next.updated_at !== "string" || typeof next.sync_id !== "string" ||
+                (cursor && next.updated_at === cursor.updated_at && next.sync_id === cursor.sync_id)) {
+                throw new Error("El servidor devolvió un cursor inválido o repetido. No se guardó información local.");
+            }
+            cursor = next;
             page++;
         }
-        if (hasMore) {
-            throw new Error(`La consulta superó el límite de seguridad de ${maxPages} páginas. Se consultaron ${all.length} inspecciones, sin guardar datos localmente.`);
+        if (page >= maxPages && cursor) {
+            throw new Error(`La consulta superó el límite de seguridad de ${maxPages} páginas. Se recuperaron ${records.length} registros, sin guardar datos localmente.`);
         }
+
+        // La Edge Function lista el conjunto paginado de registros, no paquetes
+        // por inspección. Agrupamos hijos por parent_sync_id en memoria.
+        const activeRecords = records.filter(record => !record.deleted_at);
+        const roots = activeRecords.filter(record => record.record_type === "inspeccion" && !record.parent_sync_id);
+        const childrenByParent = new Map();
+        for (const record of activeRecords) {
+            if (!record.parent_sync_id) continue;
+            if (!childrenByParent.has(record.parent_sync_id)) childrenByParent.set(record.parent_sync_id, []);
+            childrenByParent.get(record.parent_sync_id).push(record);
+        }
+        const all = roots.map(record => ({
+            record,
+            related_records: childrenByParent.get(record.record_sync_id) || [],
+            related_records_complete: true,
+            photo_manifest: []
+        }));
 
         const adapter = window.TECCHNEXCamInspeccionesRecoveryAdapterV1;
         if (!adapter || typeof adapter.makePlan !== "function") {
@@ -405,7 +430,7 @@
         for (const key of localArrayKeys) {
             try {
                 const value = JSON.parse(localStorage.getItem(key) || "[]");
-                if (!Array.isArray(value)) throw new Error(`La clave local ${key} no es un arreglo.`);
+                if (!Array.isArray(value)) throw new Error(`la clave local ${key} no contiene un arreglo.`);
                 const aliases = {
                     "tecchnex_lista_vulnerabilidades_multisector_v1_registros_v2": "evaluacionesVulnerabilidades",
                     "tecchnex_agenda_supervision_v1": "agendaSupervision",
@@ -443,7 +468,8 @@
         const resultNode = $("camSyncListResultsV1");
         if (resultNode) {
             resultNode.textContent = [
-                `INSPECCIONES EN SERVIDOR: ${all.length} de ${total ?? all.length}`,
+                `INSPECCIONES EN SERVIDOR: ${all.length}`,
+                `Registros activos recuperados: ${activeRecords.length} de ${records.length} (incluye registros relacionados)`,
                 `Registros relacionados recuperados: ${Object.values(counts).reduce((a, b) => a + b, 0)} (${relatedSummary})`,
                 "VISTA PREVIA DE INCORPORACIÓN (sin guardar):",
                 ...Object.entries(plan.add_counts).map(([key, count]) => `  ${key}: ${count} nuevo(s) propuesto(s) · ${plan.duplicate_counts[key]} duplicado(s)`),
@@ -451,7 +477,7 @@
                 `Tipos aún no incorporables: ${Object.entries(plan.unsupported_record_types).map(([type, count]) => `${type} (${count})`).join(", ") || "ninguno"}`,
                 ...Object.entries(plan.deferred_record_types || {}).map(([type, detail]) => `  ${type}: pospuesto (${detail.count}). ${detail.reason}`),
                 "Fotos: requieren integración independiente de Storage; no se transfieren.",
-                "Agenda, actividades y trazabilidad: mapeadas a sus claves locales existentes; seguimiento y resultados de checklist permanecen protegidos hasta confirmar asociación.",
+                "Seguimiento y resultados de checklist permanecen protegidos hasta confirmar asociación.",
                 ...lines,
                 all.length > 20 ? `… y ${all.length - 20} inspección(es) más.` : "",
                 "Modo PREVIEW_ONLY. No se modificó Supabase ni el almacenamiento local (localStorage/IndexedDB). La incorporación real sigue desactivada."
