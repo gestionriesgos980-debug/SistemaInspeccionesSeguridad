@@ -152,7 +152,7 @@
     async function withBusy(task) {
         if (busy) return;
         busy = true;
-        for (const id of ["camSyncValidateV1", "camSyncPrepareTestV1", "camSyncSendTestV1", "camSyncReadTestV1", "camSyncSendV1", "camSyncValidatePackageV18"]) {
+        for (const id of ["camSyncValidateV1", "camSyncPrepareTestV1", "camSyncSendTestV1", "camSyncReadTestV1", "camSyncListV1", "camSyncSendV1", "camSyncValidatePackageV18"]) {
             const node = $(id);
             if (node) node.disabled = true;
         }
@@ -165,6 +165,7 @@
             const prepare = $("camSyncPrepareTestV1");
             const sendTest = $("camSyncSendTestV1");
             const readTest = $("camSyncReadTestV1");
+            const listButton = $("camSyncListV1");
             const send = $("camSyncSendV1");
             const validatePackage = $("camSyncValidatePackageV18");
             if (validate) validate.disabled = pending === 0;
@@ -172,6 +173,7 @@
             if (sendTest) sendTest.disabled = !preparedTest;
             if (validatePackage) { validatePackage.disabled = !importedPackage; validatePackage.style.opacity = importedPackage ? "1" : ".55"; }
             if (readTest) readTest.disabled = false;
+            if (listButton) listButton.disabled = false;
             // V1 deliberadamente no permite sincronización con escritura.
             if (send) {
                 send.disabled = !importedPackage;
@@ -331,6 +333,136 @@
     }
 
 
+    async function retrieveRemoteInspectionList() {
+        const accepted = window.confirm(
+            "Se consultarán las inspecciones guardadas en Supabase para el cliente y contrato autorizados. " +
+            "La operación es solo de lectura: no modifica Supabase ni guarda o reemplaza información de este equipo. ¿Continuar?"
+        );
+        if (!accepted) {
+            setStatus("Recuperación cancelada. No se realizaron cambios.");
+            return;
+        }
+
+        const client = await getClient();
+        const { data: sessionData, error: sessionError } = await client.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
+        if (sessionError || !accessToken) {
+            throw new Error("No hay una sesión autenticada. Inicia sesión y vuelve a intentar.");
+        }
+
+        const pageSize = 5;
+        const maxPages = 100;
+        const all = [];
+        let page = 0;
+        let total = null;
+        let hasMore = true;
+        while (hasMore && page < maxPages) {
+            setStatus(`Consultando inspecciones remotas: página ${page + 1}…`);
+            const { data, error } = await client.functions.invoke(READ_FUNCTION_NAME, {
+                body: { mode: "LIST_INSPECTIONS", page, page_size: pageSize }
+            });
+            if (error) {
+                let detail = "";
+                try {
+                    const response = error.context && typeof error.context.clone === "function"
+                        ? await error.context.clone().json() : null;
+                    if (response?.code) detail = ` Código: ${String(response.code)}.`;
+                } catch (_) { /* no se exponen cabeceras ni datos sensibles */ }
+                throw new Error(`No fue posible recuperar la página ${page + 1}.${detail}`);
+            }
+            if (!data || data.ok !== true || data.code !== "INSPECTIONS_LISTED" ||
+                !Array.isArray(data.inspections) || data.page !== page ||
+                data.write_executed !== false) {
+                throw new Error(`Respuesta de recuperación no válida en página ${page + 1}: ${String(data?.code || "RESPUESTA_INVALIDA")}`);
+            }
+            if (total === null) total = Number.isInteger(data.total_inspections) ? data.total_inspections : 0;
+            for (const item of data.inspections) {
+                if (item?.record?.record_type !== "inspeccion" ||
+                    typeof item.record.record_sync_id !== "string" ||
+                    !item.record.payload || typeof item.record.payload !== "object" ||
+                    !Array.isArray(item.related_records)) {
+                    throw new Error("El servidor devolvió una inspección con estructura incompleta. No se guardó información local.");
+                }
+                all.push(item);
+            }
+            hasMore = data.has_more === true;
+            page++;
+        }
+        if (hasMore) {
+            throw new Error(`La consulta superó el límite de seguridad de ${maxPages} páginas. Se consultaron ${all.length} inspecciones, sin guardar datos localmente.`);
+        }
+
+        const adapter = window.TECCHNEXCamInspeccionesRecoveryAdapterV1;
+        if (!adapter || typeof adapter.makePlan !== "function") {
+            throw new Error("No está disponible el adaptador seguro de recuperación. No se modificó información local.");
+        }
+        const localState = {};
+        const localArrayKeys = [
+            "inspecciones", "hallazgos", "checklists", "matrizRiesgos", "matricesRiesgosClientes",
+            "tecchnex_lista_vulnerabilidades_multisector_v1_registros_v2",
+            "tecchnex_agenda_supervision_v1", "tecchnex_mi_gestion_actividades_v1", "bitacoraTrazabilidad"
+        ];
+        for (const key of localArrayKeys) {
+            try {
+                const value = JSON.parse(localStorage.getItem(key) || "[]");
+                if (!Array.isArray(value)) throw new Error(`La clave local ${key} no es un arreglo.`);
+                const aliases = {
+                    "tecchnex_lista_vulnerabilidades_multisector_v1_registros_v2": "evaluacionesVulnerabilidades",
+                    "tecchnex_agenda_supervision_v1": "agendaSupervision",
+                    "tecchnex_mi_gestion_actividades_v1": "actividadesMiGestion",
+                    "bitacoraTrazabilidad": "bitacoraTrazabilidad"
+                };
+                localState[aliases[key] || key] = value;
+            } catch (error) {
+                throw new Error(`No se pudo auditar ${key}: ${error.message}. No se modificó información local.`);
+            }
+        }
+        try {
+            const followup = JSON.parse(localStorage.getItem("tecchnex_mi_gestion_seguimiento_v1") || "{}");
+            if (!followup || typeof followup !== "object" || Array.isArray(followup)) throw new Error("la estructura no es un objeto.");
+            localState.seguimientoInspeccionesMiGestion = followup;
+        } catch (error) {
+            throw new Error(`No se pudo auditar el seguimiento local: ${error.message}. No se modificó información local.`);
+        }
+        const plan = adapter.makePlan(all, localState);
+        const counts = {};
+        const lines = all.slice(0, 20).map((item, index) => {
+            const payload = item.record.payload || {};
+            const related = item.related_records || [];
+            const label = String(payload.idControl || payload.idInforme || item.record.record_sync_id).slice(0, 48);
+            const date = String(payload.fecha || "Fecha no indicada").slice(0, 24);
+            const place = String(payload.nombrePuesto || payload.cliente || "Puesto no indicado").slice(0, 55);
+            for (const child of related) {
+                const type = String(child?.record_type || "otro");
+                counts[type] = (counts[type] || 0) + 1;
+            }
+            return `${index + 1}. ${label} · ${date} · ${place} · ${related.length} relacionados`;
+        });
+        const relatedSummary = Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]))
+            .map(([type, count]) => `${type}: ${count}`).join(" | ") || "Sin registros relacionados";
+        const resultNode = $("camSyncListResultsV1");
+        if (resultNode) {
+            resultNode.textContent = [
+                `INSPECCIONES EN SERVIDOR: ${all.length} de ${total ?? all.length}`,
+                `Registros relacionados recuperados: ${Object.values(counts).reduce((a, b) => a + b, 0)} (${relatedSummary})`,
+                "VISTA PREVIA DE INCORPORACIÓN (sin guardar):",
+                ...Object.entries(plan.add_counts).map(([key, count]) => `  ${key}: ${count} nuevo(s) propuesto(s) · ${plan.duplicate_counts[key]} duplicado(s)`),
+                `Inspecciones incompletas: ${plan.incomplete_inspections} · registros inválidos: ${plan.invalid_records}`,
+                `Tipos aún no incorporables: ${Object.entries(plan.unsupported_record_types).map(([type, count]) => `${type} (${count})`).join(", ") || "ninguno"}`,
+                ...Object.entries(plan.deferred_record_types || {}).map(([type, detail]) => `  ${type}: pospuesto (${detail.count}). ${detail.reason}`),
+                "Fotos: requieren integración independiente de Storage; no se transfieren.",
+                "Agenda, actividades y trazabilidad: mapeadas a sus claves locales existentes; seguimiento y resultados de checklist permanecen protegidos hasta confirmar asociación.",
+                ...lines,
+                all.length > 20 ? `… y ${all.length - 20} inspección(es) más.` : "",
+                "Modo PREVIEW_ONLY. No se modificó Supabase ni el almacenamiento local (localStorage/IndexedDB). La incorporación real sigue desactivada."
+            ].filter(Boolean).join("\n");
+        }
+        setStatus(
+            `Consulta completada: ${all.length} inspección(es). Vista previa: ${Object.values(plan.add_counts).reduce((a, b) => a + b, 0)} registros nuevos propuestos; sin cambios locales ni escrituras remotas.`,
+            "ok"
+        );
+    }
+
     async function validatePendingBatch() {
         const pending = readQueue().slice(0, MAX_VALIDATE_BATCH);
         if (!pending.length) {
@@ -351,6 +483,7 @@
         const prepare = $("camSyncPrepareTestV1");
         const sendTest = $("camSyncSendTestV1");
         const readTest = $("camSyncReadTestV1");
+        const listButton = $("camSyncListV1");
         const send = $("camSyncSendV1");
         const packageInput = $("camSyncPackageFileV18");
         const validatePackage = $("camSyncValidatePackageV18");
@@ -370,6 +503,7 @@
             sendTest.disabled = false;
             setStatus("Prueba local preparada en memoria. Aún no se ha enviado ni guardado en Supabase.", "ok");
         }));
+        if (listButton) listButton.addEventListener("click", () => withBusy(retrieveRemoteInspectionList));
         readTest.addEventListener("click", () => withBusy(async () => {
             const accepted = window.confirm(
                 "Se consultará UNA inspección real ya registrada en Admin Maestro. " +

@@ -6756,6 +6756,7 @@ function importarInspeccionIndividual() {
                 for (const hallazgo of hallazgosImportados) {
                     const nuevoHallazgo = {
                         ...hallazgo,
+                        idHallazgoSync: String(hallazgo?.idHallazgoSync || "").trim() || generarIdHallazgoSyncTECCHNEX(),
                         inspeccion: nuevoIndice,
                         idInspeccionInterno: idInternoImportado,
                         claveInspeccionPuestoFecha: inspeccionImportada.claveInspeccionPuestoFecha
@@ -12063,6 +12064,7 @@ async function procesarFotoConTimestamp(archivo, indiceInspeccion, numeroHallazg
                 const imagen = new Image();
 
                 imagen.onload = async function() {
+                    try {
                     const maximo = 1200;
                     let ancho = imagen.width;
                     let alto = imagen.height;
@@ -12086,6 +12088,9 @@ async function procesarFotoConTimestamp(archivo, indiceInspeccion, numeroHallazg
 
                     // Sello visible: se incorpora a los píxeles de la evidencia.
                     const fechaHora = new Date();
+                    // La referencia del puesto debe existir antes de construir el registro.
+                    // Evita que un ReferenceError deje la promesa pendiente y el indicador "Procesando" activo.
+                    const idControl = obtenerIdControlFoto(indiceInspeccion);
                     const selloFecha = fechaHora.toLocaleDateString("es-CO");
                     const selloHora = fechaHora.toLocaleTimeString("es-CO", { hour12: false });
                     const referenciaClientePuesto = obtenerIdControlFoto(indiceInspeccion);
@@ -12189,6 +12194,10 @@ async function procesarFotoConTimestamp(archivo, indiceInspeccion, numeroHallazg
                         idControl: idControl,
                         hallazgo: numeroHallazgo
                     });
+                    } catch (errorProcesamientoFoto) {
+                        console.error("TECCHNEX: error durante el sellado o registro de la fotografía.", errorProcesamientoFoto);
+                        reject(errorProcesamientoFoto);
+                    }
                 };
 
                 imagen.onerror = reject;
@@ -12203,6 +12212,39 @@ async function procesarFotoConTimestamp(archivo, indiceInspeccion, numeroHallazg
     });
 }
 
+
+// CAM-SYNC-ID-HALLAZGO-01 — Identidad técnica estable, invisible para el usuario.
+// No reemplaza idInspeccionInterno ni modifica las asociaciones existentes.
+function generarIdHallazgoSyncTECCHNEX() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return window.crypto.randomUUID();
+    }
+    throw new Error("Este navegador no permite generar un identificador seguro para el hallazgo.");
+}
+
+// Migración aditiva e idempotente: conserva cada propiedad y solo completa IDs faltantes.
+// Si el almacenamiento no permite guardar, no se altera la lista original.
+function migrarIdsHallazgosSyncTECCHNEX() {
+    const textoOriginal = localStorage.getItem("hallazgos");
+    if (textoOriginal === null) return { migrados: 0, total: 0 };
+    const registros = JSON.parse(textoOriginal);
+    if (!Array.isArray(registros)) return { migrados: 0, total: 0 };
+
+    let migrados = 0;
+    const registrosActualizados = registros.map(registro => {
+        if (!registro || typeof registro !== "object" || Array.isArray(registro)) return registro;
+        const idExistente = String(registro.idHallazgoSync || "").trim();
+        if (idExistente) return registro;
+        migrados += 1;
+        return { ...registro, idHallazgoSync: generarIdHallazgoSyncTECCHNEX() };
+    });
+
+    if (migrados > 0) {
+        // setItem es atómico: si falla por cuota, el valor anterior permanece intacto.
+        localStorage.setItem("hallazgos", JSON.stringify(registrosActualizados));
+    }
+    return { migrados, total: registrosActualizados.length };
+}
 
 async function guardarHallazgo() {
 
@@ -12273,7 +12315,15 @@ async function guardarHallazgo() {
         }
     }
 
+    const idHallazgoSyncExistente = String(
+        indiceHallazgoEditando !== null
+            ? hallazgos[indiceHallazgoEditando]?.idHallazgoSync || ""
+            : ""
+    ).trim();
+
     const hallazgoActualizado = {
+
+    idHallazgoSync: idHallazgoSyncExistente || generarIdHallazgoSyncTECCHNEX(),
 
     fecha:
         indiceHallazgoEditando !== null &&
@@ -12387,6 +12437,17 @@ actualizarContadores();
     // La ventana permanece abierta deliberadamente para permitir el registro consecutivo.
 }
 
+// CAM-SYNC-ID-HALLAZGO-01 — completar identidad de hallazgos históricos sin tocar sus vínculos.
+try {
+    const resultadoMigracionIdsHallazgos = migrarIdsHallazgosSyncTECCHNEX();
+    if (resultadoMigracionIdsHallazgos.migrados > 0) {
+        console.info("CAM-SYNC-ID-HALLAZGO-01: identificadores técnicos asignados a hallazgos históricos.", resultadoMigracionIdsHallazgos.migrados);
+    }
+} catch (error) {
+    // No se bloquea la aplicación ni se reemplazan los datos si la migración no puede guardarse.
+    console.error("CAM-SYNC-ID-HALLAZGO-01: migración aplazada; los hallazgos originales se conservaron.", error);
+}
+
 </script>
 
  <!-- VENTANA DE HALLAZGOS -->
@@ -12491,25 +12552,26 @@ actualizarContadores();
 
         <label>Evidencia fotográfica</label>
 
-        <!-- CAMBIO OM-08-C: Se separan explícitamente la captura con cámara y la selección de galería.
-             Esto evita depender de cómo Chrome/Android interprete un único input de archivos.
-             Ambos campos alimentan el mismo flujo actual de compresión y almacenamiento de fotos. -->
+        <!-- CAMBIO OM-08-D: Los selectores se abren mediante activación nativa de label/input.
+             Evita depender de input.click() sobre campos display:none, que puede ser bloqueado
+             por algunos navegadores/dispositivos. Ambos conservan el flujo de fotos existente. -->
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin:8px 0 12px;">
-            <button type="button" onclick="document.getElementById('hallazgoFotoCamara').click()"
-                    style="padding:9px 14px; border:1px solid #123b5d; border-radius:6px; cursor:pointer;">
+            <label for="hallazgoFotoCamara"
+                   style="position:relative; overflow:hidden; display:inline-flex; align-items:center; padding:9px 14px; margin:0; border:1px solid #123b5d; border-radius:6px; cursor:pointer; font-weight:600; color:#123b5d;">
                 📷 Tomar foto
-            </button>
+                <input type="file" id="hallazgoFotoCamara" accept="image/*" capture="environment"
+                       onchange="procesarFotosSeleccionadas(this)"
+                       style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; margin:0; padding:0; border:0;">
+            </label>
 
-            <button type="button" onclick="document.getElementById('hallazgoFotosGaleria').click()"
-                    style="padding:9px 14px; border:1px solid #123b5d; border-radius:6px; cursor:pointer;">
+            <label for="hallazgoFotosGaleria"
+                   style="position:relative; overflow:hidden; display:inline-flex; align-items:center; padding:9px 14px; margin:0; border:1px solid #123b5d; border-radius:6px; cursor:pointer; font-weight:600; color:#123b5d;">
                 🖼️ Seleccionar de galería
-            </button>
+                <input type="file" id="hallazgoFotosGaleria" accept="image/*" multiple
+                       onchange="procesarFotosSeleccionadas(this)"
+                       style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; margin:0; padding:0; border:0;">
+            </label>
         </div>
-
-        <input type="file" id="hallazgoFotoCamara" accept="image/*" capture="environment"
-               onchange="procesarFotosSeleccionadas(this)" style="display:none;">
-        <input type="file" id="hallazgoFotosGaleria" accept="image/*" multiple
-               onchange="procesarFotosSeleccionadas(this)" style="display:none;">
 
         <div id="estadoCargaFotosHallazgo" role="status" aria-live="polite"
              style="font-size:12px;color:#123b5d;margin:4px 0;"></div>
@@ -14959,8 +15021,21 @@ async function generarWordPlantillaMaestra() {
                 const idObjetivo = normalizarId(inspeccionObjetivo.idControl || inspeccionObjetivo.idControlInspeccion);
                 if (clienteObjetivo && clienteEv && clienteEv !== clienteObjetivo) return false;
                 // La coincidencia exacta por ID es la evidencia más fuerte; después se usa cliente/fecha.
-                if (idObjetivo && idEv) return idObjetivo === idEv;
-                if (clienteObjetivo && clienteEv && fechaObjetivo && fechaEv) return fechaObjetivo === fechaEv;
+                // El ID exacto sigue siendo la evidencia prioritaria.
+                if (idObjetivo && idEv && idObjetivo === idEv) return true;
+                // CAM-VULN-INFORME-ASOCIACION-01:
+                // En restauraciones/importaciones el ID técnico puede variar aunque
+                // cliente + fecha + tipo sigan identificando la misma visita.
+                // Solo se admite ese respaldo cuando los tres datos coinciden.
+                if (clienteObjetivo && clienteEv && fechaObjetivo && fechaEv) {
+                    if (fechaObjetivo !== fechaEv) return false;
+                    const tipoObjetivo = normalizarNombre(inspeccionObjetivo.tipo || "");
+                    const tipoEvaluacion = normalizarNombre(ev.inspeccionTipo || ev.tipo || "");
+                    if (tipoObjetivo && tipoEvaluacion && tipoObjetivo !== tipoEvaluacion) return false;
+                    return true;
+                }
+                // Si ambos IDs existen y difieren, no asociar por índice solamente.
+                if (idObjetivo && idEv && idObjetivo !== idEv) return false;
                 if (clienteObjetivo && clienteEv && clienteEv === clienteObjetivo) {
                     if (ev.inspeccionIndice !== null && ev.inspeccionIndice !== undefined && String(ev.inspeccionIndice).trim() !== "" && Number(ev.inspeccionIndice) === indice) return true;
                     if (indicesCliente.length === 1) return true;
@@ -16012,8 +16087,18 @@ function obtenerSeccionAnalisisVulnerabilidadesTECCHNEX(indiceInspeccion) {
         const idObj = idNorm(inspeccionObjetivo.idControl || inspeccionObjetivo.idControlInspeccion);
         if (clienteObjetivo && clienteEv && clienteEv !== clienteObjetivo) return false;
         // La coincidencia exacta por ID es la evidencia más fuerte; después se usa cliente/fecha.
-        if (idObj && idEv) return idObj === idEv;
-        if (clienteObjetivo && clienteEv && fechaObjetivo && fechaEv) return fechaObjetivo === fechaEv;
+        // El ID exacto sigue siendo la evidencia prioritaria.
+        if (idObj && idEv && idObj === idEv) return true;
+        // CAM-VULN-INFORME-ASOCIACION-01: respaldo estricto para IDs regenerados
+        // durante restauraciones/importaciones; no mezcla visitas de otro día/tipo.
+        if (clienteObjetivo && clienteEv && fechaObjetivo && fechaEv) {
+            if (fechaObjetivo !== fechaEv) return false;
+            const tipoObjetivo = normCliente(inspeccionObjetivo.tipo || "");
+            const tipoEvaluacion = normCliente(ev.inspeccionTipo || ev.tipo || "");
+            if (tipoObjetivo && tipoEvaluacion && tipoObjetivo !== tipoEvaluacion) return false;
+            return true;
+        }
+        if (idObj && idEv && idObj !== idEv) return false;
         if (clienteObjetivo && clienteEv && clienteEv === clienteObjetivo) {
             if (ev.inspeccionIndice !== null && ev.inspeccionIndice !== undefined && String(ev.inspeccionIndice).trim() !== "" && Number(ev.inspeccionIndice) === indiceSolicitado) return true;
             if (cuentaCliente === 1) return true;
@@ -19744,14 +19829,16 @@ function TECCHNEX_UI_VOLVER_INICIO_TRAS_GUARDAR(referencia, modo = "contenedor")
     <button id="camSyncValidatePackageV18" type="button" disabled style="background:#146d4a;color:#fff;border:0;border-radius:6px;padding:8px 10px;font-weight:700;cursor:pointer;margin-top:6px;width:100%;opacity:.55">Validar paquete completo — 1 autorización</button>
     <pre id="camSyncPackageResultsV18" role="status" aria-live="polite" style="white-space:pre-wrap;max-height:150px;overflow:auto;font:11px Aptos,Arial,sans-serif;color:#475569;margin:6px 0 0"></pre>
   </div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap"><button id="camSyncValidateV1" type="button" style="background:#e8f2fb;color:#123b5d;border:1px solid #9bbbd7;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Validar operación (sin escritura)</button><button id="camSyncPrepareTestV1" type="button" style="background:#f1f5f9;color:#123b5d;border:1px solid #94a3b8;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Preparar prueba local</button><button id="camSyncReadTestV1" type="button" style="background:#0b6478;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Leer inspección real</button><button id="camSyncSendTestV1" type="button" disabled style="background:#0f766e;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer;opacity:.55">Enviar prueba controlada</button><button id="camSyncSendV1" type="button" style="background:#1769aa;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Sincronizar paquete (escritura real)</button></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap"><button id="camSyncValidateV1" type="button" style="background:#e8f2fb;color:#123b5d;border:1px solid #9bbbd7;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Validar operación (sin escritura)</button><button id="camSyncPrepareTestV1" type="button" style="background:#f1f5f9;color:#123b5d;border:1px solid #94a3b8;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Preparar prueba local</button><button id="camSyncReadTestV1" type="button" style="background:#0b6478;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Leer inspección real</button><button id="camSyncListV1" type="button" style="background:#155e75;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Recuperar inspecciones del servidor</button><button id="camSyncSendTestV1" type="button" disabled style="background:#0f766e;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer;opacity:.55">Enviar prueba controlada</button><button id="camSyncSendV1" type="button" style="background:#1769aa;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Sincronizar paquete (escritura real)</button></div>
+  <pre id="camSyncListResultsV1" role="status" aria-live="polite" style="white-space:pre-wrap;max-height:180px;overflow:auto;font:11px Aptos,Arial,sans-serif;color:#334155;margin:8px 0 0"></pre>
 </div>
 
 <!-- TECCHNEX CAM-INSPECCIONES V25 · scripts de puerta comercial LAB -->
 <script src="./adapters/contrato-adaptador.js"></script>
 <script src="./tecchnex-inspecciones-config.js"></script>
 <script type="module" src="./tecchnex-inspecciones-license-gate.js"></script>
-<script src="./cam-inspecciones-sync-client-v1.js?v=1.14"></script>
+<script src="./cam-inspecciones-sync-recovery-adapter-v1.js?v=4"></script>
+<script src="./cam-inspecciones-sync-client-v1.js?v=1.18"></script>
 <script src="./cam-inspecciones-export-adapter-v1.js"></script>
 <script src="./cam-inspecciones-export-audit-ui-v1.js"></script>
 <script src="./cam-inspecciones-sync-package-v1-8.js"></script>
