@@ -6,7 +6,7 @@
  * - Conserva la validación individual de la cola local.
  * - Valida y sincroniza paquetes mediante la Edge Function agrupada V1.
  * - La escritura real requiere confirmación expresa del usuario en pantalla.
- * - Las fotografías permanecen pendientes para una etapa posterior de Storage.
+ * - Las fotografías se transfieren al bucket privado mediante URLs firmadas de uso único.
  *
  * Seguridad: usa únicamente la clave publicable configurada y el JWT de sesión.
  * Nunca contiene ni solicita credenciales administrativas, secretos HMAC ni tokens manuales.
@@ -19,19 +19,24 @@
     const FUNCTION_NAME = "tecchnex-cam-inspecciones-sync";
     const PACKAGE_FUNCTION_NAME = "tecchnex-cam-inspecciones-sync-package";
     const READ_FUNCTION_NAME = "tecchnex-cam-inspecciones-read";
-    const REAL_INSPECTION_READ_ID = "e60d753a-8a9e-4d7f-af59-57511416db50";
+    const MEDIA_BUCKET = "tecchnex-cam-inspecciones-media";
+    const REAL_INSPECTION_TARGET_DATE = "2026-09-26";
+    const REAL_INSPECTION_TARGET_POST = "CONJUNTO DE USO MIXTO CAMINO DE COLORES P.H";
     const MAX_VALIDATE_BATCH = 10;
-    const MAX_PACKAGE_RECORDS = 11;
+    const MAX_PACKAGE_RECORDS = 100; // Límite de seguridad; el cuerpo completo sigue limitado a 1 MiB.
     const MAX_REQUEST_BYTES = 1024 * 1024;
     let importedPackage = null;
+    let preparedMediaUploads = null;
     // Progreso de VALIDATE_ONLY conservado solo en memoria durante esta sesión.
     let packageValidationProgress = null;
+    let remoteInspectionPackages = [];
 
     const $ = (id) => document.getElementById(id);
     const statusNode = () => $("camSyncStatusV1");
     let clientPromise = null;
     let preparedTest = null;
     let busy = false;
+    let mediaObjectUrls = [];
 
     function setStatus(message, kind = "info") {
         const node = statusNode();
@@ -152,7 +157,7 @@
     async function withBusy(task) {
         if (busy) return;
         busy = true;
-        for (const id of ["camSyncValidateV1", "camSyncPrepareTestV1", "camSyncSendTestV1", "camSyncReadTestV1", "camSyncListV1", "camSyncSendV1", "camSyncValidatePackageV18"]) {
+        for (const id of ["camSyncValidateV1", "camSyncPrepareTestV1", "camSyncSendTestV1", "camSyncReadTestV1", "camSyncListV1", "camSyncSendV1", "camSyncValidatePackageV18", "camSyncImportRemoteV1"]) {
             const node = $(id);
             if (node) node.disabled = true;
         }
@@ -168,13 +173,15 @@
             const listButton = $("camSyncListV1");
             const send = $("camSyncSendV1");
             const validatePackage = $("camSyncValidatePackageV18");
+            const importRemote = $("camSyncImportRemoteV1");
             if (validate) validate.disabled = pending === 0;
             if (prepare) prepare.disabled = false;
             if (sendTest) sendTest.disabled = !preparedTest;
             if (validatePackage) { validatePackage.disabled = !importedPackage; validatePackage.style.opacity = importedPackage ? "1" : ".55"; }
             if (readTest) readTest.disabled = false;
             if (listButton) listButton.disabled = false;
-            // V1 deliberadamente no permite sincronización con escritura.
+            if (importRemote) importRemote.disabled = !remoteInspectionPackages.length;
+            // La recepción local requiere acción y confirmación explícitas; el envío conserva su flujo propio.
             if (send) {
                 send.disabled = !importedPackage;
                 send.title = importedPackage ? "Sincroniza el paquete completo mediante una autorización comercial." : "Primero importa el paquete JSON.";
@@ -207,11 +214,24 @@
         if (!pkg || pkg.schema !== "TECCHNEX-CAM-INSPECCIONES-SYNC-PACKAGE-1" || pkg.mode !== "LOCAL_PACKAGE_ONLY") {
             throw new Error("El archivo no corresponde a un paquete TECCHNEX LOCAL_PACKAGE_ONLY.");
         }
-        if (pkg.source?.id_control !== "INS-2026-0008" || pkg.source?.id_inspeccion_interno !== "d0ac9734-16ae-4bdc-8a63-36687efdccaf") {
-            throw new Error("El paquete no corresponde a la inspección INS-2026-0008 esperada.");
+        if (typeof pkg.source?.id_control !== "string" || !pkg.source.id_control.trim() ||
+            !uuidPattern.test(String(pkg.source?.id_inspeccion_interno || ""))) {
+            throw new Error("El paquete no contiene una identidad de inspección válida.");
         }
-        if (!Array.isArray(pkg.records) || pkg.records.length !== MAX_PACKAGE_RECORDS || pkg.counts?.records !== MAX_PACKAGE_RECORDS) {
-            throw new Error("Se esperaban exactamente 11 operaciones en el paquete.");
+        if (!Array.isArray(pkg.records) || pkg.records.length < 1 ||
+            pkg.records.length > MAX_PACKAGE_RECORDS || pkg.counts?.records !== pkg.records.length) {
+            throw new Error(`El paquete debe contener entre 1 y ${MAX_PACKAGE_RECORDS} registros y declarar el mismo total.`);
+        }
+        const root = pkg.records[0];
+        const rootDate = String(root?.payload?.fecha || "").slice(0, 10);
+        const rootPost = String(root?.payload?.nombrePuesto || "").trim().replace(/\s+/g, " ").toLowerCase();
+        const functionalKey = `${rootDate}|${rootPost}`;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(rootDate) || !rootPost ||
+            pkg.source?.clave_funcional !== functionalKey ||
+            String(root.payload?.claveInspeccionPuestoFecha || "").trim() !== functionalKey ||
+            String(pkg.source?.fecha || "") !== rootDate ||
+            String(pkg.source?.nombre_puesto || "").trim() !== String(root.payload?.nombrePuesto || "").trim()) {
+            throw new Error("La identidad funcional del paquete no coincide con puesto + fecha. Se bloqueó la importación.");
         }
         const ids = new Set();
         const operations = new Set();
@@ -241,11 +261,26 @@
         if (pkg.records[0].record_type !== "inspeccion" || pkg.records.slice(1).some(x => x.record_type === "inspeccion")) {
             throw new Error("El orden o la cantidad de inspecciones del paquete no es válido.");
         }
-        if (!Array.isArray(pkg.photo_manifest) || pkg.photo_manifest.length !== 16 ||
-            pkg.photo_manifest.some(photo => photo.transfer_status !== "PENDING_STORAGE_UPLOAD" ||
+        if (!Array.isArray(pkg.photo_manifest) ||
+            pkg.counts?.photos_manifest !== pkg.photo_manifest.length) {
+            throw new Error("El manifiesto fotográfico no coincide con el total declarado.");
+        }
+        const mediaIds = new Set();
+        for (let i = 0; i < pkg.photo_manifest.length; i++) {
+            const photo = pkg.photo_manifest[i];
+            if (!photo || typeof photo.media_id !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(photo.media_id) ||
+                mediaIds.has(photo.media_id) || photo.transfer_status !== "PENDING_STORAGE_UPLOAD" ||
                 photo.parent_record_sync_id !== pkg.source.id_inspeccion_interno ||
-                !/^[0-9a-f]{64}$/i.test(String(photo.hash_sha256 || "")))) {
-            throw new Error("El manifiesto de 16 fotografías no conserva el estado pendiente y sus hashes válidos.");
+                String(photo.id_control || "") !== pkg.source.id_control ||
+                !/^[0-9a-f]{64}$/i.test(String(photo.hash_sha256 || "")) ||
+                !String(photo.finding_number || "").trim()) {
+                throw new Error(`La referencia fotográfica ${i + 1} está incompleta, duplicada o no pertenece a esta inspección.`);
+            }
+            mediaIds.add(photo.media_id);
+        }
+        const requestBytes = new TextEncoder().encode(JSON.stringify({ mode: "VALIDATE_ONLY", package: pkg })).byteLength;
+        if (requestBytes > MAX_REQUEST_BYTES) {
+            throw new Error(`El paquete completo supera el límite de 1 MiB (${requestBytes} bytes).`);
         }
         return true;
     }
@@ -256,6 +291,7 @@
         const parsed = JSON.parse(await file.text());
         validateImportedPackage(parsed);
         importedPackage = parsed;
+        preparedMediaUploads = null;
         packageValidationProgress = {
             packageKey: parsed.records.map(record => record.operation_id).join("|"),
             nextIndex: 0,
@@ -303,30 +339,92 @@
         const result = await invokePackage("VALIDATE_ONLY");
         if (!result || result.ok !== true || result.code !== "PACKAGE_VALIDATED" ||
             result.package_records !== importedPackage.records.length || result.bridge_authorizations !== 1 ||
-            result.write_executed !== false || result.rpc_executed !== false) {
+            result.write_executed !== false || result.rpc_executed !== false ||
+            result.media_uploads_prepared !== importedPackage.photo_manifest.length ||
+            !Array.isArray(result.uploads) || result.uploads.length !== importedPackage.photo_manifest.length) {
             throw new Error(`Validación de paquete no confirmada: ${String(result?.code || "RESPUESTA_INVALIDA")}`);
         }
+        preparedMediaUploads = result.uploads;
         const node = $("camSyncPackageResultsV18");
-        if (node) node.textContent = `✓ Paquete validado: ${result.package_records}/${result.package_records}\n✓ Autorizaciones Universal Bridge: 1\n✓ Escrituras: 0 · RPC: 0 · Fotografías: pendientes`;
-        setStatus("PAQUETE VALIDADO. Una autorización comercial para todo el lote. Sin escrituras ni RPC.", "ok");
+        if (node) node.textContent = `✓ Paquete validado: ${result.package_records}/${result.package_records}\n✓ Autorizaciones Universal Bridge: 1\n✓ Escrituras: 0 · RPC: 0 · URLs privadas preparadas: ${result.media_uploads_prepared}`;
+        setStatus("PAQUETE VALIDADO. URLs privadas preparadas; todavía no se cargaron fotos ni se guardaron registros.", "ok");
+    }
+
+    async function prepareAndUploadPackagePhotos(client) {
+        const manifest = importedPackage.photo_manifest || [];
+        if (!manifest.length) return [];
+        const audit = window.CAM_INSPECCIONES_LAST_EXPORT_AUDIT;
+        if (!audit || String(audit.source?.idControl || "") !== String(importedPackage.source.id_control || "")) {
+            throw new Error("No está disponible la auditoría local de esta inspección. Vuelve a seleccionar el respaldo original y genera el paquete en esta misma sesión.");
+        }
+        const mediaRows = Array.isArray(audit.related?.media) ? audit.related.media : [];
+        const byId = new Map(mediaRows.map(row => [String(row?.payload?.mediaId || ""), row?.payload || {}]));
+        const files = [];
+        for (const item of manifest) {
+            const media = byId.get(String(item.media_id));
+            const dataUrl = String(media?.dataUrl || "");
+            if (!/^data:image\/(jpeg|png|webp);base64,/i.test(dataUrl)) {
+                throw new Error(`No se encontró la imagen original ${item.media_id}. No se iniciará el envío de registros.`);
+            }
+            const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(dataUrl));
+            const hash = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
+            if (hash.toLowerCase() !== String(item.hash_sha256).toLowerCase()) {
+                throw new Error(`La fotografía ${item.media_id} no supera la comprobación SHA-256. No se enviarán registros.`);
+            }
+            const response = await fetch(dataUrl);
+            const blob = await response.blob();
+            const mime = String(blob.type || item.mime_type || "").toLowerCase();
+            if (!new Set(["image/jpeg", "image/png", "image/webp"]).has(mime) || !blob.size) {
+                throw new Error(`La fotografía ${item.media_id} tiene un formato o tamaño no permitido.`);
+            }
+            files.push({ item, blob, mime });
+        }
+        if (!Array.isArray(preparedMediaUploads) || preparedMediaUploads.length !== files.length) {
+            throw new Error("Primero ejecuta VALIDAR PAQUETE para preparar las autorizaciones privadas de las fotografías. No se enviaron registros.");
+        }
+        const uploadById = new Map(preparedMediaUploads.map(row => [String(row.media_id), row]));
+        const stored = [];
+        for (let i = 0; i < files.length; i++) {
+            const { item, blob, mime } = files[i];
+            const signed = uploadById.get(String(item.media_id));
+            if (!signed?.path || !signed?.token || signed.hash_sha256 !== item.hash_sha256) {
+                throw new Error(`La autorización de carga de la fotografía ${item.media_id} no coincide con su manifiesto.`);
+            }
+            setStatus(`Subiendo fotografía ${i + 1}/${files.length}…`);
+            const { error } = await client.storage.from(MEDIA_BUCKET).uploadToSignedUrl(
+                signed.path, signed.token, blob, { contentType: mime, upsert: true }
+            );
+            if (error) throw new Error(`Falló la carga de la fotografía ${i + 1}/${files.length}. Se conservaron los archivos locales; reintenta con el mismo paquete. No se enviarán registros hasta completar las fotos.`);
+            stored.push({ media_id: item.media_id, path: signed.path, hash_sha256: item.hash_sha256,
+                finding_number: item.finding_number, parent_record_sync_id: item.parent_record_sync_id,
+                mime_type: mime, size_bytes: blob.size });
+        }
+        importedPackage.records[0].payload._tecchnex_media_manifest_v1 = {
+            bucket: MEDIA_BUCKET, inspection_sync_id: importedPackage.source.id_inspeccion_interno,
+            photos: stored, completed: true
+        };
+        return stored;
     }
 
     async function syncImportedPackage() {
         if (!importedPackage) throw new Error("Primero selecciona el JSON del paquete V1.8.");
         validateImportedPackage(importedPackage);
         const accepted = window.confirm(
-            `Se enviará INS-2026-0008 como un solo paquete de ${importedPackage.records.length} registros. ` +
-            "El servidor realizará UNA autorización Universal Bridge y luego ejecutará INSERT en las tablas existentes mediante el RPC actual. " +
-            "Si una operación falla, el resultado puede ser parcial; el mismo paquete podrá reintentarse con idempotencia. " +
-            "Las 16 fotografías NO se transferirán en esta etapa. ¿Autorizar la escritura real de este paquete?"
+            `Se enviará la inspección ${importedPackage.source.id_control} como un solo paquete de ${importedPackage.records.length} registros relacionados y ${importedPackage.photo_manifest.length} fotografías. ` +
+            "Primero se cargarán las fotografías al bucket privado mediante autorizaciones firmadas; después se guardarán los registros en las tablas existentes con el RPC actual. " +
+            "Si algo falla, se conservarán los datos locales y podrás reintentar el mismo paquete. ¿Autorizar el envío desde este equipo?"
         );
         if (!accepted) { setStatus("Sincronización cancelada. No se realizaron escrituras."); return; }
-        setStatus("Enviando paquete completo. Una autorización comercial; registros en orden…");
+        const client = await getClient();
+        const { data: sessionData, error: sessionError } = await client.auth.getSession();
+        if (sessionError || !sessionData?.session?.access_token) throw new Error("No hay una sesión autenticada. Inicia sesión y vuelve a intentar.");
+        const uploadedPhotos = await prepareAndUploadPackagePhotos(client);
+        setStatus("Fotografías verificadas en Storage. Enviando registros relacionados…");
         const result = await invokePackage("SYNC");
         const node = $("camSyncPackageResultsV18");
         if (node) node.textContent = (result?.results || []).map(x => `${x.ok ? "✓" : "✗"} ${x.index}/${result.total} · ${x.record_type} · ${x.code}`).join("\n");
         if (result?.ok === true && result.code === "PACKAGE_SYNC_COMPLETED" && result.completed === importedPackage.records.length) {
-            setStatus(`SINCRONIZACIÓN COMPLETADA: ${result.completed}/${result.total} registros. Autorizaciones Universal Bridge: 1. Fotografías: pendientes de Storage.`, "ok");
+            setStatus(`SINCRONIZACIÓN COMPLETADA: ${result.completed}/${result.total} registros y ${uploadedPhotos.length} fotografías verificadas en Storage. Las asociaciones quedaron en el manifiesto de la inspección.`, "ok");
             return;
         }
         throw new Error(`Paquete con resultado parcial: ${result?.completed ?? 0}/${result?.total ?? importedPackage.records.length}. Código: ${result?.code || "RESPUESTA_INVALIDA"}. Conserva el mismo JSON para reintentar de forma idempotente.`);
@@ -414,8 +512,23 @@
             record,
             related_records: childrenByParent.get(record.record_sync_id) || [],
             related_records_complete: true,
-            photo_manifest: []
+            photo_manifest: Array.isArray(record.payload?._tecchnex_media_manifest_v1?.photos)
+                ? record.payload._tecchnex_media_manifest_v1.photos : []
         }));
+        remoteInspectionPackages = all;
+        const remoteSelect = $("camSyncRemoteInspectionV1");
+        if (remoteSelect) {
+            remoteSelect.replaceChildren();
+            all.forEach((item, index) => {
+                const option = document.createElement("option");
+                const p = item.record.payload || {};
+                option.value = String(index);
+                option.textContent = `${p.fecha || "Sin fecha"} · ${p.nombrePuesto || p.cliente || "Sin puesto"} · ${item.related_records.length} relacionados`;
+                remoteSelect.appendChild(option);
+            });
+        }
+        const importRemoteButton = $("camSyncImportRemoteV1");
+        if (importRemoteButton) importRemoteButton.disabled = all.length === 0;
 
         const adapter = window.TECCHNEXCamInspeccionesRecoveryAdapterV1;
         if (!adapter || typeof adapter.makePlan !== "function") {
@@ -471,22 +584,164 @@
                 `INSPECCIONES EN SERVIDOR: ${all.length}`,
                 `Registros activos recuperados: ${activeRecords.length} de ${records.length} (incluye registros relacionados)`,
                 `Registros relacionados recuperados: ${Object.values(counts).reduce((a, b) => a + b, 0)} (${relatedSummary})`,
-                "VISTA PREVIA DE INCORPORACIÓN (sin guardar):",
-                ...Object.entries(plan.add_counts).map(([key, count]) => `  ${key}: ${count} nuevo(s) propuesto(s) · ${plan.duplicate_counts[key]} duplicado(s)`),
-                `Inspecciones incompletas: ${plan.incomplete_inspections} · registros inválidos: ${plan.invalid_records}`,
-                `Tipos aún no incorporables: ${Object.entries(plan.unsupported_record_types).map(([type, count]) => `${type} (${count})`).join(", ") || "ninguno"}`,
-                ...Object.entries(plan.deferred_record_types || {}).map(([type, detail]) => `  ${type}: pospuesto (${detail.count}). ${detail.reason}`),
-                "Fotos: requieren integración independiente de Storage; no se transfieren.",
-                "Seguimiento y resultados de checklist permanecen protegidos hasta confirmar asociación.",
+                "RECEPCIÓN DISPONIBLE: selecciona una inspección para incorporarla en este equipo.",
+                `Registros relacionados: ${Object.values(counts).reduce((a, b) => a + b, 0)} · Fotografías en manifiestos: ${all.reduce((n, x) => n + x.photo_manifest.length, 0)}`,
+                `Inspecciones con relaciones incompletas: ${plan.incomplete_inspections} · registros inválidos: ${plan.invalid_records}`,
+                "La incorporación descarga y verifica fotografías, reconstruye resultados de checklist y conserva la identidad del registro raíz.",
                 ...lines,
                 all.length > 20 ? `… y ${all.length - 20} inspección(es) más.` : "",
-                "Modo PREVIEW_ONLY. No se modificó Supabase ni el almacenamiento local (localStorage/IndexedDB). La incorporación real sigue desactivada."
+                "La consulta LIST es de solo lectura. La incorporación local se ejecuta únicamente al pulsar Incorporar al equipo y confirmar."
             ].filter(Boolean).join("\n");
         }
         setStatus(
-            `Consulta completada: ${all.length} inspección(es). Vista previa: ${Object.values(plan.add_counts).reduce((a, b) => a + b, 0)} registros nuevos propuestos; sin cambios locales ni escrituras remotas.`,
+            `Consulta completada: ${all.length} inspección(es). Selecciona una y pulsa Incorporar al equipo para completar la recepción local.`,
             "ok"
         );
+    }
+
+    function readLocalArray(key) {
+        const raw = localStorage.getItem(key);
+        const value = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(value)) throw new Error(`La estructura local ${key} no es un arreglo.`);
+        return value;
+    }
+
+    function functionalKeyOf(payload) {
+        const date = String(payload?.fecha || payload?.fechaInspeccion || "").slice(0, 10);
+        const post = String(payload?.nombrePuesto || payload?.puesto || payload?.cliente || "").trim().replace(/\s+/g, " ").toLowerCase();
+        return date && post ? `${date}|${post}` : "";
+    }
+
+    async function downloadRemotePhotos(rootRecord, manifest) {
+        if (!manifest.length) return new Map();
+        const rootPayload = rootRecord.payload || {};
+        const key = functionalKeyOf(rootPayload);
+        const declared = rootPayload._tecchnex_media_manifest_v1;
+        if (!key || !declared || declared.completed !== true || declared.inspection_sync_id !== rootRecord.record_sync_id ||
+            !Array.isArray(declared.photos) || declared.photos.length !== manifest.length) {
+            throw new Error("El manifiesto fotográfico no está completo o no corresponde a esta inspección. No se incorporó información.");
+        }
+        const client = await getClient();
+        const { data: sessionData, error: sessionError } = await client.auth.getSession();
+        if (sessionError || !sessionData?.session?.access_token) throw new Error("No hay una sesión autenticada para recuperar fotografías.");
+        const { data, error } = await client.functions.invoke("tecchnex-cam-inspecciones-media-read", {
+            body: { record_sync_id: rootRecord.record_sync_id, expected_key: key }
+        });
+        if (error || !data || data.ok !== true || data.code !== "PHOTO_URLS_CREATED" || data.identity_key !== key || !Array.isArray(data.photos) || data.photos.length !== manifest.length) {
+            throw new Error(`Supabase no autorizó la recuperación completa de fotografías (${String(data?.code || error?.message || "MEDIA_READ_FAILED")}).`);
+        }
+        const byRemoteId = new Map();
+        for (const photo of data.photos) {
+            if (!photo || !photo.media_id || !photo.signed_url || !/^https:\/\//i.test(photo.signed_url)) throw new Error("Supabase devolvió una referencia fotográfica incompleta.");
+            const expected = manifest.find(x => String(x.media_id) === String(photo.media_id));
+            if (!expected || String(expected.hash_sha256).toLowerCase() !== String(photo.hash_sha256).toLowerCase()) throw new Error(`La fotografía ${photo.media_id} no coincide con el manifiesto de la inspección.`);
+            const response = await fetch(photo.signed_url, { cache: "no-store" });
+            if (!response.ok) throw new Error(`No se pudo descargar la fotografía ${photo.media_id} (HTTP ${response.status}).`);
+            const blob = await response.blob();
+            if (blob.size !== Number(photo.size_bytes)) throw new Error(`Tamaño incorrecto en la fotografía ${photo.media_id}.`);
+            const mime = String(photo.mime_type || blob.type || "image/jpeg").toLowerCase();
+            const normalizedBlob = blob.type.toLowerCase() === mime ? blob : new Blob([blob], { type: mime });
+            const dataUrl = await new Promise((resolve, reject) => {
+                const reader = new FileReader(); reader.onload = () => resolve(String(reader.result || ""));
+                reader.onerror = () => reject(new Error("No se pudo leer una fotografía descargada.")); reader.readAsDataURL(normalizedBlob);
+            });
+            const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(dataUrl));
+            const hash = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
+            if (hash.toLowerCase() !== String(photo.hash_sha256).toLowerCase()) throw new Error(`SHA-256 incorrecto en la fotografía ${photo.media_id}.`);
+            if (typeof window.guardarMediaEnBoveda !== "function") throw new Error("La bóveda fotográfica IndexedDB no está disponible en esta versión.");
+            const ref = await window.guardarMediaEnBoveda({
+                dataUrl, hashSha256: hash, idControl: String(rootPayload.idControl || ""),
+                hallazgo: String(photo.finding_number || expected.finding_number || ""),
+                timestamp: photo.timestamp || expected.timestamp || new Date().toISOString()
+            });
+            if (!ref?.mediaId) throw new Error(`IndexedDB no confirmó el almacenamiento de ${photo.media_id}.`);
+            byRemoteId.set(String(photo.media_id), { ...ref, remoteMediaId: String(photo.media_id), finding_number: String(photo.finding_number || expected.finding_number || "") });
+        }
+        if (byRemoteId.size !== manifest.length) throw new Error("No se recuperaron todas las fotografías declaradas.");
+        return byRemoteId;
+    }
+
+    async function incorporateSelectedRemoteInspection() {
+        const select = $("camSyncRemoteInspectionV1");
+        const index = Number(select?.value);
+        if (!Number.isInteger(index) || !remoteInspectionPackages[index]) throw new Error("Primero recupera la lista y selecciona una inspección.");
+        const item = remoteInspectionPackages[index];
+        const rootRecord = item.record;
+        const root = { ...(rootRecord.payload || {}) };
+        const rootId = String(rootRecord.record_sync_id || "").trim();
+        const key = functionalKeyOf(root);
+        if (!rootId || !key || root.idInspeccionInterno && String(root.idInspeccionInterno) !== rootId) throw new Error("La identidad técnica o funcional de la inspección remota no coincide. Incorporación cancelada.");
+        if (item.related_records_complete === false) throw new Error("La inspección tiene registros relacionados incompletos. No se incorporará parcialmente.");
+        const accepted = window.confirm(`Se incorporará al equipo esta inspección completa:\n\n${root.nombrePuesto || root.cliente}\n${root.fecha}\n${item.related_records.length} registros relacionados\n${item.photo_manifest.length} fotografías\n\nNo se reemplazarán inspecciones locales existentes. ¿Continuar?`);
+        if (!accepted) { setStatus("Incorporación cancelada; no se modificaron datos locales."); return; }
+
+        const inspections = readLocalArray("inspecciones");
+        const existingByUuid = inspections.find(x => String(x?.idInspeccionInterno || "") === rootId);
+        const existingByKey = inspections.find(x => functionalKeyOf(x) === key);
+        if (existingByUuid) { setStatus("Esta inspección ya existe en este equipo. No se duplicó ni sobrescribió.", "ok"); return; }
+        if (existingByKey) throw new Error("Ya existe una inspección local con el mismo puesto y fecha, pero con otro UUID. Se requiere resolver el conflicto antes de incorporar.");
+
+        const mediaMap = await downloadRemotePhotos(rootRecord, item.photo_manifest || []);
+        const newIndex = inspections.length;
+        root.idInspeccionInterno = rootId;
+        root.claveInspeccionPuestoFecha = key;
+        const related = item.related_records || [];
+        const staged = {
+            hallazgos: readLocalArray("hallazgos"), checklists: readLocalArray("checklists"),
+            matrizRiesgos: readLocalArray("matrizRiesgos"), matricesRiesgosClientes: readLocalArray("matricesRiesgosClientes"),
+            vulnerabilidades: readLocalArray("tecchnex_lista_vulnerabilidades_multisector_v1_registros_v2"),
+            resultados: (() => { const x=JSON.parse(localStorage.getItem("resultadosChecklistCategorias")||"{}"); if(!x||typeof x!=="object"||Array.isArray(x)) throw new Error("resultadosChecklistCategorias tiene una estructura no válida."); return x; })()
+        };
+        const normalizeChild = payload => ({ ...payload, idInspeccionInterno: rootId, claveInspeccionPuestoFecha: key, inspeccion: newIndex, idControlInspeccion: root.idControl || payload.idControlInspeccion || "" });
+        const findingNumbers = new Set();
+        for (const child of related) {
+            const type = String(child?.record_type || "");
+            const payload = child?.payload;
+            if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new Error(`Registro relacionado ${type} sin contenido válido.`);
+            if (type === "hallazgo") {
+                const h = normalizeChild(payload);
+                h.idControl = root.idControl || h.idControl || "";
+                if (Array.isArray(h.fotos)) h.fotos = h.fotos.map(photo => {
+                    const remoteId = String(photo?.mediaId || ""); const mapped = mediaMap.get(remoteId);
+                    if (!mapped) throw new Error(`El hallazgo contiene una fotografía no incluida en el manifiesto: ${remoteId}.`);
+                    return { ...photo, mediaId: mapped.mediaId, hashSha256: mapped.hashSha256 || photo.hashSha256, idControl: root.nombrePuesto || root.idControl || "", hallazgo: photo.hallazgo || mapped.finding_number };
+                });
+                for (const photo of h.fotos || []) if (photo?.hallazgo) findingNumbers.add(String(photo.hallazgo));
+                staged.hallazgos.push(h);
+            } else if (type === "checklist") staged.checklists.push(normalizeChild(payload));
+            else if (type === "matriz_riesgos") staged.matrizRiesgos.push(normalizeChild(payload));
+            else if (type === "matriz_cliente") staged.matricesRiesgosClientes.push(normalizeChild(payload));
+            else if (type === "vulnerabilidad") staged.vulnerabilidades.push(normalizeChild(payload));
+            else if (type === "resultado_checklist") {
+                const category = String(payload.categoria || "");
+                if (!category) throw new Error("Un resultado de checklist remoto no tiene categoría.");
+                const row = staged.resultados[String(newIndex)] || (staged.resultados[String(newIndex)] = {});
+                if (Object.prototype.hasOwnProperty.call(row, category)) throw new Error(`Resultado duplicado para la categoría ${category}.`);
+                row[category] = payload.resultado;
+            }
+        }
+        const expectedPhotoFindings = new Set((item.photo_manifest || []).map(x => String(x.finding_number || "")).filter(Boolean));
+        for (const n of expectedPhotoFindings) if (!findingNumbers.has(n)) throw new Error(`Las fotografías del hallazgo ${n} no encontraron su registro local.`);
+        inspections.push(root);
+        const writes = {
+            inspecciones: inspections, hallazgos: staged.hallazgos, checklists: staged.checklists,
+            matrizRiesgos: staged.matrizRiesgos, matricesRiesgosClientes: staged.matricesRiesgosClientes,
+            tecchnex_lista_vulnerabilidades_multisector_v1_registros_v2: staged.vulnerabilidades,
+            resultadosChecklistCategorias: staged.resultados,
+            indiceInspeccionSeleccionadaInforme: String(newIndex)
+        };
+        const snapshots = Object.fromEntries(Object.keys(writes).map(k => [k, localStorage.getItem(k)]));
+        try {
+            for (const [keyName, value] of Object.entries(writes)) localStorage.setItem(keyName, typeof value === "string" ? value : JSON.stringify(value));
+        } catch (writeError) {
+            for (const [keyName, oldValue] of Object.entries(snapshots)) {
+                try { if (oldValue === null) localStorage.removeItem(keyName); else localStorage.setItem(keyName, oldValue); } catch (_) {}
+            }
+            throw new Error(`No se pudo completar la incorporación local; se restauraron los datos estructurados anteriores. ${writeError?.message || writeError}`);
+        }
+        setStatus(`SINCRONIZACIÓN RECIBIDA: inspección ${root.nombrePuesto} · ${root.fecha}; ${related.length} registros relacionados y ${mediaMap.size} fotografías incorporados en este equipo.`, "ok");
+        const resultNode = $("camSyncListResultsV1");
+        if (resultNode) resultNode.textContent += `\n\n✓ INCORPORACIÓN COMPLETADA en el equipo local: ${root.nombrePuesto} · ${root.fecha}\n✓ Registros relacionados: ${related.length}\n✓ Fotografías verificadas e incorporadas: ${mediaMap.size}`;
     }
 
     async function validatePendingBatch() {
@@ -510,6 +765,7 @@
         const sendTest = $("camSyncSendTestV1");
         const readTest = $("camSyncReadTestV1");
         const listButton = $("camSyncListV1");
+        const mediaButton = $("camSyncMediaReadV1");
         const send = $("camSyncSendV1");
         const packageInput = $("camSyncPackageFileV18");
         const validatePackage = $("camSyncValidatePackageV18");
@@ -530,54 +786,172 @@
             setStatus("Prueba local preparada en memoria. Aún no se ha enviado ni guardado en Supabase.", "ok");
         }));
         if (listButton) listButton.addEventListener("click", () => withBusy(retrieveRemoteInspectionList));
+        const importRemoteButton = $("camSyncImportRemoteV1");
+        if (importRemoteButton) importRemoteButton.addEventListener("click", () => withBusy(incorporateSelectedRemoteInspection));
+        if (mediaButton) mediaButton.addEventListener("click", () => withBusy(async () => {
+            const accepted = window.confirm("Se solicitarán enlaces temporales de solo lectura para las fotografías de Camino de Colores. Se comprobarán tamaño y SHA-256 en el navegador. No se escribirá ni eliminará información. ¿Continuar?");
+            if (!accepted) { setStatus("Prueba fotográfica cancelada. Sin cambios."); return; }
+            const client = await getClient();
+            const { data: sessionData, error: sessionError } = await client.auth.getSession();
+            const accessToken = sessionData?.session?.access_token;
+            if (sessionError || !accessToken) throw new Error("No hay una sesión autenticada. Inicia sesión y vuelve a intentar.");
+            const normalizePost = value => String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+            const targetKey = `${REAL_INSPECTION_TARGET_DATE}|${normalizePost(REAL_INSPECTION_TARGET_POST)}`;
+            setStatus("Localizando primero la raíz por puesto + fecha…");
+            const roots = []; let cursor = null; let page = 0;
+            // Páginas pequeñas reducen el riesgo de exceder el límite de respuesta
+            // cuando existen manifiestos fotográficos grandes en los registros raíz.
+            while (page < 1000) {
+                const body = { mode: "LIST", page_size: 10 }; if (cursor) body.cursor = cursor;
+                const { data: pageData, error: pageError } = await client.functions.invoke(READ_FUNCTION_NAME, { body });
+                if (pageError) {
+                    const detail = String(pageError.message || pageError.context?.status || pageError.name || "ERROR_DESCONOCIDO");
+                    throw new Error(`Falló la consulta paginada de Supabase (página ${page + 1}): ${detail}. No se solicitaron enlaces ni se modificaron datos.`);
+                }
+                if (!pageData || pageData.ok !== true || pageData.code !== "RECORD_PAGE_RECOVERED" || !Array.isArray(pageData.records)) {
+                    const detail = String(pageData?.code || pageData?.message || "RESPUESTA_INVALIDA");
+                    throw new Error(`Supabase no devolvió una página de registros válida (página ${page + 1}): ${detail}. No se solicitaron enlaces ni se modificaron datos.`);
+                }
+                for (const record of pageData.records) if (record && record.record_type === "inspeccion" && !record.parent_sync_id && !record.deleted_at &&
+                    String(record.payload?.fecha || "").slice(0,10) === REAL_INSPECTION_TARGET_DATE && normalizePost(record.payload?.nombrePuesto) === normalizePost(REAL_INSPECTION_TARGET_POST)) roots.push(record);
+                const next = pageData.next_cursor; if (!next) break;
+                if (typeof next.updated_at !== "string" || typeof next.sync_id !== "string" || (cursor && next.updated_at === cursor.updated_at && next.sync_id === cursor.sync_id)) throw new Error("Cursor de lectura inválido; recuperación detenida.");
+                cursor = next; page++;
+            }
+            if (page >= 1000 && cursor) throw new Error("La búsqueda superó el límite de seguridad de páginas.");
+            if (roots.length !== 1) throw new Error(roots.length ? `Hay ${roots.length} inspecciones con esa identidad; revisión manual requerida.` : "No se encontró la inspección por puesto + fecha.");
+            const root = roots[0];
+            if (root.payload?.claveInspeccionPuestoFecha !== targetKey) throw new Error("La clave funcional de la raíz no coincide; recuperación detenida.");
+            setStatus("Solicitando autorización temporal de lectura para las fotografías…");
+            const { data, error } = await client.functions.invoke("tecchnex-cam-inspecciones-media-read", { body: { record_sync_id: root.record_sync_id, expected_key: targetKey } });
+            if (error || !data || data.ok !== true || data.code !== "PHOTO_URLS_CREATED" || data.identity_key !== targetKey || !Array.isArray(data.photos) || data.photos.length !== 27) {
+                const code = String(data?.code || error?.message || "MEDIA_RESPONSE_INVALID");
+                throw new Error(code === "FUNCTION_NOT_FOUND" || code.includes("404") ? "La función segura de lectura fotográfica aún no está desplegada. El código LAB está preparado, pero Supabase no se ha modificado." : `No fue posible autorizar la recuperación fotográfica: ${code}`);
+            }
+            const host = $("camSyncMediaResultsV1");
+            for (const url of mediaObjectUrls) URL.revokeObjectURL(url);
+            mediaObjectUrls = [];
+            if (host) host.replaceChildren();
+            let ok = 0, failed = 0; const previews = [];
+            setStatus(`Descargando y verificando 27 fotografías…`);
+            for (let offset = 0; offset < data.photos.length; offset += 3) {
+                const batch = data.photos.slice(offset, offset + 3);
+                const results = await Promise.all(batch.map(async photo => {
+                    try {
+                        if (typeof photo.signed_url !== "string" || !photo.signed_url.startsWith(CONFIG.projectUrl)) throw new Error("URL temporal no válida");
+                        const response = await fetch(photo.signed_url, { cache: "no-store" });
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                        const blob = await response.blob();
+                        if (blob.size !== Number(photo.size_bytes)) throw new Error(`Tamaño distinto (${blob.size}/${photo.size_bytes})`);
+                        // El hash histórico TECCHNEX se calculó sobre el Data URL completo,
+                        // no sobre los bytes binarios. Reconstruir el Data URL desde el Blob
+                        // descargado conserva el contrato SHA-256 original sin alterar archivos.
+                        const expectedMime = String(photo.mime_type || blob.type || "image/jpeg").toLowerCase();
+                        if (blob.type && blob.type.toLowerCase() !== expectedMime) {
+                            throw new Error(`Tipo MIME distinto (${blob.type}/${expectedMime})`);
+                        }
+                        const normalizedBlob = blob.type === expectedMime ? blob : new Blob([blob], { type: expectedMime });
+                        const dataUrl = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = () => resolve(String(reader.result || ""));
+                            reader.onerror = () => reject(new Error("No fue posible reconstruir el Data URL para verificar la huella."));
+                            reader.readAsDataURL(normalizedBlob);
+                        });
+                        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(dataUrl));
+                        const hash = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
+                        if (hash.toLowerCase() !== String(photo.hash_sha256).toLowerCase()) throw new Error("SHA-256 del Data URL no coincide");
+                        return { ok: true, photo, blob: normalizedBlob };
+                    } catch (err) { return { ok: false, photo, error: String(err?.message || err) }; }
+                }));
+                for (const result of results) {
+                    if (result.ok) { ok++; previews.push({ photo: result.photo, blob: result.blob }); }
+                    else { failed++; if (host) { const p=document.createElement("div"); p.textContent=`FALLO ${result.photo.media_id}: ${result.error}`; p.style.color="#a22626"; host.appendChild(p); } }
+                }
+                setStatus(`Fotografías verificadas: ${ok}/27 · fallidas: ${failed}.`);
+            }
+            if (host) {
+                const summary=document.createElement("strong"); summary.textContent=`Resultado: ${ok}/27 recuperadas y verificadas por tamaño y SHA-256; ${failed} fallidas.`; host.prepend(summary);
+                const grid=document.createElement("div"); grid.style.cssText="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:8px";
+                for (const item of previews) { const cell=document.createElement("div"); cell.style.cssText="min-width:0"; const img=document.createElement("img"); img.src=URL.createObjectURL(item.blob); mediaObjectUrls.push(img.src); img.alt=`Hallazgo ${item.photo.finding_number || ""}`; img.style.cssText="width:100%;aspect-ratio:1;object-fit:cover;border:1px solid #cbd5e1;border-radius:5px"; const cap=document.createElement("div"); cap.textContent=String(item.photo.finding_number || item.photo.media_id); cap.style.cssText="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"; cell.append(img,cap); grid.append(cell); }
+                host.append(grid);
+            }
+            setStatus(`PRUEBA FOTOGRÁFICA FINALIZADA: ${ok}/27 recuperadas, tamaño y SHA-256 verificados; ${failed} fallidas. Sin escrituras ni cambios locales.`, failed ? "error" : "ok");
+        }));
         readTest.addEventListener("click", () => withBusy(async () => {
             const accepted = window.confirm(
-                "Se consultará UNA inspección real ya registrada en Admin Maestro. " +
-                "La consulta será exclusivamente de lectura: no modificará registros, " +
-                "no guardará datos en este dispositivo y no descargará fotografías. ¿Continuar?"
+                "Se buscará en Supabase la inspección por su identidad funcional: puesto + fecha. " +
+                "La consulta es solo de lectura; no modifica Supabase ni el almacenamiento local. ¿Continuar?"
             );
             if (!accepted) {
                 setStatus("Consulta cancelada. No se realizaron cambios.");
                 return;
             }
-            setStatus("Consultando la inspección real en Admin Maestro…");
+            setStatus("Buscando la inspección por puesto + fecha en Supabase…");
             const client = await getClient();
             const { data: sessionData, error: sessionError } = await client.auth.getSession();
             const accessToken = sessionData?.session?.access_token;
             if (sessionError || !accessToken) {
                 throw new Error("No hay una sesión autenticada. Inicia sesión y vuelve a intentar.");
             }
-            const { data, error } = await client.functions.invoke(READ_FUNCTION_NAME, {
-                body: { record_sync_id: REAL_INSPECTION_READ_ID }
-            });
-            if (error) {
-                let detail = "";
-                try { detail = error.context && typeof error.context.json === "function" ? JSON.stringify(await error.context.json()) : ""; }
-                catch (_) { /* no se expone información sensible */ }
-                throw new Error(`La función de lectura no respondió correctamente.${detail ? " " + detail : ""}`);
+
+            const normalizePost = value => String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+            const targetKey = `${REAL_INSPECTION_TARGET_DATE}|${normalizePost(REAL_INSPECTION_TARGET_POST)}`;
+            const pageSize = 50;
+            const maxPages = 1000;
+            const records = [];
+            let cursor = null;
+            let page = 0;
+            while (page < maxPages) {
+                setStatus(`Buscando identidad funcional: página ${page + 1}…`);
+                const body = { mode: "LIST", page_size: pageSize };
+                if (cursor) body.cursor = cursor;
+                const { data, error } = await client.functions.invoke(READ_FUNCTION_NAME, { body });
+                if (error) throw new Error(`No fue posible consultar la página ${page + 1} de Supabase.`);
+                if (!data || data.ok !== true || data.code !== "RECORD_PAGE_RECOVERED" ||
+                    !Array.isArray(data.records) || !Number.isInteger(data.page_size) || data.page_size < 1 || data.page_size > pageSize) {
+                    throw new Error(`Respuesta de lectura no válida: ${String(data?.code || "RESPUESTA_INVALIDA")}`);
+                }
+                for (const record of data.records) {
+                    if (!record || typeof record.record_sync_id !== "string" || typeof record.record_type !== "string" ||
+                        (record.parent_sync_id !== null && typeof record.parent_sync_id !== "string") ||
+                        !record.payload || typeof record.payload !== "object" || Array.isArray(record.payload)) {
+                        throw new Error("Supabase devolvió un registro incompleto. No se modificó información local.");
+                    }
+                    records.push(record);
+                }
+                const next = data.next_cursor;
+                if (next === null || next === undefined) break;
+                if (!next || typeof next.updated_at !== "string" || typeof next.sync_id !== "string" ||
+                    (cursor && next.updated_at === cursor.updated_at && next.sync_id === cursor.sync_id)) {
+                    throw new Error("Supabase devolvió un cursor inválido o repetido. Consulta cancelada.");
+                }
+                cursor = next;
+                page++;
             }
-            if (!data || data.ok !== true || data.code !== "RECORD_RECOVERED" ||
-                data.record?.record_sync_id !== REAL_INSPECTION_READ_ID ||
-                data.record?.record_type !== "inspeccion" ||
-                !data.record?.payload || typeof data.record.payload !== "object" ||
-                data.record.payload._tecchnex_sync_lab_test_v1 === true) {
-                throw new Error(`Lectura no confirmada: ${String(data?.code || "RESPUESTA_INVALIDA")}`);
+            if (page >= maxPages && cursor) throw new Error("La consulta superó el límite de seguridad de páginas. No se modificó información local.");
+
+            const active = records.filter(record => !record.deleted_at);
+            const matches = active.filter(record => record.record_type === "inspeccion" && !record.parent_sync_id &&
+                String(record.payload.fecha || "").slice(0, 10) === REAL_INSPECTION_TARGET_DATE &&
+                normalizePost(record.payload.nombrePuesto) === normalizePost(REAL_INSPECTION_TARGET_POST));
+            if (matches.length !== 1) {
+                throw new Error(matches.length === 0
+                    ? `No se encontró la inspección ${targetKey}. No se eligió ningún registro alternativo.`
+                    : `Se encontraron ${matches.length} raíces con la misma identidad ${targetKey}. Revisión manual requerida; no se eligió ninguna.`);
             }
-            const payload = data.record.payload;
-            const cliente = String(payload.cliente || "Cliente no especificado").slice(0, 90);
-            const puesto = String(payload.nombrePuesto || payload.idControl || "Puesto no especificado").slice(0, 90);
-            const ciudad = String(payload.ciudad || "Ciudad no especificada").slice(0, 70);
-            const fecha = String(payload.fecha || "Fecha no especificada").slice(0, 30);
-            const campos = Object.keys(payload).length;
-            const relacionados = Array.isArray(data.related_records) ? data.related_records : [];
-            const resumen = relacionados.reduce((acc, item) => {
-                const tipo = String(item?.record_type || "otro").toLowerCase();
-                acc[tipo] = (acc[tipo] || 0) + 1;
+
+            const root = matches[0];
+            const payloadKey = String(root.payload.claveInspeccionPuestoFecha || "").trim();
+            if (payloadKey !== targetKey) throw new Error("La clave funcional guardada no coincide con puesto + fecha. Lectura detenida para evitar asociaciones incorrectas.");
+            const related = active.filter(record => record.parent_sync_id === root.record_sync_id);
+            const summary = related.reduce((acc, item) => {
+                const type = String(item.record_type || "otro").toLowerCase();
+                acc[type] = (acc[type] || 0) + 1;
                 return acc;
             }, {});
-            const detalle = `Relacionados: ${relacionados.length} (hallazgos: ${resumen.hallazgo || resumen.hallazgos || 0}, checklists: ${resumen.checklist || resumen.checklists || 0}, matrices: ${resumen.matriz_riesgos || resumen.matriz || 0}).`;
-            const integridad = data.related_records_complete === false ? " Hay más de 500 registros relacionados; lectura parcial." : "";
-            setStatus(`INSPECCIÓN REAL RECUPERADA: ${cliente} · ${puesto} · ${ciudad} · ${fecha}. ${campos} campos, versión ${data.record.version}. ${detalle}${integridad} Solo lectura; sin escrituras ni cambios locales. Fotografías: pendiente de contrato de Storage.`, "ok");
+            const detail = `Relacionados: ${related.length} (hallazgos: ${summary.hallazgo || 0}, matrices: ${summary.matriz_cliente || 0}, checklist: ${summary.checklist || 0}, resultados de checklist: ${summary.resultado_checklist || 0}, vulnerabilidades: ${summary.vulnerabilidad || 0}).`;
+            const campos = Object.keys(root.payload).length;
+            setStatus(`IDENTIDAD CORRECTA EN SUPABASE: ${root.payload.nombrePuesto} · ${root.payload.fecha}. Clave: ${targetKey}. UUID técnico: ${root.record_sync_id}. ${campos} campos. ${detail} Consulta paginada de solo lectura; sin escrituras ni cambios locales.`, "ok");
         }));
 
         sendTest.addEventListener("click", () => withBusy(async () => {

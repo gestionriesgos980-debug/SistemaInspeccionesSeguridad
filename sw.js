@@ -1,6 +1,6 @@
 /* CAM-CACHE-01 — actualización automática controlada.
    No elimina localStorage ni IndexedDB; solo administra Cache Storage. */
-const CACHE_NAME = "tecchnex-cam-inspecciones-v25-lab-v1-15-3-sync-pull-protocol-fix-2026-11-21";
+const CACHE_NAME = "tecchnex-cam-inspecciones-v25-lab-v1-16-4-reasignacion-identidad-2026-11-23-v1-16-5-sincronizacion-integral";
 const ARCHIVOS_BASE = [
   "./",
   "./index.html",
@@ -11,8 +11,8 @@ const ARCHIVOS_BASE = [
   "./tecchnex-inspecciones-license-gate.js",
   "./cam-inspecciones-export-adapter-v1.js",
   "./cam-inspecciones-export-audit-ui-v1.js",
-  "./cam-inspecciones-sync-recovery-adapter-v1.js?v=4",
-  "./cam-inspecciones-sync-client-v1.js?v=1.19",
+  "./cam-inspecciones-sync-recovery-adapter-v1.js?v=5",
+  "./cam-inspecciones-sync-client-v1.js?v=1.25",
   "./cam-inspecciones-sync-package-v1-8.js",
   "./cam-inspecciones-sync-package-ui-v1-8.js"
 ];

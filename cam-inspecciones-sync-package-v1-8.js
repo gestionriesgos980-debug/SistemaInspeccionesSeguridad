@@ -26,6 +26,13 @@
   const internal=String(report.source.idInspeccionInterno||'');
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(internal))throw new Error('La inspección no tiene un UUID interno válido para conservar su identidad.');
   const inspectionId=internal, sourceId=report.source.idControl;
+  const rootPayload=report.inspection.payload||{};
+  const rootDate=String(rootPayload.fecha||'').slice(0,10);
+  const rootPost=String(rootPayload.nombrePuesto||'').trim().replace(/\s+/g,' ').toLowerCase();
+  const functionalKey=`${rootDate}|${rootPost}`;
+  const storedKey=String(rootPayload.claveInspeccionPuestoFecha||'').trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(rootDate)||!rootPost)throw new Error('La inspección principal no tiene fecha y nombre de puesto válidos; paquete cancelado.');
+  if(storedKey && storedKey!==functionalKey)throw new Error('La clave funcional del registro principal no coincide con puesto + fecha; no se permite sincronizar una inspección anterior.');
   const records=[];
   async function add(recordType,sourceKey,payload,parentSyncId=null){
    if(!ALLOWED.has(recordType))throw new Error(`Tipo de registro no admitido por el contrato actual: ${recordType}`);
@@ -51,6 +58,10 @@
    await add('vulnerabilidad',String(report.related.evaluacion_vulnerabilidades.payload.id||'evaluacion'),report.related.evaluacion_vulnerabilidades.payload,inspectionId);
   }
   for(const group of report.related.checklists||[])await add('checklist',String(records.length),group.payload,inspectionId);
+  for(let i=0;i<(report.related.resultados_checklist||[]).length;i++){
+   const row=report.related.resultados_checklist[i];
+   await add('resultado_checklist',`${row.payload.inspeccionIndice}|${row.payload.categoria}`,row.payload,inspectionId);
+  }
   for(const group of report.related.matriz_riesgos_inspeccion||[])await add('matriz_riesgos',String(records.length),group.payload,inspectionId);
   const media=(report.related.media||[]).map(row=>({
    media_id:String(row.payload.mediaId),record_type:'media_file',parent_record_sync_id:inspectionId,
@@ -66,9 +77,9 @@
    schema:'TECCHNEX-CAM-INSPECCIONES-SYNC-PACKAGE-1',
    mode:'LOCAL_PACKAGE_ONLY',
    created_at:new Date().toISOString(),
-   source:{id_control:sourceId,id_inspeccion_interno:inspectionId},
+   source:{id_control:sourceId,id_inspeccion_interno:inspectionId,fecha:rootDate,nombre_puesto:String(rootPayload.nombrePuesto).trim(),clave_funcional:functionalKey},
    contract:{accepted_record_types:[...ALLOWED],max_request_bytes:MAX,photo_transfer:'SEPARATE_PRIVATE_STORAGE_UPLOAD_NOT_INCLUDED'},
-   counts:{records:records.length,inspecciones:1,hallazgos:report.counts.hallazgos,matrices_cliente:report.counts.matrices_riesgos_cliente,vulnerabilidad:report.related.evaluacion_vulnerabilidades?1:0,checklists:report.counts.checklists,matrices_inspeccion:report.counts.matriz_riesgos_inspeccion,photos_manifest:media.length},
+   counts:{records:records.length,inspecciones:1,hallazgos:report.counts.hallazgos,matrices_cliente:report.counts.matrices_riesgos_cliente,vulnerabilidad:report.related.evaluacion_vulnerabilidades?1:0,checklists:report.counts.checklists,resultados_checklist:report.counts.resultados_checklist||0,matrices_inspeccion:report.counts.matriz_riesgos_inspeccion,photos_manifest:media.length},
    records,photo_manifest:media,
    safeguards:{network_requests:0,rpc_calls:0,storage_uploads:0,local_data_mutations:0,production_changes:0},
    ready_for_remote_write:false
