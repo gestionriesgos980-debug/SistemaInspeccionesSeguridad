@@ -4595,10 +4595,23 @@ function camSyncRegistrarInspeccionLocalV1(inspeccionActual, inspeccionAnterior 
     }
 
     const idAnterior = String(inspeccionAnterior?.idControl || "").trim();
-    const metaAnterior = idAnterior && registros[idAnterior] ? registros[idAnterior] : null;
-    const metaActual = registros[idActual] || null;
-    const syncId = String(metaAnterior?.record_sync_id || metaActual?.record_sync_id || camSyncUuidV1());
-    const versionServidor = Number(metaAnterior?.server_version ?? metaActual?.server_version ?? 0);
+    // La clave compuesta permite conservar dos raíces cuando se reutiliza idControl
+    // pero cambia la identidad funcional puesto + fecha.
+    const claveActual = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionActual);
+    const claveAnterior = inspeccionAnterior
+        ? obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionAnterior)
+        : "";
+    const mismaIdentidadFuncional = Boolean(claveActual && claveAnterior && claveActual === claveAnterior);
+    const claveMetaActual = claveActual ? `${idActual}::${claveActual}` : "";
+    const claveMetaAnterior = idAnterior && claveAnterior ? `${idAnterior}::${claveAnterior}` : "";
+    const metaAnterior = (claveMetaAnterior && registros[claveMetaAnterior])
+        || (idAnterior && registros[idAnterior]) || null;
+    const metaActual = (claveMetaActual && registros[claveMetaActual])
+        || registros[idActual] || null;
+    // Nunca heredar metadatos de otra identidad, aunque coincida idControl.
+    const metaReutilizable = mismaIdentidadFuncional ? (metaAnterior || metaActual) : null;
+    const syncId = String(metaReutilizable?.record_sync_id || camSyncUuidV1());
+    const versionServidor = Number(metaReutilizable?.server_version ?? 0);
     const tipoOperacion = versionServidor > 0 ? "UPDATE" : "INSERT";
     const versionEsperada = tipoOperacion === "UPDATE" ? versionServidor : null;
 
@@ -4630,8 +4643,19 @@ function camSyncRegistrarInspeccionLocalV1(inspeccionActual, inspeccionAnterior 
         local_record_id: idActual,
         updated_at: new Date().toISOString()
     };
-    const nuevosRegistros = { ...registros, [idActual]: meta };
-    if (idAnterior && idAnterior !== idActual) delete nuevosRegistros[idAnterior];
+    const colisionaConOtraIdentidad = Boolean(
+        !mismaIdentidadFuncional && registros[idActual] &&
+        registros[idActual].record_sync_id && registros[idActual].record_sync_id !== syncId
+    );
+    const claveDestinoMeta = colisionaConOtraIdentidad && claveMetaActual
+        ? claveMetaActual
+        : idActual;
+    const nuevosRegistros = { ...registros, [claveDestinoMeta]: meta };
+    // Al cambiar idControl manteniendo identidad, trasladar la referencia y retirar
+    // únicamente la clave anterior de compatibilidad; no borrar otras identidades.
+    if (mismaIdentidadFuncional && idAnterior && idAnterior !== idActual && registros[idAnterior]) {
+        delete nuevosRegistros[idAnterior];
+    }
 
     // Escritura protegida: si una clave falla, se restaura el valor anterior de ambas claves.
     const anteriores = {
@@ -4672,7 +4696,7 @@ function camSyncRegistrarInspeccionLocalV1(inspeccionActual, inspeccionAnterior 
             const inspeccionesParaId = JSON.parse(localStorage.getItem("inspecciones") || "[]");
             const inspeccionAnteriorIdentidad = (indiceEdicion !== undefined && indiceEdicion !== "")
                 ? inspeccionesParaId[Number(indiceEdicion)] : null;
-            const idInspeccionInterno = String(inspeccionAnteriorIdentidad?.idInspeccionInterno || generarIdentidadInternaInspeccionTECCHNEX());
+            let idInspeccionInterno = String(inspeccionAnteriorIdentidad?.idInspeccionInterno || generarIdentidadInternaInspeccionTECCHNEX());
             let idControl;
             let siguienteIdGenerado = null;
             if (indiceEdicion !== undefined && indiceEdicion !== "") {
@@ -4988,6 +5012,18 @@ inspeccion.seguridadSugerida = Array.from(
 // CAM-RESTAURACION-HALLAZGOS-01: la identidad portable depende solo del puesto y la fecha.
 const clavePuestoFechaNueva = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion);
 inspeccion.claveInspeccionPuestoFecha = clavePuestoFechaNueva;
+// CAM-IDENTIDAD-INSPECCION-03: cambiar puesto o fecha crea una identidad técnica nueva.
+// El UUID anterior solo se usa para localizar los hijos que pertenecían a la ficha editada.
+const clavePuestoFechaAnterior = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionAnteriorIdentidad);
+const identidadFuncionalCambio = Boolean(
+    inspeccionAnteriorIdentidad && clavePuestoFechaAnterior && clavePuestoFechaNueva &&
+    clavePuestoFechaAnterior !== clavePuestoFechaNueva
+);
+const idInspeccionInternoAnterior = String(inspeccionAnteriorIdentidad?.idInspeccionInterno || "").trim();
+if (identidadFuncionalCambio) {
+    idInspeccionInterno = generarIdentidadInternaInspeccionTECCHNEX();
+    inspeccion.idInspeccionInterno = idInspeccionInterno;
+}
 const inspeccionAnteriorEdicion = (indiceEdicion !== undefined && indiceEdicion !== "")
     ? inspecciones[Number(indiceEdicion)]
     : null;
@@ -5010,7 +5046,15 @@ let limpiezaReemplazoVigente = null;
 let inspeccionBaseParaSync = inspeccionAnteriorEdicion || null;
 if (indiceEdicion !== undefined && indiceEdicion !== "") {
 
-    inspecciones[Number(indiceEdicion)] = inspeccion;
+    const indiceEdicionValidar = Number(indiceEdicion);
+    const claveAnteriorEdicion = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionAnteriorEdicion);
+    if (!validarUnicidadPuestoFechaInspeccionTECCHNEX(
+        inspecciones, inspeccion, indiceEdicionValidar, claveAnteriorEdicion
+    )) {
+        alert("No se puede guardar esta edición: ya existe otra inspección con el mismo puesto y fecha. Verifique la identidad antes de continuar. No se modificaron los datos almacenados.");
+        return;
+    }
+    inspecciones[indiceEdicionValidar] = inspeccion;
 
     // CAMBIO OM-08 — Mantener activa la inspección que se está editando.
     // Así, el módulo de Hallazgos trabaja sobre el mismo informe y no sobre
@@ -5102,40 +5146,56 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
                 registrarConsecutivoInspeccionTECCHNEX(siguienteIdGenerado.anio, siguienteIdGenerado.numero, inspecciones);
             }
 
-            // CAM-RESTAURACION-HALLAZGOS-01: si al editar cambia el puesto o la fecha,
-            // trasladar los hallazgos de esa misma ficha a la nueva clave. No se pierden.
-            if (indiceEdicion !== undefined && indiceEdicion !== "" && inspeccionAnteriorEdicion) {
+            // CAM-IDENTIDAD-INSPECCION-03: trasladar en bloque los registros hijos
+            // únicamente cuando la identidad puesto+fecha cambió. Se usa el UUID anterior
+            // para localizar los hijos y el UUID nuevo para asociarlos a la nueva inspección.
+            // Las fotos siguen vinculadas por mediaId; solo se actualiza su metadato legado idControl.
+            if (identidadFuncionalCambio && idInspeccionInternoAnterior) {
                 const indiceEditado = Number(indiceEdicion);
-                const clavesAnteriores = new Set(obtenerClavesInspeccionPuestoFechaTECCHNEX(inspeccionAnteriorEdicion));
-                if (!clavesAnteriores.has(clavePuestoFechaNueva) || clavesAnteriores.size > 1) {
-                    try {
-                        const hallazgosLocales = JSON.parse(localStorage.getItem("hallazgos") || "[]");
-                        if (Array.isArray(hallazgosLocales)) {
-                            const hallazgosReasociados = hallazgosLocales.map(hallazgo => {
-                                const claveHallazgo = String(hallazgo?.claveInspeccionPuestoFecha || "").trim();
-                                const indiceRaw = hallazgo?.inspeccion;
-                                const indiceValido = indiceRaw !== null && indiceRaw !== undefined &&
-                                    String(indiceRaw).trim() !== "" && Number.isInteger(Number(indiceRaw));
-                                const idInternoHallazgo = String(hallazgo?.idInspeccionInterno || "").trim();
-                                const idInternoAnterior = String(inspeccionAnteriorEdicion?.idInspeccionInterno || "").trim();
-                                const claveAnteriorUnica = clavesAnteriores.size === 1 &&
-                                    inspecciones.filter(x => obtenerClavesInspeccionPuestoFechaTECCHNEX(x).some(k => clavesAnteriores.has(k))).length === 1;
-                                const pertenece = idInternoAnterior
-                                    ? idInternoHallazgo === idInternoAnterior
-                                    : (claveAnteriorUnica && ((claveHallazgo && clavesAnteriores.has(claveHallazgo)) ||
-                                        (!claveHallazgo && indiceValido && Number(indiceRaw) === indiceEditado)));
-                                if (!pertenece) return hallazgo;
-                                const { idControlInspeccion, claveInspeccionPuestoFecha, ...hallazgoSinIds } = hallazgo || {};
-                                return clavePuestoFechaNueva
-                                    ? { ...hallazgoSinIds, inspeccion: indiceEditado, idInspeccionInterno: idInternoAnterior || idInternoHallazgo, claveInspeccionPuestoFecha: clavePuestoFechaNueva }
-                                    : { ...hallazgoSinIds, inspeccion: indiceEditado, idInspeccionInterno: idInternoAnterior || idInternoHallazgo };
-                            });
-                            localStorage.setItem("hallazgos", JSON.stringify(hallazgosReasociados));
+                const nombrePuestoNuevo = String(
+                    inspeccion.nombrePuesto || inspeccion.puesto || inspeccion.cliente || ""
+                ).trim();
+                const clavesHijas = ["hallazgos", "checklists", "matrizRiesgos", "matricesRiesgosClientes"];
+                const anterioresHijas = Object.fromEntries(
+                    clavesHijas.map(clave => [clave, localStorage.getItem(clave)])
+                );
+                try {
+                    for (const claveLista of clavesHijas) {
+                        const registros = JSON.parse(localStorage.getItem(claveLista) || "[]");
+                        if (!Array.isArray(registros)) {
+                            throw new Error("La lista " + claveLista + " no tiene un formato válido.");
                         }
-                    } catch (errorReasociacion) {
-                        console.error("CAM-RESTAURACION-HALLAZGOS-01: no fue posible actualizar la clave de los hallazgos editados.", errorReasociacion);
-                        alert("La inspección se guardó, pero no se pudo actualizar automáticamente la asociación de sus hallazgos. Antes de continuar, cree un respaldo y revise esta inspección.");
+                        const reasignados = registros.map(registro => {
+                            if (String(registro?.idInspeccionInterno || "").trim() !== idInspeccionInternoAnterior) {
+                                return registro;
+                            }
+                            const actualizado = {
+                                ...registro,
+                                inspeccion: indiceEditado,
+                                idInspeccionInterno,
+                                claveInspeccionPuestoFecha: clavePuestoFechaNueva
+                            };
+                            if (claveLista === "hallazgos" && Array.isArray(registro.fotos)) {
+                                actualizado.fotos = registro.fotos.map(foto => foto && typeof foto === "object"
+                                    ? { ...foto, idControl: nombrePuestoNuevo }
+                                    : foto);
+                            }
+                            return actualizado;
+                        });
+                        localStorage.setItem(claveLista, JSON.stringify(reasignados));
                     }
+                } catch (errorReasignacion) {
+                    for (const [clave, valor] of Object.entries(anterioresHijas)) {
+                        try {
+                            if (valor === null) localStorage.removeItem(clave);
+                            else localStorage.setItem(clave, valor);
+                        } catch (errorRollback) {
+                            console.error("CAM-IDENTIDAD-INSPECCION-03: error al revertir", clave, errorRollback);
+                        }
+                    }
+                    console.error("CAM-IDENTIDAD-INSPECCION-03: reasignación detenida.", errorReasignacion);
+                    alert("La inspección se guardó, pero no se completó la reasignación de sus registros relacionados. No sincronice todavía; cree un respaldo y revise los datos locales.");
+                    return;
                 }
             }
 
@@ -14143,6 +14203,20 @@ function obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion) {
     return obtenerClavesInspeccionPuestoFechaTECCHNEX(inspeccion)[0] || "";
 }
 
+// CAM-IDENTIDAD-INSPECCION-04 — La clave puesto + fecha debe ser única.
+// El UUID sigue siendo la relación técnica y no habilita duplicar la identidad funcional.
+// Si ya existían duplicados históricos, se permite editar datos sin cambiar esa clave;
+// cambiar a una clave que pertenece a otra inspección se bloquea.
+function validarUnicidadPuestoFechaInspeccionTECCHNEX(inspecciones, inspeccion, indiceExcluir, claveAnterior) {
+    const lista = Array.isArray(inspecciones) ? inspecciones : [];
+    const claveNueva = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion);
+    if (!claveNueva || claveNueva === String(claveAnterior || "").trim()) return true;
+    const excluir = Number(indiceExcluir);
+    return !lista.some((registro, indice) =>
+        indice !== excluir && obtenerClaveInspeccionPuestoFechaTECCHNEX(registro) === claveNueva
+    );
+}
+
 
 // CAM-REEMPLAZO-VIGENTE-01 — Política simple de una inspección vigente por cliente/puesto.
 // La fecha decide cuál versión prevalece. Los índices locales se mantienen estables.
@@ -14414,15 +14488,10 @@ function obtenerRegistrosDeInspeccion(registros, inspeccion, indice) {
     // repetirse tras importar, eliminar o restaurar. Excluir es más seguro que mezclar.
     if (claveObjetivo && coincidenciasClave.length > 1) return [];
 
-    // Compatibilidad muy antigua sin clave: solo aceptar el índice si no existe
-    // una identidad/clave alternativa y el llamador solicita un índice válido.
-    const idx = Number(indice);
-    if (!claveObjetivo && Number.isInteger(idx) && idx >= 0) {
-        return lista.filter(r => !String(r?.idInspeccionInterno || "").trim() &&
-            !String(r?.claveInspeccionPuestoFecha || "").trim() &&
-            r?.inspeccion !== null && r?.inspeccion !== undefined &&
-            String(r.inspeccion).trim() !== "" && Number(r.inspeccion) === idx);
-    }
+    // CAM-ID-08: sin UUID ni clave de puesto+fecha no existe una relación
+    // verificable. El índice local nunca se utiliza para decidir pertenencia,
+    // porque puede cambiar al importar, eliminar o restaurar inspecciones.
+    // Los registros incompletos quedan pendientes de revisión; no se reasignan.
     return [];
 }
 
@@ -19829,16 +19898,18 @@ function TECCHNEX_UI_VOLVER_INICIO_TRAS_GUARDAR(referencia, modo = "contenedor")
     <button id="camSyncValidatePackageV18" type="button" disabled style="background:#146d4a;color:#fff;border:0;border-radius:6px;padding:8px 10px;font-weight:700;cursor:pointer;margin-top:6px;width:100%;opacity:.55">Validar paquete completo — 1 autorización</button>
     <pre id="camSyncPackageResultsV18" role="status" aria-live="polite" style="white-space:pre-wrap;max-height:150px;overflow:auto;font:11px Aptos,Arial,sans-serif;color:#475569;margin:6px 0 0"></pre>
   </div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap"><button id="camSyncValidateV1" type="button" style="background:#e8f2fb;color:#123b5d;border:1px solid #9bbbd7;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Validar operación (sin escritura)</button><button id="camSyncPrepareTestV1" type="button" style="background:#f1f5f9;color:#123b5d;border:1px solid #94a3b8;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Preparar prueba local</button><button id="camSyncReadTestV1" type="button" style="background:#0b6478;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Leer inspección real</button><button id="camSyncListV1" type="button" style="background:#155e75;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Recuperar inspecciones del servidor</button><button id="camSyncSendTestV1" type="button" disabled style="background:#0f766e;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer;opacity:.55">Enviar prueba controlada</button><button id="camSyncSendV1" type="button" style="background:#1769aa;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Sincronizar paquete (escritura real)</button></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap"><button id="camSyncValidateV1" type="button" style="background:#e8f2fb;color:#123b5d;border:1px solid #9bbbd7;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Validar operación (sin escritura)</button><button id="camSyncPrepareTestV1" type="button" style="background:#f1f5f9;color:#123b5d;border:1px solid #94a3b8;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Preparar prueba local</button><button id="camSyncReadTestV1" type="button" style="background:#0b6478;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Verificar identidad en Supabase</button><button id="camSyncMediaReadV1" type="button" style="background:#166534;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Probar recuperación de fotografías</button><button id="camSyncListV1" type="button" style="background:#155e75;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Recuperar inspecciones del servidor</button><button id="camSyncSendTestV1" type="button" disabled style="background:#0f766e;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer;opacity:.55">Enviar prueba controlada</button><button id="camSyncSendV1" type="button" style="background:#1769aa;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Sincronizar paquete (escritura real)</button></div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><select id="camSyncRemoteInspectionV1" style="min-width:260px;max-width:100%;padding:7px;border:1px solid #94a3b8;border-radius:6px" aria-label="Inspección remota para recibir"></select><button id="camSyncImportRemoteV1" type="button" disabled style="background:#166534;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer;opacity:.55">Incorporar al equipo</button></div>
   <pre id="camSyncListResultsV1" role="status" aria-live="polite" style="white-space:pre-wrap;max-height:180px;overflow:auto;font:11px Aptos,Arial,sans-serif;color:#334155;margin:8px 0 0"></pre>
+  <div id="camSyncMediaResultsV1" role="status" aria-live="polite" style="margin-top:8px;color:#334155;font-size:11px"></div>
 </div>
 
 <!-- TECCHNEX CAM-INSPECCIONES V25 · scripts de puerta comercial LAB -->
 <script src="./adapters/contrato-adaptador.js"></script>
 <script src="./tecchnex-inspecciones-config.js"></script>
 <script type="module" src="./tecchnex-inspecciones-license-gate.js"></script>
-<script src="./cam-inspecciones-sync-recovery-adapter-v1.js?v=4"></script>
-<script src="./cam-inspecciones-sync-client-v1.js?v=1.19"></script>
+<script src="./cam-inspecciones-sync-recovery-adapter-v1.js?v=5"></script>
+<script src="./cam-inspecciones-sync-client-v1.js?v=1.25"></script>
 <script src="./cam-inspecciones-export-adapter-v1.js"></script>
 <script src="./cam-inspecciones-export-audit-ui-v1.js"></script>
 <script src="./cam-inspecciones-sync-package-v1-8.js"></script>
