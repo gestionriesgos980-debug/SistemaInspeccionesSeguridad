@@ -3691,7 +3691,77 @@ async function procesarBibliotecaArchivoOM31(tipo, archivo) {
             : CLAVE_BIBLIOTECA_RECOMENDACIONES;
         const nombre = tipo === "riesgos" ? "riesgos" : "hallazgos";
 
-        // Acepta un arreglo directo, un respaldo general o la sección "datos".
+        // Recuperación selectiva: completa únicamente descripciones vacías por ID.
+        // No agrega registros ni reemplaza recomendaciones u otros campos existentes.
+        if (datos?.tipoOperacion === "completar_solo_campos_vacios" && Array.isArray(datos?.registros)) {
+            const entrantes = Array.isArray(datos.registros) ? datos.registros : [];
+            if (!entrantes.length) throw new Error("El archivo de recuperación no contiene registros.");
+
+            const actuales = JSON.parse(localStorage.getItem(clave) || "[]");
+            if (!Array.isArray(actuales)) throw new Error("La biblioteca actual no tiene un formato válido.");
+
+            const mapa = new Map(entrantes.filter(x => x && x.id).map(x => [String(x.id), x]));
+            let coincidencias = 0;
+            let completados = 0;
+            let sinCambio = 0;
+
+            const actualizados = actuales.map(actual => {
+                const recuperado = actual?.id ? mapa.get(String(actual.id)) : null;
+                if (!recuperado) return actual;
+                coincidencias++;
+
+                const copia = { ...actual };
+                let cambio = false;
+                const hallazgoActual = String(copia.hallazgo ?? "").trim();
+                const descripcionActual = String(copia.descripcionHallazgo ?? "").trim();
+                const textoRecuperado = String(
+                    recuperado.descripcionHallazgo || recuperado.hallazgo || ""
+                ).trim();
+
+                if (textoRecuperado && !hallazgoActual) {
+                    copia.hallazgo = textoRecuperado;
+                    cambio = true;
+                }
+                if (textoRecuperado && !descripcionActual) {
+                    copia.descripcionHallazgo = textoRecuperado;
+                    cambio = true;
+                }
+
+                if (cambio) completados++;
+                else sinCambio++;
+                return copia;
+            });
+
+            const noEncontrados = entrantes.length - coincidencias;
+            const confirmacion =
+                `Archivo: ${archivo.name}\n` +
+                `Registros de recuperación: ${entrantes.length}\n` +
+                `Coincidencias por ID en la biblioteca actual: ${coincidencias}\n` +
+                `Registros que se completarían: ${completados}\n` +
+                `Registros sin cambios: ${sinCambio}\n` +
+                `IDs no encontrados: ${noEncontrados}\n\n` +
+                `Solo se completarán los campos de hallazgo que estén vacíos. ` +
+                `Las recomendaciones, los demás campos y los registros de inspección no se modificarán.\n\n¿Desea continuar?`;
+            if (!window.confirm(confirmacion)) return;
+
+            if (completados > 0) {
+                localStorage.setItem(clave, JSON.stringify(actualizados));
+            }
+
+            alert(
+                `Recuperación finalizada.\n\n` +
+                `Registros completados: ${completados}\n` +
+                `Registros sin cambios: ${sinCambio}\n` +
+                `IDs no encontrados: ${noEncontrados}\n\n` +
+                `No se agregaron ni eliminaron registros. Las recomendaciones actuales se conservaron.`
+            );
+            if (document.getElementById("contenidoBibliotecaOM20")) {
+                renderizarBibliotecaRecomendacionesOM20();
+            }
+            return;
+        }
+
+        // Importación estándar, acumulativa, sin reemplazar registros actuales.
         const contenedores = [datos, datos?.datos, datos?.respaldo, datos?.informacion];
         let entrantes = null;
         for (const contenedor of contenedores) {
@@ -3729,7 +3799,6 @@ async function procesarBibliotecaArchivoOM31(tipo, archivo) {
             return "contenido:" + campos.map(v => String(v ?? "").trim().toLowerCase().replace(/\s+/g, " ")).join("|");
         };
 
-        // Importación acumulativa: no borra registros actuales ni toca otros datos del sistema.
         const vistos = new Set(bibliotecaActual.map(claveRegistro));
         const nuevos = [];
         let duplicados = 0;
@@ -3761,7 +3830,6 @@ async function procesarBibliotecaArchivoOM31(tipo, archivo) {
         alert("No fue posible cargar la biblioteca.\n\nDetalle: " + (error?.message || error));
     }
 }
-
 function abrirBibliotecaRecomendacionesOM22() {
 
     inicializarBibliotecaRecomendaciones();
@@ -3927,6 +3995,12 @@ function abrirEditorBibliotecaRecomendacionOM20(indice = null) {
                 <label style="display:block;font-weight:bold;margin-bottom:5px;">Descripción del hallazgo <span style="font-weight:normal;color:#64748b;">(los registros antiguos pueden dejar este campo vacío)</span></label>
                 <textarea id="editorOM20Hallazgo" rows="4" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">${escaparTextoOM12(item.descripcionHallazgo || item.hallazgo || "")}</textarea>
 
+                <label style="display:block;font-weight:bold;margin-bottom:5px;">Vulnerabilidad / condiciones que aumentan la exposición</label>
+                <textarea id="editorRiesgoOM20Vulnerabilidad" rows="3" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">${escaparTextoOM12(item.vulnerabilidad || "")}</textarea>
+                <label style="display:block;font-weight:bold;margin-bottom:5px;">Categoría técnica</label>
+                <input id="editorRiesgoOM20Categoria" value="${escaparTextoOM12(item.categoria || "")}" placeholder="Ej. Locativo, eléctrico, seguridad física..." style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">
+                <label style="display:block;font-weight:bold;margin-bottom:5px;">Sectores aplicables</label>
+                <input id="editorRiesgoOM20Sectores" value="${escaparTextoOM12(item.sectores || "")}" placeholder="Residencial; Comercial; Industrial" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">
                 <label style="display:block;font-weight:bold;margin-bottom:5px;">Palabras clave <span style="font-weight:normal;color:#64748b;">(separadas por coma)</span></label>
                 <input id="editorOM20Palabras" value="${escaparTextoOM12((item.palabrasClave || []).join(", "))}" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">
 
@@ -4130,7 +4204,8 @@ function renderizarBibliotecaRiesgosOM20() {
         if (!buscador) return true;
         return normalizarTextoOM12([
             item.area, item.peligro, item.riesgo, item.descripcion, item.tratamiento, item.causas,
-            item.consecuencias, ...(item.palabrasClave || []), item.fuente
+            item.consecuencias, item.vulnerabilidad, item.categoria, item.sectores,
+            ...(item.palabrasClave || []), item.fuente
         ].join(" ")).includes(buscador);
     });
 
@@ -4144,13 +4219,16 @@ function renderizarBibliotecaRiesgosOM20() {
                 <td style="padding:9px;border:1px solid #ddd;line-height:1.4;">${escaparTextoOM12(item.riesgo || "")}</td>
                 <td style="padding:9px;border:1px solid #ddd;line-height:1.4;">${escaparTextoOM12(item.descripcion || "")}</td>
                 <td style="padding:9px;border:1px solid #ddd;line-height:1.4;">${escaparTextoOM12(item.tratamiento || "")}</td>
+                <td style="padding:9px;border:1px solid #ddd;line-height:1.4;">${escaparTextoOM12(item.vulnerabilidad || "Pendiente de validar")}</td>
+                <td style="padding:9px;border:1px solid #ddd;">${escaparTextoOM12(item.categoria || "Sin clasificar")}</td>
+                <td style="padding:9px;border:1px solid #ddd;">${escaparTextoOM12(item.sectores || "Por definir")}</td>
                 <td style="padding:9px;border:1px solid #ddd;text-align:center;white-space:nowrap;">
                     <button type="button" onclick="abrirEditorBibliotecaRiesgoOM20(${indice})" style="background:#f59e0b;color:#fff;border:0;padding:6px 9px;border-radius:5px;cursor:pointer;margin-right:4px;">✏️ Editar</button>
                     <button type="button" onclick="eliminarRiesgoBibliotecaOM20(${indice})" style="background:#b91c1c;color:#fff;border:0;padding:6px 9px;border-radius:5px;cursor:pointer;">🗑️ Eliminar</button>
                 </td>
             </tr>`;
     }).join("") : `
-        <tr><td colspan="6" style="padding:15px;text-align:center;border:1px solid #ddd;color:#6b7280;">
+        <tr><td colspan="9" style="padding:15px;text-align:center;border:1px solid #ddd;color:#6b7280;">
             ${buscador ? "No se encontraron riesgos con ese criterio." : "No hay riesgos registrados en la biblioteca."}
         </td></tr>`;
 
@@ -4164,6 +4242,9 @@ function renderizarBibliotecaRiesgosOM20() {
                 <th style="padding:9px;border:1px solid #ddd;text-align:left;">Riesgo</th>
                 <th style="padding:9px;border:1px solid #ddd;text-align:left;">Descripción</th>
                 <th style="padding:9px;border:1px solid #ddd;text-align:left;">Medida de tratamiento</th>
+                <th style="padding:9px;border:1px solid #ddd;text-align:left;">Vulnerabilidad</th>
+                <th style="padding:9px;border:1px solid #ddd;text-align:left;">Categoría</th>
+                <th style="padding:9px;border:1px solid #ddd;text-align:left;">Sectores</th>
                 <th style="padding:9px;border:1px solid #ddd;text-align:center;">Acciones</th>
             </tr></thead><tbody>${filas}</tbody>
         </table></div>`;
@@ -4221,6 +4302,9 @@ function guardarEdicionBibliotecaRiesgoOM20(indice = null) {
     const tratamiento = document.getElementById("editorRiesgoOM20Tratamiento")?.value.trim() || "";
     const causas = document.getElementById("editorRiesgoOM20Causas")?.value.trim() || "";
     const consecuencias = document.getElementById("editorRiesgoOM20Consecuencias")?.value.trim() || "";
+    const vulnerabilidad = document.getElementById("editorRiesgoOM20Vulnerabilidad")?.value.trim() || "";
+    const categoria = document.getElementById("editorRiesgoOM20Categoria")?.value.trim() || "";
+    const sectores = document.getElementById("editorRiesgoOM20Sectores")?.value.trim() || "";
     const palabrasTexto = document.getElementById("editorRiesgoOM20Palabras")?.value || "";
     const fuente = document.getElementById("editorRiesgoOM20Fuente")?.value.trim() || "";
 
@@ -4245,7 +4329,7 @@ function guardarEdicionBibliotecaRiesgoOM20(indice = null) {
         palabrasClave.unshift(riesgo);
     }
 
-    const registro = { area, peligro, riesgo, descripcion, tratamiento, causas, consecuencias, palabrasClave, fuente: fuente || "Administrada desde Biblioteca" };
+    const registro = { area, peligro, riesgo, descripcion, tratamiento, causas, consecuencias, vulnerabilidad, categoria, sectores, palabrasClave, fuente: fuente || "Administrada desde Biblioteca" };
     if (editando) {
         biblioteca[indice] = { ...biblioteca[indice], ...registro };
     } else {
@@ -11796,20 +11880,11 @@ function guardarRecomendacionEnBiblioteca() {
 // y sin modificar la estructura de almacenamiento ni la asociación con la inspección.
 function renderizarHallazgosRegistrados() {
 
-    const contenedor =
-        document.getElementById("listaHallazgosRegistrados");
+    const contenedor = document.getElementById("listaHallazgosRegistrados");
+    if (!contenedor) return;
 
-    if (!contenedor) {
-        return;
-    }
-
-    const indiceInspeccion = Number(
-        localStorage.getItem("indiceInspeccionSeleccionadaInforme")
-    );
-
-    const hallazgos =
-        JSON.parse(localStorage.getItem("hallazgos")) || [];
-
+    const indiceInspeccion = Number(localStorage.getItem("indiceInspeccionSeleccionadaInforme"));
+    const hallazgos = JSON.parse(localStorage.getItem("hallazgos")) || [];
     const inspeccionesHallazgos = JSON.parse(localStorage.getItem("inspecciones")) || [];
     const inspeccionActualHallazgos = inspeccionesHallazgos[indiceInspeccion];
     const hallazgosAsociados = new Set(
@@ -11820,63 +11895,74 @@ function renderizarHallazgosRegistrados() {
         .filter(({ hallazgo }) => hallazgosAsociados.has(hallazgo));
 
     if (!hallazgosInspeccion.length) {
-        contenedor.innerHTML =
-            '<p style="margin:0;color:#666;">No hay hallazgos registrados para esta inspección.</p>';
+        contenedor.innerHTML = '<p style="margin:0;color:#666;">No hay hallazgos registrados para esta inspección.</p>';
         return;
     }
 
-    // CAMBIO OM-11 — Construye grupos visuales por área/categoría sin cambiar
-    // los datos guardados. El orden de aparición de las familias se conserva.
     const grupos = {};
-
     hallazgosInspeccion.forEach(({ hallazgo, indiceReal }) => {
         const area = hallazgo.area || "Sin área";
-
-        if (!grupos[area]) {
-            grupos[area] = [];
-        }
-
+        if (!grupos[area]) grupos[area] = [];
         grupos[area].push({ hallazgo, indiceReal });
     });
 
     let numeroHallazgo = 0;
-
-    contenedor.innerHTML = Object.entries(grupos)
-        .map(([area, registros]) => `
-            <div style="margin-bottom:16px;">
-                <div style="font-weight:bold;color:#123b5d;font-size:16px;margin-bottom:8px;padding:8px 10px;background:#eef4f8;border-left:4px solid #123b5d;border-radius:6px;">
-                    ${area} <span style="font-weight:normal;color:#666;font-size:13px;">(${registros.length})</span>
-                </div>
-                ${registros.map(({ hallazgo, indiceReal }) => {
-                    numeroHallazgo++;
-                    return `
-                        <div style="border:1px solid #cbd5e1;border-radius:8px;padding:12px;margin-bottom:10px;background:#f8fafc;">
-                            <div style="font-weight:bold;color:#123b5d;margin-bottom:6px;">
-                                Hallazgo ${numeroHallazgo}
-                            </div>
-                            <div><strong>Elemento:</strong> ${hallazgo.elemento || "Sin especificar"}</div>
-                            <div><strong>Nivel:</strong> ${hallazgo.nivel || "Sin especificar"}</div>
-                            <div style="margin-top:6px;"><strong>Descripción:</strong> ${hallazgo.descripcion || "Sin descripción"}</div>
-                            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-                                <button
-                                    type="button"
-                                    onclick="editarHallazgo(${indiceReal})"
-                                    style="background:#1d70b7;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;">
-                                    ✏️ Editar hallazgo
-                                </button>
-                                <button
-                                    type="button"
-                                    onclick="eliminarHallazgo(${indiceReal})"
-                                    style="background:#b42318;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;">
-                                    🗑️ Eliminar hallazgo
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }).join("")}
+    contenedor.innerHTML = Object.entries(grupos).map(([area, registros]) => `
+        <div style="margin-bottom:16px;">
+            <div style="font-weight:bold;color:#123b5d;font-size:16px;margin-bottom:8px;padding:8px 10px;background:#eef4f8;border-left:4px solid #123b5d;border-radius:6px;">
+                ${escaparTextoOM12(area)} <span style="font-weight:normal;color:#666;font-size:13px;">(${registros.length})</span>
             </div>
-        `)
-        .join("");
+            ${registros.map(({ hallazgo, indiceReal }) => {
+                numeroHallazgo++;
+                const recomendacion = hallazgo.recomendacion || hallazgo.accion || hallazgo.accionPreventiva || "";
+                const fotos = Array.isArray(hallazgo.fotos) ? hallazgo.fotos : [];
+                const fotosHtml = fotos.length ? `
+                    <div style="margin-top:9px;">
+                        <strong>Evidencia fotográfica (${fotos.length}):</strong>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+                            ${fotos.map((foto, indiceFoto) => {
+                                const imagen = typeof foto === "string" ? foto : (foto?.dataUrl || foto?.imagen || foto?.data || (foto?.mediaId ? (tecchnexMediaCache.get(foto.mediaId) || "") : ""));
+                                return `<img data-hallazgo-foto="${indiceReal}-${indiceFoto}" src="${imagen}" alt="Evidencia fotográfica ${indiceFoto + 1}" style="width:112px;height:84px;object-fit:cover;border:1px solid #cbd5e1;border-radius:6px;background:#fff;${imagen ? "" : "display:none;"}">`;
+                            }).join("")}
+                        </div>
+                    </div>` : `<div style="margin-top:8px;color:#64748b;font-size:13px;"><strong>Evidencia fotográfica:</strong> Sin fotografías adjuntas.</div>`;
+                return `
+                    <div style="border:1px solid #cbd5e1;border-radius:8px;padding:12px;margin-bottom:10px;background:#f8fafc;">
+                        <div style="font-weight:bold;color:#123b5d;margin-bottom:6px;">Hallazgo ${numeroHallazgo}</div>
+                        <div><strong>Elemento:</strong> ${escaparTextoOM12(hallazgo.elemento || "Sin especificar")}</div>
+                        <div><strong>Nivel:</strong> ${escaparTextoOM12(hallazgo.nivel || "Sin especificar")}</div>
+                        <div style="margin-top:6px;"><strong>Descripción:</strong> ${escaparTextoOM12(hallazgo.descripcion || "Sin descripción")}</div>
+                        <div style="margin-top:8px;padding:9px 10px;background:#fff;border-left:3px solid #0f766e;border-radius:5px;">
+                            <strong>Recomendación / acción preventiva:</strong>
+                            <div style="margin-top:3px;white-space:pre-wrap;">${escaparTextoOM12(recomendacion || "Sin recomendación registrada")}</div>
+                        </div>
+                        ${fotosHtml}
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+                            <button type="button" onclick="editarHallazgo(${indiceReal})" style="background:#1d70b7;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;">✏️ Editar hallazgo</button>
+                            <button type="button" onclick="eliminarHallazgo(${indiceReal})" style="background:#b42318;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;">🗑️ Eliminar hallazgo</button>
+                        </div>
+                    </div>`;
+            }).join("")}
+        </div>`).join("");
+
+    // Las fotografías almacenadas como referencias ligeras se recuperan de IndexedDB
+    // sin bloquear la consulta ni modificar los registros guardados.
+    hallazgosInspeccion.forEach(({ hallazgo, indiceReal }) => {
+        (Array.isArray(hallazgo.fotos) ? hallazgo.fotos : []).forEach(async (foto, indiceFoto) => {
+            if (!foto || typeof foto === "string" || !foto.mediaId || tecchnexMediaCache.has(foto.mediaId)) return;
+            try {
+                await cargarMediaEnCache(foto);
+                const imagen = obtenerImagenDeFoto(foto);
+                const miniatura = contenedor.querySelector(`[data-hallazgo-foto="${indiceReal}-${indiceFoto}"]`);
+                if (miniatura && imagen) {
+                    miniatura.src = imagen;
+                    miniatura.style.display = "block";
+                }
+            } catch (error) {
+                console.warn("No fue posible cargar una miniatura de evidencia del hallazgo.", error);
+            }
+        });
+    });
 }
 
 function eliminarHallazgo(indice) {
@@ -12521,14 +12607,8 @@ try {
         </div>
 
         <p class="modal-subtitulo">
-            Registro de hallazgos, observaciones, evidencias y recomendaciones.
+            Registre primero el hallazgo de esta inspección. Consulte los registros anteriores al final de esta ventana.
         </p>
-
-        <!-- CAMBIO OM-08 — Acceso visual a los hallazgos existentes para editar. -->
-        <div
-            id="listaHallazgosRegistrados"
-            style="margin-bottom:18px; padding:12px; border:1px solid #d1d5db; border-radius:8px; background:#ffffff;">
-        </div>
 
         <!-- CAMBIO V5: el inspector escribe libremente el área o categoría. Se conserva el ID para mantener compatibilidad. -->
         <label>Área o categoría</label>
@@ -12646,6 +12726,16 @@ try {
                 Cancelar
             </button>
         </div>
+
+
+        <!-- CAM-HALLAZGOS-UI-01 — Consulta de registros existentes separada del formulario.
+             Se conservan el contenedor y los índices originales para no alterar edición ni datos. -->
+        <details id="panelHallazgosRegistrados" style="margin-top:18px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;">
+            <summary style="cursor:pointer;padding:12px 14px;font-weight:700;color:#123b5d;background:#eef4f8;border-radius:8px;">
+                📋 Consultar y editar hallazgos registrados
+            </summary>
+            <div id="listaHallazgosRegistrados" style="padding:12px;background:#ffffff;border-top:1px solid #d1d5db;"></div>
+        </details>
 
     </div>
 </div> <!-- VENTANA MATRIZ DE RIESGOS -->
