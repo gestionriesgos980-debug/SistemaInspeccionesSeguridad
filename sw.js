@@ -1,6 +1,6 @@
 /* CAM-CACHE-01 — actualización automática controlada.
    No elimina localStorage ni IndexedDB; solo administra Cache Storage. */
-const CACHE_NAME = "tecchnex-cam-inspecciones-v25-lab-v1-16-4-reasignacion-identidad-2026-11-23-v1-16-5-sincronizacion-integral";
+const CACHE_NAME = "tecchnex-cam-inspecciones-v25-lab-v1-16-4-reasignacion-identidad-2026-11-23-v1-16-5-sincronizacion-integral-compact-panel-v1";
 const ARCHIVOS_BASE = [
   "./",
   "./index.html",
