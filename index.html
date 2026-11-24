@@ -3003,6 +3003,7 @@ CAM-HALLAZGOS-UI-RESTORE-01: formulario primero; consulta de registros al final 
    <div id="camVulnPreguntas"></div>
    <label>Observaciones generales<textarea id="camVulnObservaciones" rows="3" placeholder="Contexto general de la inspección"></textarea></label>
    <div class="cam-v-actions">
+    <button type="button" class="secondary" onclick="CAMVulnerabilidades.abrirBibliotecaObservaciones()">📚 Biblioteca de observaciones</button>
     <button type="button" class="primary" onclick="CAMVulnerabilidades.guardar()">Guardar lista</button>
     <button type="button" class="secondary" onclick="CAMVulnerabilidades.exportarJSON()">Exportar JSON</button>
     <button type="button" class="secondary" onclick="CAMVulnerabilidades.exportarTexto()">Copiar resumen</button>
@@ -3173,14 +3174,69 @@ function actualizarGuiaObservacion(item,key){
   guia.hidden=false;
  }else if(guia){guia.hidden=true}
 }
+// CAM-VULN-BIB-OBS-01 — Biblioteca independiente para observaciones del análisis de vulnerabilidades.
+// La clave y los registros son distintos de la biblioteca del checklist tradicional y de Hallazgos.
+const VULN_OBS_LIBRARY_KEY='tecchnex_biblioteca_observaciones_vulnerabilidades_v1';
+function vulnObsReadLibrary(){try{const a=JSON.parse(localStorage.getItem(VULN_OBS_LIBRARY_KEY)||'[]');return Array.isArray(a)?a:[]}catch(e){return []}}
+function vulnObsWriteLibrary(items){localStorage.setItem(VULN_OBS_LIBRARY_KEY,JSON.stringify(items))}
+function vulnObsId(key){return 'camVulnObsLib_'+key.replace(/[^a-zA-Z0-9_-]/g,'_')}
+function vulnObsRefreshSelect(key,selectedId=''){
+ const sel=document.getElementById(vulnObsId(key));if(!sel)return;
+ const [gi,qi]=key.split('-').map(Number),group=allSections()[gi],question=group&&group[1][qi];
+ const rows=vulnObsReadLibrary().filter(x=>x.sector=== $('camVulnSector').value&&x.categoria===group?.[0]&&x.pregunta===question).sort((a,b)=>String(a.observacion).localeCompare(String(b.observacion),'es'));
+ sel.innerHTML='<option value="">Biblioteca de esta pregunta ('+rows.length+')</option>'+rows.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.observacion)+'</option>').join('');
+ if(selectedId)sel.value=selectedId;
+}
+function vulnObsSelect(key){
+ const sel=document.getElementById(vulnObsId(key)),ta=document.querySelector('#camVulnPreguntas textarea[data-note="'+key+'"]');
+ if(!sel||!ta||!sel.value)return;
+ const row=vulnObsReadLibrary().find(x=>x.id===sel.value);if(row){ta.value=row.observacion;state.notes[key]=row.observacion;updateSummary();persistCurrent(false)}
+}
+function vulnObsSaveFromQuestion(key){
+ const [gi,qi]=key.split('-').map(Number),group=allSections()[gi],question=group&&group[1][qi];
+ const ta=document.querySelector('#camVulnPreguntas textarea[data-note="'+key+'"]'),observacion=String(ta?.value||'').trim();
+ if(!observacion){alert('Escriba una observación en esta pregunta antes de guardarla en la biblioteca.');ta?.focus();return}
+ const rows=vulnObsReadLibrary(),sector=$('camVulnSector').value;
+ const duplicate=rows.find(x=>x.sector===sector&&x.categoria===group[0]&&x.pregunta===question&&String(x.observacion||'').trim().toLocaleLowerCase()===observacion.toLocaleLowerCase());
+ if(duplicate){vulnObsRefreshSelect(key,duplicate.id);alert('Esta observación ya está guardada para esta pregunta.');return}
+ const row={id:'VOBS-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),sector,categoria:group[0],pregunta:question,observacion,fechaCreacion:new Date().toISOString()};rows.push(row);vulnObsWriteLibrary(rows);vulnObsRefreshSelect(key,row.id);alert('Observación guardada en la biblioteca de vulnerabilidades.');
+}
+function vulnObsOpenLibrary(){
+ let overlay=document.getElementById('camVulnObsLibraryOverlay');if(overlay)overlay.remove();
+ overlay=document.createElement('div');overlay.id='camVulnObsLibraryOverlay';overlay.style.cssText='position:fixed;inset:0;z-index:13000;background:rgba(3,18,32,.68);overflow:auto;padding:16px';
+ overlay.innerHTML='<section style="max-width:900px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 18px 55px rgba(0,0,0,.3)"><header style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 18px;background:#123b5d;color:#fff"><div><h2 style="margin:0;font-size:20px">Biblioteca de observaciones · Vulnerabilidades</h2><p style="margin:4px 0 0;font-size:12px">Registros independientes por sector, categoría y pregunta.</p></div><button type="button" id="camVulnObsClose" style="background:#ffffff20;color:white;border:1px solid #ffffff70;border-radius:7px;padding:8px 12px">Cerrar ✕</button></header><div style="padding:16px"><input id="camVulnObsSearch" type="search" placeholder="Buscar observación, pregunta o categoría..." style="width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;margin-bottom:12px"><div id="camVulnObsList"></div></div></section>';
+ document.body.appendChild(overlay);document.getElementById('camVulnObsClose').onclick=()=>overlay.remove();document.getElementById('camVulnObsSearch').oninput=vulnObsRenderLibrary;vulnObsRenderLibrary();
+}
+function vulnObsRenderLibrary(){
+ const host=document.getElementById('camVulnObsList');if(!host)return;
+ const term=String(document.getElementById('camVulnObsSearch')?.value||'').trim().toLocaleLowerCase();
+ const rows=vulnObsReadLibrary().filter(x=>[x.sector,x.categoria,x.pregunta,x.observacion].some(v=>String(v||'').toLocaleLowerCase().includes(term)));
+ if(!rows.length){host.innerHTML='<p style="padding:20px;text-align:center;color:#64748b;background:#f8fafc;border-radius:8px">'+(term?'No se encontraron registros.':'La biblioteca está vacía. Agregue observaciones desde las preguntas del análisis.')+'</p>';return}
+ host.innerHTML=rows.map(x=>'<article style="border:1px solid #dbe4ea;border-radius:8px;padding:12px;margin-bottom:9px"><div style="font-size:12px;color:#0e7490;font-weight:800">'+esc(x.sector)+' · '+esc(x.categoria)+'</div><div style="font-size:13px;color:#475569;margin:4px 0"><b>Pregunta:</b> '+esc(x.pregunta)+'</div><div style="line-height:1.5">'+esc(x.observacion)+'</div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:9px"><button type="button" data-edit-vuln-obs="'+esc(x.id)+'" style="background:#e0f2fe;color:#075985;padding:7px 10px;border-radius:6px">Editar</button><button type="button" data-delete-vuln-obs="'+esc(x.id)+'" style="background:#fee2e2;color:#991b1b;padding:7px 10px;border-radius:6px">Eliminar</button></div></article>').join('');
+ host.querySelectorAll('[data-edit-vuln-obs]').forEach(b=>b.onclick=()=>vulnObsEdit(b.dataset.editVulnObs));
+ host.querySelectorAll('[data-delete-vuln-obs]').forEach(b=>b.onclick=()=>vulnObsDelete(b.dataset.deleteVulnObs));
+}
+function vulnObsEdit(id){
+ const rows=vulnObsReadLibrary(),row=rows.find(x=>x.id===id);if(!row)return;
+ const value=prompt('Editar observación de la biblioteca:',row.observacion||'');if(value===null)return;
+ const updated=value.trim();if(!updated){alert('La observación no puede quedar vacía.');return}
+ if(rows.some(x=>x.id!==id&&x.sector===row.sector&&x.categoria===row.categoria&&x.pregunta===row.pregunta&&String(x.observacion||'').trim().toLocaleLowerCase()===updated.toLocaleLowerCase())){alert('Ya existe una observación igual para esta pregunta.');return}
+ row.observacion=updated;row.fechaEdicion=new Date().toISOString();vulnObsWriteLibrary(rows);vulnObsRenderLibrary();
+ // Refrescar selectores visibles; no se alteran notas ya diligenciadas en evaluaciones guardadas.
+ allSections().forEach((g,gi)=>g[1].forEach((q,qi)=>vulnObsRefreshSelect(gi+'-'+qi)));
+}
+function vulnObsDelete(id){if(!confirm('¿Eliminar esta observación de la biblioteca? Las observaciones ya guardadas en evaluaciones anteriores se conservarán.'))return;vulnObsWriteLibrary(vulnObsReadLibrary().filter(x=>x.id!==id));vulnObsRenderLibrary();allSections().forEach((g,gi)=>g[1].forEach((q,qi)=>vulnObsRefreshSelect(gi+'-'+qi)))}
 function render(){
  const old=allSections(),host=$('camVulnPreguntas');host.innerHTML='';
  old.forEach((g,gi)=>{const details=document.createElement('details');details.className='cam-v-section';details.open=gi===0;
  const sum=document.createElement('summary');sum.textContent=g[0]+' · '+g[1].filter((_,ii)=>state.answers[gi+'-'+ii]).length+'/'+g[1].length+' respondidos';details.appendChild(sum);
  g[1].forEach((q,ii)=>{const key=gi+'-'+ii,item=document.createElement('div');item.className='cam-v-item';
- item.innerHTML='<div class="cam-v-item-title">'+(gi+1)+'.'+(ii+1)+' '+esc(q)+'</div><div class="cam-v-status">'+[['C','Cumple'],['P','Parcial'],['NC','No cumple'],['NA','No aplica'],['NV','No verificado']].map(([v,l])=>'<label><input type="radio" name="camv-'+key+'" value="'+v+'" '+(state.answers[key]===v?'checked':'')+'> '+l+'</label>').join('')+'</div><label style="display:block;margin:8px 0 4px;font-weight:600;color:#123b5d;font-size:13px;">Responsables de la gestión <span style="color:#b91c1c">*</span></label><div class="cam-v-responsible-options" data-responsible-group="'+key+'">'+RESPONSABLES_GESTION_CATALOGO.map(v=>'<label class="cam-v-responsible-option"><input type="checkbox" data-responsible="'+key+'" value="'+esc(v)+'" '+(normalizarResponsables(state.responsibles[key]).includes(v)?'checked':'')+'> <span>'+esc(v)+'</span></label>').join('')+'</div><small class="cam-v-responsible-help">Puede seleccionar uno o varios responsables. Obligatorio para Parcial / No cumple.</small><textarea rows="2" data-note="'+key+'" placeholder="Observación, ubicación o evidencia (opcional)">'+esc(state.notes[key]||'')+'</textarea>';
+ item.innerHTML='<div class="cam-v-item-title">'+(gi+1)+'.'+(ii+1)+' '+esc(q)+'</div><div class="cam-v-status">'+[['C','Cumple'],['P','Parcial'],['NC','No cumple'],['NA','No aplica'],['NV','No verificado']].map(([v,l])=>'<label><input type="radio" name="camv-'+key+'" value="'+v+'" '+(state.answers[key]===v?'checked':'')+'> '+l+'</label>').join('')+'</div><label style="display:block;margin:8px 0 4px;font-weight:600;color:#123b5d;font-size:13px;">Responsables de la gestión <span style="color:#b91c1c">*</span></label><div class="cam-v-responsible-options" data-responsible-group="'+key+'">'+RESPONSABLES_GESTION_CATALOGO.map(v=>'<label class="cam-v-responsible-option"><input type="checkbox" data-responsible="'+key+'" value="'+esc(v)+'" '+(normalizarResponsables(state.responsibles[key]).includes(v)?'checked':'')+'> <span>'+esc(v)+'</span></label>').join('')+'</div><small class="cam-v-responsible-help">Puede seleccionar uno o varios responsables. Obligatorio para Parcial / No cumple.</small><div style="display:flex;gap:7px;flex-wrap:wrap;margin:8px 0 5px;align-items:center;"><select id="'+vulnObsId(key)+'" aria-label="Observaciones guardadas para esta pregunta" style="flex:1;min-width:220px;padding:8px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;"><option value="">Biblioteca de esta pregunta (0)</option></select><button type="button" class="secondary" data-save-vuln-obs="'+key+'" style="padding:8px 10px;">Guardar observación en biblioteca</button></div><textarea rows="2" data-note="'+key+'" placeholder="Observación, ubicación o evidencia (opcional)">'+esc(state.notes[key]||'')+'</textarea>';
  item.querySelectorAll('input[type=radio]').forEach(r=>r.addEventListener('change',()=>{state.answers[key]=r.value;actualizarGuiaObservacion(item,key);updateSummary();persistCurrent(false)}));
  item.querySelector('textarea').addEventListener('input',e=>{state.notes[key]=e.target.value;actualizarGuiaObservacion(item,key);updateSummary();persistCurrent(false)});
+ vulnObsRefreshSelect(key);
+ item.querySelector('select[id="'+vulnObsId(key)+'"]').addEventListener('change',()=>vulnObsSelect(key));
+ item.querySelector('[data-save-vuln-obs]').addEventListener('click',()=>vulnObsSaveFromQuestion(key));
  item.querySelectorAll('input[type="checkbox"][data-responsible="'+key+'"]').forEach(selectorResponsable=>{
   selectorResponsable.addEventListener('change',()=>{
    state.responsibles[key]=Array.from(item.querySelectorAll('input[type="checkbox"][data-responsible="'+key+'"]:checked')).map(x=>x.value);
@@ -3283,7 +3339,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('camVulnOverlay')
 // CAM-VULN-INFORME-CATALOGO-01: el informe consulta el mismo catálogo que muestra la evaluación.
 window.CAMVulnerabilidades={
  abrir,cerrar,guardar,nueva,exportarJSON,exportarTexto,
- obtenerSecciones:(nombreSector)=>[...shared,...(sector[nombreSector]||[])]
+ obtenerSecciones:(nombreSector)=>[...shared,...(sector[nombreSector]||[])],
+ abrirBibliotecaObservaciones:vulnObsOpenLibrary
 };
 })();
 </script>
@@ -10607,6 +10664,12 @@ ventana.innerHTML = `
                 </p>
             </div>
 
+            <button type="button"
+                onclick="abrirBibliotecaObservacionesChecklist()"
+                style="background:#0f766e;color:white;border:none;border-radius:6px;padding:10px 14px;cursor:pointer;font-size:14px;font-weight:bold;margin-right:8px;">
+                📚 Biblioteca de observaciones
+            </button>
+
             <button
                 onclick="cerrarListaChequeo()"
                 style="
@@ -10685,6 +10748,199 @@ ventana.innerHTML = `
     ventana.scrollTop = 0;
 }
 
+
+
+// CAM-CHECKLIST-BIB-OBS-01 — Biblioteca independiente de observaciones.
+// Conserva la Biblioteca de Hallazgos y el esquema histórico de respuestas.
+const CLAVE_BIBLIOTECA_OBSERVACIONES_CHECKLIST = "tecchnex_biblioteca_observaciones_checklist_v1";
+
+function obtenerBibliotecaObservacionesChecklist() {
+    try {
+        const datos = JSON.parse(localStorage.getItem(CLAVE_BIBLIOTECA_OBSERVACIONES_CHECKLIST) || "[]");
+        return Array.isArray(datos) ? datos : [];
+    } catch (error) {
+        console.warn("Biblioteca de observaciones no legible; se inicia vacía.", error);
+        return [];
+    }
+}
+
+function escaparTextoBibliotecaChecklist(valor) {
+    return String(valor ?? "").replace(/[&<>"']/g, caracter => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    })[caracter]);
+}
+
+function actualizarSelectorObservacionesChecklist(indiceCategoria, indicePregunta, seleccionarId = "") {
+    const categoria = Object.keys(datosChecklist)[indiceCategoria];
+    const pregunta = datosChecklist[categoria]?.[indicePregunta];
+    const selector = document.getElementById(`biblioteca_obs_${indiceCategoria}_${indicePregunta}`);
+    if (!selector) return;
+
+    const registros = obtenerBibliotecaObservacionesChecklist()
+        .filter(item => item.categoria === categoria && item.pregunta === pregunta)
+        .sort((a, b) => String(a.observacion).localeCompare(String(b.observacion), "es"));
+
+    selector.innerHTML = `<option value="">Seleccionar observación guardada (${registros.length})...</option>` +
+        registros.map(item => `<option value="${escaparTextoBibliotecaChecklist(item.id)}">${escaparTextoBibliotecaChecklist(item.observacion)}</option>`).join("");
+
+    if (seleccionarId) selector.value = seleccionarId;
+}
+
+function seleccionarObservacionBibliotecaChecklist(indiceCategoria, indicePregunta) {
+    const selector = document.getElementById(`biblioteca_obs_${indiceCategoria}_${indicePregunta}`);
+    const campo = document.getElementById(`observacion_check_${indiceCategoria}_${indicePregunta}`);
+    if (!selector || !campo || !selector.value) return;
+    const registro = obtenerBibliotecaObservacionesChecklist().find(item => item.id === selector.value);
+    if (registro) campo.value = registro.observacion || "";
+}
+
+function guardarObservacionBibliotecaChecklist(indiceCategoria, indicePregunta) {
+    const categoria = Object.keys(datosChecklist)[indiceCategoria];
+    const pregunta = datosChecklist[categoria]?.[indicePregunta];
+    const campo = document.getElementById(`observacion_check_${indiceCategoria}_${indicePregunta}`);
+    const observacion = String(campo?.value || "").trim();
+    if (!observacion) {
+        alert("Escriba una observación antes de guardarla en la biblioteca.");
+        campo?.focus();
+        return;
+    }
+
+    const registros = obtenerBibliotecaObservacionesChecklist();
+    const existente = registros.find(item =>
+        item.categoria === categoria &&
+        item.pregunta === pregunta &&
+        String(item.observacion || "").trim().toLocaleLowerCase() === observacion.toLocaleLowerCase()
+    );
+
+    if (existente) {
+        actualizarSelectorObservacionesChecklist(indiceCategoria, indicePregunta, existente.id);
+        alert("Esta observación ya existe en la biblioteca de esta pregunta.");
+        return;
+    }
+
+    const nuevo = {
+        id: "OBS-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 7),
+        categoria,
+        pregunta,
+        observacion,
+        fechaCreacion: new Date().toISOString()
+    };
+    registros.push(nuevo);
+    localStorage.setItem(CLAVE_BIBLIOTECA_OBSERVACIONES_CHECKLIST, JSON.stringify(registros));
+    actualizarSelectorObservacionesChecklist(indiceCategoria, indicePregunta, nuevo.id);
+    alert("Observación guardada en la biblioteca.");
+}
+
+function abrirBibliotecaObservacionesChecklist() {
+    let ventana = document.getElementById("ventanaBibliotecaObservacionesChecklist");
+    if (ventana) ventana.remove();
+
+    ventana = document.createElement("div");
+    ventana.id = "ventanaBibliotecaObservacionesChecklist";
+    ventana.style.cssText = "position:fixed;inset:0;z-index:12000;background:rgba(0,0,0,.62);overflow-y:auto;padding:18px;box-sizing:border-box;";
+    ventana.innerHTML = `
+        <div style="max-width:950px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.28);">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 20px;background:#0f766e;color:#fff;">
+                <div><h2 style="margin:0;font-size:21px;">Biblioteca de observaciones</h2>
+                <p style="margin:5px 0 0;font-size:13px;opacity:.92;">Textos asociados a cada categoría y pregunta de la lista de chequeo.</p></div>
+                <button type="button" onclick="document.getElementById('ventanaBibliotecaObservacionesChecklist')?.remove()" style="background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:7px;padding:9px 12px;cursor:pointer;">✕ Cerrar</button>
+            </div>
+            <div style="padding:18px 20px;">
+                <input id="buscarBibliotecaObservacionesChecklist" type="search" placeholder="Buscar por categoría, pregunta u observación..." oninput="renderizarBibliotecaObservacionesChecklist()" style="width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;margin-bottom:14px;">
+                <div id="listaBibliotecaObservacionesChecklist"></div>
+            </div>
+        </div>`;
+    document.body.appendChild(ventana);
+    renderizarBibliotecaObservacionesChecklist();
+}
+
+function renderizarBibliotecaObservacionesChecklist() {
+    const contenedor = document.getElementById("listaBibliotecaObservacionesChecklist");
+    if (!contenedor) return;
+    const busqueda = String(document.getElementById("buscarBibliotecaObservacionesChecklist")?.value || "").trim().toLocaleLowerCase();
+    const registros = obtenerBibliotecaObservacionesChecklist().filter(item =>
+        [item.categoria, item.pregunta, item.observacion].some(valor => String(valor || "").toLocaleLowerCase().includes(busqueda))
+    );
+
+    if (!registros.length) {
+        contenedor.innerHTML = `<div style="padding:22px;text-align:center;color:#64748b;background:#f8fafc;border-radius:8px;">${busqueda ? "No se encontraron observaciones." : "La biblioteca aún no tiene observaciones. Puede agregar textos desde cada pregunta de la lista de chequeo."}</div>`;
+        return;
+    }
+
+    contenedor.innerHTML = registros.map(item => `
+        <article style="border:1px solid #dbe4ea;border-radius:8px;padding:12px;margin-bottom:10px;background:#fff;">
+            <div style="font-size:12px;color:#0f766e;font-weight:800;">${escaparTextoBibliotecaChecklist(item.categoria)}</div>
+            <div style="font-size:13px;color:#475569;margin:4px 0 7px;"><strong>Pregunta:</strong> ${escaparTextoBibliotecaChecklist(item.pregunta)}</div>
+            <div style="font-size:14px;line-height:1.5;color:#1f2937;">${escaparTextoBibliotecaChecklist(item.observacion)}</div>
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:9px;">
+                <button type="button" onclick="editarObservacionBibliotecaChecklist('${escaparTextoBibliotecaChecklist(item.id)}')" style="background:#e0f2fe;color:#075985;border:1px solid #bae6fd;border-radius:6px;padding:7px 10px;cursor:pointer;font-weight:700;">Editar</button>
+                <button type="button" onclick="eliminarObservacionBibliotecaChecklist('${escaparTextoBibliotecaChecklist(item.id)}')" style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:6px;padding:7px 10px;cursor:pointer;">Eliminar</button>
+            </div>
+        </article>`).join("");
+}
+
+function editarObservacionBibliotecaChecklist(id) {
+    const registros = obtenerBibliotecaObservacionesChecklist();
+    const registro = registros.find(item => item.id === id);
+    if (!registro) {
+        alert("No se encontró la observación que desea editar.");
+        return;
+    }
+
+    const textoActualizado = prompt(
+        "Edite la observación. Los cambios se guardarán en la biblioteca:",
+        registro.observacion || ""
+    );
+    if (textoActualizado === null) return;
+
+    const observacion = textoActualizado.trim();
+    if (!observacion) {
+        alert("La observación no puede quedar vacía.");
+        return;
+    }
+
+    const duplicada = registros.find(item =>
+        item.id !== id &&
+        item.categoria === registro.categoria &&
+        item.pregunta === registro.pregunta &&
+        String(item.observacion || "").trim().toLocaleLowerCase() === observacion.toLocaleLowerCase()
+    );
+    if (duplicada) {
+        alert("Ya existe otra observación igual para esta pregunta.");
+        return;
+    }
+
+    registro.observacion = observacion;
+    registro.fechaEdicion = new Date().toISOString();
+    localStorage.setItem(CLAVE_BIBLIOTECA_OBSERVACIONES_CHECKLIST, JSON.stringify(registros));
+
+    // Actualiza los selectores sin cambiar las observaciones ya diligenciadas en cada inspección.
+    Object.keys(datosChecklist).forEach((categoria, indiceCategoria) => {
+        datosChecklist[categoria].forEach((pregunta, indicePregunta) => {
+            const selector = document.getElementById(`biblioteca_obs_${indiceCategoria}_${indicePregunta}`);
+            actualizarSelectorObservacionesChecklist(
+                indiceCategoria,
+                indicePregunta,
+                selector?.value === id ? id : ""
+            );
+        });
+    });
+
+    renderizarBibliotecaObservacionesChecklist();
+    alert("Observación actualizada en la biblioteca. Los registros históricos de inspección no se modificaron.");
+}
+
+function eliminarObservacionBibliotecaChecklist(id) {
+    if (!confirm("¿Desea eliminar esta observación de la biblioteca? Las observaciones ya guardadas en inspecciones anteriores se conservarán.")) return;
+    const registros = obtenerBibliotecaObservacionesChecklist().filter(item => item.id !== id);
+    localStorage.setItem(CLAVE_BIBLIOTECA_OBSERVACIONES_CHECKLIST, JSON.stringify(registros));
+    Object.keys(datosChecklist).forEach((categoria, indiceCategoria) => {
+        datosChecklist[categoria].forEach((pregunta, indicePregunta) =>
+            actualizarSelectorObservacionesChecklist(indiceCategoria, indicePregunta)
+        );
+    });
+    renderizarBibliotecaObservacionesChecklist();
+}
 
 function generarChecklist() {
 
@@ -10786,6 +11042,14 @@ function generarChecklist() {
                     </select>
                     <small style="color:#64748b">Selección manual. Obligatorio para REGULAR (Parcial) o MALO (No cumple).</small>
                 </div>
+                <div class="observacion-checklist" style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:10px 8px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc;">
+                    <div style="grid-column:1/-1;font-weight:700;color:#123b5d;font-size:13px;">Observación de la pregunta</div>
+                    <select id="biblioteca_obs_${indice}_${i}" onchange="seleccionarObservacionBibliotecaChecklist(${indice},${i})" style="min-width:0;width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;">
+                        <option value="">Consultar observaciones guardadas...</option>
+                    </select>
+                    <button type="button" onclick="guardarObservacionBibliotecaChecklist(${indice},${i})" style="background:#0f766e;color:white;border:0;border-radius:6px;padding:8px 11px;cursor:pointer;font-weight:700;">＋ Guardar en biblioteca</button>
+                    <textarea id="observacion_check_${indice}_${i}" rows="2" placeholder="Escriba la observación encontrada o seleccione una de la biblioteca..." style="grid-column:1/-1;width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:6px;font:inherit;resize:vertical;"></textarea>
+                </div>
             `;
 
         });
@@ -10810,6 +11074,13 @@ function generarChecklist() {
     });
 
         contenedor.innerHTML = html;
+
+    // Cargar opciones de la biblioteca por categoría y pregunta.
+    Object.keys(datosChecklist).forEach((categoria, indiceCategoria) => {
+        datosChecklist[categoria].forEach((pregunta, indicePregunta) => {
+            actualizarSelectorObservacionesChecklist(indiceCategoria, indicePregunta);
+        });
+    });
 
     // Cargar respuestas guardadas de esta inspección
     const indiceGuardado =
@@ -10863,6 +11134,10 @@ function generarChecklist() {
 
                         const responsablesGuardados = checklistGuardado.responsables || {};
                         const responsableCategoria = responsablesGuardados[categoria] || {};
+                        const observacionesGuardadas = checklistGuardado.observaciones || {};
+                        const observacionCategoria = observacionesGuardadas[categoria] || {};
+                        const campoObservacion = document.getElementById("observacion_check_" + indiceCategoria + "_" + i);
+                        if (campoObservacion) campoObservacion.value = observacionCategoria[item] || "";
                         const selectorResponsable = document.getElementById("responsable_" + indiceCategoria + "_" + i);
                         if (selectorResponsable) selectorResponsable.value = responsableCategoria[item] || "";
 
@@ -11081,12 +11356,14 @@ function guardarChecklist() {
 
     const respuestas = {};
     const responsables = {};
+    const observaciones = {};
     let totalRespondidos = 0;
     
     Object.keys(datosChecklist).forEach((categoria, indice) => {
 
         respuestas[categoria] = {};
         responsables[categoria] = {};
+        observaciones[categoria] = {};
 
         datosChecklist[categoria].forEach((item, i) => {
 
@@ -11107,6 +11384,11 @@ function guardarChecklist() {
 }
             const selectorResponsable = document.getElementById("responsable_" + indice + "_" + i);
             if (selectorResponsable && selectorResponsable.value) responsables[categoria][item] = selectorResponsable.value;
+
+            const campoObservacion = document.getElementById("observacion_check_" + indice + "_" + i);
+            if (campoObservacion && campoObservacion.value.trim()) {
+                observaciones[categoria][item] = campoObservacion.value.trim();
+            }
 
         });
 
@@ -11135,6 +11417,7 @@ const registroChecklist = {
     resultado: resultado,
     respuestas: respuestas,
     responsables: responsables,
+    observaciones: observaciones,
     datos: datosChecklist
 };
 
