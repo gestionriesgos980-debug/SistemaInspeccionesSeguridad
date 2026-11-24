@@ -3691,77 +3691,7 @@ async function procesarBibliotecaArchivoOM31(tipo, archivo) {
             : CLAVE_BIBLIOTECA_RECOMENDACIONES;
         const nombre = tipo === "riesgos" ? "riesgos" : "hallazgos";
 
-        // Recuperación selectiva: completa únicamente descripciones vacías por ID.
-        // No agrega registros ni reemplaza recomendaciones u otros campos existentes.
-        if (datos?.tipoOperacion === "completar_solo_campos_vacios" && Array.isArray(datos?.registros)) {
-            const entrantes = Array.isArray(datos.registros) ? datos.registros : [];
-            if (!entrantes.length) throw new Error("El archivo de recuperación no contiene registros.");
-
-            const actuales = JSON.parse(localStorage.getItem(clave) || "[]");
-            if (!Array.isArray(actuales)) throw new Error("La biblioteca actual no tiene un formato válido.");
-
-            const mapa = new Map(entrantes.filter(x => x && x.id).map(x => [String(x.id), x]));
-            let coincidencias = 0;
-            let completados = 0;
-            let sinCambio = 0;
-
-            const actualizados = actuales.map(actual => {
-                const recuperado = actual?.id ? mapa.get(String(actual.id)) : null;
-                if (!recuperado) return actual;
-                coincidencias++;
-
-                const copia = { ...actual };
-                let cambio = false;
-                const hallazgoActual = String(copia.hallazgo ?? "").trim();
-                const descripcionActual = String(copia.descripcionHallazgo ?? "").trim();
-                const textoRecuperado = String(
-                    recuperado.descripcionHallazgo || recuperado.hallazgo || ""
-                ).trim();
-
-                if (textoRecuperado && !hallazgoActual) {
-                    copia.hallazgo = textoRecuperado;
-                    cambio = true;
-                }
-                if (textoRecuperado && !descripcionActual) {
-                    copia.descripcionHallazgo = textoRecuperado;
-                    cambio = true;
-                }
-
-                if (cambio) completados++;
-                else sinCambio++;
-                return copia;
-            });
-
-            const noEncontrados = entrantes.length - coincidencias;
-            const confirmacion =
-                `Archivo: ${archivo.name}\n` +
-                `Registros de recuperación: ${entrantes.length}\n` +
-                `Coincidencias por ID en la biblioteca actual: ${coincidencias}\n` +
-                `Registros que se completarían: ${completados}\n` +
-                `Registros sin cambios: ${sinCambio}\n` +
-                `IDs no encontrados: ${noEncontrados}\n\n` +
-                `Solo se completarán los campos de hallazgo que estén vacíos. ` +
-                `Las recomendaciones, los demás campos y los registros de inspección no se modificarán.\n\n¿Desea continuar?`;
-            if (!window.confirm(confirmacion)) return;
-
-            if (completados > 0) {
-                localStorage.setItem(clave, JSON.stringify(actualizados));
-            }
-
-            alert(
-                `Recuperación finalizada.\n\n` +
-                `Registros completados: ${completados}\n` +
-                `Registros sin cambios: ${sinCambio}\n` +
-                `IDs no encontrados: ${noEncontrados}\n\n` +
-                `No se agregaron ni eliminaron registros. Las recomendaciones actuales se conservaron.`
-            );
-            if (document.getElementById("contenidoBibliotecaOM20")) {
-                renderizarBibliotecaRecomendacionesOM20();
-            }
-            return;
-        }
-
-        // Importación estándar, acumulativa, sin reemplazar registros actuales.
+        // Acepta un arreglo directo, un respaldo general o la sección "datos".
         const contenedores = [datos, datos?.datos, datos?.respaldo, datos?.informacion];
         let entrantes = null;
         for (const contenedor of contenedores) {
@@ -3799,6 +3729,7 @@ async function procesarBibliotecaArchivoOM31(tipo, archivo) {
             return "contenido:" + campos.map(v => String(v ?? "").trim().toLowerCase().replace(/\s+/g, " ")).join("|");
         };
 
+        // Importación acumulativa: no borra registros actuales ni toca otros datos del sistema.
         const vistos = new Set(bibliotecaActual.map(claveRegistro));
         const nuevos = [];
         let duplicados = 0;
@@ -3830,6 +3761,7 @@ async function procesarBibliotecaArchivoOM31(tipo, archivo) {
         alert("No fue posible cargar la biblioteca.\n\nDetalle: " + (error?.message || error));
     }
 }
+
 function abrirBibliotecaRecomendacionesOM22() {
 
     inicializarBibliotecaRecomendaciones();
@@ -3995,12 +3927,6 @@ function abrirEditorBibliotecaRecomendacionOM20(indice = null) {
                 <label style="display:block;font-weight:bold;margin-bottom:5px;">Descripción del hallazgo <span style="font-weight:normal;color:#64748b;">(los registros antiguos pueden dejar este campo vacío)</span></label>
                 <textarea id="editorOM20Hallazgo" rows="4" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">${escaparTextoOM12(item.descripcionHallazgo || item.hallazgo || "")}</textarea>
 
-                <label style="display:block;font-weight:bold;margin-bottom:5px;">Vulnerabilidad / condiciones que aumentan la exposición</label>
-                <textarea id="editorRiesgoOM20Vulnerabilidad" rows="3" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">${escaparTextoOM12(item.vulnerabilidad || "")}</textarea>
-                <label style="display:block;font-weight:bold;margin-bottom:5px;">Categoría técnica</label>
-                <input id="editorRiesgoOM20Categoria" value="${escaparTextoOM12(item.categoria || "")}" placeholder="Ej. Locativo, eléctrico, seguridad física..." style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">
-                <label style="display:block;font-weight:bold;margin-bottom:5px;">Sectores aplicables</label>
-                <input id="editorRiesgoOM20Sectores" value="${escaparTextoOM12(item.sectores || "")}" placeholder="Residencial; Comercial; Industrial" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">
                 <label style="display:block;font-weight:bold;margin-bottom:5px;">Palabras clave <span style="font-weight:normal;color:#64748b;">(separadas por coma)</span></label>
                 <input id="editorOM20Palabras" value="${escaparTextoOM12((item.palabrasClave || []).join(", "))}" style="width:100%;padding:9px;margin-bottom:12px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;">
 
@@ -4204,8 +4130,7 @@ function renderizarBibliotecaRiesgosOM20() {
         if (!buscador) return true;
         return normalizarTextoOM12([
             item.area, item.peligro, item.riesgo, item.descripcion, item.tratamiento, item.causas,
-            item.consecuencias, item.vulnerabilidad, item.categoria, item.sectores,
-            ...(item.palabrasClave || []), item.fuente
+            item.consecuencias, ...(item.palabrasClave || []), item.fuente
         ].join(" ")).includes(buscador);
     });
 
@@ -4219,16 +4144,13 @@ function renderizarBibliotecaRiesgosOM20() {
                 <td style="padding:9px;border:1px solid #ddd;line-height:1.4;">${escaparTextoOM12(item.riesgo || "")}</td>
                 <td style="padding:9px;border:1px solid #ddd;line-height:1.4;">${escaparTextoOM12(item.descripcion || "")}</td>
                 <td style="padding:9px;border:1px solid #ddd;line-height:1.4;">${escaparTextoOM12(item.tratamiento || "")}</td>
-                <td style="padding:9px;border:1px solid #ddd;line-height:1.4;">${escaparTextoOM12(item.vulnerabilidad || "Pendiente de validar")}</td>
-                <td style="padding:9px;border:1px solid #ddd;">${escaparTextoOM12(item.categoria || "Sin clasificar")}</td>
-                <td style="padding:9px;border:1px solid #ddd;">${escaparTextoOM12(item.sectores || "Por definir")}</td>
                 <td style="padding:9px;border:1px solid #ddd;text-align:center;white-space:nowrap;">
                     <button type="button" onclick="abrirEditorBibliotecaRiesgoOM20(${indice})" style="background:#f59e0b;color:#fff;border:0;padding:6px 9px;border-radius:5px;cursor:pointer;margin-right:4px;">✏️ Editar</button>
                     <button type="button" onclick="eliminarRiesgoBibliotecaOM20(${indice})" style="background:#b91c1c;color:#fff;border:0;padding:6px 9px;border-radius:5px;cursor:pointer;">🗑️ Eliminar</button>
                 </td>
             </tr>`;
     }).join("") : `
-        <tr><td colspan="9" style="padding:15px;text-align:center;border:1px solid #ddd;color:#6b7280;">
+        <tr><td colspan="6" style="padding:15px;text-align:center;border:1px solid #ddd;color:#6b7280;">
             ${buscador ? "No se encontraron riesgos con ese criterio." : "No hay riesgos registrados en la biblioteca."}
         </td></tr>`;
 
@@ -4242,9 +4164,6 @@ function renderizarBibliotecaRiesgosOM20() {
                 <th style="padding:9px;border:1px solid #ddd;text-align:left;">Riesgo</th>
                 <th style="padding:9px;border:1px solid #ddd;text-align:left;">Descripción</th>
                 <th style="padding:9px;border:1px solid #ddd;text-align:left;">Medida de tratamiento</th>
-                <th style="padding:9px;border:1px solid #ddd;text-align:left;">Vulnerabilidad</th>
-                <th style="padding:9px;border:1px solid #ddd;text-align:left;">Categoría</th>
-                <th style="padding:9px;border:1px solid #ddd;text-align:left;">Sectores</th>
                 <th style="padding:9px;border:1px solid #ddd;text-align:center;">Acciones</th>
             </tr></thead><tbody>${filas}</tbody>
         </table></div>`;
@@ -4302,9 +4221,6 @@ function guardarEdicionBibliotecaRiesgoOM20(indice = null) {
     const tratamiento = document.getElementById("editorRiesgoOM20Tratamiento")?.value.trim() || "";
     const causas = document.getElementById("editorRiesgoOM20Causas")?.value.trim() || "";
     const consecuencias = document.getElementById("editorRiesgoOM20Consecuencias")?.value.trim() || "";
-    const vulnerabilidad = document.getElementById("editorRiesgoOM20Vulnerabilidad")?.value.trim() || "";
-    const categoria = document.getElementById("editorRiesgoOM20Categoria")?.value.trim() || "";
-    const sectores = document.getElementById("editorRiesgoOM20Sectores")?.value.trim() || "";
     const palabrasTexto = document.getElementById("editorRiesgoOM20Palabras")?.value || "";
     const fuente = document.getElementById("editorRiesgoOM20Fuente")?.value.trim() || "";
 
@@ -4329,7 +4245,7 @@ function guardarEdicionBibliotecaRiesgoOM20(indice = null) {
         palabrasClave.unshift(riesgo);
     }
 
-    const registro = { area, peligro, riesgo, descripcion, tratamiento, causas, consecuencias, vulnerabilidad, categoria, sectores, palabrasClave, fuente: fuente || "Administrada desde Biblioteca" };
+    const registro = { area, peligro, riesgo, descripcion, tratamiento, causas, consecuencias, palabrasClave, fuente: fuente || "Administrada desde Biblioteca" };
     if (editando) {
         biblioteca[indice] = { ...biblioteca[indice], ...registro };
     } else {
@@ -4679,21 +4595,16 @@ function camSyncRegistrarInspeccionLocalV1(inspeccionActual, inspeccionAnterior 
     }
 
     const idAnterior = String(inspeccionAnterior?.idControl || "").trim();
-    // La clave compuesta permite conservar dos raíces cuando se reutiliza idControl
-    // pero cambia la identidad funcional puesto + fecha.
+    const metaAnterior = idAnterior && registros[idAnterior] ? registros[idAnterior] : null;
+    const metaActual = registros[idActual] || null;
+    // Solo reutilizar la referencia remota cuando la identidad funcional no cambió.
+    // Un reemplazo por nueva fecha/puesto debe crear una raíz remota independiente.
     const claveActual = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionActual);
     const claveAnterior = inspeccionAnterior
         ? obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionAnterior)
         : "";
     const mismaIdentidadFuncional = Boolean(claveActual && claveAnterior && claveActual === claveAnterior);
-    const claveMetaActual = claveActual ? `${idActual}::${claveActual}` : "";
-    const claveMetaAnterior = idAnterior && claveAnterior ? `${idAnterior}::${claveAnterior}` : "";
-    const metaAnterior = (claveMetaAnterior && registros[claveMetaAnterior])
-        || (idAnterior && registros[idAnterior]) || null;
-    const metaActual = (claveMetaActual && registros[claveMetaActual])
-        || registros[idActual] || null;
-    // Nunca heredar metadatos de otra identidad, aunque coincida idControl.
-    const metaReutilizable = mismaIdentidadFuncional ? (metaAnterior || metaActual) : null;
+    const metaReutilizable = mismaIdentidadFuncional ? metaAnterior : metaActual;
     const syncId = String(metaReutilizable?.record_sync_id || camSyncUuidV1());
     const versionServidor = Number(metaReutilizable?.server_version ?? 0);
     const tipoOperacion = versionServidor > 0 ? "UPDATE" : "INSERT";
@@ -4727,19 +4638,9 @@ function camSyncRegistrarInspeccionLocalV1(inspeccionActual, inspeccionAnterior 
         local_record_id: idActual,
         updated_at: new Date().toISOString()
     };
-    const colisionaConOtraIdentidad = Boolean(
-        !mismaIdentidadFuncional && registros[idActual] &&
-        registros[idActual].record_sync_id && registros[idActual].record_sync_id !== syncId
-    );
-    const claveDestinoMeta = colisionaConOtraIdentidad && claveMetaActual
-        ? claveMetaActual
-        : idActual;
-    const nuevosRegistros = { ...registros, [claveDestinoMeta]: meta };
-    // Al cambiar idControl manteniendo identidad, trasladar la referencia y retirar
-    // únicamente la clave anterior de compatibilidad; no borrar otras identidades.
-    if (mismaIdentidadFuncional && idAnterior && idAnterior !== idActual && registros[idAnterior]) {
-        delete nuevosRegistros[idAnterior];
-    }
+    const nuevosRegistros = { ...registros, [idActual]: meta };
+    // Si cambió la identidad funcional, conservar intactos los metadatos de la raíz anterior.
+    if (mismaIdentidadFuncional && idAnterior && idAnterior !== idActual) delete nuevosRegistros[idAnterior];
 
     // Escritura protegida: si una clave falla, se restaura el valor anterior de ambas claves.
     const anteriores = {
@@ -4780,7 +4681,7 @@ function camSyncRegistrarInspeccionLocalV1(inspeccionActual, inspeccionAnterior 
             const inspeccionesParaId = JSON.parse(localStorage.getItem("inspecciones") || "[]");
             const inspeccionAnteriorIdentidad = (indiceEdicion !== undefined && indiceEdicion !== "")
                 ? inspeccionesParaId[Number(indiceEdicion)] : null;
-            let idInspeccionInterno = String(inspeccionAnteriorIdentidad?.idInspeccionInterno || generarIdentidadInternaInspeccionTECCHNEX());
+            const idInspeccionInterno = String(inspeccionAnteriorIdentidad?.idInspeccionInterno || generarIdentidadInternaInspeccionTECCHNEX());
             let idControl;
             let siguienteIdGenerado = null;
             if (indiceEdicion !== undefined && indiceEdicion !== "") {
@@ -5096,18 +4997,6 @@ inspeccion.seguridadSugerida = Array.from(
 // CAM-RESTAURACION-HALLAZGOS-01: la identidad portable depende solo del puesto y la fecha.
 const clavePuestoFechaNueva = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion);
 inspeccion.claveInspeccionPuestoFecha = clavePuestoFechaNueva;
-// CAM-IDENTIDAD-INSPECCION-03: cambiar puesto o fecha crea una identidad técnica nueva.
-// El UUID anterior solo se usa para localizar los hijos que pertenecían a la ficha editada.
-const clavePuestoFechaAnterior = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionAnteriorIdentidad);
-const identidadFuncionalCambio = Boolean(
-    inspeccionAnteriorIdentidad && clavePuestoFechaAnterior && clavePuestoFechaNueva &&
-    clavePuestoFechaAnterior !== clavePuestoFechaNueva
-);
-const idInspeccionInternoAnterior = String(inspeccionAnteriorIdentidad?.idInspeccionInterno || "").trim();
-if (identidadFuncionalCambio) {
-    idInspeccionInterno = generarIdentidadInternaInspeccionTECCHNEX();
-    inspeccion.idInspeccionInterno = idInspeccionInterno;
-}
 const inspeccionAnteriorEdicion = (indiceEdicion !== undefined && indiceEdicion !== "")
     ? inspecciones[Number(indiceEdicion)]
     : null;
@@ -5230,56 +5119,40 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
                 registrarConsecutivoInspeccionTECCHNEX(siguienteIdGenerado.anio, siguienteIdGenerado.numero, inspecciones);
             }
 
-            // CAM-IDENTIDAD-INSPECCION-03: trasladar en bloque los registros hijos
-            // únicamente cuando la identidad puesto+fecha cambió. Se usa el UUID anterior
-            // para localizar los hijos y el UUID nuevo para asociarlos a la nueva inspección.
-            // Las fotos siguen vinculadas por mediaId; solo se actualiza su metadato legado idControl.
-            if (identidadFuncionalCambio && idInspeccionInternoAnterior) {
+            // CAM-RESTAURACION-HALLAZGOS-01: si al editar cambia el puesto o la fecha,
+            // trasladar los hallazgos de esa misma ficha a la nueva clave. No se pierden.
+            if (indiceEdicion !== undefined && indiceEdicion !== "" && inspeccionAnteriorEdicion) {
                 const indiceEditado = Number(indiceEdicion);
-                const nombrePuestoNuevo = String(
-                    inspeccion.nombrePuesto || inspeccion.puesto || inspeccion.cliente || ""
-                ).trim();
-                const clavesHijas = ["hallazgos", "checklists", "matrizRiesgos", "matricesRiesgosClientes"];
-                const anterioresHijas = Object.fromEntries(
-                    clavesHijas.map(clave => [clave, localStorage.getItem(clave)])
-                );
-                try {
-                    for (const claveLista of clavesHijas) {
-                        const registros = JSON.parse(localStorage.getItem(claveLista) || "[]");
-                        if (!Array.isArray(registros)) {
-                            throw new Error("La lista " + claveLista + " no tiene un formato válido.");
+                const clavesAnteriores = new Set(obtenerClavesInspeccionPuestoFechaTECCHNEX(inspeccionAnteriorEdicion));
+                if (!clavesAnteriores.has(clavePuestoFechaNueva) || clavesAnteriores.size > 1) {
+                    try {
+                        const hallazgosLocales = JSON.parse(localStorage.getItem("hallazgos") || "[]");
+                        if (Array.isArray(hallazgosLocales)) {
+                            const hallazgosReasociados = hallazgosLocales.map(hallazgo => {
+                                const claveHallazgo = String(hallazgo?.claveInspeccionPuestoFecha || "").trim();
+                                const indiceRaw = hallazgo?.inspeccion;
+                                const indiceValido = indiceRaw !== null && indiceRaw !== undefined &&
+                                    String(indiceRaw).trim() !== "" && Number.isInteger(Number(indiceRaw));
+                                const idInternoHallazgo = String(hallazgo?.idInspeccionInterno || "").trim();
+                                const idInternoAnterior = String(inspeccionAnteriorEdicion?.idInspeccionInterno || "").trim();
+                                const claveAnteriorUnica = clavesAnteriores.size === 1 &&
+                                    inspecciones.filter(x => obtenerClavesInspeccionPuestoFechaTECCHNEX(x).some(k => clavesAnteriores.has(k))).length === 1;
+                                const pertenece = idInternoAnterior
+                                    ? idInternoHallazgo === idInternoAnterior
+                                    : (claveAnteriorUnica && ((claveHallazgo && clavesAnteriores.has(claveHallazgo)) ||
+                                        (!claveHallazgo && indiceValido && Number(indiceRaw) === indiceEditado)));
+                                if (!pertenece) return hallazgo;
+                                const { idControlInspeccion, claveInspeccionPuestoFecha, ...hallazgoSinIds } = hallazgo || {};
+                                return clavePuestoFechaNueva
+                                    ? { ...hallazgoSinIds, inspeccion: indiceEditado, idInspeccionInterno: idInternoAnterior || idInternoHallazgo, claveInspeccionPuestoFecha: clavePuestoFechaNueva }
+                                    : { ...hallazgoSinIds, inspeccion: indiceEditado, idInspeccionInterno: idInternoAnterior || idInternoHallazgo };
+                            });
+                            localStorage.setItem("hallazgos", JSON.stringify(hallazgosReasociados));
                         }
-                        const reasignados = registros.map(registro => {
-                            if (String(registro?.idInspeccionInterno || "").trim() !== idInspeccionInternoAnterior) {
-                                return registro;
-                            }
-                            const actualizado = {
-                                ...registro,
-                                inspeccion: indiceEditado,
-                                idInspeccionInterno,
-                                claveInspeccionPuestoFecha: clavePuestoFechaNueva
-                            };
-                            if (claveLista === "hallazgos" && Array.isArray(registro.fotos)) {
-                                actualizado.fotos = registro.fotos.map(foto => foto && typeof foto === "object"
-                                    ? { ...foto, idControl: nombrePuestoNuevo }
-                                    : foto);
-                            }
-                            return actualizado;
-                        });
-                        localStorage.setItem(claveLista, JSON.stringify(reasignados));
+                    } catch (errorReasociacion) {
+                        console.error("CAM-RESTAURACION-HALLAZGOS-01: no fue posible actualizar la clave de los hallazgos editados.", errorReasociacion);
+                        alert("La inspección se guardó, pero no se pudo actualizar automáticamente la asociación de sus hallazgos. Antes de continuar, cree un respaldo y revise esta inspección.");
                     }
-                } catch (errorReasignacion) {
-                    for (const [clave, valor] of Object.entries(anterioresHijas)) {
-                        try {
-                            if (valor === null) localStorage.removeItem(clave);
-                            else localStorage.setItem(clave, valor);
-                        } catch (errorRollback) {
-                            console.error("CAM-IDENTIDAD-INSPECCION-03: error al revertir", clave, errorRollback);
-                        }
-                    }
-                    console.error("CAM-IDENTIDAD-INSPECCION-03: reasignación detenida.", errorReasignacion);
-                    alert("La inspección se guardó, pero no se completó la reasignación de sus registros relacionados. No sincronice todavía; cree un respaldo y revise los datos locales.");
-                    return;
                 }
             }
 
@@ -11880,11 +11753,20 @@ function guardarRecomendacionEnBiblioteca() {
 // y sin modificar la estructura de almacenamiento ni la asociación con la inspección.
 function renderizarHallazgosRegistrados() {
 
-    const contenedor = document.getElementById("listaHallazgosRegistrados");
-    if (!contenedor) return;
+    const contenedor =
+        document.getElementById("listaHallazgosRegistrados");
 
-    const indiceInspeccion = Number(localStorage.getItem("indiceInspeccionSeleccionadaInforme"));
-    const hallazgos = JSON.parse(localStorage.getItem("hallazgos")) || [];
+    if (!contenedor) {
+        return;
+    }
+
+    const indiceInspeccion = Number(
+        localStorage.getItem("indiceInspeccionSeleccionadaInforme")
+    );
+
+    const hallazgos =
+        JSON.parse(localStorage.getItem("hallazgos")) || [];
+
     const inspeccionesHallazgos = JSON.parse(localStorage.getItem("inspecciones")) || [];
     const inspeccionActualHallazgos = inspeccionesHallazgos[indiceInspeccion];
     const hallazgosAsociados = new Set(
@@ -11895,74 +11777,63 @@ function renderizarHallazgosRegistrados() {
         .filter(({ hallazgo }) => hallazgosAsociados.has(hallazgo));
 
     if (!hallazgosInspeccion.length) {
-        contenedor.innerHTML = '<p style="margin:0;color:#666;">No hay hallazgos registrados para esta inspección.</p>';
+        contenedor.innerHTML =
+            '<p style="margin:0;color:#666;">No hay hallazgos registrados para esta inspección.</p>';
         return;
     }
 
+    // CAMBIO OM-11 — Construye grupos visuales por área/categoría sin cambiar
+    // los datos guardados. El orden de aparición de las familias se conserva.
     const grupos = {};
+
     hallazgosInspeccion.forEach(({ hallazgo, indiceReal }) => {
         const area = hallazgo.area || "Sin área";
-        if (!grupos[area]) grupos[area] = [];
+
+        if (!grupos[area]) {
+            grupos[area] = [];
+        }
+
         grupos[area].push({ hallazgo, indiceReal });
     });
 
     let numeroHallazgo = 0;
-    contenedor.innerHTML = Object.entries(grupos).map(([area, registros]) => `
-        <div style="margin-bottom:16px;">
-            <div style="font-weight:bold;color:#123b5d;font-size:16px;margin-bottom:8px;padding:8px 10px;background:#eef4f8;border-left:4px solid #123b5d;border-radius:6px;">
-                ${escaparTextoOM12(area)} <span style="font-weight:normal;color:#666;font-size:13px;">(${registros.length})</span>
-            </div>
-            ${registros.map(({ hallazgo, indiceReal }) => {
-                numeroHallazgo++;
-                const recomendacion = hallazgo.recomendacion || hallazgo.accion || hallazgo.accionPreventiva || "";
-                const fotos = Array.isArray(hallazgo.fotos) ? hallazgo.fotos : [];
-                const fotosHtml = fotos.length ? `
-                    <div style="margin-top:9px;">
-                        <strong>Evidencia fotográfica (${fotos.length}):</strong>
-                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
-                            ${fotos.map((foto, indiceFoto) => {
-                                const imagen = typeof foto === "string" ? foto : (foto?.dataUrl || foto?.imagen || foto?.data || (foto?.mediaId ? (tecchnexMediaCache.get(foto.mediaId) || "") : ""));
-                                return `<img data-hallazgo-foto="${indiceReal}-${indiceFoto}" src="${imagen}" alt="Evidencia fotográfica ${indiceFoto + 1}" style="width:112px;height:84px;object-fit:cover;border:1px solid #cbd5e1;border-radius:6px;background:#fff;${imagen ? "" : "display:none;"}">`;
-                            }).join("")}
-                        </div>
-                    </div>` : `<div style="margin-top:8px;color:#64748b;font-size:13px;"><strong>Evidencia fotográfica:</strong> Sin fotografías adjuntas.</div>`;
-                return `
-                    <div style="border:1px solid #cbd5e1;border-radius:8px;padding:12px;margin-bottom:10px;background:#f8fafc;">
-                        <div style="font-weight:bold;color:#123b5d;margin-bottom:6px;">Hallazgo ${numeroHallazgo}</div>
-                        <div><strong>Elemento:</strong> ${escaparTextoOM12(hallazgo.elemento || "Sin especificar")}</div>
-                        <div><strong>Nivel:</strong> ${escaparTextoOM12(hallazgo.nivel || "Sin especificar")}</div>
-                        <div style="margin-top:6px;"><strong>Descripción:</strong> ${escaparTextoOM12(hallazgo.descripcion || "Sin descripción")}</div>
-                        <div style="margin-top:8px;padding:9px 10px;background:#fff;border-left:3px solid #0f766e;border-radius:5px;">
-                            <strong>Recomendación / acción preventiva:</strong>
-                            <div style="margin-top:3px;white-space:pre-wrap;">${escaparTextoOM12(recomendacion || "Sin recomendación registrada")}</div>
-                        </div>
-                        ${fotosHtml}
-                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-                            <button type="button" onclick="editarHallazgo(${indiceReal})" style="background:#1d70b7;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;">✏️ Editar hallazgo</button>
-                            <button type="button" onclick="eliminarHallazgo(${indiceReal})" style="background:#b42318;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;">🗑️ Eliminar hallazgo</button>
-                        </div>
-                    </div>`;
-            }).join("")}
-        </div>`).join("");
 
-    // Las fotografías almacenadas como referencias ligeras se recuperan de IndexedDB
-    // sin bloquear la consulta ni modificar los registros guardados.
-    hallazgosInspeccion.forEach(({ hallazgo, indiceReal }) => {
-        (Array.isArray(hallazgo.fotos) ? hallazgo.fotos : []).forEach(async (foto, indiceFoto) => {
-            if (!foto || typeof foto === "string" || !foto.mediaId || tecchnexMediaCache.has(foto.mediaId)) return;
-            try {
-                await cargarMediaEnCache(foto);
-                const imagen = obtenerImagenDeFoto(foto);
-                const miniatura = contenedor.querySelector(`[data-hallazgo-foto="${indiceReal}-${indiceFoto}"]`);
-                if (miniatura && imagen) {
-                    miniatura.src = imagen;
-                    miniatura.style.display = "block";
-                }
-            } catch (error) {
-                console.warn("No fue posible cargar una miniatura de evidencia del hallazgo.", error);
-            }
-        });
-    });
+    contenedor.innerHTML = Object.entries(grupos)
+        .map(([area, registros]) => `
+            <div style="margin-bottom:16px;">
+                <div style="font-weight:bold;color:#123b5d;font-size:16px;margin-bottom:8px;padding:8px 10px;background:#eef4f8;border-left:4px solid #123b5d;border-radius:6px;">
+                    ${area} <span style="font-weight:normal;color:#666;font-size:13px;">(${registros.length})</span>
+                </div>
+                ${registros.map(({ hallazgo, indiceReal }) => {
+                    numeroHallazgo++;
+                    return `
+                        <div style="border:1px solid #cbd5e1;border-radius:8px;padding:12px;margin-bottom:10px;background:#f8fafc;">
+                            <div style="font-weight:bold;color:#123b5d;margin-bottom:6px;">
+                                Hallazgo ${numeroHallazgo}
+                            </div>
+                            <div><strong>Elemento:</strong> ${hallazgo.elemento || "Sin especificar"}</div>
+                            <div><strong>Nivel:</strong> ${hallazgo.nivel || "Sin especificar"}</div>
+                            <div style="margin-top:6px;"><strong>Descripción:</strong> ${hallazgo.descripcion || "Sin descripción"}</div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+                                <button
+                                    type="button"
+                                    onclick="editarHallazgo(${indiceReal})"
+                                    style="background:#1d70b7;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;">
+                                    ✏️ Editar hallazgo
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="eliminarHallazgo(${indiceReal})"
+                                    style="background:#b42318;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;">
+                                    🗑️ Eliminar hallazgo
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join("")}
+            </div>
+        `)
+        .join("");
 }
 
 function eliminarHallazgo(indice) {
@@ -12607,8 +12478,14 @@ try {
         </div>
 
         <p class="modal-subtitulo">
-            Registre primero el hallazgo de esta inspección. Consulte los registros anteriores al final de esta ventana.
+            Registro de hallazgos, observaciones, evidencias y recomendaciones.
         </p>
+
+        <!-- CAMBIO OM-08 — Acceso visual a los hallazgos existentes para editar. -->
+        <div
+            id="listaHallazgosRegistrados"
+            style="margin-bottom:18px; padding:12px; border:1px solid #d1d5db; border-radius:8px; background:#ffffff;">
+        </div>
 
         <!-- CAMBIO V5: el inspector escribe libremente el área o categoría. Se conserva el ID para mantener compatibilidad. -->
         <label>Área o categoría</label>
@@ -12726,16 +12603,6 @@ try {
                 Cancelar
             </button>
         </div>
-
-
-        <!-- CAM-HALLAZGOS-UI-01 — Consulta de registros existentes separada del formulario.
-             Se conservan el contenedor y los índices originales para no alterar edición ni datos. -->
-        <details id="panelHallazgosRegistrados" style="margin-top:18px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;">
-            <summary style="cursor:pointer;padding:12px 14px;font-weight:700;color:#123b5d;background:#eef4f8;border-radius:8px;">
-                📋 Consultar y editar hallazgos registrados
-            </summary>
-            <div id="listaHallazgosRegistrados" style="padding:12px;background:#ffffff;border-top:1px solid #d1d5db;"></div>
-        </details>
 
     </div>
 </div> <!-- VENTANA MATRIZ DE RIESGOS -->
@@ -19974,13 +19841,9 @@ function TECCHNEX_UI_VOLVER_INICIO_TRAS_GUARDAR(referencia, modo = "contenedor")
 </script>
 
 
-<div id="camSyncPanelV1" style="position:fixed;right:12px;bottom:12px;z-index:2500;background:#fff;border:1px solid #b8cadd;border-radius:10px;padding:9px 10px;box-shadow:0 4px 18px rgba(18,59,93,.18);width:min(310px,calc(100vw - 24px));max-height:75vh;overflow:auto;font:13px Aptos,Arial,sans-serif">
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">
-    <div style="font-weight:700;color:#123b5d">Sincronización TECCHNEX</div>
-    <button id="camSyncToggleV1" type="button" aria-expanded="false" aria-controls="camSyncDetailsV1" style="flex:0 0 auto;background:#e8f2fb;color:#123b5d;border:1px solid #b8cadd;border-radius:6px;padding:5px 8px;font-weight:700;cursor:pointer">Abrir</button>
-  </div>
-  <div id="camSyncStatusV1" role="status" aria-live="polite" style="color:#475569;margin-bottom:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">Preparando cola local…</div>
-  <div id="camSyncDetailsV1" hidden>
+<div id="camSyncPanelV1" style="position:fixed;right:14px;bottom:14px;z-index:2500;background:#fff;border:1px solid #b8cadd;border-radius:10px;padding:10px 12px;box-shadow:0 4px 18px rgba(18,59,93,.18);max-width:min(360px,calc(100vw - 28px));font:13px Aptos,Arial,sans-serif">
+  <div style="font-weight:700;color:#123b5d;margin-bottom:6px">Sincronización TECCHNEX</div>
+  <div id="camSyncStatusV1" role="status" aria-live="polite" style="color:#475569;margin-bottom:8px">Preparando cola local…</div>
   <div style="border-top:1px solid #dbe5ef;margin-top:8px;padding-top:8px">
     <label for="camSyncImportJsonV1" style="display:block;color:#123b5d;font-weight:700;margin-bottom:5px">Auditar respaldo individual (solo local)</label>
     <input id="camSyncImportJsonV1" type="file" accept=".json,application/json" style="max-width:100%;font-size:12px" />
@@ -19993,32 +19856,16 @@ function TECCHNEX_UI_VOLVER_INICIO_TRAS_GUARDAR(referencia, modo = "contenedor")
     <pre id="camSyncPackageResultsV18" role="status" aria-live="polite" style="white-space:pre-wrap;max-height:150px;overflow:auto;font:11px Aptos,Arial,sans-serif;color:#475569;margin:6px 0 0"></pre>
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap"><button id="camSyncValidateV1" type="button" style="background:#e8f2fb;color:#123b5d;border:1px solid #9bbbd7;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Validar operación (sin escritura)</button><button id="camSyncPrepareTestV1" type="button" style="background:#f1f5f9;color:#123b5d;border:1px solid #94a3b8;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Preparar prueba local</button><button id="camSyncReadTestV1" type="button" style="background:#0b6478;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Verificar identidad en Supabase</button><button id="camSyncMediaReadV1" type="button" style="background:#166534;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Probar recuperación de fotografías</button><button id="camSyncListV1" type="button" style="background:#155e75;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Recuperar inspecciones del servidor</button><button id="camSyncSendTestV1" type="button" disabled style="background:#0f766e;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer;opacity:.55">Enviar prueba controlada</button><button id="camSyncSendV1" type="button" style="background:#1769aa;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Sincronizar paquete (escritura real)</button></div>
-  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><select id="camSyncRemoteInspectionV1" style="min-width:260px;max-width:100%;padding:7px;border:1px solid #94a3b8;border-radius:6px" aria-label="Inspección remota para recibir"></select><button id="camSyncImportRemoteV1" type="button" disabled style="background:#166534;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer;opacity:.55">Incorporar al equipo</button></div>
   <pre id="camSyncListResultsV1" role="status" aria-live="polite" style="white-space:pre-wrap;max-height:180px;overflow:auto;font:11px Aptos,Arial,sans-serif;color:#334155;margin:8px 0 0"></pre>
-  <div id="camSyncMediaResultsV1" role="status" aria-live="polite" style="margin-top:8px;color:#334155;font-size:11px">  </div>
+  <div id="camSyncMediaResultsV1" role="status" aria-live="polite" style="margin-top:8px;color:#334155;font-size:11px"></div>
 </div>
-<script>
-(function(){
-  const panel=document.getElementById('camSyncPanelV1');
-  const details=document.getElementById('camSyncDetailsV1');
-  const toggle=document.getElementById('camSyncToggleV1');
-  if(!panel||!details||!toggle)return;
-  toggle.addEventListener('click',function(){
-    const abrir=details.hidden;
-    details.hidden=!abrir;
-    toggle.textContent=abrir?'Cerrar':'Abrir';
-    toggle.setAttribute('aria-expanded',String(abrir));
-    panel.style.maxHeight=abrir?'75vh':'none';
-  });
-})();
-</script>
 
 <!-- TECCHNEX CAM-INSPECCIONES V25 · scripts de puerta comercial LAB -->
 <script src="./adapters/contrato-adaptador.js"></script>
 <script src="./tecchnex-inspecciones-config.js"></script>
 <script type="module" src="./tecchnex-inspecciones-license-gate.js"></script>
-<script src="./cam-inspecciones-sync-recovery-adapter-v1.js?v=5"></script>
-<script src="./cam-inspecciones-sync-client-v1.js?v=1.25"></script>
+<script src="./cam-inspecciones-sync-recovery-adapter-v1.js?v=4"></script>
+<script src="./cam-inspecciones-sync-client-v1.js?v=1.24"></script>
 <script src="./cam-inspecciones-export-adapter-v1.js"></script>
 <script src="./cam-inspecciones-export-audit-ui-v1.js"></script>
 <script src="./cam-inspecciones-sync-package-v1-8.js"></script>
