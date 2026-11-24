@@ -6558,19 +6558,43 @@ async function crearRespaldo() {
 // CAM-ALMACENAMIENTO-04A — Exportación individual sin alterar el respaldo general.
 // El paquete conserva el índice original para que la futura importación pueda
 // reconstruir las relaciones entre inspección, checklist, hallazgos y riesgos.
-async function exportarInspeccionSeleccionada() {
+async function exportarInspeccionSeleccionada(opciones = {}) {
+    const modoPaqueteInterno = opciones && opciones.returnPackageOnly === true;
     try {
-        const indiceGuardado = localStorage.getItem("indiceInspeccionSeleccionadaInforme");
-        if (indiceGuardado === null) {
-            alert("Seleccione primero una inspección desde Clientes o Nueva inspección.");
-            return;
+        // El envío desde la cola usa lectura directa: no crea identidades ni cambia
+        // el índice de inspección seleccionada del usuario.
+        const inspecciones = modoPaqueteInterno
+            ? JSON.parse(localStorage.getItem("inspecciones") || "[]")
+            : asegurarIdentidadesInternasInspeccionesTECCHNEX();
+        if (!Array.isArray(inspecciones)) throw new Error("El almacenamiento local de inspecciones no tiene una estructura válida.");
+
+        let indice;
+        if (modoPaqueteInterno) {
+            const idControlBuscado = String(opciones.idControl || "").trim();
+            const idInternoBuscado = String(opciones.idInspeccionInterno || "").trim();
+            const fechaBuscada = String(opciones.fecha || "").slice(0, 10);
+            const puestoBuscado = String(opciones.nombrePuesto || "").trim().replace(/\s+/g, " ").toLowerCase();
+            const coincidencias = inspecciones.map((item, i) => ({ item, i })).filter(({item}) => {
+                if (!item || String(item.idControl || "").trim() !== idControlBuscado) return false;
+                if (idInternoBuscado && String(item.idInspeccionInterno || "").trim() !== idInternoBuscado) return false;
+                if (fechaBuscada && String(item.fecha || item.fechaInspeccion || "").slice(0, 10) !== fechaBuscada) return false;
+                if (puestoBuscado && String(item.nombrePuesto || item.puesto || "").trim().replace(/\s+/g, " ").toLowerCase() !== puestoBuscado) return false;
+                return true;
+            });
+            if (coincidencias.length !== 1) throw new Error(coincidencias.length ? "La inspección pendiente coincide con varios registros locales. Se requiere selección manual; no se enviará información." : "No se encontró en el almacenamiento local la inspección pendiente exacta. No se enviará información.");
+            indice = coincidencias[0].i;
+            if (!String(coincidencias[0].item.idInspeccionInterno || "").trim()) throw new Error("La inspección no tiene UUID interno. Se requiere revisar su identidad antes de sincronizar.");
+        } else {
+            const indiceGuardado = localStorage.getItem("indiceInspeccionSeleccionadaInforme");
+            if (indiceGuardado === null) {
+                alert("Seleccione primero una inspección desde Clientes o Nueva inspección.");
+                return;
+            }
+            indice = Number(indiceGuardado);
         }
-
-        const indice = Number(indiceGuardado);
-        const inspecciones = asegurarIdentidadesInternasInspeccionesTECCHNEX();
         const inspeccion = Number.isInteger(indice) && indice >= 0 ? inspecciones[indice] : null;
-
         if (!inspeccion) {
+            if (modoPaqueteInterno) throw new Error("No se encontró la inspección seleccionada para preparar el envío.");
             alert("No se encontró la inspección seleccionada. Abra la inspección y vuelva a intentarlo.");
             return;
         }
@@ -6683,6 +6707,8 @@ async function exportarInspeccionSeleccionada() {
             }
         };
 
+        if (modoPaqueteInterno) return paquete;
+
         const contenido = JSON.stringify(paquete, null, 2);
         const archivo = new Blob([contenido], { type: "application/json" });
         const url = URL.createObjectURL(archivo);
@@ -6713,6 +6739,7 @@ async function exportarInspeccionSeleccionada() {
         );
     } catch (error) {
         console.error("CAM-ALMACENAMIENTO-04A: error al exportar inspección individual:", error);
+        if (modoPaqueteInterno) throw error;
         alert(
             "No fue posible exportar la inspección.\n\nDetalle técnico: " +
             (error?.message || error)
@@ -20224,28 +20251,55 @@ function TECCHNEX_UI_VOLVER_INICIO_TRAS_GUARDAR(referencia, modo = "contenedor")
 </script>
 
 
-<div id="camSyncPanelV1" style="position:fixed;right:12px;bottom:12px;z-index:2500;background:#fff;border:1px solid #b8cadd;border-radius:10px;padding:9px 10px;box-shadow:0 4px 18px rgba(18,59,93,.18);width:min(310px,calc(100vw - 24px));max-height:75vh;overflow:auto;font:13px Aptos,Arial,sans-serif">
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">
-    <div style="font-weight:700;color:#123b5d">Sincronización TECCHNEX</div>
-    <button id="camSyncToggleV1" type="button" aria-expanded="false" aria-controls="camSyncDetailsV1" style="flex:0 0 auto;background:#e8f2fb;color:#123b5d;border:1px solid #b8cadd;border-radius:6px;padding:5px 8px;font-weight:700;cursor:pointer">Abrir</button>
+<div id="camSyncPanelV1" style="position:fixed;right:12px;bottom:12px;z-index:2500;background:#fff;border:1px solid #b8cadd;border-radius:12px;padding:11px 12px;box-shadow:0 6px 22px rgba(18,59,93,.20);width:min(360px,calc(100vw - 24px));max-height:82vh;overflow:auto;font:13px Aptos,Arial,sans-serif;color:#1f2937">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px">
+    <div style="font-weight:800;color:#123b5d;font-size:15px">SINCRONIZACIÓN TECCHNEX</div>
+    <button id="camSyncToggleV1" type="button" aria-expanded="false" aria-controls="camSyncDetailsV1" style="flex:0 0 auto;background:#e8f2fb;color:#123b5d;border:1px solid #b8cadd;border-radius:7px;padding:6px 10px;font-weight:700;cursor:pointer">Abrir</button>
   </div>
-  <div id="camSyncStatusV1" role="status" aria-live="polite" style="color:#475569;margin-bottom:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">Preparando cola local…</div>
+  <div id="camSyncStatusV1" role="status" aria-live="polite" style="color:#475569;margin-bottom:8px;line-height:1.4">Preparando sincronización…</div>
   <div id="camSyncDetailsV1" hidden>
-  <div style="border-top:1px solid #dbe5ef;margin-top:8px;padding-top:8px">
-    <label for="camSyncImportJsonV1" style="display:block;color:#123b5d;font-weight:700;margin-bottom:5px">Auditar respaldo individual (solo local)</label>
-    <input id="camSyncImportJsonV1" type="file" accept=".json,application/json" style="max-width:100%;font-size:12px" />
-    <div id="camSyncImportResultV1" role="status" aria-live="polite" style="margin-top:6px;color:#475569;font-size:12px">Selecciona el JSON para comprobar hallazgos, riesgos, vulnerabilidades y fotografías. No se envía al servidor.</div>
+    <section style="border-top:1px solid #dbe5ef;padding-top:10px;margin-top:7px">
+      <div style="font-weight:800;color:#123b5d;margin-bottom:5px">1. ENVIAR INSPECCIÓN A SUPABASE</div>
+      <label for="camSyncPendingInspectionV1" style="display:block;color:#334155;font-weight:650;margin-bottom:5px">Inspección pendiente en este equipo</label>
+      <select id="camSyncPendingInspectionV1" style="display:block;width:100%;padding:9px;border:1px solid #94a3b8;border-radius:7px;background:#fff" aria-label="Inspección local pendiente">
+        <option value="">Consultando cola local…</option>
+      </select>
+      <div id="camSyncPendingStatusV1" role="status" aria-live="polite" style="margin-top:6px;color:#475569;font-size:11px;line-height:1.4">El sistema recuperará los datos relacionados y las fotografías desde el almacenamiento local para validar la inspección completa.</div>
+      <button id="camSyncSendPendingV1" type="button" disabled style="display:block;width:100%;background:#1769aa;color:#fff;border:0;border-radius:7px;padding:10px 12px;font-weight:800;cursor:pointer;margin-top:9px;opacity:.55">Preparar y enviar inspección a Supabase</button>
+    </section>
+    <section style="border-top:1px solid #dbe5ef;padding-top:10px;margin-top:11px">
+      <div style="font-weight:800;color:#123b5d;margin-bottom:5px">2. RECUPERAR INSPECCIÓN DESDE SUPABASE</div>
+      <button id="camSyncListV1" type="button" style="display:block;width:100%;background:#155e75;color:#fff;border:0;border-radius:7px;padding:9px 11px;font-weight:750;cursor:pointer">Consultar inspecciones disponibles</button>
+      <label for="camSyncRemoteInspectionV1" style="display:block;color:#334155;font-weight:650;margin:8px 0 5px">Inspección disponible en el servidor</label>
+      <select id="camSyncRemoteInspectionV1" style="width:100%;min-width:0;padding:8px;border:1px solid #94a3b8;border-radius:7px" aria-label="Inspección remota para recuperar">
+        <option value="">Primero consulta las inspecciones</option>
+      </select>
+      <button id="camSyncImportRemoteV1" type="button" disabled style="display:block;width:100%;background:#167a50;color:#fff;border:0;border-radius:7px;padding:9px 11px;font-weight:800;cursor:pointer;margin-top:7px;opacity:.55">Recuperar inspección al equipo</button>
+      <pre id="camSyncListResultsV1" role="status" aria-live="polite" style="white-space:pre-wrap;max-height:145px;overflow:auto;font:11px Aptos,Arial,sans-serif;color:#334155;margin:8px 0 0"></pre>
+    </section>
+    <details id="camSyncAdvancedTools" style="border-top:1px solid #dbe5ef;padding-top:9px;margin-top:11px">
+      <summary style="cursor:pointer;color:#475569;font-weight:750">Administración avanzada · herramientas técnicas</summary>
+      <div style="margin-top:9px">
+        <label for="camSyncImportJsonV1" style="display:block;color:#123b5d;font-weight:700;margin-bottom:5px">Auditoría / envío manual mediante respaldo JSON</label>
+        <input id="camSyncImportJsonV1" type="file" accept=".json,application/json" style="display:block;width:100%;font-size:12px" />
+        <div id="camSyncImportResultV1" role="status" aria-live="polite" style="margin-top:6px;color:#475569;font-size:11px;line-height:1.4">Herramienta alternativa para soporte técnico; no es necesaria para el envío habitual desde la cola local.</div>
+        <button id="camSyncSendIndividualV1" type="button" disabled style="display:block;width:100%;background:#1769aa;color:#fff;border:0;border-radius:7px;padding:8px 10px;font-weight:800;cursor:pointer;margin-top:7px;opacity:.55">Enviar respaldo JSON manual</button>
+        <label for="camSyncPackageFileV18" style="display:block;color:#123b5d;font-weight:700;margin-bottom:5px">Importar paquete técnico existente</label>
+        <input id="camSyncPackageFileV18" type="file" accept=".json,application/json" style="max-width:100%;font-size:12px" />
+        <button id="camSyncValidatePackageV18" type="button" disabled style="background:#146d4a;color:#fff;border:0;border-radius:6px;padding:8px 10px;font-weight:700;cursor:pointer;margin-top:6px;width:100%;opacity:.55">Validar paquete completo — 1 autorización</button>
+        <pre id="camSyncPackageResultsV18" role="status" aria-live="polite" style="white-space:pre-wrap;max-height:130px;overflow:auto;font:11px Aptos,Arial,sans-serif;color:#475569;margin:6px 0 0"></pre>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:9px">
+          <button id="camSyncValidateV1" type="button" style="background:#e8f2fb;color:#123b5d;border:1px solid #9bbbd7;border-radius:6px;padding:7px;font-weight:700;cursor:pointer">Validar cola local</button>
+          <button id="camSyncPrepareTestV1" type="button" style="background:#f1f5f9;color:#123b5d;border:1px solid #94a3b8;border-radius:6px;padding:7px;font-weight:700;cursor:pointer">Preparar prueba local</button>
+          <button id="camSyncReadTestV1" type="button" style="background:#0b6478;color:#fff;border:0;border-radius:6px;padding:7px;font-weight:700;cursor:pointer">Verificar identidad</button>
+          <button id="camSyncMediaReadV1" type="button" style="background:#166534;color:#fff;border:0;border-radius:6px;padding:7px;font-weight:700;cursor:pointer">Probar fotografías</button>
+          <button id="camSyncSendTestV1" type="button" disabled style="background:#0f766e;color:#fff;border:0;border-radius:6px;padding:7px;font-weight:700;cursor:pointer;opacity:.55">Enviar prueba controlada</button>
+          <button id="camSyncSendV1" type="button" disabled style="background:#1769aa;color:#fff;border:0;border-radius:6px;padding:7px;font-weight:700;cursor:pointer;opacity:.55">Enviar paquete técnico</button>
+        </div>
+        <div id="camSyncMediaResultsV1" role="status" aria-live="polite" style="margin-top:8px;color:#334155;font-size:11px"></div>
+      </div>
+    </details>
   </div>
-  <div style="border-top:1px solid #dbe5ef;margin-top:8px;padding-top:8px">
-    <label for="camSyncPackageFileV18" style="display:block;color:#123b5d;font-weight:700;margin-bottom:5px">Paquete INS-2026-0008 · validación agrupada</label>
-    <input id="camSyncPackageFileV18" type="file" accept=".json,application/json" style="max-width:100%;font-size:12px" />
-    <button id="camSyncValidatePackageV18" type="button" disabled style="background:#146d4a;color:#fff;border:0;border-radius:6px;padding:8px 10px;font-weight:700;cursor:pointer;margin-top:6px;width:100%;opacity:.55">Validar paquete completo — 1 autorización</button>
-    <pre id="camSyncPackageResultsV18" role="status" aria-live="polite" style="white-space:pre-wrap;max-height:150px;overflow:auto;font:11px Aptos,Arial,sans-serif;color:#475569;margin:6px 0 0"></pre>
-  </div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap"><button id="camSyncValidateV1" type="button" style="background:#e8f2fb;color:#123b5d;border:1px solid #9bbbd7;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Validar operación (sin escritura)</button><button id="camSyncPrepareTestV1" type="button" style="background:#f1f5f9;color:#123b5d;border:1px solid #94a3b8;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Preparar prueba local</button><button id="camSyncReadTestV1" type="button" style="background:#0b6478;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Verificar identidad en Supabase</button><button id="camSyncMediaReadV1" type="button" style="background:#166534;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Probar recuperación de fotografías</button><button id="camSyncListV1" type="button" style="background:#155e75;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Recuperar inspecciones del servidor</button><button id="camSyncSendTestV1" type="button" disabled style="background:#0f766e;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer;opacity:.55">Enviar prueba controlada</button><button id="camSyncSendV1" type="button" style="background:#1769aa;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Sincronizar paquete (escritura real)</button></div>
-  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><select id="camSyncRemoteInspectionV1" style="min-width:260px;max-width:100%;padding:7px;border:1px solid #94a3b8;border-radius:6px" aria-label="Inspección remota para recibir"></select><button id="camSyncImportRemoteV1" type="button" disabled style="background:#166534;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer;opacity:.55">Incorporar al equipo</button></div>
-  <pre id="camSyncListResultsV1" role="status" aria-live="polite" style="white-space:pre-wrap;max-height:180px;overflow:auto;font:11px Aptos,Arial,sans-serif;color:#334155;margin:8px 0 0"></pre>
-  <div id="camSyncMediaResultsV1" role="status" aria-live="polite" style="margin-top:8px;color:#334155;font-size:11px">  </div>
 </div>
 <script>
 (function(){
@@ -20268,11 +20322,11 @@ function TECCHNEX_UI_VOLVER_INICIO_TRAS_GUARDAR(referencia, modo = "contenedor")
 <script src="./tecchnex-inspecciones-config.js"></script>
 <script type="module" src="./tecchnex-inspecciones-license-gate.js"></script>
 <script src="./cam-inspecciones-sync-recovery-adapter-v1.js?v=5"></script>
-<script src="./cam-inspecciones-sync-client-v1.js?v=1.28"></script>
+<script src="./cam-inspecciones-sync-client-v1.js?v=1.33"></script>
 <script src="./cam-inspecciones-export-adapter-v1.js"></script>
 <script src="./cam-inspecciones-export-audit-ui-v1.js"></script>
 <script src="./cam-inspecciones-sync-package-v1-8.js"></script>
-<script src="./cam-inspecciones-sync-package-ui-v1-8.js"></script>
+<script src="./cam-inspecciones-sync-package-ui-v1-8.js?v=1.10"></script>
 <!-- FIN puerta comercial LAB -->
 </body>
 </html>
