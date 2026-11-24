@@ -406,6 +406,69 @@
         return stored;
     }
 
+    // Solo retira de pendientes la raíz exacta cuyo paquete fue confirmado por el servidor.
+    // Nunca limpia la cola completa ni toca operaciones de otras inspecciones.
+    function reconcileCompletedPackageQueue(pkg, result) {
+        const source = pkg?.source || {};
+        const rootResult = Array.isArray(result?.results)
+            ? result.results.find(item => item && item.record_sync_id === source.id_inspeccion_interno)
+            : null;
+        // El RPC devuelve "COMPLETED" en el primer envío y puede devolver
+        // "completed" (estado persistido) cuando responde a un reintento idempotente.
+        // Ambos representan confirmación válida solo si ok=true y existe versión remota.
+        const rootCode = String(rootResult?.code || "").trim().toUpperCase();
+        if (!rootResult || rootResult.ok !== true || rootCode !== "COMPLETED" ||
+            !Number.isSafeInteger(Number(rootResult.result_version)) || Number(rootResult.result_version) < 1) {
+            return { updated: false, reason: "la respuesta no incluye confirmación y versión de la inspección principal" };
+        }
+
+        let queue;
+        try { queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]"); }
+        catch (_) { return { updated: false, reason: "la cola local no contiene JSON válido" }; }
+        if (!Array.isArray(queue)) return { updated: false, reason: "la estructura de la cola local no es válida" };
+
+        const idControl = String(source.id_control || "").trim();
+        const internalId = String(source.id_inspeccion_interno || "").trim();
+        const fecha = String(source.fecha || "").slice(0, 10);
+        const puesto = String(source.nombre_puesto || "").trim().replace(/\s+/g, " ").toLowerCase();
+        if (!idControl || !internalId || !fecha || !puesto) {
+            return { updated: false, reason: "el paquete no contiene la identidad completa de origen" };
+        }
+        const matches = [];
+        queue.forEach((operation, index) => {
+            const payload = operation?.payload || {};
+            const opDate = String(payload.fecha || payload.fechaInspeccion || "").slice(0, 10);
+            const opPost = String(payload.nombrePuesto || payload.puesto || "").trim().replace(/\s+/g, " ").toLowerCase();
+            if (operation?.status === "pending" && operation?.record_type === "inspeccion" &&
+                String(payload.idControl || "").trim() === idControl &&
+                String(payload.idInspeccionInterno || "").trim() === internalId &&
+                opDate === fecha && opPost === puesto) matches.push(index);
+        });
+        if (matches.length !== 1) {
+            return { updated: false, reason: matches.length === 0
+                ? "no se encontró una única operación pendiente con la misma identidad"
+                : "hay varias operaciones pendientes con la misma identidad; se requiere revisión" };
+        }
+
+        const index = matches[0];
+        const updatedQueue = queue.slice();
+        updatedQueue[index] = {
+            ...queue[index],
+            status: "completed",
+            completed_at: new Date().toISOString(),
+            remote_confirmed: true,
+            remote_record_sync_id: rootResult.record_sync_id,
+            remote_version: Number(rootResult.result_version),
+            remote_confirmation_code: rootResult.code
+        };
+        try {
+            localStorage.setItem(QUEUE_KEY, JSON.stringify(updatedQueue));
+        } catch (_) {
+            return { updated: false, reason: "el navegador no permitió guardar el estado actualizado de la cola" };
+        }
+        return { updated: true, idControl };
+    }
+
     async function syncImportedPackage() {
         if (!importedPackage) throw new Error("Primero selecciona el JSON del paquete V1.8.");
         validateImportedPackage(importedPackage);
@@ -424,7 +487,13 @@
         const node = $("camSyncPackageResultsV18");
         if (node) node.textContent = (result?.results || []).map(x => `${x.ok ? "✓" : "✗"} ${x.index}/${result.total} · ${x.record_type} · ${x.code}`).join("\n");
         if (result?.ok === true && result.code === "PACKAGE_SYNC_COMPLETED" && result.completed === importedPackage.records.length) {
-            setStatus(`SINCRONIZACIÓN COMPLETADA: ${result.completed}/${result.total} registros y ${uploadedPhotos.length} fotografías verificadas en Storage. Las asociaciones quedaron en el manifiesto de la inspección.`, "ok");
+            const reconciliation = reconcileCompletedPackageQueue(importedPackage, result);
+            const successMessage = `SINCRONIZACIÓN COMPLETADA: ${result.completed}/${result.total} registros y ${uploadedPhotos.length} fotografías verificadas en Storage. Las asociaciones quedaron en el manifiesto de la inspección.`;
+            if (reconciliation.updated) {
+                setStatus(`${successMessage} La operación ${reconciliation.idControl} se marcó como completada en la cola local.`, "ok");
+            } else {
+                setStatus(`${successMessage} ADVERTENCIA: el servidor confirmó el envío, pero la cola local no se modificó: ${reconciliation.reason}`, "error");
+            }
             return;
         }
         throw new Error(`Paquete con resultado parcial: ${result?.completed ?? 0}/${result?.total ?? importedPackage.records.length}. Código: ${result?.code || "RESPUESTA_INVALIDA"}. Conserva el mismo JSON para reintentar de forma idempotente.`);
@@ -432,15 +501,8 @@
 
 
     async function retrieveRemoteInspectionList() {
-        const accepted = window.confirm(
-            "Se consultarán las inspecciones guardadas en Supabase para el cliente y contrato autorizados. " +
-            "La operación es solo de lectura: no modifica Supabase ni guarda o reemplaza información de este equipo. ¿Continuar?"
-        );
-        if (!accepted) {
-            setStatus("Recuperación cancelada. No se realizaron cambios.");
-            return;
-        }
-
+        // Consulta estrictamente de lectura: no requiere confirmación adicional.
+        // La confirmación explícita se conserva en el paso posterior de incorporación local.
         const client = await getClient();
         const { data: sessionData, error: sessionError } = await client.auth.getSession();
         const accessToken = sessionData?.session?.access_token;
@@ -1068,13 +1130,117 @@
             validate.disabled = count === 0;
             send.disabled = !importedPackage;
             send.title = "Importa un paquete para habilitar sincronización integrada.";
-            setStatus(`Cliente V1.12 cargado. ${count} operación(es) pendientes en cola local. La sincronización por paquete requiere importar el JSON.`);
+            setStatus(count
+                ? `${count} operación(es) pendiente(s) detectadas. El envío habitual recupera los datos completos desde el almacenamiento local; selecciona la inspección en el panel y confirma después de validar.`
+                : "No hay cambios pendientes en la cola local. La importación manual de un respaldo JSON permanece disponible en Administración avanzada.");
         } catch (error) {
             validate.disabled = true;
             send.disabled = true;
             setStatus(error.message, "error");
         }
     }
+
+    // Comprueba que el respaldo elegido corresponda a una inspección marcada
+    // como pendiente cuando la cola local contiene una sola inspección.
+    // La cola es solo un marcador: no contiene hallazgos, matrices ni fotografías.
+    function assertBackupMatchesLocalQueue(report) {
+        const pending = readQueue();
+        if (!pending.length) return;
+        const reportPayload = report?.inspection?.payload || {};
+        const reportId = String(report?.source?.idControl || reportPayload.idControl || "").trim();
+        const reportDate = String(reportPayload.fecha || report?.source?.fecha || "").slice(0, 10);
+        const reportPost = String(reportPayload.nombrePuesto || report?.source?.nombrePuesto || "").trim().replace(/\s+/g, " ").toLowerCase();
+        if (!reportId) throw new Error("El respaldo no contiene el identificador de inspección necesario para compararlo con la cola local.");
+        const matches = pending.filter(operation => {
+            const payload = operation?.payload || {};
+            const id = String(payload.idControl || "").trim();
+            const date = String(payload.fecha || "").slice(0, 10);
+            const post = String(payload.nombrePuesto || "").trim().replace(/\s+/g, " ").toLowerCase();
+            return id === reportId && (!date || !reportDate || date === reportDate) && (!post || !reportPost || post === reportPost);
+        });
+        if (matches.length !== 1) {
+            throw new Error(matches.length > 1
+                ? "Hay varias operaciones locales que coinciden con este respaldo. Revisa la cola antes de continuar; no se enviará información."
+                : `El respaldo seleccionado (${reportId}) no coincide con la inspección marcada en la cola local. Selecciona el respaldo correspondiente; no se enviará información.`);
+        }
+    }
+
+    // Agrupa las operaciones raíz pendientes por identidad de inspección. La cola
+    // solo identifica qué inspección cambió; los datos completos se recuperan
+    // mediante el exportador local existente, incluidas las relaciones y fotos.
+    function getPendingInspectionCandidates() {
+        const pending = readQueue();
+        const roots = pending.filter(op => op && op.record_type === "inspeccion" && op.payload && typeof op.payload === "object");
+        const groups = new Map();
+        for (const op of roots) {
+            const payload = op.payload || {};
+            const idControl = String(payload.idControl || "").trim();
+            const internalId = String(payload.idInspeccionInterno || "").trim();
+            const fecha = String(payload.fecha || payload.fechaInspeccion || "").slice(0, 10);
+            const nombrePuesto = String(payload.nombrePuesto || payload.puesto || "").trim();
+            if (!idControl || !fecha || !nombrePuesto || !internalId) {
+                throw new Error("La cola contiene una inspección pendiente sin identidad completa (ID, UUID interno, fecha o puesto). Se requiere revisión; no se enviará información.");
+            }
+            const key = String(op.record_sync_id || internalId);
+            const previous = groups.get(key);
+            if (previous && (previous.idControl !== idControl || previous.fecha !== fecha || previous.nombrePuesto.trim().toLowerCase() !== nombrePuesto.trim().toLowerCase())) {
+                throw new Error("La cola contiene identidades contradictorias para una misma operación. Se requiere revisión manual.");
+            }
+            if (!previous) groups.set(key, { key, idControl, idInspeccionInterno: internalId, fecha, nombrePuesto, operationCount: 1 });
+            else previous.operationCount++;
+        }
+        if (pending.length && !roots.length) throw new Error("Hay operaciones pendientes, pero ninguna corresponde a una inspección principal. No se puede construir un paquete completo de forma segura.");
+        return Array.from(groups.values());
+    }
+
+    async function sendPendingInspection(recordSyncId) {
+        const candidates = getPendingInspectionCandidates();
+        const selected = candidates.find(item => item.key === String(recordSyncId || ""));
+        if (!selected) throw new Error("Selecciona una inspección pendiente válida. No se enviará información.");
+        if (selected.operationCount !== 1) throw new Error("La inspección tiene varias operaciones raíz pendientes. Se requiere revisión para evitar duplicados.");
+        if (typeof window.exportarInspeccionSeleccionada !== "function") throw new Error("No está disponible el exportador individual local.");
+        setStatus(`Recuperando datos locales de ${selected.nombrePuesto} (${selected.fecha}), incluidos hallazgos, matrices y fotografías…`);
+        const individual = await window.exportarInspeccionSeleccionada({
+            returnPackageOnly: true, idControl: selected.idControl,
+            idInspeccionInterno: selected.idInspeccionInterno, fecha: selected.fecha, nombrePuesto: selected.nombrePuesto
+        });
+        const adapter = window.TECCHNEXCamInspeccionesExportAdapter;
+        if (!adapter || typeof adapter.normalize !== "function") throw new Error("No está disponible el auditor de integridad del respaldo individual.");
+        const report = adapter.normalize(individual);
+        setStatus(`Datos completos recuperados: ${report.counts.hallazgos} hallazgos, ${report.counts.matriz_riesgos_inspeccion + report.counts.matrices_riesgos_cliente} matrices y ${report.counts.media} fotografías. Revisando integridad…`, "ok");
+        return sendAuditReport(report);
+    }
+
+    // Entrada única para el flujo simplificado: construir en memoria, validar
+    // sin escritura y solicitar confirmación antes de cargar fotos o registros.
+    async function sendAuditReport(report) {
+        return withBusy(async () => {
+            if (!report || !report.integrity?.photo_associations_valid) {
+                throw new Error("La auditoría del respaldo no aprobó las asociaciones fotográficas. No se enviará información.");
+            }
+            assertBackupMatchesLocalQueue(report);
+            const builder = window.TECCHNEXCamInspeccionesSyncPackageV18;
+            if (!builder || typeof builder.build !== "function") {
+                throw new Error("No está disponible el constructor local del paquete de sincronización.");
+            }
+            const pkg = await builder.build(report);
+            validateImportedPackage(pkg);
+            importedPackage = pkg;
+            preparedMediaUploads = null;
+            packageValidationProgress = {
+                packageKey: pkg.records.map(record => record.operation_id).join("|"),
+                nextIndex: 0,
+                passed: 0,
+                details: []
+            };
+            window.CAM_INSPECCIONES_LAST_EXPORT_AUDIT = report;
+            setStatus(`Inspección ${pkg.source.id_control}: paquete local preparado (${pkg.records.length} registros y ${pkg.photo_manifest.length} fotografías). Validando antes del envío…`);
+            await validateImportedPackageV18();
+            await syncImportedPackage();
+        });
+    }
+
+    window.TECCHNEXCamInspeccionesSyncClientV1 = Object.freeze({ sendAuditReport, getPendingInspectionCandidates, sendPendingInspection });
 
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", initialize, { once: true });
