@@ -681,10 +681,6 @@
         if (existingByUuid) { setStatus("Esta inspección ya existe en este equipo. No se duplicó ni sobrescribió.", "ok"); return; }
         if (existingByKey) throw new Error("Ya existe una inspección local con el mismo puesto y fecha, pero con otro UUID. Se requiere resolver el conflicto antes de incorporar.");
 
-        const mediaMap = await downloadRemotePhotos(rootRecord, item.photo_manifest || []);
-        const newIndex = inspections.length;
-        root.idInspeccionInterno = rootId;
-        root.claveInspeccionPuestoFecha = key;
         const related = item.related_records || [];
         const staged = {
             hallazgos: readLocalArray("hallazgos"), checklists: readLocalArray("checklists"),
@@ -692,8 +688,31 @@
             vulnerabilidades: readLocalArray("tecchnex_lista_vulnerabilidades_multisector_v1_registros_v2"),
             resultados: (() => { const x=JSON.parse(localStorage.getItem("resultadosChecklistCategorias")||"{}"); if(!x||typeof x!=="object"||Array.isArray(x)) throw new Error("resultadosChecklistCategorias tiene una estructura no válida."); return x; })()
         };
+
+        // CAM-SYNC-RECEIVE-RECONCILIATION-01:
+        // El índice de inspección no se calcula con inspections.length a ciegas.
+        // Se reserva uno posterior a todos los índices usados en las estructuras locales.
+        const usedIndexes = new Set();
+        const addIndex = value => {
+            const n = Number(value);
+            if (Number.isSafeInteger(n) && n >= 0) usedIndexes.add(n);
+        };
+        addIndex(inspections.length - 1);
+        for (const k of Object.keys(staged.resultados)) {
+            if (/^(0|[1-9]\d*)$/.test(k)) addIndex(k);
+        }
+        for (const list of [staged.hallazgos, staged.checklists, staged.matrizRiesgos, staged.matricesRiesgosClientes, staged.vulnerabilidades]) {
+            for (const record of list) addIndex(record?.inspeccion);
+        }
+        const newIndex = usedIndexes.size ? Math.max(...usedIndexes) + 1 : 0;
+        if (!Number.isSafeInteger(newIndex)) throw new Error("No se pudo reservar un índice local seguro para la inspección.");
+
+        root.idInspeccionInterno = rootId;
+        root.claveInspeccionPuestoFecha = key;
         const normalizeChild = payload => ({ ...payload, idInspeccionInterno: rootId, claveInspeccionPuestoFecha: key, inspeccion: newIndex, idControlInspeccion: root.idControl || payload.idControlInspeccion || "" });
         const findingNumbers = new Set();
+        const mediaMap = await downloadRemotePhotos(rootRecord, item.photo_manifest || []);
+
         for (const child of related) {
             const type = String(child?.record_type || "");
             const payload = child?.payload;
@@ -707,16 +726,61 @@
                     return { ...photo, mediaId: mapped.mediaId, hashSha256: mapped.hashSha256 || photo.hashSha256, idControl: root.nombrePuesto || root.idControl || "", hallazgo: photo.hallazgo || mapped.finding_number };
                 });
                 for (const photo of h.fotos || []) if (photo?.hallazgo) findingNumbers.add(String(photo.hallazgo));
-                staged.hallazgos.push(h);
-            } else if (type === "checklist") staged.checklists.push(normalizeChild(payload));
-            else if (type === "matriz_riesgos") staged.matrizRiesgos.push(normalizeChild(payload));
+
+                const stableId = String(payload.idHallazgoSync || "").trim();
+                const findingFingerprint = x => [
+                    String(x?.descripcion || "").trim().replace(/\\s+/g, " "),
+                    String(x?.elemento || "").trim().replace(/\\s+/g, " "),
+                    String(x?.area || "").trim().replace(/\\s+/g, " ").toLowerCase()
+                ].join("|");
+                const existingFinding = (stableId
+                    ? staged.hallazgos.find(x => String(x?.idHallazgoSync || "").trim() === stableId)
+                    : null) || staged.hallazgos.find(x =>
+                        String(x?.idInspeccionInterno || "") === rootId &&
+                        findingFingerprint(x) === findingFingerprint(payload)
+                    );
+                if (existingFinding) {
+                    if (String(existingFinding.idInspeccionInterno || "") !== rootId) {
+                        throw new Error(`El hallazgo ${stableId} ya existe asociado a otra inspección. Se requiere revisión; no se modificaron datos.`);
+                    }
+                    // Reasocia el registro ya existente y conserva sus demás campos.
+                    existingFinding.inspeccion = newIndex;
+                    existingFinding.claveInspeccionPuestoFecha = key;
+                    const currentPhotos = Array.isArray(existingFinding.fotos) ? existingFinding.fotos : [];
+                    const photoKeys = new Set(currentPhotos.map(x => String(x?.hashSha256 || x?.mediaId || "")));
+                    for (const photo of h.fotos || []) {
+                        const photoKey = String(photo?.hashSha256 || photo?.mediaId || "");
+                        if (!photoKeys.has(photoKey)) { currentPhotos.push(photo); photoKeys.add(photoKey); }
+                    }
+                    existingFinding.fotos = currentPhotos;
+                } else {
+                    // Si el UUID raíz ya aparece pero falta la identidad estable del hallazgo,
+                    // no se adivina si es el mismo registro: se conserva y se agrega el remoto.
+                    staged.hallazgos.push(h);
+                }
+            } else if (type === "checklist") {
+                const normalized = normalizeChild(payload);
+                const duplicate = staged.checklists.some(x => String(x?.idInspeccionInterno || "") === rootId &&
+                    JSON.stringify({ ...x, inspeccion: null }) === JSON.stringify({ ...normalized, inspeccion: null }));
+                if (!duplicate) staged.checklists.push(normalized);
+                else {
+                    const existing = staged.checklists.find(x => String(x?.idInspeccionInterno || "") === rootId &&
+                        JSON.stringify({ ...x, inspeccion: null }) === JSON.stringify({ ...normalized, inspeccion: null }));
+                    if (existing) existing.inspeccion = newIndex;
+                }
+            } else if (type === "matriz_riesgos") staged.matrizRiesgos.push(normalizeChild(payload));
             else if (type === "matriz_cliente") staged.matricesRiesgosClientes.push(normalizeChild(payload));
-            else if (type === "vulnerabilidad") staged.vulnerabilidades.push(normalizeChild(payload));
-            else if (type === "resultado_checklist") {
+            else if (type === "vulnerabilidad") {
+                const existing = staged.vulnerabilidades.find(x => String(x?.idInspeccionInterno || "") === rootId);
+                if (existing) {
+                    existing.inspeccion = newIndex;
+                    existing.claveInspeccionPuestoFecha = key;
+                } else staged.vulnerabilidades.push(normalizeChild(payload));
+            } else if (type === "resultado_checklist") {
                 const category = String(payload.categoria || "");
                 if (!category) throw new Error("Un resultado de checklist remoto no tiene categoría.");
                 const row = staged.resultados[String(newIndex)] || (staged.resultados[String(newIndex)] = {});
-                if (Object.prototype.hasOwnProperty.call(row, category)) throw new Error(`Resultado duplicado para la categoría ${category}.`);
+                if (Object.prototype.hasOwnProperty.call(row, category)) throw new Error(`Resultado duplicado para la categoría ${category} en el nuevo índice reservado.`);
                 row[category] = payload.resultado;
             }
         }
@@ -739,6 +803,7 @@
             }
             throw new Error(`No se pudo completar la incorporación local; se restauraron los datos estructurados anteriores. ${writeError?.message || writeError}`);
         }
+
         setStatus(`SINCRONIZACIÓN RECIBIDA: inspección ${root.nombrePuesto} · ${root.fecha}; ${related.length} registros relacionados y ${mediaMap.size} fotografías incorporados en este equipo.`, "ok");
         const resultNode = $("camSyncListResultsV1");
         if (resultNode) resultNode.textContent += `\n\n✓ INCORPORACIÓN COMPLETADA en el equipo local: ${root.nombrePuesto} · ${root.fecha}\n✓ Registros relacionados: ${related.length}\n✓ Fotografías verificadas e incorporadas: ${mediaMap.size}`;
