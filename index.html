@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <!--
-CAM-INSPECCIONES-LAB-V25 — CAM-HALLAZGOS-UI-RESTORE-01 / LAB V1
+CAM-INSPECCIONES-LAB-V25 — CAM-HALLAZGOS-UI-RESTORE-01 / LAB V1 · CATÁLOGO V3 DEPURADO
 Cambio controlado: encabezado/acentos azules oscuros del panel a negro; el gráfico visual reemplaza la tabla numérica de resumen por área. Se conserva el detalle de la lista de chequeo.
 Base de trabajo: V9. No modifica la plantilla maestra Word ni las estructuras de almacenamiento.
 
@@ -3020,21 +3020,19 @@ CAM-HALLAZGOS-UI-RESTORE-01: formulario primero; consulta de registros al final 
 const KEY='tecchnex_lista_vulnerabilidades_multisector_v1';
 const $=id=>document.getElementById(id);
 // CAM-VULN-CATALOGO-ADICIONES-01: preguntas adicionales incorporadas desde el documento aportado. Se anexan al final de grupos existentes para conservar índices históricos de respuestas.
+// CAM-VULN-CATALOGO-DEPURADO-01 — V3 LAB
+// Se consolidan preguntas repetidas sin eliminar criterios técnicos distintos.
+// Los informes ya emitidos permanecen independientes; esta versión aplica a nuevas evaluaciones.
 const shared=[
 ['Perímetro y entorno',[
 '¿Se identifican las amenazas externas y las condiciones de seguridad del entorno?',
-'¿El perímetro, cerramientos y accesos exteriores se encuentran en condiciones adecuadas?',
-'¿La iluminación exterior y la visibilidad permiten detectar situaciones anómalas?',
-'¿Se inspeccionan y documentan periódicamente las condiciones perimetrales?',
-'¿Existen puntos ciegos, zonas de baja visibilidad o áreas que faciliten el ingreso no autorizado?',
-'¿La vegetación, residuos, iluminación y condiciones del entorno permiten mantener la visibilidad y seguridad del perímetro?',
+'¿El perímetro cuenta con cerramientos, muros, rejas y demás barreras físicas en condiciones adecuadas para dificultar el ingreso no autorizado?',
+'¿La iluminación exterior y la visibilidad permiten observar e identificar personas y movimientos en los puntos críticos, especialmente durante la noche?',
+'¿Se realizan inspecciones periódicas del perímetro y se documentan los daños, anomalías y acciones requeridas?',
+'¿Se encuentran identificados y controlados los puntos ciegos, zonas ocultas y sectores que facilitan aproximaciones o ingresos no detectados?',
+'¿La vegetación, construcciones vecinas, mobiliario, residuos y otros obstáculos generan zonas de ocultamiento o reducen la visibilidad y seguridad del perímetro?',
 '¿Se identifican riesgos ambientales del entorno que puedan afectar la seguridad o la continuidad?',
-'¿El perímetro cuenta con cerramientos, muros, rejas u otras barreras físicas en condiciones que dificulten el ingreso no autorizado?',
-'¿Las puertas, portones y puntos de acceso del perímetro cuentan con mecanismos de cierre y protección funcionales?',
-'¿La iluminación exterior permite observar e identificar personas y movimientos en los puntos críticos durante la noche?',
-'¿Se encuentran identificados los puntos ciegos, zonas ocultas y sectores que facilitan aproximaciones no detectadas?',
-'¿La vegetación, construcciones vecinas, mobiliario u obstáculos externos generan zonas de ocultamiento o reducen la visibilidad?',
-'¿Se realizan inspecciones periódicas del perímetro y se documentan los daños, anomalías y acciones requeridas?']],
+'¿Las puertas, portones y puntos de acceso del perímetro cuentan con mecanismos de cierre y protección funcionales?']],
 ['Accesos y circulación',[
 '¿Los accesos peatonales y vehiculares tienen procedimientos de control definidos?',
 '¿Se controla el ingreso de visitantes, contratistas, proveedores y personal temporal?',
@@ -3052,72 +3050,57 @@ const shared=[
 '¿Existen pautas para proteger pertenencias, documentos, equipos y activos críticos según el contexto?',
 '¿Se promueven prácticas de prevención sin exponer a las personas a confrontaciones o intervenciones inseguras?']],
 ['Seguridad electrónica',[
-'¿Los sistemas de CCTV cubren las áreas de interés definidas por el análisis de riesgos?',
-'¿Las cámaras, alarmas y medios de comunicación están operativos?',
-'¿El acceso a grabaciones y configuraciones está limitado a personal autorizado?',
-'¿Existen mantenimiento documentado y procedimientos ante fallas tecnológicas?',
-'¿Se controla quién puede consultar, exportar o compartir imágenes y registros de los sistemas de seguridad?',
-'¿Se verifica la sincronización horaria, disponibilidad de grabaciones y tiempo de conservación definido?',
-'¿Existen medidas de respaldo y continuidad cuando fallan la energía, las comunicaciones o los sistemas electrónicos?',
-'¿Las cámaras de CCTV cubren los accesos, perímetros y áreas críticas identificadas en el análisis de seguridad?',
+'¿Los sistemas de CCTV cubren los accesos, perímetros y demás áreas de interés identificadas en el análisis de riesgos?',
 '¿La ubicación, orientación e iluminación de las cámaras permiten obtener imágenes útiles para identificar personas, vehículos o eventos?',
-'¿Las cámaras, alarmas, sensores y demás dispositivos de seguridad funcionan correctamente al momento de la inspección?',
+'¿Las cámaras, alarmas, sensores y medios de comunicación funcionan correctamente al momento de la inspección?',
+'¿El acceso a las plataformas, configuraciones, grabaciones y exportación o divulgación de imágenes está restringido a usuarios autorizados?',
 '¿Los sistemas de seguridad cuentan con mantenimiento preventivo y correctivo documentado?',
-'¿El acceso a las plataformas, configuraciones, grabaciones y exportación de imágenes está restringido a usuarios autorizados?',
 '¿Las grabaciones se encuentran disponibles, sincronizadas y conservadas durante el periodo definido por la organización?',
 '¿Existen procedimientos de respuesta y medios alternativos ante fallas de energía, comunicaciones o sistemas electrónicos?']],
 ['Emergencias y continuidad',[
-'¿Existe un plan de emergencias vigente y conocido por el personal pertinente?',
-'¿Los sistemas de detección, alarma y respuesta tienen inspecciones y mantenimiento?',
-'¿Se realizan simulacros y se registran oportunidades de mejora?',
-'¿Existen procedimientos para mantener funciones esenciales durante una interrupción?',
+'¿Existe un plan de emergencias vigente y actualizado que contemple las amenazas identificadas para el establecimiento y sea conocido por el personal pertinente?',
+'¿Los sistemas de detección, alarma, extinción y atención de emergencias están disponibles y reciben inspección y mantenimiento?',
+'¿Se realizan simulacros y se documentan sus resultados, deficiencias y oportunidades de mejora?',
+'¿Existen procedimientos para mantener o recuperar las funciones esenciales ante interrupciones de servicios o eventos críticos?',
 '¿Se encuentran identificados los responsables, contactos de emergencia, recursos y rutas de comunicación?',
-'¿Los planes contemplan personas con movilidad reducida, menores y otras personas que puedan requerir asistencia?',
+'¿Los procedimientos de emergencia contemplan la asistencia a personas con movilidad reducida, menores y otras personas que requieran apoyo?',
 '¿Se evalúan escenarios de incendio, inundación, sismo, derrame, falla de servicios y otras amenazas pertinentes al lugar?',
-'¿Existe un plan de emergencias actualizado que contemple las amenazas identificadas para el establecimiento?',
 '¿Están identificados los responsables de activar, coordinar y dirigir la respuesta ante emergencias?',
-'¿Los sistemas de detección, alarma, extinción y atención de emergencias están disponibles y reciben mantenimiento?',
-'¿Las rutas de evacuación, salidas, señalización y puntos de encuentro se encuentran identificados y en condiciones funcionales?',
-'¿Se realizan simulacros y se documentan sus resultados, deficiencias y acciones de mejora?',
-'¿Los procedimientos contemplan la asistencia a personas con movilidad reducida, menores y otras personas que requieran apoyo?',
-'¿Existen procedimientos para mantener o recuperar las funciones esenciales ante interrupciones de servicios o eventos críticos?']],
+'¿Las rutas de evacuación, salidas, señalización y puntos de encuentro se encuentran identificados y en condiciones funcionales?']],
 ['Gestión y evidencias',[
-'¿Las responsabilidades de administración, seguridad y mantenimiento están definidas?',
-'¿Se documentan las vulnerabilidades con ubicación y evidencia autorizada?',
-'¿Se asignan responsables y plazos para las acciones correctivas?',
-'¿Se verifica la eficacia de las medidas implementadas?',
-'¿Existe un plan de seguridad con objetivos, responsables, recursos, indicadores y revisión periódica?',
-'¿Se analizan los incidentes, cambios operativos y nuevas amenazas para actualizar las prioridades de seguridad?',
-'¿Se coordinan administración, seguridad, mantenimiento, SST, comunidad y autoridades según corresponda?',
-'¿Se identifican aspectos ambientales relevantes como residuos, sustancias peligrosas, drenajes, derrames, ruido o contaminación que puedan generar riesgos?',
-'¿Los residuos y productos químicos se almacenan, identifican y disponen de forma segura, conforme a los procedimientos aplicables?',
-'¿Se documentan las condiciones inseguras, responsables, fechas de cierre y evidencia de corrección?',
 '¿Están definidas las responsabilidades de administración, seguridad, mantenimiento y demás áreas involucradas en la protección del establecimiento?',
-'¿Las vulnerabilidades identificadas se documentan indicando ubicación, descripción y evidencia disponible?',
+'¿Las vulnerabilidades identificadas se documentan indicando su ubicación, descripción y evidencia disponible?',
 '¿Los hallazgos tienen responsables de gestión formalmente asignados?',
 '¿Las acciones correctivas cuentan con plazos, recursos y mecanismos de seguimiento?',
 '¿Se verifica mediante evidencia que las acciones correctivas fueron implementadas y que resultaron eficaces?',
-'¿Se revisan incidentes, cambios operativos y nuevas amenazas para actualizar las prioridades de seguridad?',
+'¿Existe un plan de seguridad con objetivos, responsables, recursos, indicadores y revisión periódica?',
+'¿Se analizan los incidentes, cambios operativos y nuevas amenazas para actualizar las prioridades de seguridad?',
 '¿Existe coordinación entre administración, vigilancia, mantenimiento, SST y organismos externos cuando corresponde?',
-'¿Los productos químicos y sustancias peligrosas están identificados, almacenados y protegidos de acuerdo con sus características?',
+'¿Se identifican aspectos ambientales relevantes como residuos, sustancias peligrosas, drenajes, derrames, ruido o contaminación que puedan generar riesgos?',
+'¿Los productos químicos y sustancias peligrosas están identificados, almacenados y protegidos de acuerdo con sus características y los procedimientos aplicables?',
+'¿Se documentan las condiciones inseguras, responsables, fechas de cierre y evidencia de corrección?',
 '¿Los drenajes, canales, cubiertas y sistemas de evacuación de aguas se encuentran en condiciones que reduzcan el riesgo de inundación?',
 '¿Se identifican fuentes de ruido, emisiones, olores o contaminación que puedan afectar a las personas o al entorno?',
 '¿Se identifican condiciones de humedad, filtraciones, deterioro estructural o presencia de agentes ambientales que puedan afectar las instalaciones?',
 '¿Existen procedimientos para reportar y atender incidentes ambientales y verificar las acciones implementadas?']]
 ];
-// CAM-VULN-CATALOGO-RESIDENCIAL-01: preguntas residenciales adicionales; se anexan a grupos existentes para conservar índices.
+// CAM-VULN-CATALOGO-RESIDENCIAL-DEPURADO-01
 const sector={
 Residencial:[
-['Portería y convivencia',['¿La portería controla el ingreso de residentes, visitantes y domicilios?','¿Existe un procedimiento para menores extraviados y personas vulnerables?','¿Las zonas comunes, piscinas, gimnasios y salones tienen controles adecuados?','¿Se gestionan parqueaderos, bicicletas y bienes comunes para prevenir hurtos?',
-'¿La portería dispone de un procedimiento para verificar la identidad y autorización de ingreso de residentes, visitantes y domiciliarios?',
+['Portería y convivencia',[
+'¿La portería controla y verifica la identidad y autorización de ingreso de residentes, visitantes y domiciliarios?',
+'¿Existe un procedimiento para menores extraviados y personas vulnerables?',
+'¿Las piscinas, gimnasios, salones sociales y demás zonas comunes tienen controles de acceso y uso acordes con sus condiciones?',
+'¿Se gestionan parqueaderos, bicicletas y bienes comunes para prevenir hurtos?',
 '¿Se valida que los visitantes y domiciliarios se dirijan a la unidad residencial o persona que autorizó su ingreso?',
 '¿Se cuenta con un procedimiento para reportar y atender personas sospechosas, intentos de suplantación o comportamientos inusuales?',
-'¿Las piscinas, gimnasios, salones sociales y demás zonas comunes tienen controles de uso y acceso acordes con sus condiciones?',
 '¿Existen procedimientos para reportar y atender riñas, amenazas, violencia o alteraciones graves de convivencia?',
 '¿La administración y el servicio de vigilancia tienen definidos los canales de comunicación para atender incidentes que afecten a los residentes?']],
-['Rondas y áreas comunes',['¿Las rondas cubren perímetro, parqueaderos y zonas de baja afluencia?','¿Se registran los puntos de ronda y las novedades relevantes?','¿Los cuartos técnicos, cubiertas y depósitos están protegidos?','¿Existen procedimientos de atención de riñas, violencia o alteraciones de convivencia?',
-'¿Las bicicletas, depósitos y demás bienes comunes o de uso compartido cuentan con controles de protección y custodia?',
+['Rondas y áreas comunes',[
+'¿Las rondas cubren perímetro, parqueaderos y zonas de baja afluencia?',
+'¿Se registran los puntos de ronda y las novedades relevantes?',
 '¿Los cuartos técnicos, cubiertas, depósitos y áreas de mantenimiento están protegidos frente al ingreso de personas no autorizadas?',
+'¿Las bicicletas, depósitos y demás bienes comunes o de uso compartido cuentan con controles de protección y custodia?',
 '¿Se encuentran identificadas las zonas de baja afluencia y los horarios en los que requieren mayor supervisión?',
 '¿Se documentan y analizan los incidentes recurrentes que afectan la seguridad de residentes y bienes comunes?']]
 ],
