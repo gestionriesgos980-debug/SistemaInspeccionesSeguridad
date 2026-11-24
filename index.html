@@ -4595,16 +4595,21 @@ function camSyncRegistrarInspeccionLocalV1(inspeccionActual, inspeccionAnterior 
     }
 
     const idAnterior = String(inspeccionAnterior?.idControl || "").trim();
-    const metaAnterior = idAnterior && registros[idAnterior] ? registros[idAnterior] : null;
-    const metaActual = registros[idActual] || null;
-    // Solo reutilizar la referencia remota cuando la identidad funcional no cambió.
-    // Un reemplazo por nueva fecha/puesto debe crear una raíz remota independiente.
+    // La clave compuesta permite conservar dos raíces cuando se reutiliza idControl
+    // pero cambia la identidad funcional puesto + fecha.
     const claveActual = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionActual);
     const claveAnterior = inspeccionAnterior
         ? obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionAnterior)
         : "";
     const mismaIdentidadFuncional = Boolean(claveActual && claveAnterior && claveActual === claveAnterior);
-    const metaReutilizable = mismaIdentidadFuncional ? metaAnterior : metaActual;
+    const claveMetaActual = claveActual ? `${idActual}::${claveActual}` : "";
+    const claveMetaAnterior = idAnterior && claveAnterior ? `${idAnterior}::${claveAnterior}` : "";
+    const metaAnterior = (claveMetaAnterior && registros[claveMetaAnterior])
+        || (idAnterior && registros[idAnterior]) || null;
+    const metaActual = (claveMetaActual && registros[claveMetaActual])
+        || registros[idActual] || null;
+    // Nunca heredar metadatos de otra identidad, aunque coincida idControl.
+    const metaReutilizable = mismaIdentidadFuncional ? (metaAnterior || metaActual) : null;
     const syncId = String(metaReutilizable?.record_sync_id || camSyncUuidV1());
     const versionServidor = Number(metaReutilizable?.server_version ?? 0);
     const tipoOperacion = versionServidor > 0 ? "UPDATE" : "INSERT";
@@ -4638,9 +4643,19 @@ function camSyncRegistrarInspeccionLocalV1(inspeccionActual, inspeccionAnterior 
         local_record_id: idActual,
         updated_at: new Date().toISOString()
     };
-    const nuevosRegistros = { ...registros, [idActual]: meta };
-    // Si cambió la identidad funcional, conservar intactos los metadatos de la raíz anterior.
-    if (mismaIdentidadFuncional && idAnterior && idAnterior !== idActual) delete nuevosRegistros[idAnterior];
+    const colisionaConOtraIdentidad = Boolean(
+        !mismaIdentidadFuncional && registros[idActual] &&
+        registros[idActual].record_sync_id && registros[idActual].record_sync_id !== syncId
+    );
+    const claveDestinoMeta = colisionaConOtraIdentidad && claveMetaActual
+        ? claveMetaActual
+        : idActual;
+    const nuevosRegistros = { ...registros, [claveDestinoMeta]: meta };
+    // Al cambiar idControl manteniendo identidad, trasladar la referencia y retirar
+    // únicamente la clave anterior de compatibilidad; no borrar otras identidades.
+    if (mismaIdentidadFuncional && idAnterior && idAnterior !== idActual && registros[idAnterior]) {
+        delete nuevosRegistros[idAnterior];
+    }
 
     // Escritura protegida: si una clave falla, se restaura el valor anterior de ambas claves.
     const anteriores = {
@@ -4681,7 +4696,7 @@ function camSyncRegistrarInspeccionLocalV1(inspeccionActual, inspeccionAnterior 
             const inspeccionesParaId = JSON.parse(localStorage.getItem("inspecciones") || "[]");
             const inspeccionAnteriorIdentidad = (indiceEdicion !== undefined && indiceEdicion !== "")
                 ? inspeccionesParaId[Number(indiceEdicion)] : null;
-            const idInspeccionInterno = String(inspeccionAnteriorIdentidad?.idInspeccionInterno || generarIdentidadInternaInspeccionTECCHNEX());
+            let idInspeccionInterno = String(inspeccionAnteriorIdentidad?.idInspeccionInterno || generarIdentidadInternaInspeccionTECCHNEX());
             let idControl;
             let siguienteIdGenerado = null;
             if (indiceEdicion !== undefined && indiceEdicion !== "") {
@@ -4997,6 +5012,18 @@ inspeccion.seguridadSugerida = Array.from(
 // CAM-RESTAURACION-HALLAZGOS-01: la identidad portable depende solo del puesto y la fecha.
 const clavePuestoFechaNueva = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccion);
 inspeccion.claveInspeccionPuestoFecha = clavePuestoFechaNueva;
+// CAM-IDENTIDAD-INSPECCION-03: cambiar puesto o fecha crea una identidad técnica nueva.
+// El UUID anterior solo se usa para localizar los hijos que pertenecían a la ficha editada.
+const clavePuestoFechaAnterior = obtenerClaveInspeccionPuestoFechaTECCHNEX(inspeccionAnteriorIdentidad);
+const identidadFuncionalCambio = Boolean(
+    inspeccionAnteriorIdentidad && clavePuestoFechaAnterior && clavePuestoFechaNueva &&
+    clavePuestoFechaAnterior !== clavePuestoFechaNueva
+);
+const idInspeccionInternoAnterior = String(inspeccionAnteriorIdentidad?.idInspeccionInterno || "").trim();
+if (identidadFuncionalCambio) {
+    idInspeccionInterno = generarIdentidadInternaInspeccionTECCHNEX();
+    inspeccion.idInspeccionInterno = idInspeccionInterno;
+}
 const inspeccionAnteriorEdicion = (indiceEdicion !== undefined && indiceEdicion !== "")
     ? inspecciones[Number(indiceEdicion)]
     : null;
@@ -5119,40 +5146,56 @@ if (indiceEdicion !== undefined && indiceEdicion !== "") {
                 registrarConsecutivoInspeccionTECCHNEX(siguienteIdGenerado.anio, siguienteIdGenerado.numero, inspecciones);
             }
 
-            // CAM-RESTAURACION-HALLAZGOS-01: si al editar cambia el puesto o la fecha,
-            // trasladar los hallazgos de esa misma ficha a la nueva clave. No se pierden.
-            if (indiceEdicion !== undefined && indiceEdicion !== "" && inspeccionAnteriorEdicion) {
+            // CAM-IDENTIDAD-INSPECCION-03: trasladar en bloque los registros hijos
+            // únicamente cuando la identidad puesto+fecha cambió. Se usa el UUID anterior
+            // para localizar los hijos y el UUID nuevo para asociarlos a la nueva inspección.
+            // Las fotos siguen vinculadas por mediaId; solo se actualiza su metadato legado idControl.
+            if (identidadFuncionalCambio && idInspeccionInternoAnterior) {
                 const indiceEditado = Number(indiceEdicion);
-                const clavesAnteriores = new Set(obtenerClavesInspeccionPuestoFechaTECCHNEX(inspeccionAnteriorEdicion));
-                if (!clavesAnteriores.has(clavePuestoFechaNueva) || clavesAnteriores.size > 1) {
-                    try {
-                        const hallazgosLocales = JSON.parse(localStorage.getItem("hallazgos") || "[]");
-                        if (Array.isArray(hallazgosLocales)) {
-                            const hallazgosReasociados = hallazgosLocales.map(hallazgo => {
-                                const claveHallazgo = String(hallazgo?.claveInspeccionPuestoFecha || "").trim();
-                                const indiceRaw = hallazgo?.inspeccion;
-                                const indiceValido = indiceRaw !== null && indiceRaw !== undefined &&
-                                    String(indiceRaw).trim() !== "" && Number.isInteger(Number(indiceRaw));
-                                const idInternoHallazgo = String(hallazgo?.idInspeccionInterno || "").trim();
-                                const idInternoAnterior = String(inspeccionAnteriorEdicion?.idInspeccionInterno || "").trim();
-                                const claveAnteriorUnica = clavesAnteriores.size === 1 &&
-                                    inspecciones.filter(x => obtenerClavesInspeccionPuestoFechaTECCHNEX(x).some(k => clavesAnteriores.has(k))).length === 1;
-                                const pertenece = idInternoAnterior
-                                    ? idInternoHallazgo === idInternoAnterior
-                                    : (claveAnteriorUnica && ((claveHallazgo && clavesAnteriores.has(claveHallazgo)) ||
-                                        (!claveHallazgo && indiceValido && Number(indiceRaw) === indiceEditado)));
-                                if (!pertenece) return hallazgo;
-                                const { idControlInspeccion, claveInspeccionPuestoFecha, ...hallazgoSinIds } = hallazgo || {};
-                                return clavePuestoFechaNueva
-                                    ? { ...hallazgoSinIds, inspeccion: indiceEditado, idInspeccionInterno: idInternoAnterior || idInternoHallazgo, claveInspeccionPuestoFecha: clavePuestoFechaNueva }
-                                    : { ...hallazgoSinIds, inspeccion: indiceEditado, idInspeccionInterno: idInternoAnterior || idInternoHallazgo };
-                            });
-                            localStorage.setItem("hallazgos", JSON.stringify(hallazgosReasociados));
+                const nombrePuestoNuevo = String(
+                    inspeccion.nombrePuesto || inspeccion.puesto || inspeccion.cliente || ""
+                ).trim();
+                const clavesHijas = ["hallazgos", "checklists", "matrizRiesgos", "matricesRiesgosClientes"];
+                const anterioresHijas = Object.fromEntries(
+                    clavesHijas.map(clave => [clave, localStorage.getItem(clave)])
+                );
+                try {
+                    for (const claveLista of clavesHijas) {
+                        const registros = JSON.parse(localStorage.getItem(claveLista) || "[]");
+                        if (!Array.isArray(registros)) {
+                            throw new Error("La lista " + claveLista + " no tiene un formato válido.");
                         }
-                    } catch (errorReasociacion) {
-                        console.error("CAM-RESTAURACION-HALLAZGOS-01: no fue posible actualizar la clave de los hallazgos editados.", errorReasociacion);
-                        alert("La inspección se guardó, pero no se pudo actualizar automáticamente la asociación de sus hallazgos. Antes de continuar, cree un respaldo y revise esta inspección.");
+                        const reasignados = registros.map(registro => {
+                            if (String(registro?.idInspeccionInterno || "").trim() !== idInspeccionInternoAnterior) {
+                                return registro;
+                            }
+                            const actualizado = {
+                                ...registro,
+                                inspeccion: indiceEditado,
+                                idInspeccionInterno,
+                                claveInspeccionPuestoFecha: clavePuestoFechaNueva
+                            };
+                            if (claveLista === "hallazgos" && Array.isArray(registro.fotos)) {
+                                actualizado.fotos = registro.fotos.map(foto => foto && typeof foto === "object"
+                                    ? { ...foto, idControl: nombrePuestoNuevo }
+                                    : foto);
+                            }
+                            return actualizado;
+                        });
+                        localStorage.setItem(claveLista, JSON.stringify(reasignados));
                     }
+                } catch (errorReasignacion) {
+                    for (const [clave, valor] of Object.entries(anterioresHijas)) {
+                        try {
+                            if (valor === null) localStorage.removeItem(clave);
+                            else localStorage.setItem(clave, valor);
+                        } catch (errorRollback) {
+                            console.error("CAM-IDENTIDAD-INSPECCION-03: error al revertir", clave, errorRollback);
+                        }
+                    }
+                    console.error("CAM-IDENTIDAD-INSPECCION-03: reasignación detenida.", errorReasignacion);
+                    alert("La inspección se guardó, pero no se completó la reasignación de sus registros relacionados. No sincronice todavía; cree un respaldo y revise los datos locales.");
+                    return;
                 }
             }
 
@@ -19841,9 +19884,13 @@ function TECCHNEX_UI_VOLVER_INICIO_TRAS_GUARDAR(referencia, modo = "contenedor")
 </script>
 
 
-<div id="camSyncPanelV1" style="position:fixed;right:14px;bottom:14px;z-index:2500;background:#fff;border:1px solid #b8cadd;border-radius:10px;padding:10px 12px;box-shadow:0 4px 18px rgba(18,59,93,.18);max-width:min(360px,calc(100vw - 28px));font:13px Aptos,Arial,sans-serif">
-  <div style="font-weight:700;color:#123b5d;margin-bottom:6px">Sincronización TECCHNEX</div>
-  <div id="camSyncStatusV1" role="status" aria-live="polite" style="color:#475569;margin-bottom:8px">Preparando cola local…</div>
+<div id="camSyncPanelV1" style="position:fixed;right:12px;bottom:12px;z-index:2500;background:#fff;border:1px solid #b8cadd;border-radius:10px;padding:9px 10px;box-shadow:0 4px 18px rgba(18,59,93,.18);width:min(310px,calc(100vw - 24px));max-height:75vh;overflow:auto;font:13px Aptos,Arial,sans-serif">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">
+    <div style="font-weight:700;color:#123b5d">Sincronización TECCHNEX</div>
+    <button id="camSyncToggleV1" type="button" aria-expanded="false" aria-controls="camSyncDetailsV1" style="flex:0 0 auto;background:#e8f2fb;color:#123b5d;border:1px solid #b8cadd;border-radius:6px;padding:5px 8px;font-weight:700;cursor:pointer">Abrir</button>
+  </div>
+  <div id="camSyncStatusV1" role="status" aria-live="polite" style="color:#475569;margin-bottom:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">Preparando cola local…</div>
+  <div id="camSyncDetailsV1" hidden>
   <div style="border-top:1px solid #dbe5ef;margin-top:8px;padding-top:8px">
     <label for="camSyncImportJsonV1" style="display:block;color:#123b5d;font-weight:700;margin-bottom:5px">Auditar respaldo individual (solo local)</label>
     <input id="camSyncImportJsonV1" type="file" accept=".json,application/json" style="max-width:100%;font-size:12px" />
@@ -19856,16 +19903,32 @@ function TECCHNEX_UI_VOLVER_INICIO_TRAS_GUARDAR(referencia, modo = "contenedor")
     <pre id="camSyncPackageResultsV18" role="status" aria-live="polite" style="white-space:pre-wrap;max-height:150px;overflow:auto;font:11px Aptos,Arial,sans-serif;color:#475569;margin:6px 0 0"></pre>
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap"><button id="camSyncValidateV1" type="button" style="background:#e8f2fb;color:#123b5d;border:1px solid #9bbbd7;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Validar operación (sin escritura)</button><button id="camSyncPrepareTestV1" type="button" style="background:#f1f5f9;color:#123b5d;border:1px solid #94a3b8;border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer">Preparar prueba local</button><button id="camSyncReadTestV1" type="button" style="background:#0b6478;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Verificar identidad en Supabase</button><button id="camSyncMediaReadV1" type="button" style="background:#166534;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Probar recuperación de fotografías</button><button id="camSyncListV1" type="button" style="background:#155e75;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Recuperar inspecciones del servidor</button><button id="camSyncSendTestV1" type="button" disabled style="background:#0f766e;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer;opacity:.55">Enviar prueba controlada</button><button id="camSyncSendV1" type="button" style="background:#1769aa;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer">Sincronizar paquete (escritura real)</button></div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><select id="camSyncRemoteInspectionV1" style="min-width:260px;max-width:100%;padding:7px;border:1px solid #94a3b8;border-radius:6px" aria-label="Inspección remota para recibir"></select><button id="camSyncImportRemoteV1" type="button" disabled style="background:#166534;color:#fff;border:0;border-radius:6px;padding:8px 12px;font-weight:700;cursor:pointer;opacity:.55">Incorporar al equipo</button></div>
   <pre id="camSyncListResultsV1" role="status" aria-live="polite" style="white-space:pre-wrap;max-height:180px;overflow:auto;font:11px Aptos,Arial,sans-serif;color:#334155;margin:8px 0 0"></pre>
-  <div id="camSyncMediaResultsV1" role="status" aria-live="polite" style="margin-top:8px;color:#334155;font-size:11px"></div>
+  <div id="camSyncMediaResultsV1" role="status" aria-live="polite" style="margin-top:8px;color:#334155;font-size:11px">  </div>
 </div>
+<script>
+(function(){
+  const panel=document.getElementById('camSyncPanelV1');
+  const details=document.getElementById('camSyncDetailsV1');
+  const toggle=document.getElementById('camSyncToggleV1');
+  if(!panel||!details||!toggle)return;
+  toggle.addEventListener('click',function(){
+    const abrir=details.hidden;
+    details.hidden=!abrir;
+    toggle.textContent=abrir?'Cerrar':'Abrir';
+    toggle.setAttribute('aria-expanded',String(abrir));
+    panel.style.maxHeight=abrir?'75vh':'none';
+  });
+})();
+</script>
 
 <!-- TECCHNEX CAM-INSPECCIONES V25 · scripts de puerta comercial LAB -->
 <script src="./adapters/contrato-adaptador.js"></script>
 <script src="./tecchnex-inspecciones-config.js"></script>
 <script type="module" src="./tecchnex-inspecciones-license-gate.js"></script>
-<script src="./cam-inspecciones-sync-recovery-adapter-v1.js?v=4"></script>
-<script src="./cam-inspecciones-sync-client-v1.js?v=1.24"></script>
+<script src="./cam-inspecciones-sync-recovery-adapter-v1.js?v=5"></script>
+<script src="./cam-inspecciones-sync-client-v1.js?v=1.26"></script>
 <script src="./cam-inspecciones-export-adapter-v1.js"></script>
 <script src="./cam-inspecciones-export-audit-ui-v1.js"></script>
 <script src="./cam-inspecciones-sync-package-v1-8.js"></script>
