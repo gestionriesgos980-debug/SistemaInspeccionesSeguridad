@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <!--
-CAM-INSPECCIONES-LAB-V25 — CAM-CLIENTE-PUESTO-ID-01 / LAB V1
+CAM-INSPECCIONES-LAB-V25 — CAM-HALLAZGOS-UI-RESTORE-01 / LAB V1
 Cambio controlado: encabezado/acentos azules oscuros del panel a negro; el gráfico visual reemplaza la tabla numérica de resumen por área. Se conserva el detalle de la lista de chequeo.
 Base de trabajo: V9. No modifica la plantilla maestra Word ni las estructuras de almacenamiento.
 
@@ -15,7 +15,7 @@ V25: campo único Cliente/Puesto, ID de informe editable y compatibilidad de cla
 Integración: bóveda fotográfica IndexedDB de CAM-ALMACENAMIENTO-01B.
 Correcciones: precarga dirigida de fotografías para informes y respaldo/restauración.
 // CAM-INFORME-ESTILO-01: Opción B — tipografía moderna Aptos aplicada al Word.
-Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva trabajo offline.
+CAM-HALLAZGOS-UI-RESTORE-01: formulario primero; consulta de registros al final en panel desplegable. Cambio exclusivamente visual/estructural; conserva funciones y almacenamiento.\nRegla: almacenamiento central en nube NO conectado todavía; esta fase conserva trabajo offline.
 -->
 <head>
     <meta charset="UTF-8">
@@ -582,6 +582,30 @@ Regla: almacenamiento central en nube NO conectado todavía; esta fase conserva 
     border-radius: 6px;
     cursor: pointer;
     font-weight: bold;
+}
+
+/* CAM-HALLAZGOS-UI-RESTORE-01 — Jerarquía visual del formulario y panel histórico. */
+#ventanaHallazgos #panelHallazgosRegistrados {
+    margin-top: 18px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+}
+#ventanaHallazgos #panelHallazgosRegistrados > summary {
+    cursor: pointer;
+    list-style-position: inside;
+    padding: 13px 14px;
+    background: #eef4f8;
+    color: #123b5d;
+    font-weight: 700;
+}
+#ventanaHallazgos #panelHallazgosRegistrados[open] > summary {
+    border-bottom: 1px solid #cbd5e1;
+}
+#ventanaHallazgos #listaHallazgosRegistrados {
+    padding: 12px;
+    background: #fff;
 }
 </style>
 
@@ -12524,11 +12548,6 @@ try {
             Registro de hallazgos, observaciones, evidencias y recomendaciones.
         </p>
 
-        <!-- CAMBIO OM-08 — Acceso visual a los hallazgos existentes para editar. -->
-        <div
-            id="listaHallazgosRegistrados"
-            style="margin-bottom:18px; padding:12px; border:1px solid #d1d5db; border-radius:8px; background:#ffffff;">
-        </div>
 
         <!-- CAMBIO V5: el inspector escribe libremente el área o categoría. Se conserva el ID para mantener compatibilidad. -->
         <label>Área o categoría</label>
@@ -12646,6 +12665,17 @@ try {
                 Cancelar
             </button>
         </div>
+
+        <!-- CAM-HALLAZGOS-UI-RESTORE-01 — Consulta de registros al final, plegada por defecto. -->
+        <details id="panelHallazgosRegistrados"
+                 style="margin-top:18px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;overflow:hidden;">
+            <summary style="cursor:pointer;list-style-position:inside;padding:13px 14px;background:#eef4f8;color:#123b5d;font-weight:700;">
+                📋 Consultar y editar hallazgos registrados
+            </summary>
+            <div id="listaHallazgosRegistrados"
+                 style="padding:12px;background:#fff;">
+            </div>
+        </details>
 
     </div>
 </div> <!-- VENTANA MATRIZ DE RIESGOS -->
