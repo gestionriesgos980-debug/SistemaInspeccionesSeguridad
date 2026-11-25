@@ -1005,15 +1005,39 @@
             setStatus(`PRUEBA FOTOGRÁFICA FINALIZADA: ${ok}/27 recuperadas, tamaño y SHA-256 verificados; ${failed} fallidas. Sin escrituras ni cambios locales.`, failed ? "error" : "ok");
         }));
         readTest.addEventListener("click", () => withBusy(async () => {
+            // La inspección a verificar se toma SIEMPRE de la selección visible
+            // en la cola. No usar constantes ni una primera inspección fija.
+            const queueSelect = $("camSyncPendingInspectionV1");
+            const selectedKey = String(queueSelect?.value || "").trim();
+            if (!selectedKey) {
+                throw new Error("Selecciona primero una inspección en «Inspección pendiente en este equipo».");
+            }
+            const syncApi = window.TECCHNEXCamInspeccionesSyncClientV1;
+            if (!syncApi || typeof syncApi.getPendingInspectionRemoteStatus !== "function") {
+                throw new Error("El módulo de conciliación no está disponible. No se realizó ninguna consulta.");
+            }
+            const pendingStatuses = await syncApi.getPendingInspectionRemoteStatus();
+            const selectedInspection = pendingStatuses.find(item => item.key === selectedKey);
+            if (!selectedInspection) {
+                throw new Error("La selección ya no está en la cola local. Actualiza la lista y vuelve a seleccionar la inspección.");
+            }
+            const targetDate = String(selectedInspection.fecha || "").slice(0, 10);
+            const targetPost = String(selectedInspection.nombrePuesto || "").trim();
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate) || !targetPost) {
+                throw new Error("La inspección seleccionada no tiene nombre y fecha válidos. Consulta detenida.");
+            }
+            const normalizePost = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
+            const targetKey = `${normalizePost(targetPost)}|${targetDate}`;
             const accepted = window.confirm(
-                "Se buscará en Supabase la inspección por su identidad funcional: puesto + fecha. " +
+                `Se verificará en Supabase esta inspección seleccionada:\\n${targetPost} · ${targetDate}\\n\\n` +
                 "La consulta es solo de lectura; no modifica Supabase ni el almacenamiento local. ¿Continuar?"
             );
             if (!accepted) {
                 setStatus("Consulta cancelada. No se realizaron cambios.");
                 return;
             }
-            setStatus("Buscando la inspección por puesto + fecha en Supabase…");
+            setStatus(`Buscando en Supabase: ${targetPost} · ${targetDate}…`);
             const client = await getClient();
             const { data: sessionData, error: sessionError } = await client.auth.getSession();
             const accessToken = sessionData?.session?.access_token;
@@ -1021,8 +1045,6 @@
                 throw new Error("No hay una sesión autenticada. Inicia sesión y vuelve a intentar.");
             }
 
-            const normalizePost = value => String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
-            const targetKey = `${REAL_INSPECTION_TARGET_DATE}|${normalizePost(REAL_INSPECTION_TARGET_POST)}`;
             const pageSize = 50;
             const maxPages = 1000;
             const records = [];
@@ -1059,8 +1081,8 @@
 
             const active = records.filter(record => !record.deleted_at);
             const matches = active.filter(record => record.record_type === "inspeccion" && !record.parent_sync_id &&
-                String(record.payload.fecha || "").slice(0, 10) === REAL_INSPECTION_TARGET_DATE &&
-                normalizePost(record.payload.nombrePuesto) === normalizePost(REAL_INSPECTION_TARGET_POST));
+                String(record.payload.fecha || "").slice(0, 10) === targetDate &&
+                normalizePost(record.payload.nombrePuesto) === normalizePost(targetPost));
             if (matches.length !== 1) {
                 throw new Error(matches.length === 0
                     ? `No se encontró la inspección ${targetKey}. No se eligió ningún registro alternativo.`
