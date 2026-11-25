@@ -31,3 +31,14 @@ No se han ejecutado escrituras ni despliegues remotos.
 - Ancho máximo ajustado a 310 px; no se modifican llamadas, adaptadores ni operaciones de sincronización.
 - Se incrementa únicamente el nombre de caché del Service Worker para que GitHub Pages solicite el HTML actualizado.
 - No se modifican datos locales, tablas, funciones ni secretos de Supabase.
+
+
+## LAB — Continuación de lectura con comprobante temporal V1
+
+- Base: ZIP V7 confirmado como vigente por el usuario; GitHub sin cambios posteriores reportados.
+- Se integra `continuation_token` en los cuatro recorridos paginados LIST del cliente.
+- Cada recorrido captura el comprobante devuelto por la primera página y lo reenvía en páginas siguientes.
+- Se conserva `cursor`, tamaño de página, identidad funcional por nombre+fecha y el resto de la lógica de sincronización.
+- La Edge Function `tecchnex-cam-inspecciones-read` V5 y el Universal Bridge central V15 no se modifican.
+- No se crean tablas, no se escriben registros, no se envían inspecciones y no se despliega código remoto.
+- Estado: preparado en laboratorio; pendiente de prueba controlada de paginación/autorización antes de publicar.
