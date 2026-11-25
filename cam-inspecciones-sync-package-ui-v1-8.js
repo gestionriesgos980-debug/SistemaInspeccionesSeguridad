@@ -8,43 +8,51 @@
  const queueSend=document.getElementById('camSyncSendPendingV1');
  const queueStatus=document.getElementById('camSyncPendingStatusV1');
  function getSyncApi(){return window.TECCHNEXCamInspeccionesSyncClientV1||null;}
- function refreshPendingQueue(){
-  if(!queueSelect||!queueSend)return;
+ let refreshInProgress=false;
+ async function refreshPendingQueue(){
+  if(!queueSelect||!queueSend||refreshInProgress)return;
   const syncApi=getSyncApi();
-  if(!syncApi||typeof syncApi.getPendingInspectionCandidates!=='function'){
+  if(!syncApi||typeof syncApi.getPendingInspectionRemoteStatus!=='function'){
    queueSelect.replaceChildren();const opt=document.createElement('option');opt.value='';opt.textContent='Inicializando sincronización…';queueSelect.append(opt);
    queueSend.disabled=true;queueSend.style.opacity='.55';
-   // Reintento acotado: DOMContentLoaded puede haber ocurrido antes de que
-   // el cliente de sincronización termine de inicializarse.
    if(!queueSelect.dataset.initRetry){
-    queueSelect.dataset.initRetry='1';
-    let attempts=0;
-    const retry=()=>{
-     if(getSyncApi()&&typeof getSyncApi().getPendingInspectionCandidates==='function'){
-      delete queueSelect.dataset.initRetry;
-      refreshPendingQueue();
-      return;
-     }
-     if(++attempts<20)setTimeout(retry,250);
-     else{
-      delete queueSelect.dataset.initRetry;
-      if(queueStatus)queueStatus.textContent='El cliente de sincronización no estuvo disponible. Recarga la aplicación e inténtalo de nuevo.';
-     }
-    };
+    queueSelect.dataset.initRetry='1';let attempts=0;
+    const retry=()=>{if(getSyncApi()&&typeof getSyncApi().getPendingInspectionRemoteStatus==='function'){delete queueSelect.dataset.initRetry;refreshPendingQueue();return;}
+     if(++attempts<20)setTimeout(retry,250);else{delete queueSelect.dataset.initRetry;if(queueStatus)queueStatus.textContent='El cliente de sincronización no estuvo disponible. Recarga la aplicación.';}};
     setTimeout(retry,250);
    }
    return;
   }
+  refreshInProgress=true;queueSend.disabled=true;queueSend.style.opacity='.55';
+  if(queueStatus)queueStatus.textContent='Verificando la cola local contra Supabase (solo lectura)…';
   try{
-   const items=syncApi.getPendingInspectionCandidates();
+   const items=await syncApi.getPendingInspectionRemoteStatus();
    queueSelect.replaceChildren();
-   if(!items.length){const opt=document.createElement('option');opt.value='';opt.textContent='No hay inspecciones pendientes';queueSelect.append(opt);queueSend.disabled=true;queueSend.style.opacity='.55';queueStatus.textContent='No hay cambios pendientes para enviar desde este equipo.';return;}
-   for(const item of items){const opt=document.createElement('option');opt.value=item.key;opt.textContent=`${item.nombrePuesto} · ${item.fecha} · ${item.idControl}`;queueSelect.append(opt);}
-   queueSend.disabled=false;queueSend.style.opacity='1';
-   queueStatus.textContent=items.length===1
-    ? 'Inspección pendiente identificada. Al continuar, se recuperarán localmente sus hallazgos, matrices, checklists, evaluación de vulnerabilidades y fotografías para validar el paquete completo.'
-    : `${items.length} inspecciones pendientes. Selecciona cuál deseas preparar y enviar; cada una se procesará por separado.`;
-  }catch(error){queueSelect.replaceChildren();const opt=document.createElement('option');opt.value='';opt.textContent='Revisión requerida';queueSelect.append(opt);queueSend.disabled=true;queueSend.style.opacity='.55';queueStatus.textContent=error.message||'No fue posible leer la cola local.';}
+   if(!items.length){const opt=document.createElement('option');opt.value='';opt.textContent='No hay inspecciones pendientes';queueSelect.append(opt);queueStatus.textContent='No hay cambios pendientes en la cola local.';return;}
+   let sendable=0,existing=0,conflicts=0;
+   for(const item of items){
+    const opt=document.createElement('option');opt.value=item.key;
+    if(item.remoteStatus==='EXISTS'){opt.textContent=`${item.nombrePuesto} · ${item.fecha} · ${item.idControl} — YA EXISTE EN SUPABASE (BLOQUEADA)`;opt.disabled=true;existing++;}
+    else if(item.remoteStatus==='CONFLICT'){opt.textContent=`${item.nombrePuesto} · ${item.fecha} · ${item.idControl} — CONFLICTO DE IDENTIDAD (BLOQUEADA)`;opt.disabled=true;conflicts++;}
+    else if(item.remoteStatus==='ABSENT'){opt.textContent=`${item.nombrePuesto} · ${item.fecha} · ${item.idControl} — AUSENTE EN SUPABASE`;sendable++;}
+    else{opt.textContent=`${item.nombrePuesto} · ${item.fecha} · ${item.idControl} — ESTADO NO VERIFICADO (BLOQUEADA)`;opt.disabled=true;conflicts++;}
+    queueSelect.append(opt);
+   }
+   const firstSendable=items.find(x=>x.remoteStatus==='ABSENT');
+   if(firstSendable)queueSelect.value=firstSendable.key;
+   const selected=items.find(x=>x.key===queueSelect.value);
+   queueSend.disabled=sendable===0||!selected||selected.remoteStatus!=='ABSENT';
+   queueSend.style.opacity=queueSend.disabled?'.55':'1';
+   queueStatus.textContent=`Verificación de solo lectura: ${sendable} ausentes (candidatas a envío), ${existing} ya registradas (bloqueadas), ${conflicts} con conflicto o estado no verificable (bloqueadas). La ausencia no garantiza por sí sola que el paquete esté completo; se validará antes del envío.`;
+   queueSelect.onchange=()=>{
+    const current=items.find(x=>x.key===queueSelect.value);
+    queueSend.disabled=!current||current.remoteStatus!=='ABSENT';queueSend.style.opacity=queueSend.disabled?'.55':'1';
+   };
+  }catch(error){
+   queueSelect.replaceChildren();const opt=document.createElement('option');opt.value='';opt.textContent='Verificación remota fallida — envío bloqueado';queueSelect.append(opt);
+   queueSend.disabled=true;queueSend.style.opacity='.55';
+   if(queueStatus)queueStatus.textContent=(error&&error.message)||'No se pudo verificar Supabase. No se habilitarán envíos.';
+  }finally{refreshInProgress=false;}
  }
  if(queueSelect&&queueSend){
   refreshPendingQueue();

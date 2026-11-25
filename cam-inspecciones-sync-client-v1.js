@@ -1194,6 +1194,20 @@
     }
 
 
+    function normalizeInspectionIdentityPart(value) {
+        return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            .trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
+    }
+
+    function inspectionIdentityKey(fecha, nombrePuesto) {
+        // Identidad operativa acordada: nombre del puesto + fecha.
+        // idControl se conserva como dato informativo, nunca como llave de conciliación.
+        const date = String(fecha || "").slice(0, 10);
+        const post = normalizeInspectionIdentityPart(nombrePuesto);
+        return /^\d{4}-\d{2}-\d{2}$/.test(date) && post
+            ? `${post}|${date}` : null;
+    }
+
     async function getPendingInspectionRemoteStatus() {
         const candidates = getPendingInspectionCandidates();
         const client = await getClient();
@@ -1202,7 +1216,7 @@
             throw new Error("No hay una sesión autenticada para verificar el estado remoto.");
         }
         const pageSize = 50, maxPages = 1000;
-        const remoteRoots = new Map();
+        const remoteRootsByIdentity = new Map();
         let cursor = null, page = 0;
         while (page < maxPages) {
             const body = { mode: "LIST", page_size: pageSize };
@@ -1215,8 +1229,16 @@
                 if (!record || typeof record.record_sync_id !== "string" || typeof record.record_type !== "string") {
                     throw new Error("Supabase devolvió un registro incompleto. No se habilitarán envíos.");
                 }
-                if (record.record_type === "inspeccion" && !record.parent_sync_id && !record.deleted_at) {
-                    remoteRoots.set(record.record_sync_id, record);
+                if (record.record_type !== "inspeccion" || record.parent_sync_id || record.deleted_at) continue;
+                const payload = record.payload && typeof record.payload === "object" ? record.payload : {};
+                const idControl = String(payload.idControl || "").trim();
+                const fecha = String(payload.fecha || payload.fechaInspeccion || "").slice(0, 10);
+                const nombrePuesto = String(payload.nombrePuesto || payload.puesto || "").trim();
+                const identity = inspectionIdentityKey(fecha, nombrePuesto);
+                if (identity) {
+                    const matches = remoteRootsByIdentity.get(identity) || [];
+                    matches.push(record);
+                    remoteRootsByIdentity.set(identity, matches);
                 }
             }
             const next = data.next_cursor;
@@ -1230,9 +1252,14 @@
         }
         if (page >= maxPages && cursor) throw new Error("Se alcanzó el límite de páginas. No se habilitarán envíos.");
         return candidates.map(item => {
-            const remote = remoteRoots.get(item.key);
-            return { ...item, remoteStatus: remote ? "EXISTS" : "ABSENT",
-                remoteVersion: remote ? remote.version : null };
+            const identity = inspectionIdentityKey(item.fecha, item.nombrePuesto);
+            const exactMatches = identity ? (remoteRootsByIdentity.get(identity) || []) : [];
+            if (exactMatches.length === 1) return { ...item, remoteStatus: "EXISTS", remoteVersion: exactMatches[0].version,
+                remoteMatch: "POST_DATE", remoteConflict: false };
+            if (exactMatches.length > 1) return { ...item, remoteStatus: "CONFLICT", remoteVersion: null,
+                remoteMatch: "MULTIPLE_POST_DATE_MATCHES", remoteConflict: true };
+            return { ...item, remoteStatus: "ABSENT", remoteVersion: null,
+                remoteMatch: "NO_POST_DATE_MATCH", remoteConflict: false };
         });
     }
 

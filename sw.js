@@ -1,6 +1,6 @@
 /* CAM-CACHE-01 — actualización automática controlada.
    No elimina localStorage ni IndexedDB; solo administra Cache Storage. */
-const CACHE_NAME = "tecchnex-cam-inspecciones-v25-lab-v1-16-11-idempotent-queue-reconcile-v3";
+const CACHE_NAME = "tecchnex-cam-inspecciones-v25-lab-v1-16-11-idempotent-queue-reconcile-v4";
 const ARCHIVOS_BASE = [
   "./",
   "./index.html",
@@ -12,9 +12,9 @@ const ARCHIVOS_BASE = [
   "./cam-inspecciones-export-adapter-v1.js",
   "./cam-inspecciones-export-audit-ui-v1.js",
   "./cam-inspecciones-sync-recovery-adapter-v1.js?v=5",
-  "./cam-inspecciones-sync-client-v1.js?v=1.34",
+  "./cam-inspecciones-sync-client-v1.js?v=1.35",
   "./cam-inspecciones-sync-package-v1-8.js",
-  "./cam-inspecciones-sync-package-ui-v1-8.js?v=1.11"
+  "./cam-inspecciones-sync-package-ui-v1-8.js?v=1.12"
 ];
 
 self.addEventListener("install", event => {
