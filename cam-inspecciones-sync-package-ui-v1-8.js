@@ -14,7 +14,25 @@
   if(!syncApi||typeof syncApi.getPendingInspectionCandidates!=='function'){
    queueSelect.replaceChildren();const opt=document.createElement('option');opt.value='';opt.textContent='Inicializando sincronización…';queueSelect.append(opt);
    queueSend.disabled=true;queueSend.style.opacity='.55';
-   if(!queueSelect.dataset.initRetry){queueSelect.dataset.initRetry='1';document.addEventListener('DOMContentLoaded',refreshPendingQueue,{once:true});}
+   // Reintento acotado: DOMContentLoaded puede haber ocurrido antes de que
+   // el cliente de sincronización termine de inicializarse.
+   if(!queueSelect.dataset.initRetry){
+    queueSelect.dataset.initRetry='1';
+    let attempts=0;
+    const retry=()=>{
+     if(getSyncApi()&&typeof getSyncApi().getPendingInspectionCandidates==='function'){
+      delete queueSelect.dataset.initRetry;
+      refreshPendingQueue();
+      return;
+     }
+     if(++attempts<20)setTimeout(retry,250);
+     else{
+      delete queueSelect.dataset.initRetry;
+      if(queueStatus)queueStatus.textContent='El cliente de sincronización no estuvo disponible. Recarga la aplicación e inténtalo de nuevo.';
+     }
+    };
+    setTimeout(retry,250);
+   }
    return;
   }
   try{
