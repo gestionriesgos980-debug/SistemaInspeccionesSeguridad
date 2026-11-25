@@ -1193,10 +1193,59 @@
         return Array.from(groups.values());
     }
 
+
+    async function getPendingInspectionRemoteStatus() {
+        const candidates = getPendingInspectionCandidates();
+        const client = await getClient();
+        const { data: sessionData, error: sessionError } = await client.auth.getSession();
+        if (sessionError || !sessionData?.session?.access_token) {
+            throw new Error("No hay una sesión autenticada para verificar el estado remoto.");
+        }
+        const pageSize = 50, maxPages = 1000;
+        const remoteRoots = new Map();
+        let cursor = null, page = 0;
+        while (page < maxPages) {
+            const body = { mode: "LIST", page_size: pageSize };
+            if (cursor) body.cursor = cursor;
+            const { data, error } = await client.functions.invoke(READ_FUNCTION_NAME, { body });
+            if (error || !data || data.ok !== true || data.code !== "RECORD_PAGE_RECOVERED" || !Array.isArray(data.records)) {
+                throw new Error(`No fue posible verificar Supabase (página ${page + 1}). La lista queda bloqueada para evitar reenvíos.`);
+            }
+            for (const record of data.records) {
+                if (!record || typeof record.record_sync_id !== "string" || typeof record.record_type !== "string") {
+                    throw new Error("Supabase devolvió un registro incompleto. No se habilitarán envíos.");
+                }
+                if (record.record_type === "inspeccion" && !record.parent_sync_id && !record.deleted_at) {
+                    remoteRoots.set(record.record_sync_id, record);
+                }
+            }
+            const next = data.next_cursor;
+            if (next == null) break;
+            if (!next || typeof next.updated_at !== "string" || typeof next.sync_id !== "string" ||
+                (cursor && next.updated_at === cursor.updated_at && next.sync_id === cursor.sync_id)) {
+                throw new Error("Supabase devolvió un cursor inválido. No se habilitarán envíos.");
+            }
+            cursor = next;
+            page++;
+        }
+        if (page >= maxPages && cursor) throw new Error("Se alcanzó el límite de páginas. No se habilitarán envíos.");
+        return candidates.map(item => {
+            const remote = remoteRoots.get(item.key);
+            return { ...item, remoteStatus: remote ? "EXISTS" : "ABSENT",
+                remoteVersion: remote ? remote.version : null };
+        });
+    }
+
     async function sendPendingInspection(recordSyncId) {
         const candidates = getPendingInspectionCandidates();
         const selected = candidates.find(item => item.key === String(recordSyncId || ""));
         if (!selected) throw new Error("Selecciona una inspección pendiente válida. No se enviará información.");
+        // Segunda verificación justo antes de preparar el paquete: LIST es solo lectura.
+        const remoteStatus = await getPendingInspectionRemoteStatus();
+        const checked = remoteStatus.find(item => item.key === selected.key);
+        if (!checked || checked.remoteStatus !== "ABSENT") {
+            throw new Error("ENVÍO BLOQUEADO: esta inspección ya aparece en Supabase o no fue posible confirmar su ausencia. Requiere revisión; no se enviaron datos.");
+        }
         if (selected.operationCount !== 1) throw new Error("La inspección tiene varias operaciones raíz pendientes. Se requiere revisión para evitar duplicados.");
         if (typeof window.exportarInspeccionSeleccionada !== "function") throw new Error("No está disponible el exportador individual local.");
         setStatus(`Recuperando datos locales de ${selected.nombrePuesto} (${selected.fecha}), incluidos hallazgos, matrices y fotografías…`);
@@ -1240,7 +1289,9 @@
         });
     }
 
-    window.TECCHNEXCamInspeccionesSyncClientV1 = Object.freeze({ sendAuditReport, getPendingInspectionCandidates, sendPendingInspection });
+    window.TECCHNEXCamInspeccionesSyncClientV1 = Object.freeze({
+        sendAuditReport, getPendingInspectionCandidates, getPendingInspectionRemoteStatus, sendPendingInspection
+    });
 
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", initialize, { once: true });
