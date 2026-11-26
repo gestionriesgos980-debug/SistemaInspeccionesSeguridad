@@ -62,25 +62,19 @@
 
     async function getClient() {
         if (clientPromise) return clientPromise;
-        clientPromise = new Promise((resolve, reject) => {
-            const existing = window.TECCHNEX_SUPABASE_CLIENT;
-            if (existing) { resolve(existing); return; }
-
-            // El gate comercial es el único propietario del cliente Supabase.
-            // La sincronización espera esa instancia y no crea otro cliente.
-            let timer = null;
-            const onReady = () => {
-                if (timer !== null) window.clearTimeout(timer);
-                const shared = window.TECCHNEX_SUPABASE_CLIENT;
-                if (shared) resolve(shared);
-                else reject(new Error("El cliente compartido de Supabase no quedó disponible."));
-            };
-            window.addEventListener("tecchnex:supabase-ready", onReady, { once: true });
-            timer = window.setTimeout(() => {
-                window.removeEventListener("tecchnex:supabase-ready", onReady);
-                reject(new Error("Supabase todavía no está inicializado. Espera unos segundos y vuelve a intentar."));
-            }, 15000);
-        }).catch((error) => {
+        clientPromise = (async () => {
+            const url = String(CONFIG.projectUrl || "").trim().replace(/\/+$/, "");
+            const key = String(CONFIG.supabaseAnonKey || "").trim();
+            if (!url || !key || !/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)) {
+                throw new Error("La configuración pública de Supabase está incompleta o no es válida.");
+            }
+            const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+            // Supabase usa la misma clave de almacenamiento de sesión por project-ref
+            // que el gate comercial, por lo que se reutiliza el login ya existente.
+            return createClient(url, key, {
+                auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+            });
+        })().catch((error) => {
             clientPromise = null;
             throw error;
         });
@@ -524,11 +518,13 @@
         const maxPages = 1000;
         const records = [];
         let cursor = null;
+        let continuationToken = null;
         let page = 0;
         while (page < maxPages) {
             setStatus(`Consultando registros remotos: página ${page + 1}…`);
             const body = { mode: "LIST", page_size: pageSize };
             if (cursor) body.cursor = cursor;
+            if (continuationToken) body.continuation_token = continuationToken;
             const { data, error } = await client.functions.invoke(READ_FUNCTION_NAME, { body });
             if (error) {
                 let detail = "";
@@ -540,10 +536,11 @@
                 throw new Error(`No fue posible recuperar la página ${page + 1}.${detail}`);
             }
             if (!data || data.ok !== true || data.code !== "RECORD_PAGE_RECOVERED" ||
-                !Array.isArray(data.records) || !Number.isInteger(data.page_size) ||
+                !Array.isArray(data.records) || typeof data.continuation_token !== "string" || !data.continuation_token || !Number.isInteger(data.page_size) ||
                 data.page_size < 1 || data.page_size > pageSize) {
                 throw new Error(`Respuesta de recuperación no válida en página ${page + 1}: ${String(data?.code || "RESPUESTA_INVALIDA")}`);
             }
+            continuationToken = data.continuation_token;
             for (const record of data.records) {
                 if (!record || typeof record.record_sync_id !== "string" ||
                     typeof record.record_type !== "string" ||
@@ -931,20 +928,21 @@
             const normalizePost = value => String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
             const targetKey = `${REAL_INSPECTION_TARGET_DATE}|${normalizePost(REAL_INSPECTION_TARGET_POST)}`;
             setStatus("Localizando primero la raíz por puesto + fecha…");
-            const roots = []; let cursor = null; let page = 0;
+            const roots = []; let cursor = null; let continuationToken = null; let page = 0;
             // Páginas pequeñas reducen el riesgo de exceder el límite de respuesta
             // cuando existen manifiestos fotográficos grandes en los registros raíz.
             while (page < 1000) {
-                const body = { mode: "LIST", page_size: 10 }; if (cursor) body.cursor = cursor;
+                const body = { mode: "LIST", page_size: 10 }; if (cursor) body.cursor = cursor; if (continuationToken) body.continuation_token = continuationToken;
                 const { data: pageData, error: pageError } = await client.functions.invoke(READ_FUNCTION_NAME, { body });
                 if (pageError) {
                     const detail = String(pageError.message || pageError.context?.status || pageError.name || "ERROR_DESCONOCIDO");
                     throw new Error(`Falló la consulta paginada de Supabase (página ${page + 1}): ${detail}. No se solicitaron enlaces ni se modificaron datos.`);
                 }
-                if (!pageData || pageData.ok !== true || pageData.code !== "RECORD_PAGE_RECOVERED" || !Array.isArray(pageData.records)) {
+                if (!pageData || pageData.ok !== true || pageData.code !== "RECORD_PAGE_RECOVERED" || !Array.isArray(pageData.records) || typeof pageData.continuation_token !== "string" || !pageData.continuation_token) {
                     const detail = String(pageData?.code || pageData?.message || "RESPUESTA_INVALIDA");
                     throw new Error(`Supabase no devolvió una página de registros válida (página ${page + 1}): ${detail}. No se solicitaron enlaces ni se modificaron datos.`);
                 }
+                continuationToken = pageData.continuation_token;
                 for (const record of pageData.records) if (record && record.record_type === "inspeccion" && !record.parent_sync_id && !record.deleted_at &&
                     String(record.payload?.fecha || "").slice(0,10) === REAL_INSPECTION_TARGET_DATE && normalizePost(record.payload?.nombrePuesto) === normalizePost(REAL_INSPECTION_TARGET_POST)) roots.push(record);
                 const next = pageData.next_cursor; if (!next) break;
@@ -1055,17 +1053,20 @@
             const maxPages = 1000;
             const records = [];
             let cursor = null;
+            let continuationToken = null;
             let page = 0;
             while (page < maxPages) {
                 setStatus(`Buscando identidad funcional: página ${page + 1}…`);
                 const body = { mode: "LIST", page_size: pageSize };
                 if (cursor) body.cursor = cursor;
+                if (continuationToken) body.continuation_token = continuationToken;
                 const { data, error } = await client.functions.invoke(READ_FUNCTION_NAME, { body });
                 if (error) throw new Error(`No fue posible consultar la página ${page + 1} de Supabase.`);
                 if (!data || data.ok !== true || data.code !== "RECORD_PAGE_RECOVERED" ||
-                    !Array.isArray(data.records) || !Number.isInteger(data.page_size) || data.page_size < 1 || data.page_size > pageSize) {
+                    !Array.isArray(data.records) || typeof data.continuation_token !== "string" || !data.continuation_token || !Number.isInteger(data.page_size) || data.page_size < 1 || data.page_size > pageSize) {
                     throw new Error(`Respuesta de lectura no válida: ${String(data?.code || "RESPUESTA_INVALIDA")}`);
                 }
+                continuationToken = data.continuation_token;
                 for (const record of data.records) {
                     if (!record || typeof record.record_sync_id !== "string" || typeof record.record_type !== "string" ||
                         (record.parent_sync_id !== null && typeof record.parent_sync_id !== "string") ||
@@ -1245,14 +1246,16 @@
         }
         const pageSize = 50, maxPages = 1000;
         const remoteRootsByIdentity = new Map();
-        let cursor = null, page = 0;
+        let cursor = null, continuationToken = null, page = 0;
         while (page < maxPages) {
             const body = { mode: "LIST", page_size: pageSize };
             if (cursor) body.cursor = cursor;
+            if (continuationToken) body.continuation_token = continuationToken;
             const { data, error } = await client.functions.invoke(READ_FUNCTION_NAME, { body });
-            if (error || !data || data.ok !== true || data.code !== "RECORD_PAGE_RECOVERED" || !Array.isArray(data.records)) {
+            if (error || !data || data.ok !== true || data.code !== "RECORD_PAGE_RECOVERED" || !Array.isArray(data.records) || typeof data.continuation_token !== "string" || !data.continuation_token) {
                 throw new Error(`No fue posible verificar Supabase (página ${page + 1}). La lista queda bloqueada para evitar reenvíos.`);
             }
+            continuationToken = data.continuation_token;
             for (const record of data.records) {
                 if (!record || typeof record.record_sync_id !== "string" || typeof record.record_type !== "string") {
                     throw new Error("Supabase devolvió un registro incompleto. No se habilitarán envíos.");
