@@ -30,6 +30,7 @@ let supabase = null;
 let authSubscription = null;
 let validationBusy = false;
 let lastValidationAt = 0;
+let lastLicenseAuthorized = false;
 
 const lockedNodes = new Map();
 
@@ -146,9 +147,9 @@ function readConfig() {
 // --------------------------------------------------
 
 function connect(config) {
-    if (authSubscription?.unsubscribe) {
-        authSubscription.unsubscribe();
-    }
+    // Una sola instancia por pestaña: login, gate y sincronización comparten
+    // el mismo cliente y el mismo ciclo de renovación.
+    if (supabase) return supabase;
 
     supabase = createClient(config.url, config.key, {
         auth: {
@@ -158,38 +159,28 @@ function connect(config) {
         }
     });
 
-    const { data } = supabase.auth.onAuthStateChange(
-        (event, session) => {
-            if (event === "SIGNED_OUT") {
-                lastValidationAt = 0;
+    window.TECCHNEX_SUPABASE_CLIENT = supabase;
+    window.dispatchEvent(new Event("tecchnex:supabase-ready"));
 
-                showGate(true);
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+        if (event === "SIGNED_OUT") {
+            lastValidationAt = 0;
+            lastLicenseAuthorized = false;
+            showGate(true);
 
-                if (retryButton) retryButton.hidden = true;
-                if (logoutButton) logoutButton.hidden = true;
+            if (retryButton) retryButton.hidden = true;
+            if (logoutButton) logoutButton.hidden = true;
 
-                status(
-                    "Sesión cerrada. El sistema permanece bloqueado; los datos locales se conservan."
-                );
-            }
-
-            if (event === "TOKEN_REFRESHED" && session) {
-                // Diferir la validación fuera del callback de Supabase Auth.
-                window.setTimeout(() => {
-                    validateLicense({ force: true }).catch(() => {
-                        showGate(true);
-
-                        status(
-                            "No se pudo renovar la validación comercial. El acceso permanece bloqueado."
-                        );
-                    });
-                }, 0);
-            }
+            status(
+                "Sesión cerrada. El sistema permanece bloqueado; los datos locales se conservan."
+            );
         }
-    );
+
+        // TOKEN_REFRESHED confirma la renovación de sesión, no un cambio de
+        // licencia. No debe disparar otra autorización comercial central.
+    });
 
     authSubscription = data?.subscription || null;
-
     return supabase;
 }
 
@@ -275,7 +266,7 @@ async function validateLicense({ force = false } = {}) {
 
         if (
             !force &&
-            Date.now() - lastValidationAt < 5000
+            Date.now() - lastValidationAt < 300000
         ) {
             return gate?.style.display === "none";
         }
@@ -317,11 +308,6 @@ async function validateLicense({ force = false } = {}) {
             );
 
         if (!authorized) {
-            showGate(true);
-
-            if (retryButton) retryButton.hidden = false;
-            if (logoutButton) logoutButton.hidden = false;
-
             const code =
                 result?.code ||
                 errorBody?.code ||
@@ -331,16 +317,37 @@ async function validateLicense({ force = false } = {}) {
                 errorBody?.message ||
                 result?.message ||
                 error?.message ||
-                "La licencia no fue confirmada. El acceso permanece bloqueado.";
+                "La licencia no fue confirmada.";
+
+            const httpStatus = Number(error?.context?.status || 0);
+            const temporaryFailure = [
+                "LICENSE_CHECK_UNAVAILABLE",
+                "RATE_LIMIT_EXCEEDED",
+                "CENTRAL_UNAVAILABLE",
+                "NETWORK_ERROR",
+                "FUNCTION_TIMEOUT"
+            ].includes(String(code).toUpperCase()) ||
+                httpStatus === 0 || httpStatus === 408 || httpStatus === 429 || httpStatus >= 500;
+
+            // Un fallo transitorio no revoca una autorización ya confirmada.
+            if (!(temporaryFailure && lastLicenseAuthorized)) {
+                showGate(true);
+            }
+
+            if (retryButton) retryButton.hidden = false;
+            if (logoutButton) logoutButton.hidden = false;
 
             status(
-                `${message}\nCódigo: ${code}\nLos datos locales se conservan.`
+                `${message}\nCódigo: ${code}\n${temporaryFailure && lastLicenseAuthorized
+                    ? "La última autorización válida se conserva; puedes reintentar la verificación."
+                    : "Los datos locales se conservan."}`
             );
 
             return false;
         }
 
         lastValidationAt = Date.now();
+        lastLicenseAuthorized = true;
 
         if (retryButton) retryButton.hidden = false;
         if (logoutButton) logoutButton.hidden = false;
@@ -354,12 +361,14 @@ async function validateLicense({ force = false } = {}) {
         return true;
 
     } catch (error) {
-        showGate(true);
+        if (!lastLicenseAuthorized) showGate(true);
 
         if (retryButton) retryButton.hidden = false;
 
         status(
-            `${error?.message || "No fue posible verificar la licencia."}\nLos datos locales se conservan.`
+            `${error?.message || "No fue posible verificar la licencia."}\n${lastLicenseAuthorized
+                ? "La última autorización válida se conserva temporalmente; puedes reintentar."
+                : "Los datos locales se conservan."}`
         );
 
         return false;
@@ -427,6 +436,8 @@ async function login(event) {
 // --------------------------------------------------
 
 async function logout() {
+    lastLicenseAuthorized = false;
+    lastValidationAt = 0;
     try {
         if (supabase) {
             await supabase.auth.signOut();
@@ -503,6 +514,6 @@ document.addEventListener("visibilitychange", () => {
         document.visibilityState === "visible" &&
         supabase
     ) {
-        validateLicense({ force: true }).catch(() => {});
+        validateLicense({ force: false }).catch(() => {});
     }
 });
