@@ -38,11 +38,41 @@
     let busy = false;
     let mediaObjectUrls = [];
 
+    let statusDismissTimer = null;
+
+    function clearStatusTimer() {
+        if (statusDismissTimer !== null) {
+            window.clearTimeout(statusDismissTimer);
+            statusDismissTimer = null;
+        }
+    }
+
+    function hideStatus() {
+        clearStatusTimer();
+        const node = statusNode();
+        if (!node) return;
+        node.textContent = "";
+        node.style.display = "none";
+    }
+
     function setStatus(message, kind = "info") {
+        clearStatusTimer();
         const node = statusNode();
         if (!node) return;
         node.textContent = message;
+        node.style.display = "";
         node.style.color = kind === "ok" ? "#146d4a" : kind === "error" ? "#a22626" : "#475569";
+    }
+
+    // Mensajes informativos de consulta: se muestran brevemente y no quedan
+    // confundidos con el estado actual de la cola local.
+    function setTransientStatus(message, kind = "ok", duration = 6000) {
+        setStatus(message, kind);
+        const node = statusNode();
+        if (!node) return;
+        statusDismissTimer = window.setTimeout(() => {
+            if (node.textContent === message) hideStatus();
+        }, duration);
     }
 
     function readQueue() {
@@ -406,6 +436,63 @@
         return stored;
     }
 
+    // CAM-SYNC-MANUAL-RECONCILIATION-01:
+    // Un respaldo JSON puede enviarse sin que exista una operación en la cola local.
+    // En ese caso se actualiza únicamente el índice local de sincronización existente,
+    // usando la identidad compuesta y la confirmación/version del servidor.
+    // Nunca se crea una operación ficticia ni se modifica la cola.
+    function reconcileManualBackupMetadata(pkg, rootResult) {
+        const source = pkg?.source || {};
+        const idControl = String(source.id_control || "").trim();
+        const internalId = String(source.id_inspeccion_interno || "").trim();
+        const fecha = String(source.fecha || "").slice(0, 10);
+        const puesto = String(source.nombre_puesto || "").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
+        const version = Number(rootResult?.result_version);
+        if (!idControl || !internalId || !fecha || !puesto ||
+            !rootResult || rootResult.ok !== true ||
+            String(rootResult.record_sync_id || "") !== internalId ||
+            !Number.isSafeInteger(version) || version < 1) {
+            return { updated: false, reason: "la confirmación remota o la identidad del respaldo están incompletas" };
+        }
+
+        let records;
+        try { records = JSON.parse(localStorage.getItem("tecchnex_cam_inspecciones_sync_records_v1") || "{}"); }
+        catch (_) { return { updated: false, reason: "el índice local de sincronización no contiene JSON válido" }; }
+        if (!records || typeof records !== "object" || Array.isArray(records)) {
+            return { updated: false, reason: "la estructura del índice local de sincronización no es válida" };
+        }
+
+        const functionalKey = String(source.clave_funcional || `${fecha}|${puesto}`).trim();
+        if (!functionalKey || !functionalKey.includes("|")) {
+            return { updated: false, reason: "no se pudo construir la identidad funcional compuesta" };
+        }
+        const compositeKey = `${idControl}::${functionalKey}`;
+        const existing = records[compositeKey];
+        if (existing?.record_sync_id && String(existing.record_sync_id) !== internalId) {
+            return { updated: false, reason: "la identidad compuesta ya está asociada a otro UUID local; se requiere revisión" };
+        }
+
+        const next = {
+            ...records,
+            [compositeKey]: {
+                ...(existing && typeof existing === "object" ? existing : {}),
+                record_sync_id: internalId,
+                server_version: version,
+                local_record_id: idControl,
+                updated_at: new Date().toISOString(),
+                remote_confirmed: true,
+                remote_confirmed_at: new Date().toISOString(),
+                remote_confirmation_source: "manual_json_backup"
+            }
+        };
+        try {
+            localStorage.setItem("tecchnex_cam_inspecciones_sync_records_v1", JSON.stringify(next));
+        } catch (_) {
+            return { updated: false, reason: "el navegador no permitió guardar la confirmación en el índice local" };
+        }
+        return { updated: true, idControl, source: "manual_json_backup" };
+    }
+
     // Solo retira de pendientes la raíz exacta cuyo paquete fue confirmado por el servidor.
     // Nunca limpia la cola completa ni toca operaciones de otras inspecciones.
     function reconcileCompletedPackageQueue(pkg, result) {
@@ -444,10 +531,13 @@
                 String(payload.idInspeccionInterno || "").trim() === internalId &&
                 opDate === fecha && opPost === puesto) matches.push(index);
         });
-        if (matches.length !== 1) {
-            return { updated: false, reason: matches.length === 0
-                ? "no se encontró una única operación pendiente con la misma identidad"
-                : "hay varias operaciones pendientes con la misma identidad; se requiere revisión" };
+        if (matches.length === 0) {
+            // La ruta manual JSON no tiene por qué crear una operación pendiente.
+            // Conciliar su confirmación en el índice local sin inventar cola.
+            return reconcileManualBackupMetadata(pkg, rootResult);
+        }
+        if (matches.length > 1) {
+            return { updated: false, reason: "hay varias operaciones pendientes con la misma identidad; se requiere revisión" };
         }
 
         const index = matches[0];
@@ -658,7 +748,7 @@
                 "La consulta LIST es de solo lectura. La incorporación local se ejecuta únicamente al pulsar Incorporar al equipo y confirmar."
             ].filter(Boolean).join("\n");
         }
-        setStatus(
+        setTransientStatus(
             `Consulta completada: ${all.length} inspección(es). Selecciona una y pulsa Incorporar al equipo para completar la recepción local.`,
             "ok"
         );
@@ -954,17 +1044,38 @@
             const root = roots[0];
             if (root.payload?.claveInspeccionPuestoFecha !== targetKey) throw new Error("La clave funcional de la raíz no coincide; recuperación detenida.");
             setStatus("Solicitando autorización temporal de lectura para las fotografías…");
+            const rootMediaManifest = root.payload?._tecchnex_media_manifest_v1;
+            const expectedPhotos = Array.isArray(rootMediaManifest?.photos) ? rootMediaManifest.photos : [];
+            if (rootMediaManifest?.completed !== true || rootMediaManifest?.inspection_sync_id !== root.record_sync_id || expectedPhotos.length < 1) {
+                throw new Error("La inspección no contiene un manifiesto fotográfico completo y asociado a su registro principal.");
+            }
             const { data, error } = await client.functions.invoke("tecchnex-cam-inspecciones-media-read", { body: { record_sync_id: root.record_sync_id, expected_key: targetKey } });
-            if (error || !data || data.ok !== true || data.code !== "PHOTO_URLS_CREATED" || data.identity_key !== targetKey || !Array.isArray(data.photos) || data.photos.length !== 27) {
+            if (error || !data || data.ok !== true || data.code !== "PHOTO_URLS_CREATED" || data.identity_key !== targetKey || !Array.isArray(data.photos) || data.photos.length !== expectedPhotos.length) {
                 const code = String(data?.code || error?.message || "MEDIA_RESPONSE_INVALID");
                 throw new Error(code === "FUNCTION_NOT_FOUND" || code.includes("404") ? "La función segura de lectura fotográfica aún no está desplegada. El código LAB está preparado, pero Supabase no se ha modificado." : `No fue posible autorizar la recuperación fotográfica: ${code}`);
+            }
+            const expectedById = new Map();
+            for (const expected of expectedPhotos) {
+                const id = String(expected?.media_id || "");
+                if (!id || expectedById.has(id)) throw new Error("El manifiesto local contiene identificadores fotográficos vacíos o duplicados.");
+                expectedById.set(id, String(expected.hash_sha256 || "").toLowerCase());
+            }
+            const returnedIds = new Set();
+            for (const photo of data.photos) {
+                const id = String(photo?.media_id || "");
+                if (!id || returnedIds.has(id) || !expectedById.has(id) ||
+                    !/^[a-f0-9]{64}$/.test(String(photo.hash_sha256 || "").toLowerCase()) ||
+                    expectedById.get(id) !== String(photo.hash_sha256 || "").toLowerCase()) {
+                    throw new Error("La respuesta fotográfica no coincide exactamente con los identificadores y huellas del manifiesto.");
+                }
+                returnedIds.add(id);
             }
             const host = $("camSyncMediaResultsV1");
             for (const url of mediaObjectUrls) URL.revokeObjectURL(url);
             mediaObjectUrls = [];
             if (host) host.replaceChildren();
             let ok = 0, failed = 0; const previews = [];
-            setStatus(`Descargando y verificando 27 fotografías…`);
+            setStatus(`Descargando y verificando ${expectedPhotos.length} fotografías…`);
             for (let offset = 0; offset < data.photos.length; offset += 3) {
                 const batch = data.photos.slice(offset, offset + 3);
                 const results = await Promise.all(batch.map(async photo => {
@@ -998,15 +1109,15 @@
                     if (result.ok) { ok++; previews.push({ photo: result.photo, blob: result.blob }); }
                     else { failed++; if (host) { const p=document.createElement("div"); p.textContent=`FALLO ${result.photo.media_id}: ${result.error}`; p.style.color="#a22626"; host.appendChild(p); } }
                 }
-                setStatus(`Fotografías verificadas: ${ok}/27 · fallidas: ${failed}.`);
+                setStatus(`Fotografías verificadas: ${ok}/${expectedPhotos.length} · fallidas: ${failed}.`);
             }
             if (host) {
-                const summary=document.createElement("strong"); summary.textContent=`Resultado: ${ok}/27 recuperadas y verificadas por tamaño y SHA-256; ${failed} fallidas.`; host.prepend(summary);
+                const summary=document.createElement("strong"); summary.textContent=`Resultado: ${ok}/${expectedPhotos.length} recuperadas y verificadas por tamaño y SHA-256; ${failed} fallidas.`; host.prepend(summary);
                 const grid=document.createElement("div"); grid.style.cssText="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:8px";
                 for (const item of previews) { const cell=document.createElement("div"); cell.style.cssText="min-width:0"; const img=document.createElement("img"); img.src=URL.createObjectURL(item.blob); mediaObjectUrls.push(img.src); img.alt=`Hallazgo ${item.photo.finding_number || ""}`; img.style.cssText="width:100%;aspect-ratio:1;object-fit:cover;border:1px solid #cbd5e1;border-radius:5px"; const cap=document.createElement("div"); cap.textContent=String(item.photo.finding_number || item.photo.media_id); cap.style.cssText="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"; cell.append(img,cap); grid.append(cell); }
                 host.append(grid);
             }
-            setStatus(`PRUEBA FOTOGRÁFICA FINALIZADA: ${ok}/27 recuperadas, tamaño y SHA-256 verificados; ${failed} fallidas. Sin escrituras ni cambios locales.`, failed ? "error" : "ok");
+            setStatus(`PRUEBA FOTOGRÁFICA FINALIZADA: ${ok}/${expectedPhotos.length} recuperadas, tamaño y SHA-256 verificados; ${failed} fallidas. Sin escrituras ni cambios locales.`, failed ? "error" : "ok");
         }));
         readTest.addEventListener("click", () => withBusy(async () => {
             // La inspección a verificar se toma SIEMPRE de la selección visible
@@ -1159,9 +1270,13 @@
             validate.disabled = count === 0;
             send.disabled = !importedPackage;
             send.title = "Importa un paquete para habilitar sincronización integrada.";
-            setStatus(count
-                ? `${count} operación(es) pendiente(s) detectadas. El envío habitual recupera los datos completos desde el almacenamiento local; selecciona la inspección en el panel y confirma después de validar.`
-                : "No hay cambios pendientes en la cola local. La importación manual de un respaldo JSON permanece disponible en Administración avanzada.");
+            if (count) {
+                setStatus(`${count} operación(es) pendiente(s) detectadas. El envío habitual recupera los datos completos desde el almacenamiento local; selecciona la inspección en el panel y confirma después de validar.`);
+            } else {
+                // El estado de cola vacía ya se presenta junto al selector principal.
+                // Evitamos repetirlo en el área de notificaciones superiores.
+                hideStatus();
+            }
         } catch (error) {
             validate.disabled = true;
             send.disabled = true;

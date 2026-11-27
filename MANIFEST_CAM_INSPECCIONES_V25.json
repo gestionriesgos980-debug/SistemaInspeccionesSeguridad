@@ -1,17 +1,17 @@
 {
-  "candidate": "TECCHNEX_CAM_INSPECCIONES_V25_PUENTE_COMERCIAL_LAB_CANDIDATA_V1_3_ALMACENAMIENTO_01",
+  "candidate": "TECCHNEX_CAM_INSPECCIONES_V25_NOTIFICACIONES_INTELIGENTES_LAB_V4",
   "base_index_sha256": "d267fea712aedec0105807150accabd95634b149c4415c1715cd40f54bc6708e",
-  "prepared_index_sha256": "4add45d453adda38a94131f97df189439866a7cc30091ffc7108065ffa85667c",
+  "prepared_index_sha256": "214371966fdead32296f3719f9dc1053dd8c5b058a592c590ddcbbaf7435a313",
   "files": [
     {
       "path": "BITACORA_PREPARACION_CAM_INSPECCIONES_V25.md",
-      "size_bytes": 10291,
-      "sha256": "fcf169eba223a1afd97c891bcb2999b8f53565d6b9e133999104d86832565bb6"
+      "size_bytes": 14392,
+      "sha256": "a5c132766a8c2e266931e37d6a58e67e0ca3193fe2216b354acdc1dda9621789"
     },
     {
       "path": "README.md",
-      "size_bytes": 2804,
-      "sha256": "9e20d8a1712f83f2dd6ec7a1c0acb75d0d201ea34079155baff4ef760027b5e2"
+      "size_bytes": 5156,
+      "sha256": "76b5528f671b6ce5a17fdfa560c55234cae1815e84e0c085194fe6a819f153ac"
     },
     {
       "path": "adapters/contrato-adaptador.js",
@@ -35,8 +35,8 @@
     },
     {
       "path": "index.html",
-      "size_bytes": 1857935,
-      "sha256": "4add45d453adda38a94131f97df189439866a7cc30091ffc7108065ffa85667c"
+      "size_bytes": 1925726,
+      "sha256": "b29d5d0d5f415c76b28585b5e1ef0687c6190c5eef0bfa66bd926da17dd6cbc1"
     },
     {
       "path": "logo-cotraser.png",
@@ -65,8 +65,8 @@
     },
     {
       "path": "sw.js",
-      "size_bytes": 2714,
-      "sha256": "f2cc1b4d203381fed23b9b703a86140b464f09ed8ef6d0f8cd9998052624e3af"
+      "size_bytes": 3101,
+      "sha256": "109f440da5ed9aea45d81ef797e708b782ce22191732fd093e60b1cff8416363"
     },
     {
       "path": "tecchnex-banner-compacto.jpg",
@@ -75,18 +75,53 @@
     },
     {
       "path": "tecchnex-inspecciones-config.js",
-      "size_bytes": 625,
-      "sha256": "00b3b072b69deeab15482cd8c6d2c15a07aede8a2b5cbbbf2cc28533ee70db53"
+      "size_bytes": 1026,
+      "sha256": "be0c972f5936e6534a2af5e28de60fe15915df465d5278a9dd68a4361fc4f78c"
     },
     {
       "path": "tecchnex-inspecciones-license-gate.js",
-      "size_bytes": 9299,
-      "sha256": "14dd9b7554ba587ce9a946553810425b3291547a69d89805fb983f70dcd466a4"
+      "size_bytes": 14435,
+      "sha256": "42d8d097976d344774d8c4ffa912de985efb82724e5cd4d12725017d63c8552e"
     },
     {
       "path": "tests/cam-inspecciones-v25-preparation.test.mjs",
-      "size_bytes": 9738,
-      "sha256": "a3719235404b3ec91eef12dac728dbeef35cf5e28f628547eb06450ca327c582"
+      "size_bytes": 12798,
+      "sha256": "66bf6372f2c66eb4411cdc7c4037a34115d2c1692fcbdc8c037aa95b612926bc"
+    },
+    {
+      "path": "cam-inspecciones-sync-package-v1-8.js",
+      "size_bytes": 7938,
+      "sha256": "c7a1b56be6fb0fc0b5f30f63de5be9cedcb63238f4036f8a0298eba5f0462113"
+    },
+    {
+      "path": "BITACORA_CAM_SYNC_V1_16_5.md",
+      "size_bytes": 6907,
+      "sha256": "ad8205bbb54d5418ef3e228c9e43c78e40a5b368527400b65e78547aeb239c69"
+    },
+    {
+      "path": "tests/cam-inspecciones-sync-photo-identity.test.mjs",
+      "size_bytes": 2909,
+      "sha256": "47c41e58536764d330e1aa037945722939199f7292fef4e622e4d384f2a8c4e8"
+    },
+    {
+      "path": "AUDITORIA_CONEXION_CAM_INSPECCIONES_V25.md",
+      "size_bytes": 6681,
+      "sha256": "45bba74f7bcb3930a8047f98b30a3485c0758c5329eba74f1649d1650ec26abc"
+    },
+    {
+      "path": "cam-inspecciones-sync-client-v1.js",
+      "size_bytes": 97181,
+      "sha256": "e5f835282b85cf01c0a03ddad000034f91c5c6061baae163c6d7c7c9d869f036"
+    },
+    {
+      "path": "tests/cam-inspecciones-photo-count-contract.test.mjs",
+      "size_bytes": 905,
+      "sha256": "1bbb70ab4312446af943354a9fa30b96275c7e47e1e8d8f2726e56f4168148bb"
+    },
+    {
+      "path": "tests/cam-inspecciones-manual-reconciliation.test.mjs",
+      "size_bytes": 3631,
+      "sha256": "c7c1e95618f9df90305d94a9ae3fdb71490e596ade97051a0fbaf22c9bfce9de"
     }
   ],
   "shared_supabase_project_ref": "ywezkwitbhbyxcwuoiim",
